@@ -13,7 +13,6 @@ import io.netty.handler.codec.mqtt.MqttEncoder;
  */
 public class MqttProtocolsRegister implements ProtocolsRegister {
     public static final int ORDER = NRpcProtocolsRegister.ORDER + 100;
-
     private int messageMaxLength;
     private MqttServerChannelHandler channelHandler = new MqttServerChannelHandler();
 
@@ -28,7 +27,13 @@ public class MqttProtocolsRegister implements ProtocolsRegister {
 
     @Override
     public boolean canSupport(ByteBuf msg) {
-        return false;
+        if(msg.readableBytes() <= 8){
+            return false;
+        }
+        return msg.getByte(4) == 'M'
+                && msg.getByte(5) == 'Q'
+                && msg.getByte(6) == 'T'
+                && msg.getByte(7) == 'T';
     }
 
     @Override
