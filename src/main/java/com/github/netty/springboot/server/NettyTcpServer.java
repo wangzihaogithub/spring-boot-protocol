@@ -115,10 +115,10 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
         return new ChannelInitializer<SocketChannel>() {
-            ChannelHandler dynamicProtocolHandler = new DynamicProtocolHandler();
+            ChannelHandler dynamicProtocolHandler = new DynamicProtocolChannelHandler();
             @ChannelHandler.Sharable
-            class DynamicProtocolHandler extends AbstractChannelHandler<ByteBuf> {
-                private DynamicProtocolHandler() {
+            class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf> {
+                private DynamicProtocolChannelHandler() {
                     super(false);
                 }
 

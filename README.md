@@ -1,5 +1,5 @@
 # Spring-boot-protocol
-Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT, FTP, DNS.
+Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, RTSP(流媒体协议), DNS（域名解析协议）.
 
     1.可以替代tomcat或jetty. 导包后一个@EnableNettyServletEmbedded注解即用. 
     
@@ -7,7 +7,7 @@ Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多�
     
     3.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码直接切换RPC
     
-    4.MQTT等物联网协议可以在不依赖协议网关, 单机同时支持N种协议 (例: HTTP,MQTT,FTP,DNS. 底层原理是,接到数据包后,进行协议路由.)
+    4.MQTT等物联网协议可以在不依赖协议网关, 单机同时支持N种协议 (例: HTTP,MQTT,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
     
     5.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
     

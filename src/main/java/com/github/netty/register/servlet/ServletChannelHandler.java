@@ -8,7 +8,6 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
 
-import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
@@ -20,13 +19,11 @@ import java.util.concurrent.Executor;
 public class ServletChannelHandler extends AbstractChannelHandler<Object> {
 
     private Executor dispatcherExecutor;
-    private ServletContext servletContext;
     private NettyMessageToServletRunnable httpMessageToServletRunnable;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#Handler-MessageToRunnable");
 
     public ServletChannelHandler(ServletContext servletContext, NettyProperties properties) {
         super(false);
-        this.servletContext = Objects.requireNonNull(servletContext);
         this.httpMessageToServletRunnable = new NettyMessageToServletRunnable(servletContext,properties);
         this.dispatcherExecutor = properties.getServerHandlerExecutor();
     }
