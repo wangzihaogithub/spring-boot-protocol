@@ -134,7 +134,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
                             return;
                         }
                     }
-                    logger.info("Received no support protocols. message=[{0}]",msg.toString(Charset.forName("UTF-8")));
+                    logger.warn("Received no support protocols. message=[{0}]",msg.toString(Charset.forName("UTF-8")));
                 }
             }
 
