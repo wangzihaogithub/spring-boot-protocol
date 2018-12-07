@@ -128,9 +128,9 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
         }
 
         ObjectInputStream ois = null;
-        ByteBufInputStream bfi = null;
+        InputStream bfi = null;
         try {
-            bfi = new ByteBufInputStream(Unpooled.wrappedBuffer(bytes), true);
+            bfi = new ByteArrayInputStream(bytes);
             ois = new ObjectInputStream(bfi);
 
             Session session = new Session();

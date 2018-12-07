@@ -147,10 +147,13 @@ public class HttpServletProtocolsRegister implements ProtocolsRegister {
             return false;
         }
 
-        return msg.getByte(protocolEndIndex - 9) == 'H'
+        if(msg.getByte(protocolEndIndex - 9) == 'H'
                 && msg.getByte(protocolEndIndex - 8) == 'T'
                 && msg.getByte(protocolEndIndex - 7) == 'T'
-                && msg.getByte(protocolEndIndex - 6) == 'P';
+                &&  msg.getByte(protocolEndIndex - 6) == 'P'){
+            return true;
+        }
+        return false;
     }
 
     @Override
