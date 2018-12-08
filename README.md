@@ -33,14 +33,14 @@ github地址 : https://github.com/wangzihaogithub
 
     @EnableNettyServletEmbedded//切换容器的注解
     @SpringBootApplication
-    public class ExampleServletApplication {
+    public class ExampleApplication {
     
         public static void main(String[] args) {
-            SpringApplication.run(ExampleServletApplication.class, args);
+            SpringApplication.run(ExampleApplication.class, args);
         }
     }
 
 #### 3.完成!
 
-    2018-11-13 19:29:46.176  INFO 17544 --- [           main] c.g.n.e.s.ExampleServletApplication      : Started ExampleServletApplication in 1.847 seconds (JVM running for 2.988)
+    2018-11-13 19:29:46.176  INFO 17544 --- [           main] c.g.n.e.s.ExampleApplication      : Started ExampleApplication in 1.847 seconds (JVM running for 2.988)
     2018-11-13 19:29:46.424  INFO 17544 --- [ettyTcpServer@1] c.g.netty.springboot.NettyTcpServer      : NettyTcpServer@1 start [port = 10002, os = windows 10, pid = 17544]...
