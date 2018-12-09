@@ -2,6 +2,7 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
+import com.github.netty.protocol.servlet.ServletRegistration;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.boot.web.reactive.server.ConfigurableReactiveWebServerFactory;
 import org.springframework.boot.web.server.WebServer;
@@ -12,6 +13,7 @@ import org.springframework.boot.web.servlet.server.Jsp;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.server.reactive.HttpHandler;
+import org.springframework.http.server.reactive.ServletHttpHandlerAdapter;
 import org.springframework.util.ClassUtils;
 
 import java.io.File;
@@ -41,10 +43,35 @@ public class NettyTcpServerFactory
         this.properties = properties;
     }
 
-    // TODO: 2018/11/12/012  getWebServer(HttpHandler httpHandler)
+    /**
+     * 获取 Reactive 容器. 暂时用servlet代替
+     * @param httpHandler
+     * @return
+     */
     @Override
     public WebServer getWebServer(HttpHandler httpHandler) {
-        return null;
+        try {
+            //临时目录
+            File documentRoot = getValidDocumentRoot();
+            File docBase = documentRoot != null? documentRoot : createTempDir("nettyx-docbase");
+
+            //服务器端口
+            InetSocketAddress serverAddress = new InetSocketAddress(getAddress() == null? InetAddress.getLoopbackAddress():getAddress(),getPort());
+            ClassLoader classLoader = resourceLoader != null ? resourceLoader.getClassLoader() : ClassUtils.getDefaultClassLoader();
+            NettyTcpServer server = new NettyTcpServer(serverAddress, properties);
+
+            ServletContext servletContext = new ServletContext(serverAddress,classLoader,docBase.getAbsolutePath());
+
+            //配置tcp服务器
+            configurableTcpServer(server,servletContext);
+
+            ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default",new ServletHttpHandlerAdapter(httpHandler));
+            servletRegistration.setAsyncSupported(true);
+            servletRegistration.addMapping("/");
+            return server;
+        }catch (Exception e){
+            throw new IllegalStateException(e.getMessage(),e);
+        }
     }
 
     /**
