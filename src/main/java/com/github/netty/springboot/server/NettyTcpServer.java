@@ -1,23 +1,22 @@
 package com.github.netty.springboot.server;
 
-import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolsRegister;
 import com.github.netty.core.util.HostUtil;
 import com.github.netty.core.util.NettyThreadX;
+import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
 
 import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,9 +37,9 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      */
     private Thread servletServerThread;
     /**
-     * 协议注册器列表
+     * 动态协议处理器
      */
-    private List<ProtocolsRegister> protocolsRegisterList = new LinkedList<>();
+    private DynamicProtocolChannelHandler dynamicProtocolHandler = new DynamicProtocolChannelHandler();
 
     public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties){
         super(serverAddress);
@@ -52,6 +51,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         try{
             super.setIoRatio(properties.getServerIoRatio());
             super.setIoThreadCount(properties.getServerIoThreads());
+            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
             for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
                 protocolsRegister.onServerStart();
             }
@@ -74,6 +74,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     public void stop() throws WebServerException {
         try{
+            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
             for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
                 protocolsRegister.onServerStop();
             }
@@ -93,6 +94,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             PlatformDependent.throwException(cause);
         }
 
+        List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
         List<String> protocols = protocolsRegisterList.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList());
         logger.info("{0} start (port = {1}, pid = {2}, protocol = {3}, os = {4}) ...",
                 getName(),
@@ -115,29 +117,6 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
         return new ChannelInitializer<SocketChannel>() {
-            ChannelHandler dynamicProtocolHandler = new DynamicProtocolChannelHandler();
-            @ChannelHandler.Sharable
-            class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf> {
-                private DynamicProtocolChannelHandler() {
-                    super(false);
-                }
-
-                @Override
-                protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-                    Channel channel = ctx.channel();
-                    channel.pipeline().remove(this);
-                    for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
-                        if(protocolsRegister.canSupport(msg)){
-                            logger.info("Channel protocols register by [{0}]",protocolsRegister.getProtocolName());
-                            protocolsRegister.register(channel);
-                            channel.pipeline().fireChannelRead(msg);
-                            return;
-                        }
-                    }
-                    logger.warn("Received no support protocols. message=[{0}]",msg.toString(Charset.forName("UTF-8")));
-                }
-            }
-
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
@@ -152,7 +131,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * @param protocolsRegister
      */
     public void addProtocolsRegister(ProtocolsRegister protocolsRegister){
-        protocolsRegisterList.add(protocolsRegister);
+        dynamicProtocolHandler.getProtocolsRegisterList().add(protocolsRegister);
         logger.info("addProtocolsRegister({0})",protocolsRegister.getProtocolName());
     }
 
