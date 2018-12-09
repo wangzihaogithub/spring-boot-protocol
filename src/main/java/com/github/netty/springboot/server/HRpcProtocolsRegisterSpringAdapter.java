@@ -2,7 +2,7 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.annotation.RegisterFor;
 import com.github.netty.core.util.*;
-import com.github.netty.register.NRpcProtocolsRegister;
+import com.github.netty.protocol.NRpcProtocolsRegister;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.annotation.Annotation;

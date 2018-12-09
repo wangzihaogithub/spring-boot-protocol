@@ -2,11 +2,11 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.StringUtil;
-import com.github.netty.register.HttpServletProtocolsRegister;
-import com.github.netty.register.servlet.ServletContext;
-import com.github.netty.register.servlet.ServletErrorPage;
-import com.github.netty.register.servlet.SessionCompositeServiceImpl;
-import com.github.netty.register.servlet.SessionService;
+import com.github.netty.protocol.HttpServletProtocolsRegister;
+import com.github.netty.protocol.servlet.ServletContext;
+import com.github.netty.protocol.servlet.ServletErrorPage;
+import com.github.netty.protocol.servlet.SessionCompositeServiceImpl;
+import com.github.netty.protocol.servlet.SessionService;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;

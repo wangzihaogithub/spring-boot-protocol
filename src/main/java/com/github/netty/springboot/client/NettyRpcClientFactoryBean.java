@@ -1,7 +1,7 @@
 package com.github.netty.springboot.client;
 
 import com.github.netty.core.util.ThreadPoolX;
-import com.github.netty.register.rpc.exception.RpcException;
+import com.github.netty.protocol.rpc.exception.RpcException;
 import com.github.netty.springboot.NettyProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

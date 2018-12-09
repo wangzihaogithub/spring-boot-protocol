@@ -1,6 +1,6 @@
 package com.github.netty.core.util;
 
-import com.github.netty.register.servlet.util.HttpHeaderConstants;
+import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.handler.codec.http.Cookie;
 import io.netty.handler.codec.http.DefaultCookie;
 import io.netty.handler.codec.http.HttpConstants;
