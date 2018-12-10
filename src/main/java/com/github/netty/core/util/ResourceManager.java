@@ -14,7 +14,7 @@ import java.util.Set;
  * @author 84215
  */
 public class ResourceManager {
-    private LoggerX logger = new LoggerX(getClass());
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String rootPath;
     private ClassLoader classLoader;
     private String workspace;
@@ -36,7 +36,7 @@ public class ResourceManager {
         }
         this.workspace = workspace;
         this.classLoader = classLoader == null? getClass().getClassLoader():classLoader;
-        logger.info("ResourceManager rootPath={0},workspace={1}",rootPath,workspace);
+        logger.info("ResourceManager rootPath={},workspace={}",rootPath,workspace);
     }
 
     /**
@@ -183,7 +183,7 @@ public class ResourceManager {
     public InputStream getResourceAsStream(String path) {
         try {
             if (path.isEmpty() || path.charAt(0) != '/') {
-                logger.warn("Path '{0}' does not start with '/'",path);
+                logger.warn("Path '{}' does not start with '/'",path);
                 return null;
             }
 
@@ -193,7 +193,7 @@ public class ResourceManager {
             }
             return url.openStream();
         } catch (IOException e) {
-            logger.warn("Throwing exception when getResourceAsStream of {0}, case {1} ",path,e.getMessage());
+            logger.warn("Throwing exception when getResourceAsStream of {}, case {} ",path,e.getMessage());
             return null;
         }
     }

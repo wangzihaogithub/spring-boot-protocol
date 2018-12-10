@@ -16,8 +16,8 @@
 
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.protocol.mqtt.config.BrokerConstants;
 import com.github.netty.protocol.mqtt.config.IConfig;
-import com.github.netty.protocol.mqtt.metrics.*;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
@@ -49,7 +49,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static com.github.netty.protocol.mqtt.BrokerConstants.*;
+import static com.github.netty.protocol.mqtt.config.BrokerConstants.*;
 import static io.netty.channel.ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE;
 
 public class NewNettyAcceptor {
@@ -106,7 +106,7 @@ public class NewNettyAcceptor {
 
     private Class<? extends ServerSocketChannel> channelClass;
 
-    public void initialize(MqttServerChannelHandler mqttHandler, IConfig props, ISslContextCreator sslCtxCreator) {
+    public void initialize(MqttServerChannelHandler mqttHandler, IConfig props, MqttSslContextCreator sslCtxCreator) {
         LOG.debug("Initializing Netty acceptor");
 
         nettySoBacklog = props.intProp(BrokerConstants.NETTY_SO_BACKLOG_PROPERTY_NAME, 128);
@@ -132,7 +132,7 @@ public class NewNettyAcceptor {
 
         final boolean useFineMetrics = props.boolProp(METRICS_ENABLE_PROPERTY_NAME, false);
         if (useFineMetrics) {
-            DropWizardMetricsHandler metricsHandler = new DropWizardMetricsHandler();
+            MqttDropWizardMetricsChannelHandler metricsHandler = new MqttDropWizardMetricsChannelHandler();
             metricsHandler.init(props);
             this.metrics = Optional.of(metricsHandler);
         } else {
@@ -186,7 +186,7 @@ public class NewNettyAcceptor {
 
     private void initializePlainTCPTransport(MqttServerChannelHandler handler, IConfig props) {
         LOG.debug("Configuring TCP MQTT transport");
-        final MoquetteIdleTimeoutHandler timeoutHandler = new MoquetteIdleTimeoutHandler();
+        final MqttIdleTimeoutChannelHandler timeoutHandler = new MqttIdleTimeoutChannelHandler();
         String host = props.getProperty(BrokerConstants.HOST_PROPERTY_NAME);
         String tcpPortProp = props.getProperty(PORT_PROPERTY_NAME, DISABLED_PORT_BIND);
         if (DISABLED_PORT_BIND.equals(tcpPortProp)) {
@@ -205,18 +205,18 @@ public class NewNettyAcceptor {
         });
     }
 
-    private void configureMQTTPipeline(ChannelPipeline pipeline, MoquetteIdleTimeoutHandler timeoutHandler,
+    private void configureMQTTPipeline(ChannelPipeline pipeline, MqttIdleTimeoutChannelHandler timeoutHandler,
                                        MqttServerChannelHandler handler) {
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyChannelTimeoutSeconds, 0, 0));
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
         // pipeline.addLast("logger", new LoggingHandler("Netty", LogLevel.ERROR));
 
-        pipeline.addFirst("bytemetrics", new BytesMetricsHandler(bytesMetricsCollector));
-        pipeline.addLast("autoflush", new AutoFlushHandler(1, TimeUnit.SECONDS));
+        pipeline.addFirst("bytemetrics", new MqttBytesMetricsChannelHandler(bytesMetricsCollector));
+        pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(1, TimeUnit.SECONDS));
         pipeline.addLast("decoder", new MqttDecoder(maxBytesInMessage));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
-        pipeline.addLast("metrics", new MessageMetricsHandler(metricsCollector));
-        pipeline.addLast("messageLogger", new MQTTMessageLogger());
+        pipeline.addLast("metrics", new MqttMessageMetricsChannelHandler(metricsCollector));
+        pipeline.addLast("messageLogger", new MqttLoggerChannelHandler());
         if (metrics.isPresent()) {
             pipeline.addLast("wizardMetrics", metrics.get());
         }
@@ -234,7 +234,7 @@ public class NewNettyAcceptor {
         }
         int port = Integer.parseInt(webSocketPortProp);
 
-        final MoquetteIdleTimeoutHandler timeoutHandler = new MoquetteIdleTimeoutHandler();
+        final MqttIdleTimeoutChannelHandler timeoutHandler = new MqttIdleTimeoutChannelHandler();
 
         String host = props.getProperty(BrokerConstants.HOST_PROPERTY_NAME);
         initFactory(host, port, "Websocket MQTT", new PipelineInitializer() {
@@ -266,7 +266,7 @@ public class NewNettyAcceptor {
         int sslPort = Integer.parseInt(sslPortProp);
         LOG.debug("Starting SSL on port {}", sslPort);
 
-        final MoquetteIdleTimeoutHandler timeoutHandler = new MoquetteIdleTimeoutHandler();
+        final MqttIdleTimeoutChannelHandler timeoutHandler = new MqttIdleTimeoutChannelHandler();
         String host = props.getProperty(BrokerConstants.HOST_PROPERTY_NAME);
         String sNeedsClientAuth = props.getProperty(BrokerConstants.NEED_CLIENT_AUTH, "false");
         final boolean needsClientAuth = Boolean.valueOf(sNeedsClientAuth);
@@ -291,7 +291,7 @@ public class NewNettyAcceptor {
             return;
         }
         int sslPort = Integer.parseInt(sslPortProp);
-        final MoquetteIdleTimeoutHandler timeoutHandler = new MoquetteIdleTimeoutHandler();
+        final MqttIdleTimeoutChannelHandler timeoutHandler = new MqttIdleTimeoutChannelHandler();
         String host = props.getProperty(BrokerConstants.HOST_PROPERTY_NAME);
         String sNeedsClientAuth = props.getProperty(BrokerConstants.NEED_CLIENT_AUTH, "false");
         final boolean needsClientAuth = Boolean.valueOf(sNeedsClientAuth);

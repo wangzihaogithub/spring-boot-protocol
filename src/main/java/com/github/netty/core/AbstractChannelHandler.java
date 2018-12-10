@@ -4,6 +4,7 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.TypeParameterMatcher;
@@ -12,19 +13,21 @@ import io.netty.util.internal.TypeParameterMatcher;
  *  用于兼容 netty4 与netty5
  * @author 84215
  */
-public abstract class AbstractChannelHandler<I> extends ChannelDuplexHandler {
+public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
 
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
-
-    private final TypeParameterMatcher matcher;
+    private final TypeParameterMatcher matcherInbound;
+    private final TypeParameterMatcher matcherOutbound;
     private final boolean autoRelease;
+    private String simpleClassName = getClass().getSimpleName();
 
     protected AbstractChannelHandler() {
         this(true);
     }
 
     protected AbstractChannelHandler(boolean autoRelease) {
-        matcher = TypeParameterMatcher.find(this, AbstractChannelHandler.class, "I");
+        matcherInbound = TypeParameterMatcher.find(this, AbstractChannelHandler.class, "I");
+        matcherOutbound = TypeParameterMatcher.find(this, AbstractChannelHandler.class, "O");
         this.autoRelease = autoRelease;
     }
 
@@ -32,7 +35,9 @@ public abstract class AbstractChannelHandler<I> extends ChannelDuplexHandler {
     public final void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         boolean release = true;
         try {
-            if (matcher.match(msg)) {
+            boolean match = matcherInbound.match(msg);
+            logger.debug("{} channelRead({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+            if (match) {
                 I imsg = (I) msg;
                 onMessageReceived(ctx, imsg);
             } else {
@@ -46,7 +51,25 @@ public abstract class AbstractChannelHandler<I> extends ChannelDuplexHandler {
         }
     }
 
-    protected abstract void onMessageReceived(ChannelHandlerContext ctx, I msg) throws Exception;
+    protected void onMessageReceived(ChannelHandlerContext ctx, I msg) throws Exception{
+        ctx.fireChannelRead(msg);
+    }
+
+    @Override
+    public final void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        boolean match = matcherOutbound.match(msg);
+        logger.debug("{} -> channelWrite({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+        if (match) {
+            O imsg = (O) msg;
+            onMessageWriter(ctx, imsg,promise);
+        }else {
+            super.write(ctx,msg,promise);
+        }
+    }
+
+    protected void onMessageWriter(ChannelHandlerContext ctx, O msg, ChannelPromise promise) throws Exception{
+        ctx.write(msg,promise);
+    }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {

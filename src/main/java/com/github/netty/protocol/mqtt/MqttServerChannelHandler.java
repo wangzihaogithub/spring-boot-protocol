@@ -16,14 +16,17 @@
 
 package com.github.netty.protocol.mqtt;
 
-import io.netty.channel.*;
+import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
+import com.github.netty.protocol.mqtt.security.IAuthenticator;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
-import io.netty.util.ReferenceCountUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -42,49 +45,52 @@ import static io.netty.channel.ChannelFutureListener.CLOSE_ON_FAILURE;
      disconnect：断开这个TCP/IP协议。
  */
 @Sharable
-public class MqttServerChannelHandler extends ChannelInboundHandlerAdapter {
+public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage,Object> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MqttServerChannelHandler.class);
+    private static final AttributeKey<MqttConnection> ATTR_KEY_CONNECTION = AttributeKey.valueOf(MqttConnection.class + "#MQTTConnection");
 
-    private static final String ATTR_CONNECTION = "connection";
-    private static final AttributeKey<MQTTConnection> ATTR_KEY_CONNECTION = AttributeKey.valueOf(ATTR_CONNECTION);
+    private final BrokerConfiguration brokerConfig;
+    private final IAuthenticator authenticator;
+    private final MqttSessionRegistry sessionRegistry;
+    private final MqttPostOffice postOffice;
 
-    private MQTTConnectionFactory connectionFactory;
-
-    public MqttServerChannelHandler(MQTTConnectionFactory connectionFactory) {
-        this.connectionFactory = connectionFactory;
+    public MqttServerChannelHandler(BrokerConfiguration brokerConfig, IAuthenticator authenticator,
+                                    MqttSessionRegistry sessionRegistry, MqttPostOffice postOffice) {
+        super(true);
+        this.brokerConfig = brokerConfig;
+        this.authenticator = authenticator;
+        this.sessionRegistry = sessionRegistry;
+        this.postOffice = postOffice;
     }
 
-    private MQTTConnection mqttConnection(Channel channel) {
-        Attribute<MQTTConnection> attribute = channel.attr(ATTR_KEY_CONNECTION);
-        MQTTConnection connection = attribute.get();
+    private MqttConnection mqttConnection(Channel channel) {
+        Attribute<MqttConnection> attribute = channel.attr(ATTR_KEY_CONNECTION);
+        MqttConnection connection = attribute.get();
         if(connection == null) {
-            connection = connectionFactory.create(channel);
+            connection =  new MqttConnection(channel, brokerConfig, authenticator, sessionRegistry, postOffice);
             attribute.set(connection);
         }
         return connection;
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object message) throws Exception {
-        MqttMessage msg = (MqttMessage) message;
+    public void onMessageReceived(ChannelHandlerContext ctx, MqttMessage msg) throws Exception {
         if (msg.fixedHeader() == null) {
             throw new IOException("Unknown packet");
         }
-        final MQTTConnection mqttConnection = mqttConnection(ctx.channel());
+
+        final MqttConnection mqttConnection = mqttConnection(ctx.channel());
         try {
             mqttConnection.handleMessage(msg);
         } catch (Throwable ex) {
             //ctx.fireExceptionCaught(ex);
-            LOG.error("Error processing protocol message: {}", msg.fixedHeader().messageType(), ex);
+            logger.error("Error processing protocol message: "+ msg.fixedHeader().messageType(), ex);
             ctx.channel().close().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
-                    LOG.info("Closed client channel due to exception in processing");
+                    logger.info("Closed client channel due to exception in processing");
                 }
             });
-        } finally {
-            ReferenceCountUtil.release(msg);
         }
     }
 
@@ -95,14 +101,13 @@ public class MqttServerChannelHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        final MQTTConnection mqttConnection = mqttConnection(ctx.channel());
+        final MqttConnection mqttConnection = mqttConnection(ctx.channel());
         mqttConnection.handleConnectionLost();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        LOG.error("Unexpected exception while processing MQTT message. Closing Netty channel. CId={}",
-                  NettyUtils.clientID(ctx.channel()), cause);
+        logger.error("Unexpected exception while processing MQTT message. Closing Netty channel. CId="+ MqttUtil.clientID(ctx.channel()), cause);
         ctx.close().addListener(CLOSE_ON_FAILURE);
     }
 
@@ -111,15 +116,15 @@ public class MqttServerChannelHandler extends ChannelInboundHandlerAdapter {
 //        if (ctx.channel().isWritable()) {
 //            m_processor.notifyChannelWritable(ctx.channel());
 //        }
-        final MQTTConnection mqttConnection = mqttConnection(ctx.channel());
+        final MqttConnection mqttConnection = mqttConnection(ctx.channel());
         mqttConnection.writabilityChanged();
         ctx.fireChannelWritabilityChanged();
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
-        if (evt instanceof InflightResender.ResendNotAckedPublishes) {
-            final MQTTConnection mqttConnection = mqttConnection(ctx.channel());
+        if (evt instanceof MqttInflightResenderChannelHandler.ResendNotAckedPublishes) {
+            final MqttConnection mqttConnection = mqttConnection(ctx.channel());
             mqttConnection.resendNotAckedPublishes();
         }
         ctx.fireUserEventTriggered(evt);

@@ -11,7 +11,7 @@ import java.security.PrivilegedAction;
  */
 public final class SystemPropertyUtil {
 
-    private static final LoggerX logger = new LoggerX(SystemPropertyUtil.class);
+    private static final LoggerX logger = LoggerFactoryX.getLogger(SystemPropertyUtil.class);
 
     /**
      * Returns {@code true} if and only if the system property with the specified {@code key}

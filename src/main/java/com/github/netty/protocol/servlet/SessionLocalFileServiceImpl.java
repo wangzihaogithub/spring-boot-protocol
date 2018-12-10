@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SessionLocalFileServiceImpl implements SessionService {
 
     private String name = NamespaceUtil.newIdName(getClass());
-    private LoggerX logger = new LoggerX(getClass());
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String rootPath = "/session";
     private ResourceManager resourceManager;
     private SessionInvalidThread sessionInvalidThread;
@@ -66,7 +66,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
             }
 
         } catch (IOException e) {
-            logger.warn("saveSession error {0}. case:{1}",session,e.toString());
+            logger.warn("saveSession error {}. case:{}",session,e.toString());
             throw new RuntimeException(e);
         }
     }
@@ -123,7 +123,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
                     try {
                         value = ois.readObject();
                     } catch (ClassNotFoundException e) {
-                        logger.warn("getSession readObject error {0}. case:{1}",session,e.toString());
+                        logger.warn("getSession readObject error {}. case:{}",session,e.toString());
                     }
                     attributeMap.put(key,value);
                 }
@@ -134,7 +134,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
         } catch (FileNotFoundException e) {
             return null;
         } catch (IOException e) {
-            logger.warn("getSession error name={0}. case:{1}",fileName,e.toString());
+            logger.warn("getSession error name={}. case:{}",fileName,e.toString());
             throw new RuntimeException(e);
         }
     }
@@ -150,7 +150,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
         }catch (FileNotFoundException e){
             //
         }catch (IOException e) {
-            logger.warn("changeSessionId error oldId={0},newId={1}. case:{2}",oldSessionId,newSessionId,e.toString());
+            logger.warn("changeSessionId error oldId={},newId={}. case:{}",oldSessionId,newSessionId,e.toString());
         }
     }
 

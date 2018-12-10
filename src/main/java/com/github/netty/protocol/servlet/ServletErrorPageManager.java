@@ -1,6 +1,7 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.ExceptionUtil;
+import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 
@@ -16,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServletErrorPageManager {
 
-    private LoggerX logger = new LoggerX(getClass());
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private Map<String, ServletErrorPage> exceptionPages = new ConcurrentHashMap<>();
     private Map<Integer, ServletErrorPage> statusPages = new ConcurrentHashMap<>();
 

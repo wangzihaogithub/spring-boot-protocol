@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 * */
 public final class MemoryRetainedRepository implements IRetainedRepository {
 
-    private final ConcurrentMap<Topic, RetainedMessage> storage = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Topic, MqttRetainedMessage> storage = new ConcurrentHashMap<>();
 
     @Override
     public void cleanRetained(Topic topic) {
@@ -42,7 +42,7 @@ public final class MemoryRetainedRepository implements IRetainedRepository {
         final ByteBuf payload = msg.content();
         byte[] rawPayload = new byte[payload.readableBytes()];
         payload.getBytes(0, rawPayload);
-        final RetainedMessage toStore = new RetainedMessage(msg.fixedHeader().qosLevel(), rawPayload);
+        final MqttRetainedMessage toStore = new MqttRetainedMessage(msg.fixedHeader().qosLevel(), rawPayload);
         storage.put(topic, toStore);
     }
 
@@ -52,10 +52,10 @@ public final class MemoryRetainedRepository implements IRetainedRepository {
     }
 
     @Override
-    public List<RetainedMessage> retainedOnTopic(String topic) {
+    public List<MqttRetainedMessage> retainedOnTopic(String topic) {
         final Topic searchTopic = new Topic(topic);
-        final List<RetainedMessage> matchingMessages = new ArrayList<>();
-        for (Map.Entry<Topic, RetainedMessage> entry : storage.entrySet()) {
+        final List<MqttRetainedMessage> matchingMessages = new ArrayList<>();
+        for (Map.Entry<Topic, MqttRetainedMessage> entry : storage.entrySet()) {
             final Topic scanTopic = entry.getKey();
             if (searchTopic.match(scanTopic)) {
                 matchingMessages.add(entry.getValue());

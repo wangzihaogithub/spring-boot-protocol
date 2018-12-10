@@ -19,7 +19,7 @@ import java.util.function.Function;
  */
 public class ParameterNameDiscoverer {
 
-    private LoggerX logger = new LoggerX(getClass());
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     static final int ASM_VERSION = Opcodes.ASM7;
 

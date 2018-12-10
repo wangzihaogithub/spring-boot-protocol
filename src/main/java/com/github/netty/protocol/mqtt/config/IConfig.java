@@ -16,8 +16,6 @@
 
 package com.github.netty.protocol.mqtt.config;
 
-import com.github.netty.protocol.mqtt.BrokerConstants;
-
 /**
  * Base interface for all configuration implementations (filesystem, memory or classpath)
  */

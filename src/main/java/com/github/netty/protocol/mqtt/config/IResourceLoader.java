@@ -16,6 +16,8 @@
 
 package com.github.netty.protocol.mqtt.config;
 
+import com.github.netty.protocol.mqtt.exception.MqttException;
+
 import java.io.Reader;
 
 public interface IResourceLoader {
@@ -26,7 +28,7 @@ public interface IResourceLoader {
 
     String getName();
 
-    class ResourceIsDirectoryException extends RuntimeException {
+    class ResourceIsDirectoryException extends MqttException {
 
         private static final long serialVersionUID = -6969292229582764176L;
 

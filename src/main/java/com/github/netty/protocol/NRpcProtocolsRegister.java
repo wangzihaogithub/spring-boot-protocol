@@ -1,11 +1,11 @@
 package com.github.netty.protocol;
 
 import com.github.netty.annotation.RegisterFor;
-import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.core.AbstractProtocolsRegister;
 import com.github.netty.core.util.ApplicationX;
-import com.github.netty.protocol.rpc.*;
-import com.github.netty.protocol.rpc.service.RpcCommandServiceImpl;
-import com.github.netty.protocol.rpc.service.RpcDBServiceImpl;
+import com.github.netty.protocol.nrpc.*;
+import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
+import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -21,7 +21,7 @@ import java.util.function.Supplier;
  * @author acer01
  * 2018/11/25/025
  */
-public class NRpcProtocolsRegister implements ProtocolsRegister {
+public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = HttpServletProtocolsRegister.ORDER + 100;
 
     private RpcEncoder rpcEncoder = new RpcEncoder(RpcResponse.class);
@@ -62,7 +62,7 @@ public class NRpcProtocolsRegister implements ProtocolsRegister {
     }
 
     @Override
-    public void register(Channel channel) throws Exception {
+    public void registerTo(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addLast(new RpcDecoder(messageMaxLength,rpcRequestSupplier));

@@ -1,6 +1,6 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.core.AbstractProtocolsRegister;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletFilterRegistration;
@@ -31,7 +31,7 @@ import java.util.Map;
  * @author acer01
  *  2018/11/11/011
  */
-public class HttpServletProtocolsRegister implements ProtocolsRegister {
+public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = 100;
 
     public static final String HANDLER_SSL = "SSL";
@@ -162,7 +162,7 @@ public class HttpServletProtocolsRegister implements ProtocolsRegister {
     }
 
     @Override
-    public void register(Channel ch) throws Exception {
+    public void registerTo(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
 
         //初始化SSL

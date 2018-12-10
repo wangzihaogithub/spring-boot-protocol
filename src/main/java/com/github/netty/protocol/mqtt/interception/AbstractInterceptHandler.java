@@ -16,14 +16,6 @@
 
 package com.github.netty.protocol.mqtt.interception;
 
-import com.github.netty.protocol.mqtt.messages.InterceptAcknowledgedMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptConnectMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptConnectionLostMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptDisconnectMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptPublishMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptSubscribeMessage;
-import com.github.netty.protocol.mqtt.messages.InterceptUnsubscribeMessage;
-
 /**
  * Basic abstract class usefull to avoid empty methods creation in subclasses.
  */

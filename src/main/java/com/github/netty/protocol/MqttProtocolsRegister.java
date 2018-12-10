@@ -1,11 +1,15 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.core.AbstractProtocolsRegister;
 import com.github.netty.protocol.mqtt.*;
+import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.config.FileResourceLoader;
 import com.github.netty.protocol.mqtt.config.IResourceLoader;
-import com.github.netty.protocol.mqtt.metrics.*;
-import com.github.netty.protocol.mqtt.persistence.MemorySubscriptionsRepository;
+import com.github.netty.protocol.mqtt.MqttAutoFlushChannelHandler;
+import com.github.netty.protocol.mqtt.MqttIdleTimeoutChannelHandler;
+import com.github.netty.protocol.mqtt.MqttServerChannelHandler;
+import com.github.netty.metrics.*;
+import com.github.netty.protocol.mqtt.MemorySubscriptionsRepository;
 import com.github.netty.protocol.mqtt.security.*;
 import com.github.netty.protocol.mqtt.subscriptions.CTrieSubscriptionDirectory;
 import com.github.netty.protocol.mqtt.subscriptions.ISubscriptionsDirectory;
@@ -29,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * @author acer01
  *  2018/12/5/005
  */
-public class MqttProtocolsRegister implements ProtocolsRegister {
+public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     private Logger logger = LoggerFactory.getLogger(MqttProtocolsRegister.class);
     public static final int ORDER = NRpcProtocolsRegister.ORDER + 100;
 
@@ -40,54 +44,21 @@ public class MqttProtocolsRegister implements ProtocolsRegister {
     private String metricsLibratoToken;
     private String metricsLibratoSource;
 
-    private BytesMetricsCollector bytesMetricsCollector = new BytesMetricsCollector();
-    private MessageMetricsCollector metricsCollector = new MessageMetricsCollector();
+    private MqttIdleTimeoutChannelHandler timeoutHandler = new MqttIdleTimeoutChannelHandler();
+    private MqttLoggerChannelHandler mqttMessageLoggerChannelHandler = new MqttLoggerChannelHandler();
 
     private BrokerInterceptor interceptor = new BrokerInterceptor(1);
-    private MoquetteIdleTimeoutHandler timeoutHandler = new MoquetteIdleTimeoutHandler();
-    private MqttServerChannelHandler mqttHandler;
-    private DropWizardMetricsHandler metricsHandler;
-    private PostOffice dispatcher;
+    private MqttServerChannelHandler mqttServerChannelHandler;
+    private MqttDropWizardMetricsChannelHandler mqttDropWizardMetricsChannelHandler;
+    private MqttPostOffice mqttPostOffice;
 
     public MqttProtocolsRegister() {
         this(8092,10);
     }
 
-    public MqttProtocolsRegister(int messageMaxLength,int nettyChannelTimeoutSeconds) {
+    public MqttProtocolsRegister(int messageMaxLength, int nettyChannelTimeoutSeconds) {
         this.messageMaxLength = messageMaxLength;
         this.nettyChannelTimeoutSeconds = nettyChannelTimeoutSeconds;
-    }
-
-    private IAuthorizatorPolicy initializeAuthorizatorPolicy(String aclFilePath) {
-        IAuthorizatorPolicy authorizatorPolicy;
-        if (aclFilePath != null && !aclFilePath.isEmpty()) {
-            authorizatorPolicy = new DenyAllAuthorizatorPolicy();
-            try {
-                IResourceLoader resourceLoader = new FileResourceLoader();
-                authorizatorPolicy = ACLFileParser.parse(resourceLoader.loadResource(aclFilePath));
-            } catch (ParseException pex) {
-                logger.error("Unable to parse ACL file. path=" + aclFilePath, pex);
-            }
-        } else {
-            authorizatorPolicy = new PermitAllAuthorizatorPolicy();
-        }
-        return authorizatorPolicy;
-    }
-
-    public void internalPublish(MqttPublishMessage msg, final String clientId) {
-        final int messageID = msg.variableHeader().packetId();
-        logger.trace("Internal publishing message CId: {}, messageId: {}", clientId, messageID);
-        dispatcher.internalPublish(msg);
-    }
-
-    public void addInterceptHandler(InterceptHandler interceptHandler) {
-        logger.info("Adding MQTT message interceptor. InterceptorId={}", interceptHandler.getID());
-        interceptor.addInterceptHandler(interceptHandler);
-    }
-
-    public void removeInterceptHandler(InterceptHandler interceptHandler) {
-        logger.info("Removing MQTT message interceptor. InterceptorId={}", interceptHandler.getID());
-        interceptor.removeInterceptHandler(interceptHandler);
     }
 
     @Override
@@ -111,27 +82,27 @@ public class MqttProtocolsRegister implements ProtocolsRegister {
     }
 
     @Override
-    public void register(Channel channel) throws Exception {
+    public void registerTo(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyChannelTimeoutSeconds, 0, 0));
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
-        // pipeline.addLast("logger", new LoggingHandler("Netty", LogLevel.ERROR));
 
-        pipeline.addFirst("bytemetrics", new BytesMetricsHandler(bytesMetricsCollector));
-        pipeline.addLast("autoflush", new AutoFlushHandler(1, TimeUnit.SECONDS));
+        pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(1, TimeUnit.SECONDS));
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
-        pipeline.addLast("metrics", new MessageMetricsHandler(metricsCollector));
-        pipeline.addLast("messageLogger", new MQTTMessageLogger());
 
-        //--可选
+        pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler );
+
         if(isEnableMetrics()) {
-            pipeline.addLast("wizardMetrics", metricsHandler);
+            if(mqttDropWizardMetricsChannelHandler == null) {
+                mqttDropWizardMetricsChannelHandler = new MqttDropWizardMetricsChannelHandler();
+                mqttDropWizardMetricsChannelHandler.init(metricsLibratoEmail, metricsLibratoToken, metricsLibratoSource);
+            }
+            pipeline.addLast("wizardMetrics", mqttDropWizardMetricsChannelHandler);
         }
-        //--可选
 
-        pipeline.addLast("handler", mqttHandler);
+        pipeline.addLast("handler", mqttServerChannelHandler);
     }
 
     @Override
@@ -144,14 +115,48 @@ public class MqttProtocolsRegister implements ProtocolsRegister {
         IAuthorizatorPolicy authorizatorPolicy = initializeAuthorizatorPolicy(null);
 
         ISubscriptionsDirectory subscriptions = new CTrieSubscriptionDirectory(new MemorySubscriptionsRepository());
-        SessionRegistry sessions = new SessionRegistry(subscriptions, new MemoryQueueRepository());
-        dispatcher = new PostOffice(subscriptions, authorizatorPolicy, new MemoryRetainedRepository(), sessions,interceptor);
-        mqttHandler = new MqttServerChannelHandler(new MQTTConnectionFactory(new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, dispatcher));
+        MqttSessionRegistry sessions = new MqttSessionRegistry(subscriptions, new MemoryQueueRepository());
+        mqttPostOffice = new MqttPostOffice(subscriptions, authorizatorPolicy, new MemoryRetainedRepository(), sessions,interceptor);
+        mqttServerChannelHandler = new MqttServerChannelHandler(new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, mqttPostOffice);
+    }
 
-        if(isEnableMetrics()) {
-            metricsHandler = new DropWizardMetricsHandler();
-            metricsHandler.init(metricsLibratoEmail, metricsLibratoToken, metricsLibratoSource);
+    @Override
+    public void onServerStop() throws Exception {
+        if(interceptor != null) {
+            interceptor.stop();
         }
+    }
+
+    private IAuthorizatorPolicy initializeAuthorizatorPolicy(String aclFilePath) {
+        IAuthorizatorPolicy authorizatorPolicy;
+        if (aclFilePath != null && !aclFilePath.isEmpty()) {
+            authorizatorPolicy = new DenyAllAuthorizatorPolicy();
+            try {
+                IResourceLoader resourceLoader = new FileResourceLoader();
+                authorizatorPolicy = ACLFileParser.parse(resourceLoader.loadResource(aclFilePath));
+            } catch (ParseException pex) {
+                logger.error("Unable to parse ACL file. path=" + aclFilePath, pex);
+            }
+        } else {
+            authorizatorPolicy = new PermitAllAuthorizatorPolicy();
+        }
+        return authorizatorPolicy;
+    }
+
+    public void internalPublish(MqttPublishMessage msg, final String clientId) {
+        final int messageID = msg.variableHeader().packetId();
+        logger.trace("Internal publishing message CId: {}, messageId: {}", clientId, messageID);
+        mqttPostOffice.internalPublish(msg);
+    }
+
+    public void addInterceptHandler(InterceptHandler interceptHandler) {
+        logger.info("Adding MQTT message interceptor. InterceptorId={}", interceptHandler.getID());
+        interceptor.addInterceptHandler(interceptHandler);
+    }
+
+    public void removeInterceptHandler(InterceptHandler interceptHandler) {
+        logger.info("Removing MQTT message interceptor. InterceptorId={}", interceptHandler.getID());
+        interceptor.removeInterceptHandler(interceptHandler);
     }
 
     public boolean isEnableMetrics() {
@@ -186,18 +191,4 @@ public class MqttProtocolsRegister implements ProtocolsRegister {
         this.metricsLibratoSource = metricsLibratoSource;
     }
 
-    @Override
-    public void onServerStop() throws Exception {
-        if(metricsCollector != null) {
-            MessageMetrics metrics = metricsCollector.computeMetrics();
-            logger.info("Metrics messages[read={}, write={}]", metrics.messagesRead(),metrics.messagesWrote());
-        }
-        if(bytesMetricsCollector != null){
-            BytesMetrics bytesMetrics = bytesMetricsCollector.computeMetrics();
-            logger.info("Metrics bytes[read={}, write={}]",  bytesMetrics.readBytes(), bytesMetrics.wroteBytes());
-        }
-        if(interceptor != null) {
-            interceptor.stop();
-        }
-    }
 }

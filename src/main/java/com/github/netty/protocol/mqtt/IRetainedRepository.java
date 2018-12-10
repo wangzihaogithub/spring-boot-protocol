@@ -28,5 +28,5 @@ public interface IRetainedRepository {
 
     boolean isEmpty();
 
-    List<RetainedMessage> retainedOnTopic(String topic);
+    List<MqttRetainedMessage> retainedOnTopic(String topic);
 }

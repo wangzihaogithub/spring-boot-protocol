@@ -119,7 +119,10 @@ import java.util.concurrent.Executor;
 @ConfigurationProperties(prefix = "server.netty", ignoreUnknownFields = true)
 public class NettyProperties implements Serializable{
     private static final long serialVersionUID = 1L;
-
+    /**
+     * 服务端 - 是否tcp数据包日志
+     */
+    private boolean enableTcpPackageLog = false;
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
@@ -313,6 +316,14 @@ public class NettyProperties implements Serializable{
         this.rpcServerMessageMaxLength = rpcServerMessageMaxLength;
     }
 
+    public boolean isEnableTcpPackageLog() {
+        return enableTcpPackageLog;
+    }
+
+    public void setEnableTcpPackageLog(boolean enableTcpPackageLog) {
+        this.enableTcpPackageLog = enableTcpPackageLog;
+    }
+
     @Override
     public String toString() {
         return "NettyProperties{" +
@@ -327,6 +338,7 @@ public class NettyProperties implements Serializable{
                 ", sessionRemoteServerAddress='" + sessionRemoteServerAddress + '\'' +
                 ", responseWriterChunkMaxHeapByteLength=" + responseWriterChunkMaxHeapByteLength +
                 ", rpcServerMessageMaxLength=" + rpcServerMessageMaxLength +
+                ", enableTcpPackageLog=" + enableTcpPackageLog +
                 '}';
     }
 }

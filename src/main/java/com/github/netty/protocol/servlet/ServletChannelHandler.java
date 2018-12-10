@@ -16,11 +16,11 @@ import java.util.concurrent.Executor;
  *  2018/7/1/001
  */
 @ChannelHandler.Sharable
-public class ServletChannelHandler extends AbstractChannelHandler<Object> {
+public class ServletChannelHandler extends AbstractChannelHandler<Object,Object> {
 
     private Executor dispatcherExecutor;
     private NettyMessageToServletRunnable httpMessageToServletRunnable;
-    public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#Handler-MessageToRunnable");
+    public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
 
     public ServletChannelHandler(ServletContext servletContext, NettyProperties properties) {
         super(false);

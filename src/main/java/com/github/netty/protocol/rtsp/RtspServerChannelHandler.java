@@ -73,7 +73,7 @@ import io.netty.handler.codec.http.HttpRequest;
  * Created by acer01 on 2018/12/5/005.
  */
 @ChannelHandler.Sharable
-public class RtspServerChannelHandler extends AbstractChannelHandler<HttpRequest> {
+public class RtspServerChannelHandler extends AbstractChannelHandler<HttpRequest,Object> {
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, HttpRequest msg) throws Exception {
 

@@ -16,7 +16,6 @@
 
 package com.github.netty.protocol.mqtt.interception;
 
-import com.github.netty.protocol.mqtt.messages.InterceptAcknowledgedMessage;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;

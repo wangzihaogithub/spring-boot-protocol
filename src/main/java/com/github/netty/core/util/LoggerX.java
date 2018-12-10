@@ -1,9 +1,7 @@
 package com.github.netty.core.util;
 
-import com.github.netty.core.constants.CoreConstants;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  *
@@ -14,87 +12,164 @@ import java.util.logging.Logger;
  *  2018/8/25/025
  */
 public class LoggerX {
-    private Logger logger;
 
-    public LoggerX() {
-        this.logger = Logger.getGlobal();
-    }
+    private static final long serialVersionUID = 1L;
+    private transient InternalLogger logger;
 
-    public LoggerX(Class clazz) {
-        this.logger = Logger.getLogger(clazz.getName());
+    LoggerX() {
+        this.logger = InternalLoggerFactory.getInstance(LoggerX.class);
     }
 
-    public LoggerX(String name) {
-        this.logger = Logger.getLogger(name);
+    LoggerX(Class clazz) {
+        this.logger = InternalLoggerFactory.getInstance(clazz);
     }
 
-    public LoggerX(Logger logger) {
-        this.logger = logger;
+    LoggerX(String name) {
+        this.logger = InternalLoggerFactory.getInstance(name);
     }
 
-    public void debug(String var1,Object...args){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.CONFIG, var1,args);
+    public boolean isTraceEnabled() {
+        return logger.isTraceEnabled();
     }
 
-    public void debug(String var1){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.CONFIG, var1);
-    }
-    
-    public void debug(String var1,Throwable throwable){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.CONFIG, var1,throwable);
+    public void trace(String msg) {
+        logger.trace(msg);
     }
 
-    public void info(String var1){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.INFO, var1);
+    public void trace(String format, Object arg) {
+        logger.trace(format,arg);
     }
 
-    public void info(String var1,Object...args){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.INFO, var1,args);
+    public void trace(String format, Object argA, Object argB) {
+        logger.trace(format,argA,argB);
     }
 
-    public void error(String var1){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.SEVERE, var1);
-    }
-    
-    public void error(String var1,Throwable throwable){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.SEVERE, var1,throwable);
-    }
-    
-    public void warn(String var1,Object...args){
-        if(!CoreConstants.isEnableLog()){
-            return;
-        }
-        logger.log(Level.WARNING, var1,args);
+    public void trace(String format, Object... arguments) {
+        logger.trace(format,arguments);
     }
 
 
-    public boolean isInfoEnabled(){
-        return logger.isLoggable(Level.INFO);
+    public void trace(String msg, Throwable t) {
+        logger.trace(msg, t);
     }
 
-    public boolean isDebugEnabled(){
-        return logger.isLoggable(Level.CONFIG);
+
+    public boolean isDebugEnabled() {
+        return logger.isDebugEnabled();
     }
 
+
+    public void debug(String msg) {
+        logger.debug(msg);
+    }
+
+
+    public void debug(String format, Object arg) {
+        logger.debug(format,arg);
+    }
+
+
+    public void debug(String format, Object argA, Object argB) {
+        logger.debug(format,argA,argB);
+    }
+
+
+    public void debug(String format, Object... arguments) {
+        logger.debug(format, arguments);
+    }
+
+
+    public void debug(String msg, Throwable t) {
+        logger.debug(msg, t);
+    }
+
+
+    public boolean isInfoEnabled() {
+        return logger.isInfoEnabled();
+    }
+
+
+    public void info(String msg) {
+        logger.info(msg);
+    }
+
+
+    public void info(String format, Object arg) {
+        logger.info(format,arg);
+    }
+   
+
+    public void info(String format, Object argA, Object argB) {
+        logger.info(format,argA,argB);
+    }
+
+
+    public void info(String format, Object... arguments) {
+        logger.info(format,arguments);
+    }
+
+
+    public void info(String msg, Throwable t) {
+        logger.info(msg, t);
+    }
+
+
+    public boolean isWarnEnabled() {
+        return logger.isWarnEnabled();
+    }
+
+
+    public void warn(String msg) {
+        logger.warn(msg);
+    }
+
+
+    public void warn(String format, Object arg) {
+        logger.warn(format, arg);
+    }
+
+
+    public void warn(String format, Object argA, Object argB) {
+        logger.warn(format, argA,argB);
+    }
+
+
+    public void warn(String format, Object... arguments) {
+        logger.warn(format, arguments);
+    }
+
+
+    public void warn(String msg, Throwable t) {
+        logger.warn(msg, t);
+    }
+
+
+    public boolean isErrorEnabled() {
+        return logger.isErrorEnabled();
+    }
+
+
+    public void error(String msg) {
+        logger.error(msg);
+    }
+
+
+    public void error(String format, Object arg) {
+        logger.error(format, arg);
+    }
+
+
+    public void error(String format, Object argA, Object argB) {
+        logger.error(format, argA,argB);
+    }
+
+
+    public void error(String format, Object... arguments) {
+        logger.error(format, arguments);
+    }
+
+
+    public void error(String msg, Throwable t) {
+        logger.error(msg, t);
+    }
 }
