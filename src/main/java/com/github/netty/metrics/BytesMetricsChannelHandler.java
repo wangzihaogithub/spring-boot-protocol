@@ -22,13 +22,9 @@ import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
-import static io.netty.channel.ChannelFutureListener.CLOSE_ON_FAILURE;
-
 @ChannelHandler.Sharable
 public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
-
     private static final AttributeKey<BytesMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(BytesMetrics.class+"#BytesMetrics");
-
     private BytesMetricsCollector collector;
 
     public BytesMetricsChannelHandler(BytesMetricsCollector collector) {
@@ -55,7 +51,11 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     protected void onMessageWriter(ChannelHandlerContext ctx, ByteBuf msg, ChannelPromise promise) throws Exception {
         BytesMetrics metrics = getOrSetMetrics(ctx.channel());
         metrics.incrementWrote(msg.writableBytes());
-        ctx.write(msg, promise).addListener(CLOSE_ON_FAILURE);
+        if(promise.isVoid()) {
+            ctx.write(msg, promise);
+        }else {
+            ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        }
     }
 
     @Override

@@ -24,7 +24,6 @@ import io.netty.util.AttributeKey;
 @ChannelHandler.Sharable
 public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,Object> {
     private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class+"#MessageMetrics");
-
     private MessageMetricsCollector collector;
 
     public MessageMetricsChannelHandler(MessageMetricsCollector collector) {
@@ -51,7 +50,11 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
     protected void onMessageWriter(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         MessageMetrics metrics = getOrSetMetrics(ctx.channel());
         metrics.incrementWrote(1);
-        ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        if(promise.isVoid()) {
+            ctx.write(msg, promise);
+        }else {
+            ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        }
     }
 
     @Override

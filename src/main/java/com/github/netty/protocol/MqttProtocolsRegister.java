@@ -5,16 +5,11 @@ import com.github.netty.protocol.mqtt.*;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.config.FileResourceLoader;
 import com.github.netty.protocol.mqtt.config.IResourceLoader;
-import com.github.netty.protocol.mqtt.MqttAutoFlushChannelHandler;
-import com.github.netty.protocol.mqtt.MqttIdleTimeoutChannelHandler;
-import com.github.netty.protocol.mqtt.MqttServerChannelHandler;
-import com.github.netty.metrics.*;
-import com.github.netty.protocol.mqtt.MemorySubscriptionsRepository;
+import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
+import com.github.netty.protocol.mqtt.interception.InterceptHandler;
 import com.github.netty.protocol.mqtt.security.*;
 import com.github.netty.protocol.mqtt.subscriptions.CTrieSubscriptionDirectory;
 import com.github.netty.protocol.mqtt.subscriptions.ISubscriptionsDirectory;
-import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
-import com.github.netty.protocol.mqtt.interception.InterceptHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
@@ -39,6 +34,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
 
     private int messageMaxLength;
     private int nettyChannelTimeoutSeconds;
+    private int writerIdleTime;
     private boolean enableMetrics = false;
     private String metricsLibratoEmail;
     private String metricsLibratoToken;
@@ -53,12 +49,13 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     private MqttPostOffice mqttPostOffice;
 
     public MqttProtocolsRegister() {
-        this(8092,10);
+        this(8092,10,1);
     }
 
-    public MqttProtocolsRegister(int messageMaxLength, int nettyChannelTimeoutSeconds) {
+    public MqttProtocolsRegister(int messageMaxLength, int nettyChannelTimeoutSeconds,int writerIdleTime) {
         this.messageMaxLength = messageMaxLength;
         this.nettyChannelTimeoutSeconds = nettyChannelTimeoutSeconds;
+        this.writerIdleTime = writerIdleTime;
     }
 
     @Override
@@ -88,11 +85,11 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyChannelTimeoutSeconds, 0, 0));
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
 
-        pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(1, TimeUnit.SECONDS));
+        pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(writerIdleTime, TimeUnit.SECONDS));
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
 
-        pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler );
+        pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler);
 
         if(isEnableMetrics()) {
             if(mqttDropWizardMetricsChannelHandler == null) {

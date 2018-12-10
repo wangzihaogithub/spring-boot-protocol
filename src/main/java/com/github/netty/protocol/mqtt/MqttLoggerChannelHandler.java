@@ -17,6 +17,7 @@
 package com.github.netty.protocol.mqtt;
 
 import com.github.netty.core.AbstractChannelHandler;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -24,8 +25,6 @@ import io.netty.handler.codec.mqtt.*;
 
 import java.io.IOException;
 import java.util.List;
-
-import static io.netty.channel.ChannelFutureListener.CLOSE_ON_FAILURE;
 
 /**
  *
@@ -46,7 +45,11 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
     @Override
     protected void onMessageWriter(ChannelHandlerContext ctx, MqttMessage msg, ChannelPromise promise) throws Exception {
         logMQTTMessage(ctx, msg, "C<-B");
-        ctx.write(msg, promise).addListener(CLOSE_ON_FAILURE);
+        if(promise.isVoid()) {
+            ctx.write(msg, promise);
+        }else {
+            ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        }
     }
 
     @Override

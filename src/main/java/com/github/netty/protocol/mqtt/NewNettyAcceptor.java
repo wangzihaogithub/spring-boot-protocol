@@ -16,6 +16,7 @@
 
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.metrics.*;
 import com.github.netty.protocol.mqtt.config.BrokerConstants;
 import com.github.netty.protocol.mqtt.config.IConfig;
 import io.netty.bootstrap.ServerBootstrap;
@@ -211,11 +212,11 @@ public class NewNettyAcceptor {
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
         // pipeline.addLast("logger", new LoggingHandler("Netty", LogLevel.ERROR));
 
-        pipeline.addFirst("bytemetrics", new MqttBytesMetricsChannelHandler(bytesMetricsCollector));
+        pipeline.addFirst("bytemetrics", new BytesMetricsChannelHandler(bytesMetricsCollector));
         pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(1, TimeUnit.SECONDS));
         pipeline.addLast("decoder", new MqttDecoder(maxBytesInMessage));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
-        pipeline.addLast("metrics", new MqttMessageMetricsChannelHandler(metricsCollector));
+        pipeline.addLast("metrics", new MessageMetricsChannelHandler(metricsCollector));
         pipeline.addLast("messageLogger", new MqttLoggerChannelHandler());
         if (metrics.isPresent()) {
             pipeline.addLast("wizardMetrics", metrics.get());
