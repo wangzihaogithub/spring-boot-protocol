@@ -16,8 +16,8 @@
 
 package com.github.netty.protocol.mqtt.subscriptions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import java.io.Serializable;
 import java.text.ParseException;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 
 public class Topic implements Serializable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(Topic.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(Topic.class);
 
     private static final long serialVersionUID = 2438799283749822L;
 

@@ -42,7 +42,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     public HttpServletProtocolsRegisterSpringAdapter(NettyProperties properties, ServletContext servletContext,
                                                      AbstractServletWebServerFactory configurableWebServer) throws Exception {
-        super(properties,
+        super(properties.getServerHandlerExecutor(),
                 servletContext,
                 configurableWebServer.getSsl() != null && configurableWebServer.getSsl().isEnabled()?
                         SslContextBuilder.forServer(getKeyManagerFactory(configurableWebServer.getSsl(),configurableWebServer.getSslStoreProvider())):null);
@@ -61,7 +61,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
-
+        servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getResponseWriterChunkMaxHeapByteLength());
         //session超时时间
         servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));
@@ -95,7 +95,11 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
             }else {
                 address = new InetSocketAddress(remoteSessionServerAddress,80);
             }
-            compositeSessionService.enableRemoteRpcSession(address,properties);
+            compositeSessionService.enableRemoteRpcSession(address,
+                    properties.getRpcClientIoRatio(),
+                    properties.getRpcClientIoThreads(),properties.getRpcClientChannels(),
+                    properties.isEnablesRpcClientAutoReconnect(),properties.isEnableRpcHeartLog(),
+                    properties.getRpcClientHeartIntervalSecond());
         }
 
         //启用session文件存储

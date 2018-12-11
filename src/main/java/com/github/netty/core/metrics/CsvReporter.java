@@ -1,7 +1,7 @@
 package com.github.netty.core.metrics;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import java.io.*;
 import java.nio.charset.Charset;
@@ -159,7 +159,7 @@ public class CsvReporter extends ScheduledReporter {
         }
     }
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CsvReporter.class);
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(CsvReporter.class);
     private static final Charset UTF_8 = Charset.forName("UTF-8");
 
     private final File directory;

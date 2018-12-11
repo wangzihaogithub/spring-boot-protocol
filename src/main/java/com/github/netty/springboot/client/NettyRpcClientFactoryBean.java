@@ -1,10 +1,10 @@
 package com.github.netty.springboot.client;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.springboot.NettyProperties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class NettyRpcClientFactoryBean implements FactoryBean<Object>, InitializingBean,ApplicationContextAware {
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private Class<?> objectType;
     private Class<?> fallback;
     private ApplicationContext applicationContext;

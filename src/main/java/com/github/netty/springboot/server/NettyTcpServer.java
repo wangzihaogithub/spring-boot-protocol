@@ -81,7 +81,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     public void stop() throws WebServerException {
         try{
-            List<ProtocolsRegister> protocolsRegisterList = getProtocolsRegisterList();
+            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
             protocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
             for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
                 protocolsRegister.onServerStop();

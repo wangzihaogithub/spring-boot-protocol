@@ -15,15 +15,15 @@
  */
 package com.github.netty.protocol.mqtt.subscriptions;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.ISubscriptionsRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 public class CTrieSubscriptionDirectory implements ISubscriptionsDirectory {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CTrieSubscriptionDirectory.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(CTrieSubscriptionDirectory.class);
     private CTrie ctrie;
     private volatile ISubscriptionsRepository subscriptionsRepository;
 

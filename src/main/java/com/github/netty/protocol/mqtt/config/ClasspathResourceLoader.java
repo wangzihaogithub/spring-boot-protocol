@@ -16,8 +16,8 @@
 
 package com.github.netty.protocol.mqtt.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 
 public class ClasspathResourceLoader implements IResourceLoader {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ClasspathResourceLoader.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(ClasspathResourceLoader.class);
 
     private final String defaultResource;
     private final ClassLoader classLoader;

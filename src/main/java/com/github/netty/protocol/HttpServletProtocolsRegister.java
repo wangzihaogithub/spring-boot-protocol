@@ -2,12 +2,7 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractProtocolsRegister;
 import com.github.netty.core.util.IOUtil;
-import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.protocol.servlet.ServletFilterRegistration;
-import com.github.netty.protocol.servlet.ServletRegistration;
-import com.github.netty.protocol.servlet.ServletChannelHandler;
-import com.github.netty.protocol.servlet.ServletEventListenerManager;
-import com.github.netty.springboot.NettyProperties;
+import com.github.netty.protocol.servlet.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -25,6 +20,7 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * httpServlet协议注册器
@@ -55,9 +51,9 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 5 * 1024 * 1024;
 
-    public HttpServletProtocolsRegister(NettyProperties properties, ServletContext servletContext, SslContextBuilder sslContextBuilder){
+    public HttpServletProtocolsRegister(Executor executor, ServletContext servletContext, SslContextBuilder sslContextBuilder){
         this.servletContext = servletContext;
-        this.servletHandler = new ServletChannelHandler(servletContext,properties);
+        this.servletHandler = new ServletChannelHandler(servletContext,executor);
         this.sslContextBuilder = sslContextBuilder;
     }
 

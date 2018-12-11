@@ -30,7 +30,7 @@ public interface NettyRpcRequest {
      */
     String getServiceName();
     /**
-     * yml的配置文件, 可以动态修改，动态变化
+     * yml的配置文件
      * @return
      */
     NettyProperties getNettyProperties();

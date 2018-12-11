@@ -16,12 +16,12 @@
 
 package com.github.netty.protocol.mqtt.interception;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.util.ReferenceCountUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class BrokerInterceptor implements Interceptor {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BrokerInterceptor.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(BrokerInterceptor.class);
     private final Map<Class<?>, List<InterceptHandler>> handlers;
     private final ExecutorService executor;
 

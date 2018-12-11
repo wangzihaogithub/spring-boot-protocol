@@ -15,13 +15,13 @@
  */
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import com.github.netty.protocol.mqtt.subscriptions.Topic;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
 import io.netty.util.ReferenceCountUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.DelayQueue;
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 class MqttSession {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MqttSession.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttSession.class);
     private static final int FLIGHT_BEFORE_RESEND_MS = 5_000;
     private static final int INFLIGHT_WINDOW_SIZE = 10;
 

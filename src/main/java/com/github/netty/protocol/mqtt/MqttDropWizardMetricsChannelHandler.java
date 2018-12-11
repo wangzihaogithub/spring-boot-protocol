@@ -16,10 +16,10 @@
 package com.github.netty.protocol.mqtt;
 
 import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.core.metrics.ConsoleReporter;
 import com.github.netty.core.metrics.Counter;
 import com.github.netty.core.metrics.Meter;
 import com.github.netty.core.metrics.MetricRegistry;
-import com.github.netty.core.metrics.Slf4jReporter;
 import com.github.netty.protocol.mqtt.config.IConfig;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -52,7 +52,7 @@ public final class MqttDropWizardMetricsChannelHandler extends AbstractChannelHa
     }
 
     public void init(String email,String token,String source) {
-        Slf4jReporter reporter = Slf4jReporter.forRegistry(metrics)
+        ConsoleReporter reporter = ConsoleReporter.forRegistry(metrics)
             .convertRatesTo(TimeUnit.SECONDS)
             .convertDurationsTo(TimeUnit.MILLISECONDS)
             .build();

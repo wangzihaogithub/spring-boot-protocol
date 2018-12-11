@@ -2,7 +2,6 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -22,10 +21,10 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
     private NettyMessageToServletRunnable httpMessageToServletRunnable;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
 
-    public ServletChannelHandler(ServletContext servletContext, NettyProperties properties) {
+    public ServletChannelHandler(ServletContext servletContext, Executor dispatcherExecutor) {
         super(false);
-        this.httpMessageToServletRunnable = new NettyMessageToServletRunnable(servletContext,properties);
-        this.dispatcherExecutor = properties.getServerHandlerExecutor();
+        this.httpMessageToServletRunnable = new NettyMessageToServletRunnable(servletContext);
+        this.dispatcherExecutor = dispatcherExecutor;
     }
 
     @Override

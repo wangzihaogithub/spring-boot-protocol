@@ -16,8 +16,9 @@
 
 package com.github.netty.protocol.mqtt.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -35,7 +36,7 @@ import java.util.Properties;
  */
 class ConfigurationParser {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ConfigurationParser.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(ConfigurationParser.class);
 
     private Properties m_properties = new Properties();
 

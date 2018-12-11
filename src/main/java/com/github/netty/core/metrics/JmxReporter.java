@@ -1,7 +1,7 @@
 package com.github.netty.core.metrics;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import javax.management.*;
 import java.io.Closeable;
@@ -145,7 +145,7 @@ public class JmxReporter implements Reporter, Closeable {
         }
     }
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JmxReporter.class);
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(JmxReporter.class);
 
     // CHECKSTYLE:OFF
     @SuppressWarnings("UnusedDeclaration")

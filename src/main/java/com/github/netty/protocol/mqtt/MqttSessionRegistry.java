@@ -15,6 +15,8 @@
  */
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.MqttSession.SessionStatus;
 import com.github.netty.protocol.mqtt.exception.MqttSessionCorruptedException;
 import com.github.netty.protocol.mqtt.subscriptions.ISubscriptionsDirectory;
@@ -24,8 +26,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,7 +56,7 @@ public class MqttSessionRegistry {
         NONE, SEND_STORED_MESSAGES
     }
 
-    private static final Logger LOG = LoggerFactory.getLogger(MqttSessionRegistry.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttSessionRegistry.class);
 
     private final ConcurrentMap<String, MqttSession> pool = new ConcurrentHashMap<>();
     private final ISubscriptionsDirectory subscriptionsDirectory;

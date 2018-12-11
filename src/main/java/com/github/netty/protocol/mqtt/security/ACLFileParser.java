@@ -16,8 +16,8 @@
 
 package com.github.netty.protocol.mqtt.security;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -36,7 +36,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  */
 public final class ACLFileParser {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ACLFileParser.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(ACLFileParser.class);
 
     /**
      * Parse the configuration from file.

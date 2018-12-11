@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.springboot.NettyProperties;
 import com.github.netty.core.util.AbstractRecycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.HttpHeaderUtil;
@@ -32,16 +31,14 @@ public class ServletHttpObject implements Recyclable{
     private ServletHttpServletResponse httpServletResponse;
     private ChannelHandlerContext channelHandlerContext;
     private ServletContext servletContext;
-    private NettyProperties config;
     private boolean isHttpKeepAlive;
 
     private ServletHttpObject() {
     }
 
-    public static ServletHttpObject newInstance(ServletContext servletContext, NettyProperties config, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
+    public static ServletHttpObject newInstance(ServletContext servletContext, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
         ServletHttpObject instance = RECYCLER.getInstance();
         instance.servletContext = servletContext;
-        instance.config = config;
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(fullHttpRequest);
 
@@ -139,10 +136,6 @@ public class ServletHttpObject implements Recyclable{
             return (InetSocketAddress) socketAddress;
         }
         return null;
-    }
-
-    public NettyProperties getConfig() {
-        return config;
     }
 
     /**

@@ -5,7 +5,6 @@ import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.exception.RpcDecodeException;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
-import com.github.netty.springboot.NettyProperties;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.io.*;
@@ -25,29 +24,44 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
 
     private String name = NamespaceUtil.newIdName(getClass());
     private static final byte[] EMPTY = new byte[0];
-    private NettyProperties config;
     private InetSocketAddress address;
-
+    private int ioRatio;
+    private int ioThreadCount;
+    private int clientChannels;
+    private boolean enablesAutoReconnect;
+    private boolean enableRpcHeartLog;
+    private int rpcClientHeartIntervalSecond;
     private static final String SESSION_GROUP = "/session";
 
     private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>(){
         @Override
         protected RpcClient initialValue() throws Exception {
             RpcClient rpcClient = new RpcClient("Session",address);
-            rpcClient.setIoRatio(config.getRpcClientIoRatio());
-            rpcClient.setIoThreadCount(config.getRpcClientIoThreads());
-            rpcClient.setSocketChannelCount(config.getRpcClientChannels());
+            rpcClient.setIoRatio(ioRatio);
+            rpcClient.setIoThreadCount(ioThreadCount);
+            rpcClient.setSocketChannelCount(clientChannels);
             rpcClient.run();
-            if(config.isEnablesRpcClientAutoReconnect()) {
-                rpcClient.enableAutoReconnect(config.getRpcClientHeartIntervalSecond(), TimeUnit.SECONDS,null,config.isEnableRpcHeartLog());
+            if(enablesAutoReconnect) {
+                rpcClient.enableAutoReconnect(rpcClientHeartIntervalSecond, TimeUnit.SECONDS,null,enableRpcHeartLog);
             }
             return rpcClient;
         }
     };
 
-    public SessionRemoteRpcServiceImpl(InetSocketAddress address, NettyProperties config) {
+    public SessionRemoteRpcServiceImpl(InetSocketAddress address) {
+        this(address,100,0,1,true,false,20);
+    }
+
+    public SessionRemoteRpcServiceImpl(InetSocketAddress address,
+                                       int rpcClientIoRatio, int rpcClientIoThreads, int clientChannels,
+                                       boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond) {
         this.address = address;
-        this.config = config;
+        this.ioRatio = rpcClientIoRatio;
+        this.ioThreadCount = rpcClientIoThreads;
+        this.clientChannels = clientChannels;
+        this.enablesAutoReconnect = enablesAutoReconnect;
+        this.enableRpcHeartLog = enableRpcHeartLog;
+        this.rpcClientHeartIntervalSecond = rpcClientHeartIntervalSecond;
     }
 
     @Override

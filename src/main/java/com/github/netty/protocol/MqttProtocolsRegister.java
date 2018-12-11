@@ -1,6 +1,8 @@
 package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractProtocolsRegister;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.*;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.config.FileResourceLoader;
@@ -17,8 +19,6 @@ import io.netty.handler.codec.mqtt.MqttDecoder;
 import io.netty.handler.codec.mqtt.MqttEncoder;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.timeout.IdleStateHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.util.concurrent.TimeUnit;
@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  *  2018/12/5/005
  */
 public class MqttProtocolsRegister extends AbstractProtocolsRegister {
-    private Logger logger = LoggerFactory.getLogger(MqttProtocolsRegister.class);
+    private LoggerX logger = LoggerFactoryX.getLogger(MqttProtocolsRegister.class);
     public static final int ORDER = NRpcProtocolsRegister.ORDER + 100;
 
     private int messageMaxLength;

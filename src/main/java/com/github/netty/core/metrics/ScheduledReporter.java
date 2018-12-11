@@ -1,20 +1,14 @@
 package com.github.netty.core.metrics;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 
 import java.io.Closeable;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -27,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class ScheduledReporter implements Closeable, Reporter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ScheduledReporter.class);
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     /**
      * A simple named thread factory.
@@ -173,7 +167,7 @@ public abstract class ScheduledReporter implements Closeable, Reporter {
              try {
                  report();
              } catch (Exception ex) {
-                 LOG.error("Exception thrown from {}#report. Exception was suppressed.", ScheduledReporter.this.getClass().getSimpleName(), ex);
+                 logger.error("Exception thrown from {}#report. Exception was suppressed.", ScheduledReporter.this.getClass().getSimpleName(), ex);
              }
          }
       }, initialDelay, period, unit);
@@ -225,11 +219,11 @@ public abstract class ScheduledReporter implements Closeable, Reporter {
                     // Preserve interrupt status
                     Thread.currentThread().interrupt();
                     if (!this.scheduledFuture.isDone()) {
-                        LOG.warn("The reporting schedulingFuture is not cancelled yet");
+                        logger.warn("The reporting schedulingFuture is not cancelled yet");
                     }
                 } catch (TimeoutException e) {
                     // The last reporting cycle is still in progress, nothing wrong, just add log record
-                    LOG.warn("The reporting schedulingFuture is not cancelled yet");
+                    logger.warn("The reporting schedulingFuture is not cancelled yet");
                 }
             }
         }

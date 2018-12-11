@@ -1,10 +1,9 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.ResourceManager;
-import com.github.netty.springboot.NettyProperties;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
+import com.github.netty.core.util.ResourceManager;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -28,9 +27,17 @@ public class SessionCompositeServiceImpl implements SessionService {
         this.sessionService = new SessionLocalMemoryServiceImpl();
     }
 
-    public void enableRemoteRpcSession(InetSocketAddress address, NettyProperties config){
+    public void enableRemoteRpcSession(InetSocketAddress address){
         removeSessionService();
-        this.sessionService = new SessionRemoteRpcServiceImpl(address,config);
+        this.sessionService = new SessionRemoteRpcServiceImpl(address);
+    }
+
+    public void enableRemoteRpcSession(InetSocketAddress address,int rpcClientIoRatio, int rpcClientIoThreads, int clientChannels,
+                                       boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond){
+        removeSessionService();
+        this.sessionService = new SessionRemoteRpcServiceImpl(address,
+                rpcClientIoRatio,rpcClientIoThreads,clientChannels,enablesAutoReconnect,
+                enableRpcHeartLog,rpcClientHeartIntervalSecond);
     }
 
     public void enableLocalFileSession(ResourceManager resourceManager){

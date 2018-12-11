@@ -4,7 +4,6 @@ import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.AbstractRecycler;
 import com.github.netty.core.util.ByteBufAllocatorX;
 import com.github.netty.core.util.Recyclable;
-import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -26,7 +25,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     public static final AtomicLong SERVLET_AND_FILTER_TIME = new AtomicLong();
     public static final AtomicLong SERVLET_QUERY_COUNT = new AtomicLong();
     private ServletContext servletContext;
-    private NettyProperties config;
 
     private static final AbstractRecycler<HttpRunnable> RECYCLER = new AbstractRecycler<HttpRunnable>() {
         @Override
@@ -35,9 +33,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         }
     };
 
-    public NettyMessageToServletRunnable(ServletContext servletContext, NettyProperties config) {
+    public NettyMessageToServletRunnable(ServletContext servletContext) {
         this.servletContext = servletContext;
-        this.config = config;
     }
 
     @Override
@@ -49,7 +46,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         HttpRunnable instance = RECYCLER.getInstance();
         instance.httpServletObject = ServletHttpObject.newInstance(
                 servletContext,
-                config,
                 ByteBufAllocatorX.forceDirectAllocator(context),
                 (FullHttpRequest) msg);;
 

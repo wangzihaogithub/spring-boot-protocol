@@ -15,16 +15,16 @@
  */
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
+import com.github.netty.protocol.mqtt.security.IAuthorizatorPolicy;
 import com.github.netty.protocol.mqtt.subscriptions.ISubscriptionsDirectory;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import com.github.netty.protocol.mqtt.subscriptions.Topic;
-import com.github.netty.protocol.mqtt.security.IAuthorizatorPolicy;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +36,7 @@ import static io.netty.handler.codec.mqtt.MqttQoS.*;
 
 public class MqttPostOffice {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MqttPostOffice.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttPostOffice.class);
 
     private final IAuthorizatorPolicy authorizatorPolicy;
     private final ISubscriptionsDirectory subscriptions;

@@ -11,4 +11,7 @@ public class LoggerFactoryX {
         return new LoggerX(clazz);
     }
 
+    public static LoggerX getLogger(String clazz){
+        return new LoggerX(clazz);
+    }
 }

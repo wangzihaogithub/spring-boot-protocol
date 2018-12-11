@@ -1,14 +1,14 @@
 package com.github.netty.core.metrics;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class DefaultObjectNameFactory implements ObjectNameFactory {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(JmxReporter.class);
+	private static final LoggerX LOGGER = LoggerFactoryX.getLogger(JmxReporter.class);
 
 	@Override
 	public ObjectName createName(String type, String domain, String name) {

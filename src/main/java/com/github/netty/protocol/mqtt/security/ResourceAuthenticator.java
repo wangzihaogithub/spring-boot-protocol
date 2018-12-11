@@ -16,9 +16,9 @@
 
 package com.github.netty.protocol.mqtt.security;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.config.IResourceLoader;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -44,7 +44,7 @@ import java.util.Map;
  */
 public class ResourceAuthenticator implements IAuthenticator {
 
-    protected static final Logger LOG = LoggerFactory.getLogger(ResourceAuthenticator.class);
+    protected static final LoggerX LOG = LoggerFactoryX.getLogger(ResourceAuthenticator.class);
 
     private Map<String, String> m_identities = new HashMap<>();
 

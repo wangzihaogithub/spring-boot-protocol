@@ -1,7 +1,7 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.UrlMapper;
@@ -24,12 +24,15 @@ import java.util.concurrent.ExecutorService;
  *  2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     /**
      * 默认20分钟,
      */
     private int sessionTimeout = 1200;
+    /**
+     * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
+     */
+    private int responseWriterChunkMaxHeapByteLength = 4096;
     private Map<String,Object> attributeMap = new HashMap<>(16);
     private Map<String,String> initParamMap = new HashMap<>(16);
     private Map<String,ServletRegistration> servletRegistrationMap = new HashMap<>(8);
@@ -117,6 +120,14 @@ public class ServletContext implements javax.servlet.ServletContext {
         }catch (NumberFormatException e){
             return 10000;
         }
+    }
+
+    public int getResponseWriterChunkMaxHeapByteLength() {
+        return responseWriterChunkMaxHeapByteLength;
+    }
+
+    public void setResponseWriterChunkMaxHeapByteLength(int responseWriterChunkMaxHeapByteLength) {
+        this.responseWriterChunkMaxHeapByteLength = responseWriterChunkMaxHeapByteLength;
     }
 
     public InetSocketAddress getServletServerAddress() {

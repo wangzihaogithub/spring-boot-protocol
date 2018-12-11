@@ -1,10 +1,9 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.ServletUtil;
-import com.github.netty.springboot.NettyProperties;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelFuture;
@@ -41,10 +40,10 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     private ServletHttpObject httpServletObject;
     private CompositeByteBufX buffer;
-    private NettyProperties config;
     private Lock bufferReadWriterLock;
     private ChannelFutureListener closeListener;
     private ChannelFutureListener closeListenerWrapper = new CloseListenerRecycleWrapper();
+    private int responseWriterChunkMaxHeapByteLength;
 
     private static final AbstractRecycler<ServletOutputStream> RECYCLER = new AbstractRecycler<ServletOutputStream>() {
         @Override
@@ -58,6 +57,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public static ServletOutputStream newInstance(ServletHttpObject httpServletObject) {
         ServletOutputStream instance = RECYCLER.getInstance();
         instance.setHttpServletObject(httpServletObject);
+        instance.responseWriterChunkMaxHeapByteLength = httpServletObject.getServletContext().getResponseWriterChunkMaxHeapByteLength();
+
         instance.isEmpty.compareAndSet(true,false);
         return instance;
     }
@@ -218,9 +219,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * @return
      */
     protected ByteBuf allocByteBuf(ByteBufAllocator allocator,int len){
-        int maxHeapByteLength = config.getResponseWriterChunkMaxHeapByteLength();
         ByteBuf ioByteBuf;
-        if(len > maxHeapByteLength){
+        if(len > responseWriterChunkMaxHeapByteLength){
             ioByteBuf = allocator.directBuffer(len);
         }else {
             ioByteBuf = allocator.heapBuffer(len);
@@ -233,7 +233,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     public void destroy(){
         this.httpServletObject = null;
-        this.config = null;
         this.isSendResponseHeader = null;
         this.isClosed = null;
         this.buffer = null;
@@ -308,7 +307,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     protected void setHttpServletObject(ServletHttpObject httpServletObject) {
         this.httpServletObject = httpServletObject;
-        this.config = httpServletObject.getConfig();
     }
 
     /**
@@ -482,7 +480,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 closeListener = null;
             }
             httpServletObject = null;
-            config = null;
             if(buffer != null) {
                 buffer = null;
             }
