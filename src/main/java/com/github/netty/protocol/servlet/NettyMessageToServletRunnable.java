@@ -56,7 +56,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         if(instance.httpServletObject.isHttpKeepAlive()){
             //分段写入, 用于流传输, 防止响应数据过大
             ChannelPipeline pipeline = context.channel().pipeline();
-            if(pipeline.get(ChunkedWriteHandler.class) == null) {
+            if(pipeline.context(ChunkedWriteHandler.class) == null) {
                 ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
                 if(httpContext == null){
                     httpContext = pipeline.context(HttpRequestDecoder.class);

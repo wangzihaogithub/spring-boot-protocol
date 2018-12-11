@@ -5,6 +5,7 @@ import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.rtsp.RtspServerChannelHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpConstants;
 import io.netty.handler.codec.rtsp.RtspDecoder;
@@ -12,7 +13,7 @@ import io.netty.handler.codec.rtsp.RtspEncoder;
 
 /**
  *
- * 流媒体传输协议
+ * 实时流媒体传输协议 （常用于直播，视频）
  * @author acer01
  *  2018/12/5/005
  */
@@ -21,16 +22,17 @@ public class RtspProtocolsRegister extends AbstractProtocolsRegister {
     private final int maxInitialLineLength;
     private final int maxHeaderSize;
     private final int maxContentLength;
-    private RtspServerChannelHandler channelHandler = new RtspServerChannelHandler();
+    private ChannelHandler channelHandler;
 
     public RtspProtocolsRegister() {
-        this(4096,8192,8192);
+        this(4096,8192,8192,new RtspServerChannelHandler());
     }
 
-    public RtspProtocolsRegister(int maxInitialLineLength, int maxHeaderSize, int maxContentLength) {
+    public RtspProtocolsRegister(int maxInitialLineLength, int maxHeaderSize, int maxContentLength, ChannelHandler channelHandler) {
         this.maxInitialLineLength = maxInitialLineLength;
         this.maxHeaderSize = maxHeaderSize;
         this.maxContentLength = maxContentLength;
+        this.channelHandler = channelHandler;
     }
 
     @Override

@@ -24,7 +24,7 @@ import java.text.ParseException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 物联网传输协议
+ * 物联网消息传输协议
  * @author acer01
  *  2018/12/5/005
  */
@@ -33,8 +33,8 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = NRpcProtocolsRegister.ORDER + 100;
 
     private int messageMaxLength;
-    private int nettyChannelTimeoutSeconds;
-    private int writerIdleTime;
+    private int nettyReaderIdleTimeSeconds;
+    private int autoFlushIdleTime;
     private boolean enableMetrics = false;
     private String metricsLibratoEmail;
     private String metricsLibratoToken;
@@ -49,13 +49,19 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     private MqttPostOffice mqttPostOffice;
 
     public MqttProtocolsRegister() {
-        this(8092,10,1);
+        this(8092,10,0);
     }
 
-    public MqttProtocolsRegister(int messageMaxLength, int nettyChannelTimeoutSeconds,int writerIdleTime) {
+    /**
+     *
+     * @param messageMaxLength 每次最大消息长度 (字节)
+     * @param nettyReaderIdleTimeSeconds 读空闲间隔 (秒)
+     * @param autoFlushIdleTime 自动刷新缓冲区间隔时间(秒). 如果大于0则开启并自动刷新, 小于等于0则每次发送都会刷新
+     */
+    public MqttProtocolsRegister(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
         this.messageMaxLength = messageMaxLength;
-        this.nettyChannelTimeoutSeconds = nettyChannelTimeoutSeconds;
-        this.writerIdleTime = writerIdleTime;
+        this.nettyReaderIdleTimeSeconds = nettyReaderIdleTimeSeconds;
+        this.autoFlushIdleTime = autoFlushIdleTime;
     }
 
     @Override
@@ -82,10 +88,12 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     public void registerTo(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
-        pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyChannelTimeoutSeconds, 0, 0));
+        pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyReaderIdleTimeSeconds, 0, 0));
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
 
-        pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(writerIdleTime, TimeUnit.SECONDS));
+        if(autoFlushIdleTime > 0) {
+            pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(autoFlushIdleTime, TimeUnit.SECONDS));
+        }
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
 
@@ -109,7 +117,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
 
     @Override
     public void onServerStart() throws Exception {
-        IAuthorizatorPolicy authorizatorPolicy = initializeAuthorizatorPolicy(null);
+        IAuthorizatorPolicy authorizatorPolicy = initializeAuthorizatorPolicy();
 
         ISubscriptionsDirectory subscriptions = new CTrieSubscriptionDirectory(new MemorySubscriptionsRepository());
         MqttSessionRegistry sessions = new MqttSessionRegistry(subscriptions, new MemoryQueueRepository());
@@ -124,9 +132,12 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
         }
     }
 
-    private IAuthorizatorPolicy initializeAuthorizatorPolicy(String aclFilePath) {
+    protected IAuthorizatorPolicy initializeAuthorizatorPolicy() {
         IAuthorizatorPolicy authorizatorPolicy;
-        if (aclFilePath != null && !aclFilePath.isEmpty()) {
+        String aclFilePath = null;
+        if (aclFilePath == null || aclFilePath.isEmpty()) {
+            authorizatorPolicy = new PermitAllAuthorizatorPolicy();
+        } else {
             authorizatorPolicy = new DenyAllAuthorizatorPolicy();
             try {
                 IResourceLoader resourceLoader = new FileResourceLoader();
@@ -134,8 +145,6 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
             } catch (ParseException pex) {
                 logger.error("Unable to parse ACL file. path=" + aclFilePath, pex);
             }
-        } else {
-            authorizatorPolicy = new PermitAllAuthorizatorPolicy();
         }
         return authorizatorPolicy;
     }
@@ -188,4 +197,11 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
         this.metricsLibratoSource = metricsLibratoSource;
     }
 
+    public int getAutoFlushIdleTime() {
+        return autoFlushIdleTime;
+    }
+
+    public void setAutoFlushIdleTime(int autoFlushIdleTime) {
+        this.autoFlushIdleTime = autoFlushIdleTime;
+    }
 }

@@ -64,13 +64,11 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     }
 
     private MqttConnection mqttConnection(Channel channel) {
-        Attribute<MqttConnection> attribute = channel.attr(ATTR_KEY_CONNECTION);
-        MqttConnection connection = attribute.get();
-        if(connection == null) {
-            connection =  new MqttConnection(channel, brokerConfig, authenticator, sessionRegistry, postOffice);
-            attribute.set(connection);
-        }
-        return connection;
+        return channel.attr(ATTR_KEY_CONNECTION).get();
+    }
+
+    private void mqttConnection(Channel channel,MqttConnection connection) {
+        channel.attr(ATTR_KEY_CONNECTION).set(connection);
     }
 
     @Override
@@ -79,7 +77,8 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
             throw new IOException("Unknown packet");
         }
 
-        final MqttConnection mqttConnection = mqttConnection(ctx.channel());
+        MqttConnection mqttConnection = mqttConnection(ctx.channel());
+        mqttConnection.setAuthFlushed(ctx.pipeline().context(MqttAutoFlushChannelHandler.class) != null);
         try {
             mqttConnection.handleMessage(msg);
         } catch (Throwable ex) {
@@ -96,7 +95,10 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        mqttConnection(ctx.channel());
+        Channel channel = ctx.channel();
+        MqttConnection connection =  new MqttConnection(channel, brokerConfig, authenticator, sessionRegistry, postOffice);
+        connection.setAuthFlushed(ctx.pipeline().context(MqttAutoFlushChannelHandler.class) != null);
+        mqttConnection(channel,connection);
     }
 
     @Override

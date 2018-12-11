@@ -1,6 +1,7 @@
 package com.github.netty.core.util;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -109,6 +110,36 @@ public class IOUtil {
             }
         }catch (IOException e){
             throw e;
+        }
+    }
+
+     /**
+     * 读文件至bytebuffer (注:用完记得关闭)
+     * @param sourcePath 路径
+     * @param sourceFileName 文件名称
+     * @return bytebuffer
+     * @throws FileNotFoundException
+     */
+    public static ByteBuf readFileToByteBuffer(String sourcePath, String sourceFileName) throws IOException {
+        if(sourcePath == null){
+            sourcePath = "";
+        }
+        File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
+
+        try(FileInputStream in =  new FileInputStream(inFile)) {
+            FileChannel inChannel = in.getChannel();
+            ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
+            ByteBuf buffer = Unpooled.buffer();
+            while (true) {
+                byteBuffer.clear();
+                int r = inChannel.read(byteBuffer);
+                if (r == -1) {
+                    break;
+                }
+                byteBuffer.flip();
+                buffer.writeBytes(byteBuffer);
+            }
+            return buffer;
         }
     }
 

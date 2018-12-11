@@ -14,7 +14,6 @@ import io.netty.util.internal.TypeParameterMatcher;
  * @author 84215
  */
 public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
-
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final TypeParameterMatcher matcherInbound;
     private final TypeParameterMatcher matcherOutbound;
@@ -36,7 +35,9 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
         boolean release = true;
         try {
             boolean match = matcherInbound.match(msg);
-            logger.debug("{} channelRead({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+            if (logger.isDebugEnabled()) {
+                logger.debug("{} channelRead({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+            }
             if (match) {
                 I imsg = (I) msg;
                 onMessageReceived(ctx, imsg);
@@ -58,7 +59,9 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
     @Override
     public final void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         boolean match = matcherOutbound.match(msg);
-        logger.debug("{} -> channelWrite({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+        if(logger.isDebugEnabled()) {
+            logger.debug("{} -> channelWrite({}) -> match({}) ", simpleClassName, msg.getClass(), match);
+        }
         if (match) {
             O imsg = (O) msg;
             onMessageWriter(ctx, imsg,promise);

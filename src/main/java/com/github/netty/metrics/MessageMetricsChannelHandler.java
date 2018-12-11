@@ -26,6 +26,10 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
     private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class+"#MessageMetrics");
     private MessageMetricsCollector collector;
 
+    public MessageMetricsChannelHandler() {
+        this(new MessageMetricsCollector());
+    }
+
     public MessageMetricsChannelHandler(MessageMetricsCollector collector) {
         super(false);
         this.collector = collector;
@@ -73,5 +77,9 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
             attribute.set(metrics);
         }
         return metrics;
+    }
+
+    public MessageMetricsCollector getCollector() {
+        return collector;
     }
 }

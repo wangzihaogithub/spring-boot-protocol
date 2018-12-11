@@ -4,13 +4,14 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolsRegister;
 import com.github.netty.core.util.HostUtil;
 import com.github.netty.core.util.NettyThreadX;
-import com.github.netty.metrics.*;
+import com.github.netty.metrics.BytesMetrics;
+import com.github.netty.metrics.BytesMetricsChannelHandler;
+import com.github.netty.metrics.MessageMetrics;
+import com.github.netty.metrics.MessageMetricsChannelHandler;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.ChannelHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.internal.PlatformDependent;
@@ -31,7 +32,6 @@ import java.util.stream.Collectors;
  *  2018/7/14/014
  */
 public class NettyTcpServer extends AbstractNettyServer implements WebServer {
-
     /**
      * 容器配置信息
      */
@@ -44,10 +44,8 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * 动态协议处理器
      */
     private DynamicProtocolChannelHandler dynamicProtocolHandler = new DynamicProtocolChannelHandler(new ProtocolsRegisterIntercept());
-    private BytesMetricsCollector bytesMetricsCollector = new BytesMetricsCollector();
-    private MessageMetricsCollector metricsCollector = new MessageMetricsCollector();
-    private MessageMetricsChannelHandler messageMetricsChannelHandler = new MessageMetricsChannelHandler(metricsCollector);
-    private BytesMetricsChannelHandler bytesMetricsChannelHandler = new BytesMetricsChannelHandler(bytesMetricsCollector);
+    private MessageMetricsChannelHandler messageMetricsChannelHandler = new MessageMetricsChannelHandler();
+    private BytesMetricsChannelHandler bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
     private LoggingHandler loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
 
     public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties){
@@ -69,7 +67,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             inApplicationProtocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
             for(ProtocolsRegister protocolsRegister : inApplicationProtocolsRegisterList){
                 protocolsRegister.onServerStart();
-                addProtocolsRegister(protocolsRegister);
+                protocolsRegisterList.add(protocolsRegister);
             }
 
             protocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
@@ -83,7 +81,8 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     public void stop() throws WebServerException {
         try{
-            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
+            List<ProtocolsRegister> protocolsRegisterList = getProtocolsRegisterList();
+            protocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
             for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
                 protocolsRegister.onServerStop();
             }
@@ -92,12 +91,12 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         }
         super.stop();
 
-        if(metricsCollector != null) {
-            MessageMetrics metrics = metricsCollector.computeMetrics();
+        if(messageMetricsChannelHandler != null) {
+            MessageMetrics metrics = messageMetricsChannelHandler.getCollector().computeMetrics();
             logger.info("Metrics messages[read={}, write={}]", metrics.messagesRead(),metrics.messagesWrote());
         }
-        if(bytesMetricsCollector != null){
-            BytesMetrics bytesMetrics = bytesMetricsCollector.computeMetrics();
+        if(bytesMetricsChannelHandler != null){
+            BytesMetrics bytesMetrics = bytesMetricsChannelHandler.getCollector().computeMetrics();
             logger.info("Metrics bytes[read={}, write={}]",  bytesMetrics.readBytes(), bytesMetrics.wroteBytes());
         }
 
@@ -134,34 +133,31 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * @return
      */
     @Override
-    protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
-        return new ChannelInitializer<SocketChannel>() {
-            @Override
-            protected void initChannel(SocketChannel ch) throws Exception {
-                ChannelPipeline pipeline = ch.pipeline();
-                //HTTP编码解码
-                pipeline.addLast("DynamicProtocolHandler", dynamicProtocolHandler);
-            }
-        };
+    protected ChannelHandler newInitializerChannelHandler() {
+        return dynamicProtocolHandler;
     }
 
     /**
-     * 添加协议注册器
-     * @param protocolsRegister
+     * 获取协议注册器列表
+     * @return
      */
-    public void addProtocolsRegister(ProtocolsRegister protocolsRegister){
-        dynamicProtocolHandler.getProtocolsRegisterList().add(protocolsRegister);
-        logger.info("addProtocolsRegister({})",protocolsRegister.getProtocolName());
+    public List<ProtocolsRegister> getProtocolsRegisterList(){
+        return dynamicProtocolHandler.getProtocolsRegisterList();
     }
 
     /**
      * 协议注册拦截
      */
     class ProtocolsRegisterIntercept implements Consumer<Channel>{
-
         @Override
         public void accept(Channel channel) {
             if(properties.isEnableTcpPackageLog()) {
+                if(bytesMetricsChannelHandler == null){
+                    bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
+                }
+                if(messageMetricsChannelHandler == null){
+                    messageMetricsChannelHandler = new MessageMetricsChannelHandler();
+                }
                 channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
                 channel.pipeline().addLast("metrics", messageMetricsChannelHandler);
                 channel.pipeline().addLast("logger", loggingHandler);

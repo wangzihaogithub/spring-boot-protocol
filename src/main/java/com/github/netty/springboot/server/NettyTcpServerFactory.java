@@ -1,5 +1,6 @@
 package com.github.netty.springboot.server;
 
+import com.github.netty.core.ProtocolsRegister;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
 import com.github.netty.protocol.servlet.ServletRegistration;
@@ -19,6 +20,7 @@ import org.springframework.util.ClassUtils;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.List;
 
 /**
  * netty容器工厂 tcp层面的服务器工厂
@@ -127,10 +129,11 @@ public class NettyTcpServerFactory
      * @throws Exception
      */
     protected void configurableTcpServer(NettyTcpServer tcpServer,ServletContext servletContext) throws Exception {
+        List<ProtocolsRegister> protocolsRegisterList = tcpServer.getProtocolsRegisterList();
         //添加httpServlet协议注册器
-        tcpServer.addProtocolsRegister(new HttpServletProtocolsRegisterSpringAdapter(properties,servletContext,this));
+        protocolsRegisterList.add(new HttpServletProtocolsRegisterSpringAdapter(properties,servletContext,this));
         //添加内部rpc协议注册器
-        tcpServer.addProtocolsRegister(new HRpcProtocolsRegisterSpringAdapter(properties.getRpcServerMessageMaxLength(),properties.getApplication()));
+        protocolsRegisterList.add(new HRpcProtocolsRegisterSpringAdapter(properties.getRpcServerMessageMaxLength(),properties.getApplication()));
     }
 
     @Override

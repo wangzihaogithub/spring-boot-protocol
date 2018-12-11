@@ -15,6 +15,8 @@
  */
 package com.github.netty.protocol.mqtt;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.exception.MqttSessionCorruptedException;
 import com.github.netty.protocol.mqtt.security.IAuthenticator;
@@ -24,8 +26,6 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.*;
 import io.netty.handler.timeout.IdleStateHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -42,7 +42,7 @@ import static io.netty.handler.codec.mqtt.MqttQoS.AT_MOST_ONCE;
 
 public final class MqttConnection {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MqttConnection.class);
+    private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttConnection.class);
 
     final Channel channel;
     private BrokerConfiguration brokerConfig;
@@ -50,6 +50,7 @@ public final class MqttConnection {
     private MqttSessionRegistry sessionRegistry;
     private final MqttPostOffice postOffice;
     private boolean connected;
+    private boolean authFlushed;
     private final AtomicInteger lastPacketId = new AtomicInteger(0);
 
     public MqttConnection(Channel channel, BrokerConfiguration brokerConfig, IAuthenticator authenticator,
@@ -60,6 +61,15 @@ public final class MqttConnection {
         this.sessionRegistry = sessionRegistry;
         this.postOffice = postOffice;
         this.connected = false;
+        this.authFlushed = false;
+    }
+
+    public boolean isAuthFlushed() {
+        return authFlushed;
+    }
+
+    public void setAuthFlushed(boolean authFlushed) {
+        this.authFlushed = authFlushed;
     }
 
     public void handleMessage(MqttMessage msg) {
@@ -396,7 +406,11 @@ public final class MqttConnection {
             LOG.debug("OUT {} on channel {}", msg.fixedHeader().messageType(), channel);
         }
         if (channel.isWritable()) {
-            channel.write(msg).addListener(FIRE_EXCEPTION_ON_FAILURE);
+            if(authFlushed){
+                channel.write(msg).addListener(FIRE_EXCEPTION_ON_FAILURE);
+            }else {
+                channel.writeAndFlush(msg).addListener(FIRE_EXCEPTION_ON_FAILURE);
+            }
         }
     }
 

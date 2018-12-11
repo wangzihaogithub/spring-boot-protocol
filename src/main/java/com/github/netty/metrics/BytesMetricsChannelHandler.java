@@ -27,6 +27,10 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     private static final AttributeKey<BytesMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(BytesMetrics.class+"#BytesMetrics");
     private BytesMetricsCollector collector;
 
+    public BytesMetricsChannelHandler(){
+        this(new BytesMetricsCollector());
+    }
+
     public BytesMetricsChannelHandler(BytesMetricsCollector collector) {
         super(false);
         this.collector = collector;
@@ -74,5 +78,9 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
             attribute.set(metrics);
         }
         return metrics;
+    }
+
+    public BytesMetricsCollector getCollector() {
+        return collector;
     }
 }

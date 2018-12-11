@@ -9,9 +9,11 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.ReferenceCountUtil;
 
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Created by acer01 on 2018/12/9/009.
@@ -21,12 +23,8 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     /**
      * 协议注册器列表
      */
-    private List<ProtocolsRegister> protocolsRegisterList = new LinkedList<>();
+    private List<ProtocolsRegister> protocolsRegisterList = new ProtocolsRegisterList();
     private Consumer<Channel> registerIntercept;
-
-    public DynamicProtocolChannelHandler() {
-        this(null);
-    }
 
     public DynamicProtocolChannelHandler(Consumer<Channel> registerIntercept) {
         super(false);
@@ -48,7 +46,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
             logger.info("Channel protocols register by [{}]",protocolsRegister.getProtocolName());
             protocolsRegister.register(channel);
-            channel.pipeline().fireChannelRegistered();
+            if(channel.isRegistered()) {
+                channel.pipeline().fireChannelRegistered();
+            }
             if (channel.isActive()) {
                 channel.pipeline().fireChannelActive();
                 channel.pipeline().fireChannelRead(msg);
@@ -66,11 +66,48 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         return protocolsRegisterList;
     }
 
-    public void setRegisterIntercept(Consumer<Channel> registerIntercept) {
-        this.registerIntercept = registerIntercept;
-    }
-
     public Consumer<Channel> getRegisterIntercept() {
         return registerIntercept;
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+        ctx.close();
+    }
+
+    /**
+     * 协议注册列表
+     */
+    class ProtocolsRegisterList extends LinkedList<ProtocolsRegister>{
+        @Override
+        public void add(int index, ProtocolsRegister element) {
+            logger.info("addProtocolsRegister({})",element.getProtocolName());
+            super.add(index, element);
+        }
+
+        @Override
+        public boolean add(ProtocolsRegister element) {
+            logger.info("addProtocolsRegister({})",element.getProtocolName());
+            return super.add(element);
+        }
+
+        @Override
+        public boolean addAll(Collection<? extends ProtocolsRegister> c) {
+            logger.info("addProtocolsRegister({})",String.join(",",c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList())));
+            return super.addAll(c);
+        }
+
+        @Override
+        public boolean addAll(int index, Collection<? extends ProtocolsRegister> c) {
+            logger.info("addProtocolsRegister({})",String.join(",",c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList())));
+            return super.addAll(index, c);
+        }
+
+        @Override
+        public boolean remove(Object o) {
+            logger.info("removeProtocolsRegister({})",o);
+            return super.remove(o);
+        }
     }
 }

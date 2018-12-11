@@ -70,6 +70,26 @@ import io.netty.handler.codec.http.HttpRequest;
      A：
      RTP stream data ......
 
+
+     C表示rtsp客户端, S表示rtsp服务端
+
+     1. C->S:OPTION request //询问S有哪些方法可用
+     1. S->C:OPTION response //S回应信息中包括提供的所有可用方法
+
+     2. C->S:DESCRIBE request //要求得到S提供的媒体初始化描述信息
+     2. S->C:DESCRIBE response //S回应媒体初始化描述信息，主要是sdp
+
+     3. C->S:SETUP request //设置会话的属性，以及传输模式，提醒S建立会话
+     3. S->C:SETUP response //S建立会话，返回会话标识符，以及会话相关信息
+
+     4. C->S:PLAY request //C请求播放
+     4. S->C:PLAY response //S回应该请求的信息
+
+     S->C:发送流媒体数据
+
+     5. C->S:TEARDOWN request //C请求关闭会话
+     5. S->C:TEARDOWN response //S回应该请求
+
  * Created by acer01 on 2018/12/5/005.
  */
 @ChannelHandler.Sharable

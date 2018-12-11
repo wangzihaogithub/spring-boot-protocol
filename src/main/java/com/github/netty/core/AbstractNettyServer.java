@@ -27,7 +27,7 @@ public abstract class AbstractNettyServer implements Runnable{
     private EventLoopGroup boss;
     private EventLoopGroup worker;
     private ChannelFactory<?extends ServerChannel> channelFactory;
-    private ChannelInitializer<?extends Channel> initializerChannelHandler;
+    private ChannelHandler initializerChannelHandler;
     private ChannelFuture closeFuture;
     private Channel serverChannel;
     private InetSocketAddress serverAddress;
@@ -65,7 +65,7 @@ public abstract class AbstractNettyServer implements Runnable{
         this.ioThreadCount = ioThreadCount;
     }
 
-    protected abstract ChannelInitializer<?extends Channel> newInitializerChannelHandler();
+    protected abstract ChannelHandler newInitializerChannelHandler();
 
     protected ServerBootstrap newServerBootstrap(){
         return new ServerBootstrap();
