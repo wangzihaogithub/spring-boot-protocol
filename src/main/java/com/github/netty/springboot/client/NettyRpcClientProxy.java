@@ -1,6 +1,6 @@
 package com.github.netty.springboot.client;
 
-import com.github.netty.annotation.RegisterFor;
+import com.github.netty.annotation.Protocol;
 import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
@@ -81,7 +81,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         RpcClientInstance rpcClientInstance = rpcClient.getRpcInstance(serviceName);
         if(rpcClientInstance == null){
             List<Class<?extends Annotation>> parameterAnnotationClasses = Arrays.asList(
-                    RegisterFor.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
+                    Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
                     PathVariable.class,CookieValue.class, RequestPart.class);
             rpcClientInstance = rpcClient.newRpcInstance(interfaceClass,config.getRpcTimeout(),serviceName,
                     new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses));

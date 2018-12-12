@@ -1,6 +1,6 @@
 package com.github.netty.protocol.nrpc.service;
 
-import com.github.netty.annotation.RegisterFor;
+import com.github.netty.annotation.Protocol;
 
 import java.util.List;
 
@@ -10,7 +10,7 @@ import java.util.List;
  * @author acer01
  * 2018/8/20/020
  */
-@RegisterFor.RpcService(value = "/hrpc/db",timeout = 1000 * 10)
+@Protocol.RpcService(value = "/hrpc/db",timeout = 1000 * 10)
 public interface RpcDBService {
 
     /**
@@ -19,8 +19,8 @@ public interface RpcDBService {
      * @param group 分组
      * @return
      */
-    boolean exist2(@RegisterFor.RpcParam("key") String key, @RegisterFor.RpcParam("group") String group);
-    boolean exist(@RegisterFor.RpcParam("key") String key);
+    boolean exist2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
+    boolean exist(@Protocol.RpcParam("key") String key);
 
     /**
      * 存入数据
@@ -29,15 +29,15 @@ public interface RpcDBService {
      * @param expireSecond 过期时间(秒)
      * @param group 分组
      */
-    void put4(@RegisterFor.RpcParam("group") String key, @RegisterFor.RpcParam("data") byte[] data, @RegisterFor.RpcParam("expireSecond") int expireSecond, @RegisterFor.RpcParam("group") String group);
-    void put3(@RegisterFor.RpcParam("group") String key, @RegisterFor.RpcParam("data") byte[] data, @RegisterFor.RpcParam("expireSecond") int expireSecond);
-    void put(@RegisterFor.RpcParam("group") String key, @RegisterFor.RpcParam("data") byte[] data);
+    void put4(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data, @Protocol.RpcParam("expireSecond") int expireSecond, @Protocol.RpcParam("group") String group);
+    void put3(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data, @Protocol.RpcParam("expireSecond") int expireSecond);
+    void put(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data);
 
     /**
      * 获取某个组的数量
      * @param group 分组
      */
-    int count(@RegisterFor.RpcParam("group") String group);
+    int count(@Protocol.RpcParam("group") String group);
 
     /**
      * 获取数据
@@ -45,8 +45,8 @@ public interface RpcDBService {
      * @param group 分组
      * @return
      */
-    byte[] get2(@RegisterFor.RpcParam("key") String key, @RegisterFor.RpcParam("group") String group);
-    byte[] get(@RegisterFor.RpcParam("key") String key);
+    byte[] get2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
+    byte[] get(@Protocol.RpcParam("key") String key);
 
     /**
      * 改变key
@@ -54,23 +54,23 @@ public interface RpcDBService {
      * @param newKey
      * @param group 分组
      */
-    void changeKey3(@RegisterFor.RpcParam("oldKey") String oldKey, @RegisterFor.RpcParam("newKey") String newKey, @RegisterFor.RpcParam("group") String group);
-    void changeKey(@RegisterFor.RpcParam("oldKey") String oldKey, @RegisterFor.RpcParam("newKey") String newKey);
+    void changeKey3(@Protocol.RpcParam("oldKey") String oldKey, @Protocol.RpcParam("newKey") String newKey, @Protocol.RpcParam("group") String group);
+    void changeKey(@Protocol.RpcParam("oldKey") String oldKey, @Protocol.RpcParam("newKey") String newKey);
 
     /**
      * 删除数据
      * @param key
 
      */
-    void remove2(@RegisterFor.RpcParam("key") String key, @RegisterFor.RpcParam("group") String group);
-    void remove(@RegisterFor.RpcParam("key") String key);
+    void remove2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
+    void remove(@Protocol.RpcParam("key") String key);
 
     /**
      * 删除多条数据
      * @param keys
      * @param group 分组
      */
-    void removeBatch2(@RegisterFor.RpcParam("keys") List<String> keys, @RegisterFor.RpcParam("group") String group);
-    void removeBatch(@RegisterFor.RpcParam("keys") List<String> keys);
+    void removeBatch2(@Protocol.RpcParam("keys") List<String> keys, @Protocol.RpcParam("group") String group);
+    void removeBatch(@Protocol.RpcParam("keys") List<String> keys);
 
 }

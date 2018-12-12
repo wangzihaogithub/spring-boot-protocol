@@ -16,6 +16,9 @@ import java.util.Iterator;
  */
 public class IOUtil {
 
+    public static final int INT_LENGTH = 4;
+    public static final int LONG_LENGTH = 8;
+
     /**
      * 拷贝文件
      * @param sourcePath 源路径
@@ -282,6 +285,10 @@ public class IOUtil {
                 }
             }
         }
+    }
+
+    public static String getString(byte[] memory, Charset charset) {
+        return new String(memory,charset);
     }
 
     public static byte getByte(byte[] memory, int index) {

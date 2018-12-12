@@ -5,25 +5,20 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
-import io.protostuff.ByteArrayInput;
-import io.protostuff.Schema;
-import io.protostuff.runtime.RuntimeSchema;
 
-import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
-import static com.github.netty.protocol.nrpc.RpcEncoder.END_DELIMITER;
-import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
+import static com.github.netty.protocol.nrpc.RpcEncoder.*;
 
 /**
  *  RPC 解码器
  * @author 84215
  */
 public class RpcDecoder extends DelimiterBasedFrameDecoder {
-
-    private static final Map<Class<?>, Schema<?>> CACHE_SCHEMA_MAP = new ConcurrentHashMap<>();
+    /**
+     * 数据包最小长度
+     */
+    private static final int MIN_PACKET_LENGTH = PROTOCOL_HEADER.length + 4;
     private Supplier pojoSupplier;
 
     public RpcDecoder(Supplier pojoSupplier) {
@@ -38,7 +33,8 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
     @Override
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
         ByteBuf msg = (ByteBuf) super.decode(ctx, buffer);
-        if(msg == null){
+
+        if(msg == null || msg.readableBytes() <= MIN_PACKET_LENGTH){
             return null;
         }
 
@@ -55,31 +51,57 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
      * 解析至实体类
      * @param msg
      * @return
-     * @throws IOException
      */
-    private Object decodeToPojo(ByteBuf msg) throws IOException {
-        if(!RpcUtil.isRpcProtocols(msg)){
+    private Object decodeToPojo(ByteBuf msg){
+        Object pojo = pojoSupplier.get();
+
+        if(pojo instanceof RpcRequest){
+            RpcRequest request = (RpcRequest) pojo;
+
+            //跳过协议头
+            int protocolLength = msg.readByte();
+            msg.skipBytes(protocolLength);
+
+            //请求ID
+            request.setRequestId(msg.readInt());
+
+            //请求服务
+            request.setServiceName(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+
+            //请求方法
+            request.setMethodName(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+
+            //请求数据
+            request.setData(new byte[msg.readInt()]);
+            msg.readBytes(request.getData());
+            return pojo;
+
+        }else if(pojo instanceof RpcResponse){
+            RpcResponse response = (RpcResponse) pojo;
+
+            //跳过协议头
+            int protocolLength = msg.readByte();
+            msg.skipBytes(protocolLength);
+
+            //请求ID
+            response.setRequestId(msg.readInt());
+
+            //请求服务
+            response.setStatus(msg.readInt());
+
+            //数据是否已经编码
+            response.setEncode((int) msg.readByte());
+
+            //响应信息
+            response.setMessage(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+
+            //请求数据
+            response.setData(new byte[msg.readInt()]);
+            msg.readBytes(response.getData());
+            return pojo;
+        }else {
             return null;
         }
-        msg.skipBytes(PROTOCOL_HEADER.length());
-
-        int dataLength = msg.readInt();
-        byte[] data = new byte[dataLength];
-        msg.readBytes(data);
-        ByteArrayInput input = new ByteArrayInput(data, false);
-
-        Object pojo = pojoSupplier.get();
-        Schema schema = getSchema(pojo.getClass());
-        schema.mergeFrom(input, pojo);
-        return pojo;
     }
 
-    private static <T> Schema<T> getSchema(Class<T> cls) {
-        Schema<T> schema = (Schema<T>) CACHE_SCHEMA_MAP.get(cls);
-        if (schema == null) {
-            schema = RuntimeSchema.createFrom(cls);
-            CACHE_SCHEMA_MAP.put(cls, schema);
-        }
-        return schema;
-    }
 }

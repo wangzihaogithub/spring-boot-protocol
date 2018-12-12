@@ -5,7 +5,7 @@ import java.lang.annotation.*;
 /**
  * Created by acer01 on 2018/12/5/005.
  */
-public class RegisterFor {
+public class Protocol {
     /**
      * rpc参数 注:(客户端的接口上用， 服务端不需要用)
      */

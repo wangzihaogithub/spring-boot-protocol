@@ -22,7 +22,7 @@ public class RpcServer extends AbstractNettyServer{
      */
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private Supplier rpcRequestSupplier = RpcRequest::new;
-    private RpcEncoder rpcEncoder = new RpcEncoder(RpcResponse.class);
+    private RpcEncoder rpcEncoder = new RpcEncoder();
 
     public RpcServer(int port) {
         this("",port);

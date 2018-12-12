@@ -1,15 +1,21 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.core.util.IOUtil;
+
 /**
  * RPC响应
  * @author 84215
  */
 public class RpcResponse {
 
-    private long requestId;
-    private Integer status;
+    private boolean messageDecodeFlag;
+
+    private byte[] messageBytes;
+
+    private int requestId;
+    private int status;
     private String message;
-    private Integer encode;
+    private int encode;
     private byte[] data;
 
     //正常返回
@@ -27,11 +33,11 @@ public class RpcResponse {
     public RpcResponse() {
     }
 
-    public RpcResponse(long requestId) {
+    public RpcResponse(int requestId) {
         this.requestId = requestId;
     }
 
-    public RpcResponse(long requestId, Integer status, String message, Integer encode, byte[] data) {
+    public RpcResponse(int requestId, Integer status, String message, Integer encode, byte[] data) {
         this.requestId = requestId;
         this.status = status;
         this.message = message;
@@ -39,11 +45,11 @@ public class RpcResponse {
         this.data = data;
     }
 
-    public long getRequestId() {
+    public int getRequestId() {
         return requestId;
     }
 
-    public void setRequestId(long requestId) {
+    public void setRequestId(int requestId) {
         this.requestId = requestId;
     }
 
@@ -55,7 +61,20 @@ public class RpcResponse {
         this.status = status;
     }
 
+    byte[] getMessageBytes() {
+        return messageBytes;
+    }
+
+    void setMessageBytes(byte[] messageBytes) {
+        this.messageBytes = messageBytes;
+    }
+
     public String getMessage() {
+        if(!messageDecodeFlag && messageBytes != null){
+            messageDecodeFlag = true;
+            message = IOUtil.getString(messageBytes,RpcEncoder.CHAR_CODER);
+            messageBytes = null;
+        }
         return message;
     }
 

@@ -4,13 +4,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
-import io.protostuff.LinkedBuffer;
-import io.protostuff.ProtostuffIOUtil;
-import io.protostuff.Schema;
-import io.protostuff.runtime.RuntimeSchema;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
+import static com.github.netty.core.util.IOUtil.INT_LENGTH;
 
 
 /**
@@ -20,49 +18,76 @@ import java.util.concurrent.ConcurrentHashMap;
 @ChannelHandler.Sharable
 public class RpcEncoder extends MessageToByteEncoder {
 
-    public static final String PROTOCOL_HEADER = new String(new char[]{'N','R','P','C'});
+    public static final byte[] PROTOCOL_HEADER = new byte[]{'N','R','P','C',0,0,0,0};
     public static final byte[] END_DELIMITER = new byte[]{'E','N','D','\r','\n'};
+    public static final Charset CHAR_CODER = StandardCharsets.UTF_8;
 
-    private Class<?> genericClass;
-    private static final Map<Class<?>, Schema<?>> CACHE_SCHEMA_MAP = new ConcurrentHashMap<>();
-
-    public RpcEncoder(Class<?> genericClass) {
-        this.genericClass = genericClass;
-    }
+    public RpcEncoder() {}
 
     @Override
     public void encode(ChannelHandlerContext ctx, Object in, ByteBuf out) throws Exception {
-        if (!genericClass.isInstance(in)) {
-            return;
-        }
+        if(in instanceof RpcRequest){
+            RpcRequest request = (RpcRequest) in;
+            int writeLength;
 
-        Class cls = in.getClass();
-        LinkedBuffer buffer = LinkedBuffer.allocate(LinkedBuffer.DEFAULT_BUFFER_SIZE);
-        try {
-            Schema schema = getSchema(cls);
-            byte[] data = ProtostuffIOUtil.toByteArray(in, schema, buffer);
+            //协议头
+            int protocolLength = PROTOCOL_HEADER.length;
+            out.writeByte(protocolLength);
+            for(int i=0; i<protocolLength; i++){
+                out.writeByte(PROTOCOL_HEADER[i]);
+            }
 
-            writeHeader(out);
+            //请求ID
+            out.writeInt(request.getRequestId());
+
+            //请求服务
+            out.writerIndex(out.writerIndex() + INT_LENGTH);
+            writeLength = out.writeCharSequence(request.getServiceName(),CHAR_CODER);
+            out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
+
+            //请求方法
+            out.writerIndex(out.writerIndex() + INT_LENGTH);
+            writeLength = out.writeCharSequence(request.getMethodName(),CHAR_CODER);
+            out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
+
+            //请求数据
+            byte[] data = request.getData();
             out.writeInt(data.length);
             out.writeBytes(data);
+
+            //结束符
             out.writeBytes(END_DELIMITER);
-        }finally {
-            buffer.clear();
+        }else if(in instanceof RpcResponse){
+            RpcResponse response = (RpcResponse) in;
+            int writeLength;
+
+            //协议头
+            int protocolLength = PROTOCOL_HEADER.length;
+            out.writeByte(protocolLength);
+            for(int i=0; i<protocolLength; i++){
+                out.writeByte(PROTOCOL_HEADER[i]);
+            }
+
+            //请求ID
+            out.writeInt(response.getRequestId());
+            //响应状态
+            out.writeInt(response.getStatus());
+            //数据是否已经编码
+            out.writeByte(response.getEncode());
+
+            //响应信息
+            out.writerIndex(out.writerIndex() + INT_LENGTH);
+            writeLength = out.writeCharSequence(response.getMessage(),CHAR_CODER);
+            out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
+
+            //响应数据
+            byte[] data = response.getData();
+            out.writeInt(data.length);
+            out.writeBytes(data);
+
+            //结束符
+            out.writeBytes(END_DELIMITER);
         }
     }
 
-    private void writeHeader(ByteBuf byteBuf){
-        for(int i = 0; i< PROTOCOL_HEADER.length(); i++){
-            byteBuf.writeByte(PROTOCOL_HEADER.charAt(i));
-        }
-    }
-
-    private static <T> Schema<T> getSchema(Class<T> cls) {
-        Schema<T> schema = (Schema<T>) CACHE_SCHEMA_MAP.get(cls);
-        if (schema == null) {
-            schema = RuntimeSchema.createFrom(cls);
-            CACHE_SCHEMA_MAP.put(cls, schema);
-        }
-        return schema;
-    }
 }

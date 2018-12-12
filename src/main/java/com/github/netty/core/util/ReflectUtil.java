@@ -71,6 +71,8 @@ public class ReflectUtil {
 	 */
 	private static final Map<String, Class<?>> commonClassCache = new HashMap<>(64);
 
+	private static final ConcurrentReferenceHashMap<Integer,Method> METHOD_CACHE = new ConcurrentReferenceHashMap<>();
+
 
 	public static Class<?> resolveClassName(String className, ClassLoader classLoader)
 			throws IllegalArgumentException {
@@ -452,10 +454,16 @@ public class ReflectUtil {
 	public static Method getAccessibleMethod(final Class clazz, final String methodName,
 			final Class<?>... parameterTypes) {
 		Objects.requireNonNull(methodName, "methodName can't be blank");
-		for (Class<?> searchType = clazz; searchType != Object.class; searchType = searchType.getSuperclass()) {
+		int hash = (clazz.getName().concat(methodName).concat(Arrays.toString(parameterTypes))).hashCode();
+		Method oldMethod = METHOD_CACHE.get(hash);
+		if(oldMethod != null){
+			return oldMethod;
+		}
+		for (Class<?> searchType = clazz; searchType != Object.class && searchType != null; searchType = searchType.getSuperclass()) {
 			try {
 				Method method = searchType.getDeclaredMethod(methodName, parameterTypes);
 				makeAccessible(method);
+				METHOD_CACHE.put(hash,method);
 				return method;
 			} catch (NoSuchMethodException e) {
 				// Method不在当前类定义,继续向上转型
@@ -473,6 +481,11 @@ public class ReflectUtil {
 	public static Method getAccessibleMethodByName(final Class clazz, final String methodName, int argsNum) {
 		Objects.requireNonNull(clazz, "object can't be null");
 		Objects.requireNonNull(methodName, "methodName can't be blank");
+		int hash = (clazz.getName().concat(methodName)+ argsNum).hashCode();
+		Method oldMethod = METHOD_CACHE.get(hash);
+		if(oldMethod != null){
+			return oldMethod;
+		}
 		for (Class<?> searchType = clazz; searchType != Object.class; searchType = searchType.getSuperclass()) {
 			Method[] methods = searchType.getDeclaredMethods();
 			for (Method method : methods) {
@@ -480,6 +493,7 @@ public class ReflectUtil {
 
 				if (method.getName().equals(methodName) && types.length == argsNum) {
 					makeAccessible(method);
+					METHOD_CACHE.put(hash,method);
 					return method;
 				}
 			}
@@ -491,10 +505,10 @@ public class ReflectUtil {
 	 * 改变private/protected的方法为public，尽量不调用实际改动的语句，避免JDK的SecurityManager抱怨。
 	 */
 	public static void makeAccessible(Method method) {
-		boolean accessBoolean = (!Modifier.isPublic(method.getModifiers()) || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) && !method.isAccessible();
-		if (accessBoolean) {
+//		boolean accessBoolean = (!Modifier.isPublic(method.getModifiers()) || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) && !method.isAccessible();
+//		if (accessBoolean) {
 			method.setAccessible(true);
-		}
+//		}
 	}
 
 	/**

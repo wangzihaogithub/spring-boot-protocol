@@ -3,14 +3,19 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
+import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
+import io.netty.channel.Channel;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -27,7 +32,7 @@ public class RpcClientInstance implements InvocationHandler {
     /**
      * 生成请求id
      */
-    private static final AtomicLong REQUEST_ID_INCR = new AtomicLong();
+    private static final AttributeKey<AtomicInteger> REQUEST_ID_INCR_ATTR = AttributeKey.valueOf(AtomicInteger.class+"#AtomicInteger");
     /**
      * 数据编码解码器
      */
@@ -39,7 +44,7 @@ public class RpcClientInstance implements InvocationHandler {
     /**
      * 请求锁
      */
-    private Map<Long,RpcFuture> futureMap;
+    private Map<Integer,RpcFuture> futureMap;
 
     private Map<String,RpcMethod> rpcMethodMap;
 
@@ -47,7 +52,7 @@ public class RpcClientInstance implements InvocationHandler {
                                 Supplier<SocketChannel> channelSupplier,
                                 DataCodec dataCodec,
                                 Class interfaceClass, Function<Method,String[]> methodToParameterNamesFunction,
-                                Map<Long,RpcFuture> futureMap) {
+                                Map<Integer,RpcFuture> futureMap) {
         this.rpcMethodMap = RpcMethod.getMethodMap(interfaceClass,methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("rpc服务接口必须至少拥有一个方法, class=["+interfaceClass.getSimpleName()+"]");
@@ -63,16 +68,14 @@ public class RpcClientInstance implements InvocationHandler {
      * 新建请求id
      * @return
      */
-    protected long newRequestId(){
-        return REQUEST_ID_INCR.incrementAndGet();
-    }
-
-    /**
-     * 发送请求
-     * @param rpcRequest
-     */
-    protected void sendRequest(RpcRequest rpcRequest){
-        channelSupplier.get().writeAndFlush(rpcRequest);
+    protected int newRequestId(Channel channel){
+        Attribute<AtomicInteger> attr = channel.attr(REQUEST_ID_INCR_ATTR);
+        AtomicInteger incr = attr.get();
+        if(incr == null){
+            incr = new AtomicInteger();
+            attr.set(incr);
+        }
+        return incr.incrementAndGet();
     }
 
     /**
@@ -113,12 +116,14 @@ public class RpcClientInstance implements InvocationHandler {
             return method.invoke(this,args);
         }
 
+        Channel channel = channelSupplier.get();
+
         byte[] requestDataBytes = dataCodec.encodeRequestData(args,rpcMethod);
-        RpcRequest rpcRequest = new RpcRequest(newRequestId(),serviceName,methodName,requestDataBytes);
+        RpcRequest rpcRequest = new RpcRequest(newRequestId(channel),serviceName,methodName,requestDataBytes);
         RpcFuture future = new RpcFuture(rpcRequest);
         futureMap.put(rpcRequest.getRequestId(),future);
 
-        sendRequest(rpcRequest);
+        channel.writeAndFlush(rpcRequest);
 
         RpcResponse rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
         if(rpcResponse == null){

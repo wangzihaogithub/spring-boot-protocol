@@ -132,8 +132,8 @@ public class NettyTcpServerFactory
         List<ProtocolsRegister> protocolsRegisterList = tcpServer.getProtocolsRegisterList();
         //添加httpServlet协议注册器
         protocolsRegisterList.add(new HttpServletProtocolsRegisterSpringAdapter(properties,servletContext,this));
-        //添加内部rpc协议注册器
-        protocolsRegisterList.add(new HRpcProtocolsRegisterSpringAdapter(properties.getRpcServerMessageMaxLength(),properties.getApplication()));
+
+
     }
 
     @Override

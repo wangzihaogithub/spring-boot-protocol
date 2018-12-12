@@ -1,6 +1,6 @@
 package com.github.netty.protocol;
 
-import com.github.netty.annotation.RegisterFor;
+import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractProtocolsRegister;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.nrpc.*;
@@ -24,7 +24,7 @@ import java.util.function.Supplier;
 public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = HttpServletProtocolsRegister.ORDER + 100;
 
-    private RpcEncoder rpcEncoder = new RpcEncoder(RpcResponse.class);
+    private RpcEncoder rpcEncoder = new RpcEncoder();
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private Supplier rpcRequestSupplier = RpcRequest::new;
     private ApplicationX application;
@@ -78,7 +78,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     @Override
     public void onServerStart() throws Exception {
         //用户的服务
-        Collection list = application.getBeanForAnnotation(RegisterFor.RpcService.class);
+        Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
         for(Object serviceImpl : list){
             if(existInstance(serviceImpl)){
                 continue;

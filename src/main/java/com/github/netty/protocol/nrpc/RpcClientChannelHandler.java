@@ -24,7 +24,7 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponse,
     /**
      * 请求锁
      */
-    private Map<Long,RpcFuture> futureMap;
+    private Map<Integer,RpcFuture> futureMap;
     /**
      * 获取链接
      */
@@ -43,7 +43,7 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponse,
         this.dataCodec = dataCodec;
         try {
             //用于4.0.x版本至4.1.x版本的适配
-            this.futureMap = longObjectHashMapConstructor != null? (Map<Long, RpcFuture>) longObjectHashMapConstructor.newInstance(64) : new HashMap<>(64);
+            this.futureMap = intObjectHashMapConstructor != null? (Map<Integer, RpcFuture>) intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64);
         } catch (Exception e) {
             this.futureMap = new HashMap<>(64);
         }
@@ -92,14 +92,14 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponse,
         return rpcInstance;
     }
 
-    private static Constructor<?> longObjectHashMapConstructor;
+    private static Constructor<?> intObjectHashMapConstructor;
     static {
         try {
-            Class<?> longObjectHashMapClass = Class.forName("io.netty.util.collection.LongObjectHashMap");
-            Constructor constructor = longObjectHashMapClass.getConstructor(int.class);
-            longObjectHashMapConstructor = constructor;
+            Class<?> intObjectHashMapClass = Class.forName("io.netty.util.collection.IntObjectHashMap");
+            Constructor constructor = intObjectHashMapClass.getConstructor(int.class);
+            intObjectHashMapConstructor = constructor;
         } catch (Exception e) {
-            longObjectHashMapConstructor = null;
+            intObjectHashMapConstructor = null;
         }
     }
 

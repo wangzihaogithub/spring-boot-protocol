@@ -1,6 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.annotation.RegisterFor;
+import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.ReflectUtil;
@@ -37,7 +37,7 @@ public class RpcClient extends AbstractNettyClient{
      * rpc客户端处理器
      */
     private RpcClientChannelHandler rpcClientHandler = new RpcClientChannelHandler(this::getSocketChannel);
-    private RpcEncoder rpcEncoder = new RpcEncoder(RpcRequest.class);
+    private RpcEncoder rpcEncoder = new RpcEncoder();
     private Supplier rpcResponseSupplier = RpcResponse::new;
     /**
      * 实例
@@ -102,10 +102,10 @@ public class RpcClient extends AbstractNettyClient{
      * @return  接口的实现类
      */
     public <T>T newInstance(Class<T> clazz){
-        int timeout = RegisterFor.RpcService.DEFAULT_TIME_OUT;
+        int timeout = Protocol.RpcService.DEFAULT_TIME_OUT;
         String serviceName = "";
 
-        RegisterFor.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(clazz, RegisterFor.RpcService.class);
+        Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(clazz, Protocol.RpcService.class);
         if (rpcInterfaceAnn != null) {
             timeout = rpcInterfaceAnn.timeout();
             serviceName = rpcInterfaceAnn.value();
@@ -125,7 +125,7 @@ public class RpcClient extends AbstractNettyClient{
      * @return 接口的实现类
      */
     public <T>T newInstance(Class<T> clazz,int timeout,String serviceName){
-        return newInstance(clazz,timeout,serviceName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(RegisterFor.RpcParam.class)));
+        return newInstance(clazz,timeout,serviceName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(Protocol.RpcParam.class)));
     }
 
     /**
@@ -193,6 +193,12 @@ public class RpcClient extends AbstractNettyClient{
         SocketChannel socketChannel = super.getSocketChannel();
         if(socketChannel == null){
             throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no connect");
+        }
+        if(!socketChannel.isActive()){
+            throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no active");
+        }
+        if(!socketChannel.isWritable()){
+            throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no writable");
         }
         return socketChannel;
     }
