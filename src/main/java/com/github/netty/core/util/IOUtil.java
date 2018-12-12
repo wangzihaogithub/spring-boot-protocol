@@ -15,7 +15,7 @@ import java.util.Iterator;
  *  2018/8/11/011
  */
 public class IOUtil {
-
+    public static final int BYTE_LENGTH = 1;
     public static final int INT_LENGTH = 4;
     public static final int LONG_LENGTH = 8;
 

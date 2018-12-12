@@ -8,6 +8,8 @@ import io.netty.util.ReferenceCountUtil;
 
 import java.util.function.Supplier;
 
+import static com.github.netty.core.util.IOUtil.INT_LENGTH;
+import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
 import static com.github.netty.protocol.nrpc.RpcEncoder.*;
 
 /**
@@ -18,7 +20,9 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
     /**
      * 数据包最小长度
      */
-    private static final int MIN_PACKET_LENGTH = PROTOCOL_HEADER.length + 4;
+    public static final int MIN_PACKET_LENGTH =
+            //协议头长度 + 协议头 + 4个字段最小长度 + 结束符
+            BYTE_LENGTH + PROTOCOL_HEADER.length + INT_LENGTH * 4 + END_DELIMITER.length;
     private Supplier pojoSupplier;
 
     public RpcDecoder(Supplier pojoSupplier) {
@@ -33,8 +37,7 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
     @Override
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
         ByteBuf msg = (ByteBuf) super.decode(ctx, buffer);
-
-        if(msg == null || msg.readableBytes() <= MIN_PACKET_LENGTH){
+        if(msg == null || msg.readableBytes() < MIN_PACKET_LENGTH){
             return null;
         }
 
@@ -66,16 +69,20 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
             request.setRequestId(msg.readInt());
 
             //请求服务
-            request.setServiceName(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+            request.setServiceName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
             //请求方法
-            request.setMethodName(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+            request.setMethodName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
             //请求数据
-            request.setData(new byte[msg.readInt()]);
-            msg.readBytes(request.getData());
+            int dataLength = msg.readInt();
+            if(dataLength > 0) {
+                request.setData(new byte[dataLength]);
+                msg.readBytes(request.getData());
+            }else {
+                request.setData(RpcUtil.EMPTY);
+            }
             return pojo;
-
         }else if(pojo instanceof RpcResponse){
             RpcResponse response = (RpcResponse) pojo;
 
@@ -90,14 +97,19 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
             response.setStatus(msg.readInt());
 
             //数据是否已经编码
-            response.setEncode((int) msg.readByte());
+            response.setEncode(msg.readByte());
 
             //响应信息
-            response.setMessage(msg.readCharSequence(msg.readInt(),CHAR_CODER).toString());
+            response.setMessage(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
             //请求数据
-            response.setData(new byte[msg.readInt()]);
-            msg.readBytes(response.getData());
+            int dataLength = msg.readInt();
+            if(dataLength > 0) {
+                response.setData(new byte[dataLength]);
+                msg.readBytes(response.getData());
+            }else {
+                response.setData(RpcUtil.EMPTY);
+            }
             return pojo;
         }else {
             return null;

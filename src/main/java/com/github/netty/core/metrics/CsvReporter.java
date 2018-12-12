@@ -4,7 +4,7 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 
 import java.io.*;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
 import java.util.SortedMap;
@@ -160,7 +160,6 @@ public class CsvReporter extends ScheduledReporter {
     }
 
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(CsvReporter.class);
-    private static final Charset UTF_8 = Charset.forName("UTF-8");
 
     private final File directory;
     private final Locale locale;
@@ -285,7 +284,7 @@ public class CsvReporter extends ScheduledReporter {
             final File file = csvFileProvider.getFile(directory, name);
             final boolean fileAlreadyExists = file.exists();
             if (fileAlreadyExists || file.createNewFile()) {
-                final PrintWriter out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file,true), UTF_8));
+                final PrintWriter out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(file,true), StandardCharsets.UTF_8));
                 try {
                     if (!fileAlreadyExists) {
                         out.println("t," + header);

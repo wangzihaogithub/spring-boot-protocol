@@ -20,7 +20,7 @@ public class RpcEncoder extends MessageToByteEncoder {
 
     public static final byte[] PROTOCOL_HEADER = new byte[]{'N','R','P','C',0,0,0,0};
     public static final byte[] END_DELIMITER = new byte[]{'E','N','D','\r','\n'};
-    public static final Charset CHAR_CODER = StandardCharsets.UTF_8;
+    public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
 
     public RpcEncoder() {}
 
@@ -31,29 +31,28 @@ public class RpcEncoder extends MessageToByteEncoder {
             int writeLength;
 
             //协议头
-            int protocolLength = PROTOCOL_HEADER.length;
-            out.writeByte(protocolLength);
-            for(int i=0; i<protocolLength; i++){
-                out.writeByte(PROTOCOL_HEADER[i]);
-            }
+            out.writeByte(PROTOCOL_HEADER.length);
+            out.writeBytes(PROTOCOL_HEADER);
 
             //请求ID
             out.writeInt(request.getRequestId());
 
             //请求服务
             out.writerIndex(out.writerIndex() + INT_LENGTH);
-            writeLength = out.writeCharSequence(request.getServiceName(),CHAR_CODER);
+            writeLength = out.writeCharSequence(request.getServiceName(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
             //请求方法
             out.writerIndex(out.writerIndex() + INT_LENGTH);
-            writeLength = out.writeCharSequence(request.getMethodName(),CHAR_CODER);
+            writeLength = out.writeCharSequence(request.getMethodName(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
             //请求数据
             byte[] data = request.getData();
             out.writeInt(data.length);
-            out.writeBytes(data);
+            if(data.length > 0){
+                out.writeBytes(data);
+            }
 
             //结束符
             out.writeBytes(END_DELIMITER);
@@ -62,11 +61,8 @@ public class RpcEncoder extends MessageToByteEncoder {
             int writeLength;
 
             //协议头
-            int protocolLength = PROTOCOL_HEADER.length;
-            out.writeByte(protocolLength);
-            for(int i=0; i<protocolLength; i++){
-                out.writeByte(PROTOCOL_HEADER[i]);
-            }
+            out.writeByte(PROTOCOL_HEADER.length);
+            out.writeBytes(PROTOCOL_HEADER);
 
             //请求ID
             out.writeInt(response.getRequestId());
@@ -77,13 +73,15 @@ public class RpcEncoder extends MessageToByteEncoder {
 
             //响应信息
             out.writerIndex(out.writerIndex() + INT_LENGTH);
-            writeLength = out.writeCharSequence(response.getMessage(),CHAR_CODER);
+            writeLength = out.writeCharSequence(response.getMessage(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
             //响应数据
             byte[] data = response.getData();
             out.writeInt(data.length);
-            out.writeBytes(data);
+            if(data.length > 0) {
+                out.writeBytes(data);
+            }
 
             //结束符
             out.writeBytes(END_DELIMITER);

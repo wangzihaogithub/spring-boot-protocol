@@ -6,6 +6,7 @@ import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.util.TypeUtils;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,8 +15,7 @@ import java.util.Map;
  */
 public class JsonDataCodec implements DataCodec {
 
-    private static final Charset UTF8 = Charset.forName("UTF-8");
-    private static final byte[] EMPTY = new byte[0];
+    private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static SerializerFeature[] SERIALIZER_FEATURES = {
 //            SerializerFeature.WriteClassName
     };
@@ -41,7 +41,7 @@ public class JsonDataCodec implements DataCodec {
     @Override
     public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
         if(data == null || data.length == 0){
-            return EMPTY;
+            return RpcUtil.EMPTY;
         }
 
         String[] parameterNames = rpcMethod.getParameterNames();
@@ -84,7 +84,7 @@ public class JsonDataCodec implements DataCodec {
     @Override
     public byte[] encodeResponseData(Object data) {
         if(data == null){
-            return EMPTY;
+            return RpcUtil.EMPTY;
         }
         return JSON.toJSONBytes(data,SERIALIZER_FEATURES);
     }

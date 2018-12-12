@@ -3,7 +3,7 @@ package com.github.netty.core.metrics;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -13,8 +13,6 @@ import static java.lang.Math.floor;
  * A statistical snapshot of a {@link UniformSnapshot}.
  */
 public class UniformSnapshot extends Snapshot {
-    private static final Charset UTF_8 = Charset.forName("UTF-8");
-
     private final long[] values;
 
     /**
@@ -169,7 +167,7 @@ public class UniformSnapshot extends Snapshot {
      */
     @Override
     public void dump(OutputStream output) {
-        final PrintWriter out = new PrintWriter(new OutputStreamWriter(output, UTF_8));
+        final PrintWriter out = new PrintWriter(new OutputStreamWriter(output, StandardCharsets.UTF_8));
         try {
             for (long value : values) {
                 out.printf("%d%n", value);

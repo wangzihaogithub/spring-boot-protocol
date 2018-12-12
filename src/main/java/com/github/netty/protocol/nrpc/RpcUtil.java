@@ -14,6 +14,8 @@ import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
  */
 public class RpcUtil {
 
+    public static final byte[] EMPTY = new byte[0];
+
     /**
      * 获取服务名称
      * @param instanceClass
@@ -42,6 +44,9 @@ public class RpcUtil {
      * @return true=是, false=否
      */
     public static boolean isRpcProtocols(ByteBuf msg){
+        if(msg == null || msg.readableBytes() < RpcDecoder.MIN_PACKET_LENGTH){
+            return false;
+        }
         int protocolLength = msg.getByte(0);
         if(PROTOCOL_HEADER.length != protocolLength){
             return false;

@@ -1,21 +1,15 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.util.IOUtil;
-
 /**
  * RPC响应
  * @author 84215
  */
 public class RpcResponse {
 
-    private boolean messageDecodeFlag;
-
-    private byte[] messageBytes;
-
     private int requestId;
     private int status;
     private String message;
-    private int encode;
+    private byte encode;
     private byte[] data;
 
     //正常返回
@@ -27,8 +21,8 @@ public class RpcResponse {
     //服务器错误
     public static final int SERVER_ERROR = 500;
 
-    public static final int ENCODE_YES = 1;
-    public static final int ENCODE_NO = 0;
+    public static final byte ENCODE_YES = 1;
+    public static final byte ENCODE_NO = 0;
 
     public RpcResponse() {
     }
@@ -37,7 +31,7 @@ public class RpcResponse {
         this.requestId = requestId;
     }
 
-    public RpcResponse(int requestId, Integer status, String message, Integer encode, byte[] data) {
+    public RpcResponse(int requestId, Integer status, String message, byte encode, byte[] data) {
         this.requestId = requestId;
         this.status = status;
         this.message = message;
@@ -61,20 +55,7 @@ public class RpcResponse {
         this.status = status;
     }
 
-    byte[] getMessageBytes() {
-        return messageBytes;
-    }
-
-    void setMessageBytes(byte[] messageBytes) {
-        this.messageBytes = messageBytes;
-    }
-
     public String getMessage() {
-        if(!messageDecodeFlag && messageBytes != null){
-            messageDecodeFlag = true;
-            message = IOUtil.getString(messageBytes,RpcEncoder.CHAR_CODER);
-            messageBytes = null;
-        }
         return message;
     }
 
@@ -82,11 +63,11 @@ public class RpcResponse {
         this.message = message;
     }
 
-    public Integer getEncode() {
+    public byte getEncode() {
         return encode;
     }
 
-    public void setEncode(Integer encode) {
+    public void setEncode(byte encode) {
         this.encode = encode;
     }
 

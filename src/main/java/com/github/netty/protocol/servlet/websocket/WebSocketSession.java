@@ -16,7 +16,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -450,7 +450,7 @@ public class WebSocketSession implements Session {
             if(writer == null){
                 synchronized (this){
                     if(writer == null){
-                        writer = new OutputStreamWriter(getSendStream(), Charset.forName("UTF-8"));
+                        writer = new OutputStreamWriter(getSendStream(), StandardCharsets.UTF_8);
                     }
                 }
             }

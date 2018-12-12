@@ -9,6 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.ReferenceCountUtil;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -56,7 +57,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             return;
         }
 
-        logger.warn("Received no support protocols. message=[{}]",msg.toString(Charset.forName("UTF-8")));
+        logger.warn("Received no support protocols. message=[{}]",msg.toString(StandardCharsets.UTF_8));
         if(msg.refCnt() > 0) {
             ReferenceCountUtil.release(msg);
         }
