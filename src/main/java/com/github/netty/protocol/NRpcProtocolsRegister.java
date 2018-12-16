@@ -18,6 +18,8 @@ import java.util.function.Supplier;
 
 /**
  * 内部RPC协议注册器
+ *
+ *  |8字节固定协议头| body | END\r\n结束符|
  * @author acer01
  * 2018/11/25/025
  */
