@@ -2,6 +2,7 @@ package com.github.netty.core.util;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.util.ReferenceCountUtil;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -143,6 +144,29 @@ public class IOUtil {
                 buffer.writeBytes(byteBuffer);
             }
             return buffer;
+        }
+    }
+
+    /**
+     * 读文件至byte[]
+     * @param sourcePath 路径
+     * @param sourceFileName 文件名称
+     * @return byte[]
+     * @throws IOException
+     */
+    public static byte[] readFileToBytes(String sourcePath, String sourceFileName) throws IOException {
+        ByteBuf byteBuf = readFileToByteBuffer(sourcePath,sourceFileName);
+        writerModeToReadMode(byteBuf);
+        try {
+            if (byteBuf.hasArray()) {
+                return byteBuf.array();
+            }else {
+                byte[] bytes = new byte[byteBuf.readableBytes()];
+                byteBuf.writeBytes(bytes);
+                return bytes;
+            }
+        }finally {
+            ReferenceCountUtil.safeRelease(byteBuf);
         }
     }
 
