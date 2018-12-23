@@ -123,8 +123,9 @@ public class IOUtil {
      * @param sourceFileName 文件名称
      * @return bytebuffer
      * @throws FileNotFoundException
+     * @throws IOException
      */
-    public static ByteBuf readFileToByteBuffer(String sourcePath, String sourceFileName) throws IOException {
+    public static ByteBuf readFileToByteBuffer(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
         if(sourcePath == null){
             sourcePath = "";
         }
@@ -152,9 +153,10 @@ public class IOUtil {
      * @param sourcePath 路径
      * @param sourceFileName 文件名称
      * @return byte[]
+     * @throws FileNotFoundException
      * @throws IOException
      */
-    public static byte[] readFileToBytes(String sourcePath, String sourceFileName) throws IOException {
+    public static byte[] readFileToBytes(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
         ByteBuf byteBuf = readFileToByteBuffer(sourcePath,sourceFileName);
         writerModeToReadMode(byteBuf);
         try {
@@ -325,6 +327,18 @@ public class IOUtil {
 
     public static short getShortLE(byte[] memory, int index) {
         return (short) (memory[index] & 0xff | memory[index + 1] << 8);
+    }
+
+    public static long getUnsignedInt(byte[] memory, int index) {
+        return getInt(memory,index) & 0x0FFFFFFFFL;
+    }
+
+    public static int getUnsignedByte(byte[] memory, int index) {
+        return getByte(memory,index) & 0x0FF;
+    }
+
+    public static int getUnsignedShort(byte[] memory, int index) {
+        return getShort(memory,index) & 0x0FFFF;
     }
 
     public static int getUnsignedMedium(byte[] memory, int index) {
