@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 
@@ -29,12 +29,7 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
      */
     private ServletFilterChain filterChain;
 
-    private static final AbstractRecycler<ServletRequestDispatcher> RECYCLER = new AbstractRecycler<ServletRequestDispatcher>() {
-        @Override
-        protected ServletRequestDispatcher newInstance() {
-            return new ServletRequestDispatcher();
-        }
-    };
+    private static final Recycler<ServletRequestDispatcher> RECYCLER = new Recycler<>(ServletRequestDispatcher::new) ;
 
     private ServletRequestDispatcher() {}
 

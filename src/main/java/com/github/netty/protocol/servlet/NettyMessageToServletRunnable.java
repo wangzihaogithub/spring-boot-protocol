@@ -1,7 +1,7 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.ByteBufAllocatorX;
 import com.github.netty.core.util.Recyclable;
 import io.netty.channel.ChannelHandlerContext;
@@ -26,12 +26,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     public static final AtomicLong SERVLET_QUERY_COUNT = new AtomicLong();
     private ServletContext servletContext;
 
-    private static final AbstractRecycler<HttpRunnable> RECYCLER = new AbstractRecycler<HttpRunnable>() {
-        @Override
-        protected HttpRunnable newInstance() {
-            return new HttpRunnable();
-        }
-    };
+    private static final Recycler<HttpRunnable> RECYCLER = new Recycler<>(HttpRunnable::new);
 
     public NettyMessageToServletRunnable(ServletContext servletContext) {
         this.servletContext = servletContext;

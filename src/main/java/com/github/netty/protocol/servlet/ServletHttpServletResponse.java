@@ -26,12 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @sun.misc.Contended
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse,Recyclable {
 
-    private static final AbstractRecycler<ServletHttpServletResponse> RECYCLER = new AbstractRecycler<ServletHttpServletResponse>() {
-        @Override
-        protected ServletHttpServletResponse newInstance() {
-            return new ServletHttpServletResponse();
-        }
-    };
+    private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
 
     private ServletHttpObject httpServletObject;
     private NettyHttpResponse nettyResponse = new NettyHttpResponse();

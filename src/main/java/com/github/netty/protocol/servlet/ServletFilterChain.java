@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 
 import javax.servlet.*;
@@ -34,12 +34,7 @@ public class ServletFilterChain implements FilterChain,Recyclable {
     public static final AtomicLong FILTER_TIME = new AtomicLong();
     private long beginTime;
 
-    private static final AbstractRecycler<ServletFilterChain> RECYCLER = new AbstractRecycler<ServletFilterChain>() {
-        @Override
-        protected ServletFilterChain newInstance() {
-            return new ServletFilterChain();
-        }
-    };
+    private static final Recycler<ServletFilterChain> RECYCLER = new Recycler<>(ServletFilterChain::new);
 
     protected ServletFilterChain(){}
 

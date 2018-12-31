@@ -2,8 +2,10 @@ package com.github.netty.core.util;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
  * 回收者 (可以控制实例数量, 保证实例平稳, 不爆增,不爆减. 减少gc次数)
@@ -12,35 +14,35 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author 84215
  */
-public abstract class AbstractRecycler<T>   {
+public class Recycler<T> {
 
-    /**
-     * 系统中所有的回收者列表
-     */
-    private static final List<AbstractRecycler> RECYCLER_LIST = new LinkedList<>();
     /**
      * 当前对象的实例队列
      */
     private Queue<T> queue;
     /**
-     * 系统中所有的回收者列表(为了断点时候方便看)
+     * 当前对象的新建实例工厂
      */
-    private List<AbstractRecycler> recyclerList;
+    private Supplier<T> supplier;
 
+    /**
+     * 系统中所有的回收者
+     */
+    private static final List<Recycler> RECYCLER_LIST = new LinkedList<>();
     public static final AtomicInteger TOTAL_COUNT = new AtomicInteger();
     public static final AtomicInteger HIT_COUNT = new AtomicInteger();
 
-    public AbstractRecycler() {
-        this(15);
+    public Recycler(Supplier<T> supplier) {
+        this(15,supplier);
     }
 
-    public AbstractRecycler(int instanceCount) {
+    public Recycler(int instanceCount, Supplier<T> supplier) {
+        this.supplier = Objects.requireNonNull(supplier);
         this.queue = new Queue<>();
         RECYCLER_LIST.add(this);
-        recyclerList = RECYCLER_LIST;
 
         for(int i=0; i< instanceCount; i++) {
-            recycleInstance(newInstance());
+            recycleInstance(supplier.get());
         }
     }
 
@@ -48,26 +50,20 @@ public abstract class AbstractRecycler<T>   {
      * 获取系统中所有的回收者列表
      * @return
      */
-    public static List<AbstractRecycler> getRecyclerList() {
+    public static List<Recycler> getRecyclerList() {
         return RECYCLER_LIST;
     }
-
-    /**
-     * 新建实例
-     * @return
-     */
-    protected abstract T newInstance();
 
     /**
      * 获取一个实例
      * @return
      */
     public T getInstance() {
-//        return newInstance();
+//        return supplier.get();
         TOTAL_COUNT.incrementAndGet();
         T value = queue.pop();
         if(value == null){
-            value = newInstance();
+            value = supplier.get();
         }else {
             HIT_COUNT.incrementAndGet();
         }
@@ -86,7 +82,7 @@ public abstract class AbstractRecycler<T>   {
      * 实例的队列
      * @param <E>
      */
-    private class Queue<E> extends ConcurrentLinkedDeque<E> {
+    private static class Queue<E> extends ConcurrentLinkedDeque<E> {
          @Override
          public void push(E e) {
              super.push(e);

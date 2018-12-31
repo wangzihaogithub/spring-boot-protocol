@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.HttpHeaderUtil;
 import io.netty.channel.ChannelHandlerContext;
@@ -19,12 +19,7 @@ import java.net.SocketAddress;
  */
 public class ServletHttpObject implements Recyclable{
 
-    private static final AbstractRecycler<ServletHttpObject> RECYCLER = new AbstractRecycler<ServletHttpObject>() {
-        @Override
-        protected ServletHttpObject newInstance() {
-            return new ServletHttpObject();
-        }
-    };
+    private static final Recycler<ServletHttpObject> RECYCLER = new Recycler<>(ServletHttpObject::new);
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
 
     private ServletHttpServletRequest httpServletRequest;

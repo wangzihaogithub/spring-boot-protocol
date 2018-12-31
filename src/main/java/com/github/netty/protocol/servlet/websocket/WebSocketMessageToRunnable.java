@@ -1,7 +1,7 @@
 package com.github.netty.protocol.servlet.websocket;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.TypeUtil;
 import io.netty.channel.ChannelHandlerContext;
@@ -18,12 +18,7 @@ import java.util.Set;
  */
 public class WebSocketMessageToRunnable implements MessageToRunnable {
 
-    private static final AbstractRecycler<WebsocketTask> RECYCLER = new AbstractRecycler<WebsocketTask>() {
-        @Override
-        protected WebsocketTask newInstance() {
-            return new WebsocketTask();
-        }
-    };
+    private static final Recycler<WebsocketTask> RECYCLER = new Recycler<>(WebsocketTask::new);
 
     private MessageToRunnable parent;
 

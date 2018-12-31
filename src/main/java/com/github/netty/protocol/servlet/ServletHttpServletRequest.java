@@ -2,7 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.StringUtil;
@@ -38,12 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @sun.misc.Contended
 public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
 
-    private static final AbstractRecycler<ServletHttpServletRequest> RECYCLER = new AbstractRecycler<ServletHttpServletRequest>() {
-        @Override
-        protected ServletHttpServletRequest newInstance() {
-            return new ServletHttpServletRequest();
-        }
-    };
+    private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
 
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};

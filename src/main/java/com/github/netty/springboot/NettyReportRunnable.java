@@ -1,6 +1,6 @@
 package com.github.netty.springboot;
 
-import com.github.netty.core.util.AbstractRecycler;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ThreadPoolX;
@@ -74,8 +74,8 @@ public class NettyReportRunnable implements Runnable{
             joiner.add("filter平均时间="+ formatRate(filterAvgRuntime,4)+"ms, ");
 //            joiner.add("\r\n "+filterJoin.toString());
 
-            int recyclerTotal = AbstractRecycler.TOTAL_COUNT.get();
-            int recyclerHit = AbstractRecycler.HIT_COUNT.get();
+            int recyclerTotal = Recycler.TOTAL_COUNT.get();
+            int recyclerHit = Recycler.HIT_COUNT.get();
             double hitRate = (double) recyclerHit/(double) recyclerTotal;
             joiner.add("\r\n获取实例次数="+ recyclerTotal+"次");
             joiner.add("实例命中="+ recyclerHit+"次");

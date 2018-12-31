@@ -146,12 +146,7 @@ public class ByteBufAllocatorX implements ByteBufAllocator {
 
     private static class PooledChannelHandlerContext implements ChannelHandlerContext,Wrapper<ChannelHandlerContext>,Recyclable {
         private ChannelHandlerContext source;
-        private static final AbstractRecycler<PooledChannelHandlerContext> RECYCLER = new AbstractRecycler<PooledChannelHandlerContext>() {
-            @Override
-            protected PooledChannelHandlerContext newInstance() {
-                return new PooledChannelHandlerContext();
-            }
-        };
+        private static final Recycler<PooledChannelHandlerContext> RECYCLER = new Recycler<>(PooledChannelHandlerContext::new);
 
         private PooledChannelHandlerContext() {}
 

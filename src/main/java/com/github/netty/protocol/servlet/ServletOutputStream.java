@@ -45,12 +45,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     private ChannelFutureListener closeListenerWrapper = new CloseListenerRecycleWrapper();
     private int responseWriterChunkMaxHeapByteLength;
 
-    private static final AbstractRecycler<ServletOutputStream> RECYCLER = new AbstractRecycler<ServletOutputStream>() {
-        @Override
-        protected ServletOutputStream newInstance() {
-            return new ServletOutputStream();
-        }
-    };
+    private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
     protected ServletOutputStream() {}
 
@@ -497,12 +492,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         private boolean isCloseChannel;
         private ChannelFutureListener finishListener;
 
-        private static final AbstractRecycler<FlushListener> RECYCLER = new AbstractRecycler<FlushListener>() {
-            @Override
-            protected FlushListener newInstance() {
-                return new FlushListener();
-            }
-        };
+        private static final Recycler<FlushListener> RECYCLER = new Recycler<>(FlushListener::new);
 
         private static FlushListener newInstance(boolean isCloseChannel, ChannelFutureListener finishListener) {
             FlushListener instance = RECYCLER.getInstance();
