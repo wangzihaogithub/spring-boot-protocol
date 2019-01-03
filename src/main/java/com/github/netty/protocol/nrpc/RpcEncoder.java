@@ -19,7 +19,7 @@ import static com.github.netty.core.util.IOUtil.INT_LENGTH;
 public class RpcEncoder extends MessageToByteEncoder {
 
     public static final byte[] PROTOCOL_HEADER = new byte[]{'N','R','P','C',0,0,0,0};
-    public static final byte[] END_DELIMITER = new byte[]{'E','N','D','\r','\n'};
+    public static final byte[] END_DELIMITER = new byte[]{'E','O','F','\r','\n'};
     public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
 
     public RpcEncoder() {}
