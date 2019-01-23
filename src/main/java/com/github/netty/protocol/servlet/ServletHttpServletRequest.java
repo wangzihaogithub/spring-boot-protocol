@@ -1121,6 +1121,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.asyncContext = null;
         this.httpServletObject = null;
         this.reader = null;
+        this.multipartConfigElement = null;
+        this.servletSecurityElement = null;
 
         this.parameterMap.clear();
         this.fileUploadList.clear();

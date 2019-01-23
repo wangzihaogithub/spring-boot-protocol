@@ -111,12 +111,12 @@ public class ServletUtil {
     }
 
     public static Cookie[] decodeCookie(String value){
-        if(value == null){
+        if(value == null || value.isEmpty()){
             return null;
         }
 
         Collection<io.netty.handler.codec.http.Cookie> nettyCookieSet = CookieCodecUtil.decode(value);
-        if(nettyCookieSet == null){
+        if(nettyCookieSet == null || nettyCookieSet.isEmpty()){
             return null;
         }
 
