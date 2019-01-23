@@ -5,6 +5,11 @@ import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.UrlMapper;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.DiskAttribute;
+import io.netty.handler.codec.http.multipart.DiskFileUpload;
+import io.netty.handler.codec.http.multipart.HttpDataFactory;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.*;
 import javax.servlet.descriptor.JspConfigDescriptor;
@@ -15,7 +20,9 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -33,10 +40,20 @@ public class ServletContext implements javax.servlet.ServletContext {
      * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
      */
     private int responseWriterChunkMaxHeapByteLength = 4096;
+    /**
+     * 上传文件最小长度，单位：字节（如果大于16KB, 会变为临时文件存储）
+     */
+    private long uploadMinSize = 4096 * 16;
     private Map<String,Object> attributeMap = new HashMap<>(16);
     private Map<String,String> initParamMap = new HashMap<>(16);
     private Map<String,ServletRegistration> servletRegistrationMap = new HashMap<>(8);
     private Map<String,ServletFilterRegistration> filterRegistrationMap = new HashMap<>(8);
+    private FastThreadLocal<Map<Charset,HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset,HttpDataFactory>>(){
+        @Override
+        protected Map<Charset,HttpDataFactory> initialValue() throws Exception {
+            return new HashMap<>(5);
+        }
+    };
     private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE,SessionTrackingMode.URL));
 
 //    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
@@ -64,6 +81,11 @@ public class ServletContext implements javax.servlet.ServletContext {
         String workspace = '/' + (HostUtil.isLocalhost(socketAddress.getHostName())? "localhost":socketAddress.getHostName());
         this.resourceManager = new ResourceManager(docBase,workspace,classLoader);
         this.resourceManager.mkdirs("/");
+
+        DiskFileUpload.deleteOnExitTemporaryFile = true;
+        DiskAttribute.deleteOnExitTemporaryFile = true;
+        DiskFileUpload.baseDirectory = resourceManager.getRealPath("/");
+        DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
     }
 
     public ExecutorService getAsyncExecutorService() {
@@ -76,6 +98,24 @@ public class ServletContext implements javax.servlet.ServletContext {
             }
         }
         return asyncExecutorService;
+    }
+
+    public HttpDataFactory getHttpDataFactory(Charset charset){
+        Map<Charset,HttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
+        HttpDataFactory factory = httpDataFactoryMap.get(charset);
+        if(factory == null){
+            factory = new DefaultHttpDataFactory(uploadMinSize,charset);
+            httpDataFactoryMap.put(charset, factory);
+        }
+        return factory;
+    }
+
+    public long getUploadMinSize() {
+        return uploadMinSize;
+    }
+
+    public void setUploadMinSize(long uploadMinSize) {
+        this.uploadMinSize = uploadMinSize;
     }
 
     public MimeMappingsX getMimeMappings() {

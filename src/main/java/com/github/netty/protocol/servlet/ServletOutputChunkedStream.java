@@ -6,9 +6,13 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
+import io.netty.handler.stream.ChunkedWriteHandler;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,6 +68,18 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             NettyHttpResponse nettyResponse = getHttpServletObject().getHttpServletResponse().getNettyResponse();
             LastHttpContent lastHttpContent = nettyResponse.enableTransferEncodingChunked();
             chunkedInput.setLastHttpContent(lastHttpContent);
+
+            ChannelPipeline pipeline = getHttpServletObject().getChannelHandlerContext().channel().pipeline();
+            if(pipeline.context(ChunkedWriteHandler.class) == null) {
+                ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
+                if(httpContext == null){
+                    httpContext = pipeline.context(HttpRequestDecoder.class);
+                }
+                if(httpContext != null) {
+                    pipeline.addAfter(
+                            httpContext.name(), "ChunkedWrite",new ChunkedWriteHandler());
+                }
+            }
 
             super.sendResponse(future -> {
                 ChannelHandlerContext channel = getHttpServletObject().getChannelHandlerContext();

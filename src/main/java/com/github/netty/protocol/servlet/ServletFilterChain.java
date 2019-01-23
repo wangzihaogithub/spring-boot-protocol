@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.protocol.servlet.util.ServletUtil;
 
 import javax.servlet.*;
 import java.io.IOException;
@@ -56,6 +57,9 @@ public class ServletFilterChain implements FilterChain,Recyclable {
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
 
         if(pos == 0){
+            ServletHttpServletRequest httpServletRequest = ServletUtil.unWrapper(request);
+            httpServletRequest.setMultipartConfigElement(servletRegistration.getMultipartConfigElement());
+            httpServletRequest.setServletSecurityElement(servletRegistration.getServletSecurityElement());
             if(listenerManager.hasServletRequestListener()) {
                 listenerManager.onServletRequestInitialized(new ServletRequestEvent(servletContext,request));
             }

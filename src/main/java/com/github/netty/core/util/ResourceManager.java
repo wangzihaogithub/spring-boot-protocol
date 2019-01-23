@@ -19,6 +19,14 @@ public class ResourceManager {
     private ClassLoader classLoader;
     private String workspace;
 
+    public ResourceManager(String rootPath) {
+        this(rootPath,"");
+    }
+
+    public ResourceManager(String rootPath, String workspace) {
+        this(rootPath,workspace,ResourceManager.class.getClassLoader());
+    }
+
     public ResourceManager(String rootPath, String workspace,ClassLoader classLoader) {
         if(rootPath == null || rootPath.isEmpty()){
             throw new IllegalStateException("path empty");
@@ -204,6 +212,9 @@ public class ResourceManager {
      * @return
      */
     public String getRealPath(String path) {
+        if(path == null || path.isEmpty()){
+            path = File.separator;
+        }
         if (path.length() > 0 && path.charAt(0) != '/') {
             path = File.separator.concat(path);
         }
@@ -218,6 +229,17 @@ public class ResourceManager {
 
     public ClassLoader getClassLoader() {
         return classLoader;
+    }
+
+    /**
+     * 写文件
+     * @param inputStream 数据
+     * @param targetPath 路径
+     * @param targetFileName 文件名称
+     * @throws IOException
+     */
+    public void writeFile(InputStream inputStream, String targetPath, String targetFileName) throws IOException {
+        IOUtil.writeFile(inputStream, getRealPath(targetPath),targetFileName,false,8192);
     }
 
     /**

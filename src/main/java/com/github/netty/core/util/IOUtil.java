@@ -44,9 +44,9 @@ public class IOUtil {
         File outFile = new File(targetPath.concat(File.separator).concat(targetFileName));
 
         try(FileInputStream in =  new FileInputStream(inFile);
-            FileOutputStream out = new FileOutputStream(outFile,append)) {
+            FileOutputStream out = new FileOutputStream(outFile,append);
             FileChannel inChannel = in.getChannel();
-            FileChannel outChannel = out.getChannel();
+            FileChannel outChannel = out.getChannel()) {
             ByteBuffer buffer = ByteBuffer.allocate(buffCapacity);
             while (true) {
                 buffer.clear();
@@ -57,6 +57,7 @@ public class IOUtil {
                 buffer.flip();
                 outChannel.write(buffer);
             }
+            outChannel.force(false);
         }
     }
 
@@ -77,10 +78,58 @@ public class IOUtil {
         if(!outFile.exists()){
             outFile.createNewFile();
         }
-        try(FileOutputStream out = new FileOutputStream(outFile,append)) {
-            FileChannel outChannel = out.getChannel();
+        try(FileOutputStream out = new FileOutputStream(outFile,append);
+            FileChannel outChannel = out.getChannel()) {
             ByteBuffer buffer = ByteBuffer.wrap(data);
             outChannel.write(buffer);
+            outChannel.force(false);
+        }
+    }
+
+    /**
+     * 写文件
+     * @param in 数据
+     * @param targetPath 路径
+     * @param targetFileName 文件名称
+     * @param append 是否拼接旧数据
+     * @param bufferCapacity buffer容量
+     * @throws IOException
+     */
+    public static void writeFile(InputStream in, String targetPath, String targetFileName, boolean append,int bufferCapacity) throws IOException {
+        if(targetPath == null){
+            targetPath = "";
+        }
+        File parent = new File(targetPath);
+        parent.mkdirs();
+        File outFile = new File(parent,targetFileName);
+        if(!outFile.exists()){
+            outFile.createNewFile();
+        }
+        try(FileOutputStream out = new FileOutputStream(outFile,append);
+            FileChannel outChannel = out.getChannel();
+            InputStream inputStream = in) {
+            if(inputStream instanceof FileInputStream){
+                try(FileChannel inChannel = ((FileInputStream) inputStream).getChannel()){
+                    long chunkSize = bufferCapacity;
+                    long position = 0;
+                    long size = inChannel.size();
+                    while (position < size) {
+                        if (chunkSize < size - position) {
+                            chunkSize = size - position;
+                        }
+                        position += inChannel.transferTo(position, chunkSize, outChannel);
+                    }
+                }
+            }else {
+                byte[] buffer = new byte[bufferCapacity];
+                int len;
+                while ((len = inputStream.read(buffer)) != -1) {
+                    out.write(buffer, 0, len);
+                    out.flush();
+                }
+            }
+        }catch (IOException e){
+            throw e;
         }
     }
 
@@ -101,8 +150,8 @@ public class IOUtil {
         if(!outFile.exists()){
             outFile.createNewFile();
         }
-        try(FileOutputStream out = new FileOutputStream(outFile,append)) {
-            FileChannel outChannel = out.getChannel();
+        try(FileOutputStream out = new FileOutputStream(outFile,append);
+            FileChannel outChannel = out.getChannel();) {
             while (dataIterator.hasNext()){
                 ByteBuffer buffer = dataIterator.next();
                 if(buffer != null) {
@@ -112,6 +161,7 @@ public class IOUtil {
                     outChannel.write(buffer);
                 }
             }
+            outChannel.force(false);
         }catch (IOException e){
             throw e;
         }
@@ -131,9 +181,9 @@ public class IOUtil {
         }
         File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
 
-        try(FileInputStream in =  new FileInputStream(inFile)) {
-            FileChannel inChannel = in.getChannel();
-            ByteBuffer byteBuffer = ByteBuffer.allocate(4096);
+        try(FileInputStream in =  new FileInputStream(inFile);
+            FileChannel inChannel = in.getChannel();) {
+            ByteBuffer byteBuffer = ByteBuffer.allocate(8192);
             ByteBuf buffer = Unpooled.buffer();
             while (true) {
                 byteBuffer.clear();

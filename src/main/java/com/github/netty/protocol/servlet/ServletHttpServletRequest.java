@@ -1,21 +1,17 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import com.github.netty.core.util.Recycler;
-import com.github.netty.core.util.HttpHeaderUtil;
-import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.SnowflakeIdWorker;
+import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.multipart.*;
 
 import javax.servlet.*;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpSessionEvent;
-import javax.servlet.http.HttpUpgradeHandler;
-import javax.servlet.http.Part;
+import javax.servlet.http.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -42,6 +38,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
+    private static final Map<String,ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
 
     private ServletHttpObject httpServletObject;
     private ServletAsyncContext asyncContext;
@@ -55,18 +52,23 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private String characterEncoding;
     private String sessionId;
     private SessionTrackingMode sessionIdSource;
+    private MultipartConfigElement multipartConfigElement;
+    private ServletSecurityElement servletSecurityElement;
 
     private boolean decodePathsFlag = false;
     private boolean decodeCookieFlag = false;
     private boolean decodeParameterByUrlFlag = false;
-    private boolean decodeParameterByBodyFlag = false;
+    private InterfaceHttpPostRequestDecoder postRequestDecoder = null;
+    private boolean remoteSchemeFlag = false;
     private boolean usingInputStream = false;
 
     private BufferedReader reader;
     private NettyHttpRequest nettyRequest = new NettyHttpRequest();
     private ServletInputStream inputStream = new ServletInputStream();
     private Map<String,Object> attributeMap = new ConcurrentHashMap<>(16);
-    private Map<String,String[]> parameterMap;
+    private Map<String,String[]> parameterMap = new HashMap<>(16);
+    private Map<String,String[]> unmodifiableParameterMap = Collections.unmodifiableMap(parameterMap);
+    private List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
@@ -81,6 +83,14 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         instance.nettyRequest.wrap(fullHttpRequest);
         instance.inputStream.wrap(fullHttpRequest.content());
         return instance;
+    }
+
+    public void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
+        this.multipartConfigElement = multipartConfigElement;
+    }
+
+    public void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
+        this.servletSecurityElement = servletSecurityElement;
     }
 
     public boolean isAsync(){
@@ -107,8 +117,21 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         return attributeMap;
     }
 
-    private boolean isDecodeParameter(){
-        return decodeParameterByBodyFlag || decodeParameterByUrlFlag;
+    /**
+     * 解析请求方案
+     */
+    private void decodeScheme(){
+        String proto = getHeader(HttpHeaderConstants.X_FORWARDED_PROTO.toString());
+        if(HttpConstants.HTTPS.equalsIgnoreCase(proto)){
+            this.scheme = HttpConstants.HTTPS;
+            this.remoteSchemeFlag = true;
+        }else if(HttpConstants.HTTP.equalsIgnoreCase(proto)){
+            this.scheme = HttpConstants.HTTP;
+            this.remoteSchemeFlag = true;
+        }else {
+            this.scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
+            this.remoteSchemeFlag = false;
+        }
     }
 
     /**
@@ -168,19 +191,85 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      * 如果不满足这些条件，而且参数集中不包括POST表单数据，那么servlet必须可以通过request对象的输入
      * 流得到POST数据。如果满足这些条件，那么从request对象的输入流中直接读取POST数据将不再有效。
      */
-    private void decodeParameter(){
-        Map<String,String[]> parameterMap = new HashMap<>(16);
+    private void decodeBody(boolean bodyPartFlag){
+        Charset charset = Charset.forName(getCharacterEncoding());
+        HttpDataFactory factory = getServletContext().getHttpDataFactory(charset);
+        String location = null;
+        int discardThreshold = 0;
+        if(multipartConfigElement != null) {
+            factory.setMaxLimit(multipartConfigElement.getMaxFileSize());
+            location = multipartConfigElement.getLocation();
+            discardThreshold = multipartConfigElement.getFileSizeThreshold();
+        }
+
+        InterfaceHttpPostRequestDecoder postRequestDecoder = HttpPostRequestDecoder.isMultipart(nettyRequest)?
+                new HttpPostMultipartRequestDecoder(factory, nettyRequest, charset):
+                new HttpPostStandardRequestDecoder(factory, nettyRequest, charset);
+        postRequestDecoder.setDiscardThreshold(discardThreshold);
+
+        ResourceManager resourceManager;
+        if(location != null && location.length() > 0){
+            resourceManager = RESOURCE_MANAGER_MAP.get(location);
+            if(resourceManager == null) {
+                resourceManager = new ResourceManager(location);
+                RESOURCE_MANAGER_MAP.put(location,resourceManager);
+            }
+        }else {
+            resourceManager = getServletContext().getResourceManager();
+        }
+
+        /*
+         * HttpDataType有三种类型
+         * Attribute, FileUpload, InternalAttribute
+         */
+        while (postRequestDecoder.hasNext()) {
+            InterfaceHttpData interfaceData = postRequestDecoder.next();
+            switch (interfaceData.getHttpDataType()) {
+                case Attribute: {
+                    Attribute data = (Attribute) interfaceData;
+                    String name = data.getName();
+                    String value;
+                    try {
+                        value = data.getValue();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        value = "";
+                    }
+                    parameterMap.put(name, new String[]{value});
+
+                    if(bodyPartFlag) {
+                        ServletTextPart part = new ServletTextPart(data,resourceManager);
+                        fileUploadList.add(part);
+                    }
+                    break;
+                }
+                case FileUpload: {
+                    FileUpload data = (FileUpload) interfaceData;
+                    ServletFilePart part = new ServletFilePart(data,resourceManager);
+                    fileUploadList.add(part);
+                    break;
+                }
+                case InternalAttribute: {
+//                    InternalAttribute data = (InternalAttribute) interfaceData;
+
+                    break;
+                }
+                default: {
+
+                    break;
+                }
+            }
+        }
+        this.postRequestDecoder = postRequestDecoder;
+    }
+
+    /**
+     * 解析URL参数
+     */
+    private void decodeUrlParameter(){
         Charset charset = Charset.forName(getCharacterEncoding());
         ServletUtil.decodeByUrl(parameterMap, nettyRequest.uri(),charset);
         this.decodeParameterByUrlFlag = true;
-
-        if(HttpConstants.POST.equalsIgnoreCase(getMethod())
-                && getContentLength() > 0
-                && HttpHeaderUtil.isFormUrlEncoder(getContentType())){
-            ServletUtil.decodeByBody(parameterMap,nettyRequest,charset);
-            this.decodeParameterByBodyFlag = true;
-        }
-        this.parameterMap = Collections.unmodifiableMap(parameterMap);
     }
 
     /**
@@ -631,10 +720,17 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        if(!isDecodeParameter()) {
-            decodeParameter();
+        if(!decodeParameterByUrlFlag) {
+            decodeUrlParameter();
         }
-        return parameterMap;
+
+        if(postRequestDecoder ==null &&
+                HttpConstants.POST.equalsIgnoreCase(getMethod())
+                && getContentLength() > 0
+                && HttpHeaderUtil.isFormUrlEncoder(getContentType())){
+            decodeBody(false);
+        }
+        return unmodifiableParameterMap;
     }
 
     @Override
@@ -648,7 +744,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public String getScheme() {
         if(scheme == null){
-            scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
+            decodeScheme();
         }
         return scheme;
     }
@@ -664,6 +760,14 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public int getServerPort() {
+        String scheme = getScheme();
+        if(remoteSchemeFlag){
+            if(HttpConstants.HTTPS.equalsIgnoreCase(scheme)){
+                return HttpConstants.HTTPS_PORT;
+            }else{
+                return HttpConstants.HTTP_PORT;
+            }
+        }
         return httpServletObject.getServletServerAddress().getPort();
     }
 
@@ -922,11 +1026,56 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public Collection<Part> getParts() throws IOException, ServletException {
-        return null;
+        if(postRequestDecoder == null) {
+            try {
+                decodeBody(true);
+            } catch (CodecException e) {
+                Throwable cause = e.getCause();
+                if(cause instanceof IOException){
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,cause);
+                    throw (IOException)cause;
+                }else if(cause instanceof IllegalStateException){
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,cause);
+                    throw (IllegalStateException)cause;
+                }else if(cause instanceof IllegalArgumentException){
+                    IllegalStateException illegalStateException = new IllegalStateException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(), cause);
+                    illegalStateException.setStackTrace(cause.getStackTrace());
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,illegalStateException);
+                    throw illegalStateException;
+                }else {
+                    ServletException servletException;
+                    if(cause != null){
+                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(),cause);
+                        servletException.setStackTrace(cause.getStackTrace());
+                    }else {
+                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(),e);
+                        servletException.setStackTrace(e.getStackTrace());
+                    }
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,servletException);
+                    throw servletException;
+                }
+            } catch (IllegalArgumentException e) {
+                IllegalStateException illegalStateException = new IllegalStateException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(), e);
+                illegalStateException.setStackTrace(e.getStackTrace());
+                setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
+                setAttribute(RequestDispatcher.ERROR_EXCEPTION,illegalStateException);
+                throw illegalStateException;
+            }
+        }
+        return fileUploadList;
     }
 
     @Override
     public Part getPart(String name) throws IOException, ServletException {
+        for (Part part : getParts()) {
+            if (name.equals(part.getName())) {
+                return part;
+            }
+        }
         return null;
     }
 
@@ -947,9 +1096,13 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     public void recycle() {
         this.inputStream.recycle();
         this.nettyRequest.recycle();
+        if(this.postRequestDecoder != null) {
+            this.postRequestDecoder.destroy();
+            this.postRequestDecoder = null;
+        }
 
         this.decodeParameterByUrlFlag = false;
-        this.decodeParameterByBodyFlag = false;
+        this.remoteSchemeFlag = false;
         this.decodeCookieFlag = false;
         this.decodePathsFlag = false;
         this.usingInputStream = false;
@@ -963,13 +1116,14 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.requestURI = null;
         this.characterEncoding = null;
         this.sessionId = null;
-        this.parameterMap = null;
         this.cookies = null;
         this.locales = null;
         this.asyncContext = null;
         this.httpServletObject = null;
         this.reader = null;
 
+        this.parameterMap.clear();
+        this.fileUploadList.clear();
         this.attributeMap.clear();
         RECYCLER.recycleInstance(this);
     }

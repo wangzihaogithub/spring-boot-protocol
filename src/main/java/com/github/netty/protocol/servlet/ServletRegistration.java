@@ -59,6 +59,14 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
         };
     }
 
+    public ServletSecurityElement getServletSecurityElement() {
+        return servletSecurityElement;
+    }
+
+    public MultipartConfigElement getMultipartConfigElement() {
+        return multipartConfigElement;
+    }
+
     public ServletConfig getServletConfig() {
         return servletConfig;
     }

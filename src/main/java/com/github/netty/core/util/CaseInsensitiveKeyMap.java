@@ -1,12 +1,10 @@
 package com.github.netty.core.util;
 
-/**
- * Created by acer01 on 2018/10/12/012.
- */
-
 import java.util.*;
 
 /**
+ * 不敏感大小写的map
+ *
  * A Map implementation that uses case-insensitive (using {@link
  * Locale#ENGLISH}) strings as keys.
  * <p>
@@ -18,8 +16,15 @@ import java.util.*;
  * @param <V> Type of values placed in this Map.
  */
 public class CaseInsensitiveKeyMap<V> extends AbstractMap<String,V> {
+    private final Map<Key,V> map;
 
-    private final Map<Key,V> map = new HashMap<>();
+    public CaseInsensitiveKeyMap(){
+        this.map = new HashMap<>();
+    }
+
+    public CaseInsensitiveKeyMap(int initialCapacity) {
+        map = new HashMap<>(initialCapacity);
+    }
 
     @Override
     public V get(Object key) {

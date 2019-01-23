@@ -451,4 +451,30 @@ public class HttpHeaderConstants {
      * {@code "Sec-WebSocket-Extensions"}
      */
     public static final CharSequence SEC_WEBSOCKET_EXTENSIONS = "Sec-WebSocket-Extensions";
+    /**
+     * {@code "X-Forwarded-Port"}
+     */
+    public static final CharSequence X_FORWARDED_PORT = "X-Forwarded-Port";
+    /**
+     * {@code "X-Forwarded-Proto"}
+     */
+    public static final CharSequence X_FORWARDED_PROTO = "X-Forwarded-Proto";
+    /**
+     * {@code "X-Forwarded-Prefix"}
+     */
+    public static final CharSequence X_FORWARDED_PREFIX = "X-Forwarded-Prefix";
+    /**
+     * {@code "X-Forwarded-Ssl"}
+     */
+    public static final CharSequence X_FORWARDED_SSL = "X-Forwarded-Ssl";
+    /**
+     * {@code "X-Forwarded-Host"}
+     */
+    public static final CharSequence X_FORWARDED_HOST = "X-Forwarded-Host";
+
+    public static final CharSequence CONTENT_DISPOSITION = "Content-Disposition";
+    public static final CharSequence NAME = "name";
+    public static final CharSequence FILENAME = "filename";
+    public static final CharSequence FORM_DATA = "form-data";
+
 }

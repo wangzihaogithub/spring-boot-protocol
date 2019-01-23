@@ -1,13 +1,11 @@
 package com.github.netty.protocol.servlet.util;
 
-import com.github.netty.protocol.servlet.NettyHttpCookie;
 import com.github.netty.core.util.CookieCodecUtil;
+import com.github.netty.protocol.servlet.NettyHttpCookie;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
 import io.netty.handler.codec.http.DefaultCookie;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.QueryStringDecoder;
-import io.netty.handler.codec.http.multipart.*;
+import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.ServletRequest;
@@ -15,14 +13,17 @@ import javax.servlet.ServletRequestWrapper;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
-import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 工具类
@@ -30,8 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
  *  2018/7/15/015
  */
 public class ServletUtil {
-
-    private static final Map<String,HttpDataFactory> HTTP_DATA_FACTORY_MAP = new ConcurrentHashMap<>();
 
     /**
      * 生成HTTP报头时允许的唯一日期格式。
@@ -44,7 +43,8 @@ public class ServletUtil {
             new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.ENGLISH),
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
-
+    private static final String EMPTY_STRING = "";
+    private static final char SPACE = 0x20;
     /**
      * SimpleDateFormat非线程安全，为了节省内存提高效率，把他放在ThreadLocal里
      * 用于设置HTTP响应头的时间信息
@@ -77,12 +77,7 @@ public class ServletUtil {
     }
 
     public static void decodeByUrl(Map<String,String[]> parameterMap, String uri, Charset charset){
-        if(uri.indexOf('?') == -1){
-            return;
-        }
-        QueryStringDecoder decoder = new QueryStringDecoder(uri,charset);
-
-        Map<String, List<String>> parameterListMap = decoder.parameters();
+        Map<String, List<String>> parameterListMap = decodeParams(uri, findPathEndIndex(uri), charset, 10000);
         for(Map.Entry<String,List<String>> entry : parameterListMap.entrySet()){
             List<String> value = entry.getValue();
             parameterMap.put(entry.getKey(), value.toArray(new String[value.size()]));
@@ -179,49 +174,6 @@ public class ServletUtil {
         return nettyCookie;
     }
 
-    public static void decodeByBody(Map<String,String[]> parameterMap,HttpRequest httpRequest,Charset charset){
-        HttpDataFactory factory = getHttpDataFactory(charset);
-        HttpPostRequestDecoder decoder = new HttpPostRequestDecoder(factory, httpRequest,charset);
-
-        List<InterfaceHttpData> interfaceHttpDataList = decoder.getBodyHttpDatas();
-        for(InterfaceHttpData interfaceData : interfaceHttpDataList) {
-            /*
-             * HttpDataType有三种类型
-             * Attribute, FileUpload, InternalAttribute
-             */
-            switch (interfaceData.getHttpDataType()) {
-                case Attribute: {
-                    Attribute data = (Attribute) interfaceData;
-                    String name = data.getName();
-                    String value;
-                    try {
-                        value = data.getValue();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        value = "";
-                    }
-                    parameterMap.put(name, new String[]{value});
-                    break;
-                }
-                case FileUpload: {
-                    FileUpload data = (FileUpload) interfaceData;
-
-                    break;
-                }
-                case InternalAttribute: {
-//                    InternalAttribute data = (InternalAttribute) interfaceData;
-
-                    break;
-                }
-                default: {
-
-                    break;
-                }
-            }
-        }
-        decoder.destroy();
-    }
-
     public static Long parseHeaderDate(String value) {
         DateFormat[] formats = FORMATS_TEMPLATE;
         Date date = null;
@@ -238,21 +190,6 @@ public class ServletUtil {
         return date.getTime();
     }
 
-    private static HttpDataFactory getHttpDataFactory(Charset charset){
-        String charsetName = charset.name();
-        HttpDataFactory factory = HTTP_DATA_FACTORY_MAP.get(charsetName);
-        if(factory == null){
-            synchronized (HTTP_DATA_FACTORY_MAP) {
-                factory = HTTP_DATA_FACTORY_MAP.get(charsetName);
-                if(factory == null) {
-                    //Disk false
-                    factory = new DefaultHttpDataFactory(false, charset);
-                    HTTP_DATA_FACTORY_MAP.put(charsetName, factory);
-                }
-            }
-        }
-        return factory;
-    }
 
     /**
      * @return 线程安全的获取当前时间格式化后的字符串
@@ -289,6 +226,167 @@ public class ServletUtil {
             return (ServletHttpServletRequest) request;
         }
         return null;
+    }
+
+    private static int findPathEndIndex(String uri) {
+        int len = uri.length();
+        for (int i = 0; i < len; i++) {
+            char c = uri.charAt(i);
+            if (c == '?' || c == '#') {
+                return i;
+            }
+        }
+        return len;
+    }
+
+    private static Map<String, List<String>> decodeParams(String s, int from, Charset charset, int paramsLimit) {
+        int len = s.length();
+        if (from >= len) {
+            return Collections.emptyMap();
+        }
+        if (s.charAt(from) == '?') {
+            from++;
+        }
+        Map<String, List<String>> params = new LinkedHashMap<String, List<String>>();
+        int nameStart = from;
+        int valueStart = -1;
+        int i;
+        loop:
+        for (i = from; i < len; i++) {
+            switch (s.charAt(i)) {
+                case '=':
+                    if (nameStart == i) {
+                        nameStart = i + 1;
+                    } else if (valueStart < nameStart) {
+                        valueStart = i + 1;
+                    }
+                    break;
+                case '&':
+                case ';':
+                    if (addParam(s, nameStart, valueStart, i, params, charset)) {
+                        paramsLimit--;
+                        if (paramsLimit == 0) {
+                            return params;
+                        }
+                    }
+                    nameStart = i + 1;
+                    break;
+                case '#':
+                    break loop;
+                default:
+                    // continue
+            }
+        }
+        addParam(s, nameStart, valueStart, i, params, charset);
+        return params;
+    }
+
+    private static boolean addParam(String s, int nameStart, int valueStart, int valueEnd,
+                                    Map<String, List<String>> params, Charset charset) {
+        if (nameStart >= valueEnd) {
+            return false;
+        }
+        if (valueStart <= nameStart) {
+            valueStart = valueEnd + 1;
+        }
+        String name = decodeComponent(s, nameStart, valueStart - 1, charset);
+        String value = decodeComponent(s, valueStart, valueEnd, charset);
+        List<String> values = params.get(name);
+        if (values == null) {
+            values = new ArrayList<String>(1);  // Often there's only 1 value.
+            params.put(name, values);
+        }
+        values.add(value);
+        return true;
+    }
+
+    private static String decodeComponent(String s, int from, int toExcluded, Charset charset) {
+        int len = toExcluded - from;
+        if (len <= 0) {
+            return EMPTY_STRING;
+        }
+        int firstEscaped = -1;
+        for (int i = from; i < toExcluded; i++) {
+            char c = s.charAt(i);
+            if (c == '%' || c == '+') {
+                firstEscaped = i;
+                break;
+            }
+        }
+        if (firstEscaped == -1) {
+            return s.substring(from, toExcluded);
+        }
+
+        CharsetDecoder decoder = CharsetUtil.decoder(charset);
+
+        // Each encoded byte takes 3 characters (e.g. "%20")
+        int decodedCapacity = (toExcluded - firstEscaped) / 3;
+        ByteBuffer byteBuf = ByteBuffer.allocate(decodedCapacity);
+        CharBuffer charBuf = CharBuffer.allocate(decodedCapacity);
+
+        StringBuilder strBuf = new StringBuilder(len);
+        strBuf.append(s, from, firstEscaped);
+
+        for (int i = firstEscaped; i < toExcluded; i++) {
+            char c = s.charAt(i);
+            if (c != '%') {
+                strBuf.append(c != '+' ? c : SPACE);
+                continue;
+            }
+
+            byteBuf.clear();
+            do {
+                if (i + 3 > toExcluded) {
+                    throw new IllegalArgumentException("unterminated escape sequence at index " + i + " of: " + s);
+                }
+
+                byteBuf.put(decodeHexByte(s, i + 1));
+                i += 3;
+            } while (i < toExcluded && s.charAt(i) == '%');
+            i--;
+
+            byteBuf.flip();
+            charBuf.clear();
+            CoderResult result = decoder.reset().decode(byteBuf, charBuf, true);
+            try {
+                if (!result.isUnderflow()) {
+                    result.throwException();
+                }
+                result = decoder.flush(charBuf);
+                if (!result.isUnderflow()) {
+                    result.throwException();
+                }
+            } catch (CharacterCodingException ex) {
+                throw new IllegalStateException(ex);
+            }
+            strBuf.append(charBuf.flip());
+        }
+        return strBuf.toString();
+    }
+
+    private static byte decodeHexByte(CharSequence s, int pos) {
+        int hi = decodeHexNibble(s.charAt(pos));
+        int lo = decodeHexNibble(s.charAt(pos + 1));
+        if (hi == -1 || lo == -1) {
+            throw new IllegalArgumentException(String.format(
+                    "invalid hex byte '%s' at index %d of '%s'", s.subSequence(pos, pos + 2), pos, s));
+        }
+        return (byte) ((hi << 4) + lo);
+    }
+
+    private static int decodeHexNibble(final char c) {
+        // Character.digit() is not used here, as it addresses a larger
+        // set of characters (both ASCII and full-width latin letters).
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'A' && c <= 'F') {
+            return c - ('A' - 0xA);
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - ('a' - 0xA);
+        }
+        return -1;
     }
 
     private static final String SERVER_INFO;
