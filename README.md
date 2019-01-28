@@ -3,7 +3,7 @@ Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多�
 
     1.可以替代tomcat或jetty. 导包后一个@EnableNettyServletEmbedded注解即用. 
     
-    2.HttpServlet性能比tomcat的NIO高出 20%(QPS)
+    2.HttpServlet性能比tomcat的NIO高出 20%(TPS)
     
     3.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码直接切换RPC
     
