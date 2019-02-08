@@ -50,7 +50,7 @@ public final class BrokerInterceptor implements Interceptor {
                 addInterceptHandler(handler);
             }
         }
-        executor = new ThreadPoolX("MQTT-BrokerInterceptor",poolSize);
+        executor = new ThreadPoolX("MQTT",poolSize);
     }
 
     public BrokerInterceptor(int poolSize) {
