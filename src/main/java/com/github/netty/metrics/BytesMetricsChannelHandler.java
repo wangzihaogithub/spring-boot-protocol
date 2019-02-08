@@ -34,19 +34,18 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     public BytesMetricsChannelHandler(BytesMetricsCollector collector) {
         super(false);
         this.collector = collector;
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        Attribute<BytesMetrics> attr = ctx.channel().attr(ATTR_KEY_METRICS);
-        attr.set(new BytesMetrics());
-
-        super.channelActive(ctx);
+        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
+            @Override
+            public void run() {
+                BytesMetrics metrics = collector.getMetrics();
+                logger.info("Metrics bytes[read={}/byte, write={}/byte]", metrics.bytesRead(),metrics.bytesWrote());
+            }
+        });
     }
 
     @Override
     public void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        BytesMetrics metrics = getOrSetMetrics(ctx.channel());;
+        BytesMetrics metrics = getOrSetMetrics(ctx.channel());
         metrics.incrementRead(msg.readableBytes());
         ctx.fireChannelRead(msg);
     }
@@ -65,9 +64,9 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
         BytesMetrics metrics = getOrSetMetrics(ctx.channel());
-        collector.sumReadBytes(metrics.readBytes());
-        collector.sumWroteBytes(metrics.wroteBytes());
-        super.close(ctx, promise);
+        collector.sumReadBytes(metrics.bytesRead());
+        collector.sumWroteBytes(metrics.bytesWrote());
+        ctx.close(promise);
     }
 
     public static BytesMetrics getOrSetMetrics(Channel channel) {

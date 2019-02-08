@@ -9,6 +9,7 @@ import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 
 import java.net.InetSocketAddress;
@@ -19,17 +20,11 @@ import java.net.InetSocketAddress;
  * @author 84215
  */
 public abstract class AbstractNettyServer implements Runnable{
-
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String name;
-    private ServerBootstrap bootstrap;
 
     private EventLoopGroup boss;
     private EventLoopGroup worker;
-    private ChannelFactory<?extends ServerChannel> channelFactory;
-    private ChannelHandler initializerChannelHandler;
-    private ChannelFuture closeFuture;
-    private Channel serverChannel;
     private InetSocketAddress serverAddress;
     private boolean enableEpoll;
     private int ioThreadCount = 0;
@@ -74,9 +69,9 @@ public abstract class AbstractNettyServer implements Runnable{
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if(enableEpoll){
-            worker = new EpollEventLoopGroup(ioThreadCount);
+            worker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Server-Worker"));
         }else {
-            worker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("Server-Worker", NioEventLoopGroup.class));
+            worker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Server-Worker"));
         }
         return worker;
     }
@@ -84,11 +79,11 @@ public abstract class AbstractNettyServer implements Runnable{
     protected EventLoopGroup newBossEventLoopGroup() {
         EventLoopGroup boss;
         if(enableEpoll){
-            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1);
+            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1,new ThreadFactoryX("Epoll","Server-Boss"));
             epollBoss.setIoRatio(ioRatio);
             boss = epollBoss;
         }else {
-            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("Server-Boss", NioEventLoopGroup.class));
+            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("NIO","Server-Boss"));
             jdkBoss.setIoRatio(ioRatio);
             boss = jdkBoss;
         }
@@ -112,15 +107,16 @@ public abstract class AbstractNettyServer implements Runnable{
                 return;
             }
 
-            this.bootstrap = newServerBootstrap();
+            ServerBootstrap bootstrap = newServerBootstrap();
             this.boss = newBossEventLoopGroup();
             this.worker = newWorkerEventLoopGroup();
-            this.channelFactory = newServerChannelFactory();
-            this.initializerChannelHandler = newInitializerChannelHandler();
+            ChannelFactory<? extends ServerChannel> channelFactory = newServerChannelFactory();
+            ChannelHandler initializerChannelHandler = newInitializerChannelHandler();
 
             bootstrap
                     .group(boss, worker)
                     .channelFactory(channelFactory)
+                    .handler(initializerChannelHandler)
                     .childHandler(initializerChannelHandler)
                     //允许在同一端口上启动同一服务器的多个实例，只要每个实例捆绑一个不同的本地IP地址即可
                     .option(ChannelOption.SO_REUSEADDR, true)
@@ -136,20 +132,9 @@ public abstract class AbstractNettyServer implements Runnable{
 //                    .childOption(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
 
             ChannelFuture channelFuture = bootstrap.bind(serverAddress);
-            //堵塞
-            channelFuture.await();
-            //唤醒后获取异常
-            Throwable cause = channelFuture.cause();
 
-            this.running = true;
-            startAfter(cause);
-
-            //没异常就 堵塞住close的回调
-            if(cause == null) {
-                serverChannel = channelFuture.channel();
-                closeFuture = serverChannel.closeFuture();
-//                closeFuture.sync();
-            }
+            channelFuture.addListener(this::startAfter);
+            running = true;
         } catch (Throwable throwable) {
             ExceptionUtil.printRootCauseStackTrace(throwable);
         }
@@ -158,24 +143,14 @@ public abstract class AbstractNettyServer implements Runnable{
     public void stop() {
         Throwable cause = null;
         try {
-            if(boss != null) {
-                boss.shutdownGracefully().sync();
+            if (boss != null) {
+                boss.shutdownGracefully();
             }
-            if(worker != null) {
-                worker.shutdownGracefully().sync();
+            if (worker != null) {
+                worker.shutdownGracefully();
             }
-            if(serverChannel != null) {
-                serverChannel.close();
-            }
-
-        } catch (InterruptedException e) {
+        }catch (Throwable e){
             cause = e;
-//        }finally {
-//            if(closeFuture != null) {
-//                synchronized (closeFuture) {
-//                    closeFuture.notify();
-//                }
-//            }
         }
         stopAfter(cause);
     }
@@ -196,11 +171,12 @@ public abstract class AbstractNettyServer implements Runnable{
         if(cause != null){
             ExceptionUtil.printRootCauseStackTrace(cause);
         }
-        logger.info(name + " stop [port = "+getPort()+"]...");
+        logger.info(name + " stop [port = "+getPort()+" , cause = "+cause+"]...");
     }
 
-    protected void startAfter(Throwable cause){
+    protected void startAfter(Future<? super Void> future){
         //有异常抛出
+        Throwable cause = future.cause();
         if(cause != null){
             PlatformDependent.throwException(cause);
         }

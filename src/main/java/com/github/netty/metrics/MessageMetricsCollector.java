@@ -26,7 +26,7 @@ public class MessageMetricsCollector {
     private AtomicLong readMessages = new AtomicLong();
     private AtomicLong wroteMessages = new AtomicLong();
 
-    public MessageMetrics computeMetrics() {
+    public MessageMetrics getMetrics() {
         MessageMetrics allMetrics = new MessageMetrics();
         allMetrics.incrementRead(readMessages.get());
         allMetrics.incrementWrote(wroteMessages.get());

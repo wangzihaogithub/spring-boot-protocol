@@ -4,27 +4,17 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolsRegister;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.HostUtil;
-import com.github.netty.core.util.NettyThreadX;
-import com.github.netty.metrics.BytesMetrics;
-import com.github.netty.metrics.BytesMetricsChannelHandler;
-import com.github.netty.metrics.MessageMetrics;
-import com.github.netty.metrics.MessageMetricsChannelHandler;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.NRpcProtocolsRegister;
 import com.github.netty.springboot.NettyProperties;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
 
 import java.net.InetSocketAddress;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.function.Consumer;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -38,17 +28,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * 容器配置信息
      */
     private final NettyProperties properties;
-    /**
-     * servlet线程
-     */
-    private Thread servletServerThread;
-    /**
-     * 动态协议处理器
-     */
-    private DynamicProtocolChannelHandler dynamicProtocolHandler = new DynamicProtocolChannelHandler(new ProtocolsRegisterIntercept());
-    private MessageMetricsChannelHandler messageMetricsChannelHandler = new MessageMetricsChannelHandler();
-    private BytesMetricsChannelHandler bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
-    private LoggingHandler loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
+    private List<ProtocolsRegister> protocolsRegisterList = new ProtocolsRegisterList();
 
     public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties){
         super(serverAddress);
@@ -60,7 +40,6 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         try{
             super.setIoRatio(properties.getServerIoRatio());
             super.setIoThreadCount(properties.getServerIoThreads());
-            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
             for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
                 protocolsRegister.onServerStart();
             }
@@ -82,45 +61,36 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         } catch (Exception e) {
             throw new WebServerException(e.getMessage(),e);
         }
-        servletServerThread = new NettyThreadX(this,getName());
-        servletServerThread.start();
+        super.run();
     }
 
     @Override
     public void stop() throws WebServerException {
-        try{
-            List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
-            protocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
-            for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
+        protocolsRegisterList.sort(Comparator.comparing(ProtocolsRegister::order));
+        for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
+            try {
                 protocolsRegister.onServerStop();
+            }catch (Throwable t){
+                logger.error("case by stop event [" + t.getMessage()+"]",t);
             }
+        }
+
+        try{
+            super.stop();
         } catch (Exception e) {
             throw new WebServerException(e.getMessage(),e);
-        }
-        super.stop();
-
-        if(messageMetricsChannelHandler != null) {
-            MessageMetrics metrics = messageMetricsChannelHandler.getCollector().computeMetrics();
-            logger.info("Metrics messages[read={}, write={}]", metrics.messagesRead(),metrics.messagesWrote());
-        }
-        if(bytesMetricsChannelHandler != null){
-            BytesMetrics bytesMetrics = bytesMetricsChannelHandler.getCollector().computeMetrics();
-            logger.info("Metrics bytes[read={}, write={}]",  bytesMetrics.readBytes(), bytesMetrics.wroteBytes());
-        }
-
-        if(servletServerThread != null) {
-            servletServerThread.interrupt();
         }
     }
 
     @Override
-    protected void startAfter(Throwable cause) {
+    protected void startAfter(Future<?super Void> future){
+        //有异常抛出
+        Throwable cause = future.cause();
         //有异常抛出
         if(cause != null){
             PlatformDependent.throwException(cause);
         }
 
-        List<ProtocolsRegister> protocolsRegisterList = dynamicProtocolHandler.getProtocolsRegisterList();
         List<String> protocols = protocolsRegisterList.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList());
         logger.info("{} start (port = {}, pid = {}, protocol = {}, os = {}) ...",
                 getName(),
@@ -142,7 +112,8 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      */
     @Override
     protected ChannelHandler newInitializerChannelHandler() {
-        return dynamicProtocolHandler;
+        //动态协议处理器
+        return new DynamicProtocolChannelHandler(protocolsRegisterList,properties.isEnableTcpPackageLog());
     }
 
     /**
@@ -150,26 +121,41 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * @return
      */
     public List<ProtocolsRegister> getProtocolsRegisterList(){
-        return dynamicProtocolHandler.getProtocolsRegisterList();
+        return protocolsRegisterList;
     }
 
     /**
-     * 协议注册拦截
+     * 协议注册列表
      */
-    class ProtocolsRegisterIntercept implements Consumer<Channel>{
+    class ProtocolsRegisterList extends LinkedList<ProtocolsRegister> {
         @Override
-        public void accept(Channel channel) {
-            if(properties.isEnableTcpPackageLog()) {
-                if(bytesMetricsChannelHandler == null){
-                    bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
-                }
-                if(messageMetricsChannelHandler == null){
-                    messageMetricsChannelHandler = new MessageMetricsChannelHandler();
-                }
-                channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
-                channel.pipeline().addLast("metrics", messageMetricsChannelHandler);
-                channel.pipeline().addLast("logger", loggingHandler);
-            }
+        public void add(int index, ProtocolsRegister element) {
+            logger.info("addProtocolsRegister({})",element.getProtocolName());
+            super.add(index, element);
+        }
+
+        @Override
+        public boolean add(ProtocolsRegister element) {
+            logger.info("addProtocolsRegister({})",element.getProtocolName());
+            return super.add(element);
+        }
+
+        @Override
+        public boolean addAll(Collection<? extends ProtocolsRegister> c) {
+            logger.info("addProtocolsRegister({})", c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.joining(",")));
+            return super.addAll(c);
+        }
+
+        @Override
+        public boolean addAll(int index, Collection<? extends ProtocolsRegister> c) {
+            logger.info("addProtocolsRegister({})", c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.joining(",")));
+            return super.addAll(index, c);
+        }
+
+        @Override
+        public boolean remove(Object o) {
+            logger.info("removeProtocolsRegister({})",o);
+            return super.remove(o);
         }
     }
 }

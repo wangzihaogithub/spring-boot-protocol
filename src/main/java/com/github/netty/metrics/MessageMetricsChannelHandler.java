@@ -33,14 +33,13 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
     public MessageMetricsChannelHandler(MessageMetricsCollector collector) {
         super(false);
         this.collector = collector;
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        Attribute<MessageMetrics> attr = ctx.channel().attr(ATTR_KEY_METRICS);
-        attr.set(new MessageMetrics());
-
-        super.channelActive(ctx);
+        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
+            @Override
+            public void run() {
+                MessageMetrics metrics = collector.getMetrics();
+                logger.info("Metrics messages[read={}/count, write={}/count]", metrics.messagesRead(),metrics.messagesWrote());
+            }
+        });
     }
 
     @Override
@@ -66,7 +65,7 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
         MessageMetrics metrics = getOrSetMetrics(ctx.channel());
         collector.sumReadMessages(metrics.messagesRead());
         collector.sumWroteMessages(metrics.messagesWrote());
-        super.close(ctx, promise);
+        ctx.close(promise);
     }
 
     public static MessageMetrics getOrSetMetrics(Channel channel) {

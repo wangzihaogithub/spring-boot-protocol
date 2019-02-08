@@ -26,7 +26,7 @@ public class BytesMetricsCollector {
     private AtomicLong readBytes = new AtomicLong();
     private AtomicLong wroteBytes = new AtomicLong();
 
-    public BytesMetrics computeMetrics() {
+    public BytesMetrics getMetrics() {
         BytesMetrics allMetrics = new BytesMetrics();
         allMetrics.incrementRead(readBytes.get());
         allMetrics.incrementWrote(wroteBytes.get());

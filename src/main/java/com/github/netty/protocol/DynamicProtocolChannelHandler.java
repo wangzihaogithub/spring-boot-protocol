@@ -2,19 +2,17 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.metrics.BytesMetricsChannelHandler;
+import com.github.netty.metrics.MessageMetricsChannelHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.ReferenceCountUtil;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
 
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 /**
  * Created by acer01 on 2018/12/9/009.
@@ -24,12 +22,19 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     /**
      * 协议注册器列表
      */
-    private List<ProtocolsRegister> protocolsRegisterList = new ProtocolsRegisterList();
-    private Consumer<Channel> registerIntercept;
+    private List<ProtocolsRegister> protocolsRegisterList;
+    private MessageMetricsChannelHandler messageMetricsChannelHandler;
+    private BytesMetricsChannelHandler bytesMetricsChannelHandler;
+    private LoggingHandler loggingHandler;
 
-    public DynamicProtocolChannelHandler(Consumer<Channel> registerIntercept) {
+    public DynamicProtocolChannelHandler(List<ProtocolsRegister> protocolsRegisterList,boolean enableTcpPackageLog) {
         super(false);
-        this.registerIntercept = registerIntercept;
+        this.protocolsRegisterList = protocolsRegisterList;
+        if(enableTcpPackageLog) {
+            loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
+        }
+        messageMetricsChannelHandler = new MessageMetricsChannelHandler();
+        bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
     }
 
     @Override
@@ -40,12 +45,18 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             if(!protocolsRegister.canSupport(msg)) {
                 continue;
             }
+            logger.info("Channel protocols register by [{}]",protocolsRegister.getProtocolName());
 
-            if(registerIntercept != null) {
-                registerIntercept.accept(channel);
+            if(bytesMetricsChannelHandler != null){
+                channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
+            }
+            if(messageMetricsChannelHandler != null){
+                channel.pipeline().addLast("metrics", messageMetricsChannelHandler);
+            }
+            if(loggingHandler != null){
+                channel.pipeline().addLast("logger", loggingHandler);
             }
 
-            logger.info("Channel protocols register by [{}]",protocolsRegister.getProtocolName());
             protocolsRegister.register(channel);
             if(channel.isRegistered()) {
                 channel.pipeline().fireChannelRegistered();
@@ -59,16 +70,8 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
         logger.warn("Received no support protocols. message=[{}]",msg.toString(StandardCharsets.UTF_8));
         if(msg.refCnt() > 0) {
-            ReferenceCountUtil.release(msg);
+            msg.release();
         }
-    }
-
-    public List<ProtocolsRegister> getProtocolsRegisterList() {
-        return protocolsRegisterList;
-    }
-
-    public Consumer<Channel> getRegisterIntercept() {
-        return registerIntercept;
     }
 
     @Override
@@ -77,38 +80,4 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         ctx.close();
     }
 
-    /**
-     * 协议注册列表
-     */
-    class ProtocolsRegisterList extends LinkedList<ProtocolsRegister>{
-        @Override
-        public void add(int index, ProtocolsRegister element) {
-            logger.info("addProtocolsRegister({})",element.getProtocolName());
-            super.add(index, element);
-        }
-
-        @Override
-        public boolean add(ProtocolsRegister element) {
-            logger.info("addProtocolsRegister({})",element.getProtocolName());
-            return super.add(element);
-        }
-
-        @Override
-        public boolean addAll(Collection<? extends ProtocolsRegister> c) {
-            logger.info("addProtocolsRegister({})",String.join(",",c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList())));
-            return super.addAll(c);
-        }
-
-        @Override
-        public boolean addAll(int index, Collection<? extends ProtocolsRegister> c) {
-            logger.info("addProtocolsRegister({})",String.join(",",c.stream().map(ProtocolsRegister::getProtocolName).collect(Collectors.toList())));
-            return super.addAll(index, c);
-        }
-
-        @Override
-        public boolean remove(Object o) {
-            logger.info("removeProtocolsRegister({})",o);
-            return super.remove(o);
-        }
-    }
 }

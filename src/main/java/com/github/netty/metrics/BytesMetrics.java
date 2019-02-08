@@ -18,22 +18,22 @@ package com.github.netty.metrics;
 
 public class BytesMetrics {
 
-    private long m_readBytes;
-    private long m_wroteBytes;
+    private long m_bytesRead;
+    private long m_bytesWrote;
 
     void incrementRead(long numBytes) {
-        m_readBytes += numBytes;
+        m_bytesRead += numBytes;
     }
 
     void incrementWrote(long numBytes) {
-        m_wroteBytes += numBytes;
+        m_bytesWrote += numBytes;
     }
 
-    public long readBytes() {
-        return m_readBytes;
+    public long bytesRead() {
+        return m_bytesRead;
     }
 
-    public long wroteBytes() {
-        return m_wroteBytes;
+    public long bytesWrote() {
+        return m_bytesWrote;
     }
 }

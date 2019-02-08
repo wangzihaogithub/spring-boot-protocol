@@ -18,6 +18,7 @@ package com.github.netty.protocol.mqtt.interception;
 
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -50,7 +50,7 @@ public final class BrokerInterceptor implements Interceptor {
                 addInterceptHandler(handler);
             }
         }
-        executor = Executors.newFixedThreadPool(poolSize);
+        executor = new ThreadPoolX("MQTT-BrokerInterceptor",poolSize);
     }
 
     public BrokerInterceptor(int poolSize) {

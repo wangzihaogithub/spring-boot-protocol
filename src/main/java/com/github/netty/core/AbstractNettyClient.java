@@ -85,11 +85,11 @@ public abstract class AbstractNettyClient implements Runnable{
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if(enableEpoll){
-            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount);
+            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Client-Worker"));
             epollWorker.setIoRatio(ioRatio);
             worker = epollWorker;
         }else {
-            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("Client-Worker", NioEventLoopGroup.class));
+            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Client-Worker"));
             nioWorker.setIoRatio(ioRatio);
             worker = nioWorker;
         }
