@@ -38,9 +38,9 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("nettyServerFactory")
     @ConditionalOnMissingBean(NettyTcpServerFactory.class)
     public NettyTcpServerFactory nettyTcpServerFactory(Collection<ProtocolsRegister> protocolsRegisters){
-        NettyTcpServerFactory factory = new NettyTcpServerFactory(nettyProperties, new TreeSet<>(Comparator.comparingInt(ProtocolsRegister::order)));
-        factory.getProtocolsRegisters().addAll(protocolsRegisters);
-        return factory;
+        NettyTcpServerFactory tcpServerFactory = new NettyTcpServerFactory(nettyProperties, new TreeSet<>(Comparator.comparingInt(ProtocolsRegister::order)));
+        tcpServerFactory.getProtocolsRegisters().addAll(protocolsRegisters);
+        return tcpServerFactory;
     }
 
     /**
@@ -60,9 +60,9 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("httpServletProtocolsRegister")
     @ConditionalOnMissingBean(HttpServletProtocolsRegister.class)
     public HttpServletProtocolsRegister httpServletProtocolsRegister(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
-        HttpServletProtocolsRegisterSpringAdapter registerSpringAdapter = new HttpServletProtocolsRegisterSpringAdapter(nettyProperties,resourceLoader.getClassLoader());
-        factory.addBeanPostProcessor(registerSpringAdapter);
-        return registerSpringAdapter;
+        HttpServletProtocolsRegisterSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolsRegisterSpringAdapter(nettyProperties,resourceLoader.getClassLoader());
+        factory.addBeanPostProcessor(httpServletProtocolsRegister);
+        return httpServletProtocolsRegister;
     }
 
 }

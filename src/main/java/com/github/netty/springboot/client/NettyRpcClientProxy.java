@@ -31,7 +31,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private String serviceId;
     private String serviceName;
     private Class<?> interfaceClass;
-    private NettyProperties config;
+    private NettyProperties properties;
     private NettyRpcLoadBalanced loadBalanced;
 
     private FastThreadLocal<Map<InetSocketAddress,RpcClient>> clientMapThreadLocal = new FastThreadLocal<Map<InetSocketAddress,RpcClient>>(){
@@ -47,10 +47,10 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
     };
 
-    NettyRpcClientProxy(String serviceId,String serviceName, Class interfaceClass, NettyProperties config, NettyRpcLoadBalanced loadBalanced) {
+    NettyRpcClientProxy(String serviceId, String serviceName, Class interfaceClass, NettyProperties properties, NettyRpcLoadBalanced loadBalanced) {
         this.serviceId = serviceId;
         this.interfaceClass = interfaceClass;
-        this.config = config;
+        this.properties = properties;
         this.loadBalanced = loadBalanced;
         this.serviceName = StringUtil.isEmpty(serviceName)? getServiceName(interfaceClass) : serviceName;
     }
@@ -83,7 +83,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
             List<Class<?extends Annotation>> parameterAnnotationClasses = Arrays.asList(
                     Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
                     PathVariable.class,CookieValue.class, RequestPart.class);
-            rpcClientInstance = rpcClient.newRpcInstance(interfaceClass,config.getRpcTimeout(),serviceName,
+            rpcClientInstance = rpcClient.newRpcInstance(interfaceClass, properties.getRpcTimeout(),serviceName,
                     new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses));
         }
         return rpcClientInstance.invoke(proxy,method,args);
@@ -121,10 +121,10 @@ public class NettyRpcClientProxy implements InvocationHandler {
         if(rpcClient == null) {
             rpcClient = new RpcClient(address);
             rpcClient.setSocketChannelCount(1);
-            rpcClient.setIoThreadCount(config.getRpcClientIoThreads());
+            rpcClient.setIoThreadCount(properties.getRpcClientIoThreads());
             rpcClient.run();
-            if (config.isEnablesRpcClientAutoReconnect()) {
-                rpcClient.enableAutoReconnect(config.getRpcClientHeartIntervalSecond(), TimeUnit.SECONDS,null,config.isEnableRpcHeartLog());
+            if (properties.isEnablesRpcClientAutoReconnect()) {
+                rpcClient.enableAutoReconnect(properties.getRpcClientHeartIntervalSecond(), TimeUnit.SECONDS,null, properties.isEnableRpcHeartLog());
             }
             rpcClientMap.put(address,rpcClient);
         }
@@ -202,7 +202,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
 
         @Override
         public NettyProperties getNettyProperties() {
-            return config;
+            return properties;
         }
 
         @Override
