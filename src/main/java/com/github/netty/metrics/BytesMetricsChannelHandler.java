@@ -22,23 +22,24 @@ import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * 数据包监控 (读写/字节)
+ * @author acer01
+ */
 @ChannelHandler.Sharable
 public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
     private static final AttributeKey<BytesMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(BytesMetrics.class+"#BytesMetrics");
-    private BytesMetricsCollector collector;
+    private AtomicLong readBytes = new AtomicLong();
+    private AtomicLong writeBytes = new AtomicLong();
 
-    public BytesMetricsChannelHandler(){
-        this(new BytesMetricsCollector());
-    }
-
-    public BytesMetricsChannelHandler(BytesMetricsCollector collector) {
+    public BytesMetricsChannelHandler() {
         super(false);
-        this.collector = collector;
         Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
             @Override
             public void run() {
-                BytesMetrics metrics = collector.getMetrics();
-                logger.info("Metrics bytes[read={}/byte, write={}/byte]", metrics.bytesRead(),metrics.bytesWrote());
+                logger.info("Metrics bytes[read={}/byte, write={}/byte]", readBytes, writeBytes);
             }
         });
     }
@@ -64,8 +65,8 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
         BytesMetrics metrics = getOrSetMetrics(ctx.channel());
-        collector.sumReadBytes(metrics.bytesRead());
-        collector.sumWroteBytes(metrics.bytesWrote());
+        readBytes.getAndAdd(metrics.bytesRead());
+        writeBytes.getAndAdd(metrics.bytesWrote());
         ctx.close(promise);
     }
 
@@ -79,7 +80,4 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
         return metrics;
     }
 
-    public BytesMetricsCollector getCollector() {
-        return collector;
-    }
 }

@@ -3,6 +3,7 @@ package com.github.netty.springboot;
 import com.github.netty.core.util.ApplicationX;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
 
@@ -192,9 +193,16 @@ public class NettyProperties implements Serializable{
     private int responseWriterChunkMaxHeapByteLength = 4096;
 
     /**
+     * 文件基础目录。如果未指定，则使用临时目录。
+     */
+    private File basedir;
+
+    /**
      * 全局对象
      */
-    private ApplicationX application = new ApplicationX();
+    private transient ApplicationX application = new ApplicationX();
+
+    public NettyProperties() {}
 
     public ApplicationX getApplication() {
         return application;
@@ -202,6 +210,14 @@ public class NettyProperties implements Serializable{
 
     public void setApplication(ApplicationX application) {
         this.application = application;
+    }
+
+    public File getBasedir() {
+        return basedir;
+    }
+
+    public void setBasedir(File basedir) {
+        this.basedir = basedir;
     }
 
     public int getRpcClientHeartIntervalSecond() {
@@ -339,6 +355,7 @@ public class NettyProperties implements Serializable{
                 ", responseWriterChunkMaxHeapByteLength=" + responseWriterChunkMaxHeapByteLength +
                 ", rpcServerMessageMaxLength=" + rpcServerMessageMaxLength +
                 ", enableTcpPackageLog=" + enableTcpPackageLog +
+                ", basedir=" + basedir +
                 '}';
     }
 }

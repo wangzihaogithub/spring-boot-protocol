@@ -903,17 +903,17 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public String getLocalName() {
-        return getServletContext().getServletServerAddress().getHostName();
+        return getServletContext().getServerAddress().getHostName();
     }
 
     @Override
     public String getLocalAddr() {
-        return getServletContext().getServletServerAddress().getAddress().getHostAddress();
+        return getServletContext().getServerAddress().getAddress().getHostAddress();
     }
 
     @Override
     public int getLocalPort() {
-        return getServletContext().getServletServerAddress().getPort();
+        return getServletContext().getServerAddress().getPort();
     }
 
     @Override
@@ -1120,7 +1120,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.locales = null;
         this.asyncContext = null;
         this.httpServletObject = null;
-        this.reader = null;
         this.multipartConfigElement = null;
         this.servletSecurityElement = null;
 

@@ -12,7 +12,7 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.Collection;
 
 /**
  * Created by acer01 on 2018/12/9/009.
@@ -20,28 +20,37 @@ import java.util.List;
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf,Object> {
     /**
-     * 协议注册器列表
+     * 协议注册器列表, 动态协议会找一个合适的协议注册到新链接上
      */
-    private List<ProtocolsRegister> protocolsRegisterList;
+    private Collection<ProtocolsRegister> protocolsRegisters;
+    /**
+     * 通信监控 (读写/次)
+     */
     private MessageMetricsChannelHandler messageMetricsChannelHandler;
+    /**
+     * 数据包监控 (读写/字节)
+     */
     private BytesMetricsChannelHandler bytesMetricsChannelHandler;
+    /**
+     * 日志打印
+     */
     private LoggingHandler loggingHandler;
 
-    public DynamicProtocolChannelHandler(List<ProtocolsRegister> protocolsRegisterList,boolean enableTcpPackageLog) {
+    public DynamicProtocolChannelHandler(Collection<ProtocolsRegister> protocolsRegisters, boolean enableTcpPackageLog) {
         super(false);
-        this.protocolsRegisterList = protocolsRegisterList;
+        this.protocolsRegisters = protocolsRegisters;
         if(enableTcpPackageLog) {
-            loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
+            this.loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
+            this.messageMetricsChannelHandler = new MessageMetricsChannelHandler();
+            this.bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
         }
-        messageMetricsChannelHandler = new MessageMetricsChannelHandler();
-        bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
     }
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
         Channel channel = ctx.channel();
         channel.pipeline().remove(this);
-        for(ProtocolsRegister protocolsRegister : protocolsRegisterList){
+        for(ProtocolsRegister protocolsRegister : protocolsRegisters){
             if(!protocolsRegister.canSupport(msg)) {
                 continue;
             }

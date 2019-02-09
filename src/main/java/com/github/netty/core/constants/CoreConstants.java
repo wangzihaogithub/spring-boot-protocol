@@ -14,6 +14,8 @@ public class CoreConstants {
     private static boolean isEnableExecuteHold;
     private static boolean isEnableRawNetty;
     private static int rpcLockSpinCount;
+    private static int recyclerCount;
+
     //开启埋点的超时打印
     public static boolean isEnableExecuteHold(){
         return isEnableExecuteHold;
@@ -30,11 +32,16 @@ public class CoreConstants {
     public static int getRpcLockSpinCount(){
         return rpcLockSpinCount;
     }
+    //回收数量
+    public static int getRecyclerCount() {
+        return recyclerCount;
+    }
 
     static {
-        isEnableExecuteHold = SystemPropertyUtil.getBoolean("netty-rpc.isEnableExecuteHold",false);
-        isEnableRawNetty = SystemPropertyUtil.getBoolean("netty-rpc.isEnableRawNetty",false);
-        rpcLockSpinCount = SystemPropertyUtil.getInt("netty-rpc.rpcLockSpinCount",150);
+        isEnableExecuteHold = SystemPropertyUtil.getBoolean("netty-core.isEnableExecuteHold",false);
+        isEnableRawNetty = SystemPropertyUtil.getBoolean("netty-core.isEnableRawNetty",false);
+        rpcLockSpinCount = SystemPropertyUtil.getInt("netty-core.rpcLockSpinCount",150);
+        recyclerCount = SystemPropertyUtil.getInt("netty-core.recyclerCount",30);
     }
 
 

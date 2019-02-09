@@ -1,6 +1,7 @@
 package com.github.netty.springboot.server;
 
 import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.protocol.HttpServletProtocolsRegister;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
 import com.github.netty.protocol.servlet.ServletRegistration;
@@ -11,16 +12,15 @@ import org.springframework.boot.web.servlet.ServletContextInitializer;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.boot.web.servlet.server.Jsp;
-import org.springframework.context.ResourceLoaderAware;
-import org.springframework.core.io.ResourceLoader;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ServletHttpHandlerAdapter;
-import org.springframework.util.ClassUtils;
 
 import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Objects;
 
 /**
  * netty容器工厂 tcp层面的服务器工厂
@@ -33,16 +33,17 @@ import java.util.List;
  */
 public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
-        implements ConfigurableReactiveWebServerFactory,ConfigurableServletWebServerFactory,ResourceLoaderAware {
-    protected ResourceLoader resourceLoader;
+        implements ConfigurableReactiveWebServerFactory,ConfigurableServletWebServerFactory {
     protected NettyProperties properties;
+    private Collection<ProtocolsRegister> protocolsRegisters;
 
     public NettyTcpServerFactory() {
-        this(new NettyProperties());
+        this(new NettyProperties(),Collections.emptyList());
     }
 
-    public NettyTcpServerFactory(NettyProperties properties) {
+    public NettyTcpServerFactory(NettyProperties properties,Collection<ProtocolsRegister> protocolsRegisters) {
         this.properties = properties;
+        this.protocolsRegisters = Objects.requireNonNull(protocolsRegisters);
     }
 
     /**
@@ -53,24 +54,16 @@ public class NettyTcpServerFactory
     @Override
     public WebServer getWebServer(HttpHandler httpHandler) {
         try {
-            //临时目录
-            File documentRoot = getValidDocumentRoot();
-            File docBase = documentRoot != null? documentRoot : createTempDir("nettyx-docbase");
+            ServletContext servletContext = getServletContext();
+            if(servletContext != null) {
+                ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
+                servletRegistration.setAsyncSupported(true);
+                servletRegistration.addMapping("/");
+            }
 
             //服务器端口
-            InetSocketAddress serverAddress = new InetSocketAddress(getAddress() == null? InetAddress.getLoopbackAddress():getAddress(),getPort());
-            ClassLoader classLoader = resourceLoader != null ? resourceLoader.getClassLoader() : ClassUtils.getDefaultClassLoader();
-            NettyTcpServer server = new NettyTcpServer(serverAddress, properties);
-
-            ServletContext servletContext = new ServletContext(serverAddress,classLoader,docBase.getAbsolutePath());
-
-            //配置tcp服务器
-            configurableTcpServer(server,servletContext);
-
-            ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default",new ServletHttpHandlerAdapter(httpHandler));
-            servletRegistration.setAsyncSupported(true);
-            servletRegistration.addMapping("/");
-            return server;
+            InetSocketAddress serverAddress = getServerSocketAddress();
+            return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
@@ -83,61 +76,60 @@ public class NettyTcpServerFactory
      */
     @Override
     public WebServer getWebServer(ServletContextInitializer... initializers) {
+        ServletContext servletContext = Objects.requireNonNull(getServletContext());
         try {
-            //临时目录
-            File documentRoot = getValidDocumentRoot();
-            File docBase = documentRoot != null? documentRoot : createTempDir("nettyx-docbase");
-
-            //服务器端口
-            InetSocketAddress serverAddress = new InetSocketAddress(getAddress() == null? InetAddress.getLoopbackAddress():getAddress(),getPort());
-            ClassLoader classLoader = resourceLoader != null ? resourceLoader.getClassLoader() : ClassUtils.getDefaultClassLoader();
-            NettyTcpServer server = new NettyTcpServer(serverAddress, properties);
-
-            ServletContext servletContext = new ServletContext(serverAddress,classLoader,docBase.getAbsolutePath());
-
-            //配置tcp服务器
-            configurableTcpServer(server,servletContext);
-
             //默认 servlet
-            if (isRegisterDefaultServlet()) {
-                ServletDefaultHttpServlet defaultServlet = new ServletDefaultHttpServlet();
-                servletContext.addServlet("default",defaultServlet).addMapping("/");
+            if (super.isRegisterDefaultServlet()) {
+                servletContext.addServlet("default",new ServletDefaultHttpServlet())
+                        .addMapping("/");
             }
 
-            //jsp
-            Jsp jsp = getJsp();
-            if(shouldRegisterJspServlet()){
-                //
+            //jsp 不支持
+            if(super.shouldRegisterJspServlet()){
+                Jsp jsp = getJsp();
             }
 
             //初始化
-            ServletContextInitializer[] servletContextInitializers = mergeInitializers(initializers);
-            for (ServletContextInitializer initializer : servletContextInitializers) {
+            for (ServletContextInitializer initializer : super.mergeInitializers(initializers)) {
                 initializer.onStartup(servletContext);
             }
 
-            return server;
+            //服务器端口
+            InetSocketAddress serverAddress = getServerSocketAddress();
+            return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
     }
 
-    /**
-     * 配置tpc服务器
-     * @param tcpServer
-     * @param servletContext
-     * @throws Exception
-     */
-    protected void configurableTcpServer(NettyTcpServer tcpServer,ServletContext servletContext) throws Exception {
-        List<ProtocolsRegister> protocolsRegisterList = tcpServer.getProtocolsRegisterList();
-        //添加httpServlet协议注册器
-        protocolsRegisterList.add(new HttpServletProtocolsRegisterSpringAdapter(properties,servletContext,this));
-
-
+    @Override
+    public File getDocumentRoot() {
+        File dir = properties.getBasedir();
+        if(dir == null){
+            dir = super.getDocumentRoot();
+        }
+        if(dir == null){
+            //临时目录
+            dir = super.createTempDir("nettyx-docbase");
+        }
+        return dir;
     }
 
-    @Override
-    public void setResourceLoader(ResourceLoader resourceLoader) {
-        this.resourceLoader = resourceLoader;
+    public ServletContext getServletContext(){
+        for(ProtocolsRegister protocolsRegister : protocolsRegisters){
+            if(protocolsRegister instanceof HttpServletProtocolsRegister){
+                return ((HttpServletProtocolsRegister) protocolsRegister).getServletContext();
+            }
+        }
+        return null;
+    }
+
+    public Collection<ProtocolsRegister> getProtocolsRegisters() {
+        return protocolsRegisters;
+    }
+
+    public InetSocketAddress getServerSocketAddress() {
+        InetAddress address = getAddress();
+        return new InetSocketAddress(address == null? InetAddress.getLoopbackAddress():address,getPort());
     }
 }

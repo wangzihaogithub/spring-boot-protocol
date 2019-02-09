@@ -1,5 +1,7 @@
 package com.github.netty.core.util;
 
+import com.github.netty.core.constants.CoreConstants;
+
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -33,7 +35,7 @@ public class Recycler<T> {
     public static final AtomicInteger HIT_COUNT = new AtomicInteger();
 
     public Recycler(Supplier<T> supplier) {
-        this(15,supplier);
+        this(CoreConstants.getRecyclerCount(),supplier);
     }
 
     public Recycler(int instanceCount, Supplier<T> supplier) {

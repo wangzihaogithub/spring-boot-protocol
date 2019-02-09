@@ -21,23 +21,24 @@ import io.netty.channel.*;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * 通信监控 (读写/次)
+ * @author acer01
+ */
 @ChannelHandler.Sharable
 public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,Object> {
     private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class+"#MessageMetrics");
-    private MessageMetricsCollector collector;
+    private AtomicLong readMessages = new AtomicLong();
+    private AtomicLong writeMessages = new AtomicLong();
 
     public MessageMetricsChannelHandler() {
-        this(new MessageMetricsCollector());
-    }
-
-    public MessageMetricsChannelHandler(MessageMetricsCollector collector) {
         super(false);
-        this.collector = collector;
         Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
             @Override
             public void run() {
-                MessageMetrics metrics = collector.getMetrics();
-                logger.info("Metrics messages[read={}/count, write={}/count]", metrics.messagesRead(),metrics.messagesWrote());
+                logger.info("Metrics messages[read={}/count, write={}/count]", readMessages, writeMessages);
             }
         });
     }
@@ -63,8 +64,8 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
     @Override
     public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
         MessageMetrics metrics = getOrSetMetrics(ctx.channel());
-        collector.sumReadMessages(metrics.messagesRead());
-        collector.sumWroteMessages(metrics.messagesWrote());
+        readMessages.getAndAdd(metrics.messagesRead());
+        writeMessages.getAndAdd(metrics.messagesWrote());
         ctx.close(promise);
     }
 
@@ -78,7 +79,4 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
         return metrics;
     }
 
-    public MessageMetricsCollector getCollector() {
-        return collector;
-    }
 }

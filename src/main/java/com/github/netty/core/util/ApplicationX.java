@@ -12,7 +12,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
@@ -29,7 +28,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  * 2016年11月12日 21:04:39
  */
 public class ApplicationX {
-
     private Collection<Class<? extends Annotation>> scannerAnnotationList = new HashSet<>(
             Arrays.asList(Resource.class));
 
@@ -72,6 +70,9 @@ public class ApplicationX {
     }
 
     public Object addInstance(Object instance,boolean isInject){
+        if(instance == null){
+            return null;
+        }
         return addInstance(instance.getClass(),instance,isInject);
     }
 
@@ -603,8 +604,8 @@ public class ApplicationX {
     /**
      * 存储class实例
      */
-    public class ClassInstanceMap extends ConcurrentHashMap<Object,Object> {
-        private ConcurrentHashMap<CharSequence, Object> strClassMap = new ConcurrentHashMap<>();
+    public class ClassInstanceMap extends WeakHashMap<Object,Object> {
+        private Map<CharSequence, Object> strClassMap = new WeakHashMap<>();
         private ClassInstanceMap(){}
 
         @Override
@@ -616,17 +617,18 @@ public class ApplicationX {
             if(key instanceof Class) {
                 Class clazz = (Class) key;
                 String annotationKey = getAnnotationValue(clazz.getAnnotations());
-                if (!annotationKey.isEmpty()) {
+                if (annotationKey.isEmpty()) {
+                    strClassMap.put(clazz.getName(), value);
+                }else {
                     strClassMap.put(annotationKey, value);
                 }
-                strClassMap.put(clazz.getName(), value);
             }
             return super.put(key, value);
         }
 
         @Override
         public void putAll(Map<?, ?> m) {
-            for(Entry<?, ?> e : m.entrySet()){
+            for(Map.Entry<?, ?> e : m.entrySet()){
                 put(e.getKey(),e.getValue());
             }
         }
@@ -634,7 +636,10 @@ public class ApplicationX {
         @Override
         public Object get(Object key) {
             if (key instanceof CharSequence) {
-                return strClassMap.get(key);
+                Object value = strClassMap.get(key);
+                if(value != null){
+                    return value;
+                }
             }
             return super.get(key);
         }
@@ -652,11 +657,14 @@ public class ApplicationX {
                     strClassMap.remove(annKey);
                 }
                 strClassMap.remove(classKey.getName());
-                Object removeValue = super.remove(classKey);
-                return removeValue;
             }
+            return super.remove(key);
+        }
 
-            return null;
+        @Override
+        public void clear() {
+            super.clear();
+            strClassMap.clear();
         }
 
         private String getAnnotationValue(Annotation[] annotations){

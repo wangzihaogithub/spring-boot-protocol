@@ -23,26 +23,22 @@ public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
 
     @Override
     public void onServerStart() throws Exception {
-        ApplicationX application = getApplication();
-        Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
+        Collection list = super.getApplication().getBeanForAnnotation(Protocol.RpcService.class);
         for(Object serviceImpl : list){
-            if(existInstance(serviceImpl)){
+            if(super.existInstance(serviceImpl)){
                 continue;
             }
             boolean isAdd = addInstanceForRequestMapping(serviceImpl);
             if(isAdd){
                 continue;
             }
-            addInstance(serviceImpl);
+            super.addInstance(serviceImpl);
         }
 
         super.onServerStart();
     }
 
     private boolean addInstanceForRequestMapping(Object serviceImpl){
-        List<Class<?extends Annotation>> parameterAnnotationClasses = Arrays.asList(
-                Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
-                PathVariable.class,CookieValue.class, RequestPart.class);
         Class annotationOnClass = ReflectUtil.findClassByAnnotation(serviceImpl.getClass(), RequestMapping.class);
         if(annotationOnClass == null){
             return false;
@@ -68,6 +64,9 @@ public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
             return false;
         }
 
+        List<Class<?extends Annotation>> parameterAnnotationClasses = Arrays.asList(
+                Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
+                PathVariable.class,CookieValue.class, RequestPart.class);
         Function<Method,String[]> methodToParameterNamesFunction;
         boolean hasParameterAnnotation = ReflectUtil.hasParameterAnnotation(serviceImpl.getClass(),parameterAnnotationClasses);
         if(hasParameterAnnotation){
@@ -75,7 +74,7 @@ public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
         }else {
             methodToParameterNamesFunction = new AsmMethodToParameterNamesFunction();
         }
-        addInstance(serviceImpl, serviceName,methodToParameterNamesFunction);
+        super.addInstance(serviceImpl, serviceName,methodToParameterNamesFunction);
         return true;
     }
 

@@ -12,12 +12,16 @@ import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.server.ErrorPage;
 import org.springframework.boot.web.server.MimeMappings;
 import org.springframework.boot.web.server.Ssl;
 import org.springframework.boot.web.server.SslStoreProvider;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
+import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -25,6 +29,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import javax.annotation.Resource;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.security.KeyStore;
@@ -36,28 +41,60 @@ import java.util.Arrays;
  * @author acer01
  * 2018/11/12/012
  */
-public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtocolsRegister {
+public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtocolsRegister implements BeanPostProcessor {
+    private NettyProperties properties;
+    private ApplicationX application;
 
-    protected final ApplicationX application;
-
-    public HttpServletProtocolsRegisterSpringAdapter(NettyProperties properties, ServletContext servletContext,
-                                                     AbstractServletWebServerFactory configurableWebServer) throws Exception {
-        super(properties.getServerHandlerExecutor(),
-                servletContext,
-                configurableWebServer.getSsl() != null && configurableWebServer.getSsl().isEnabled()?
-                        SslContextBuilder.forServer(getKeyManagerFactory(configurableWebServer.getSsl(),configurableWebServer.getSslStoreProvider())):null);
+    public HttpServletProtocolsRegisterSpringAdapter(NettyProperties properties, ClassLoader classLoader) {
+        super(properties.getServerHandlerExecutor(),new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
+        this.properties = properties;
         this.application = properties.getApplication();
-        initServletContext(servletContext,configurableWebServer,properties);
-        if(configurableWebServer.getSsl() != null && configurableWebServer.getSsl().isEnabled()) {
-            initSslContext(configurableWebServer);
-        }
     }
 
-    /**
-     * 初始化servlet上下文
-     * @return
-     */
-    protected ServletContext initServletContext(ServletContext servletContext,AbstractServletWebServerFactory configurableWebServer, NettyProperties properties){
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        application.addInstance(beanName,bean,false);
+        return bean;
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if(bean instanceof AbstractServletWebServerFactory){
+            try {
+                configurableServletContext((AbstractServletWebServerFactory) bean);
+            } catch (Exception e) {
+                BeanInitializationException exception = new BeanInitializationException(e.getMessage(),e);
+                exception.setStackTrace(e.getStackTrace());
+                throw exception;
+            }
+        }
+        return bean;
+    }
+
+    @Override
+    public void onServerStart() throws Exception {
+        super.onServerStart();
+
+        //注入到spring对象里
+        application.addInjectAnnotation(Autowired.class, Resource.class);
+        ServletContext servletContext = getServletContext();
+        application.addInstance(servletContext);
+        application.addInstance(servletContext.getSessionService());
+
+        WebApplicationContext springApplication = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+        for (String beanName : springApplication.getBeanDefinitionNames()) {
+            Object bean = springApplication.getBean(beanName);
+            application.addInstance(beanName,bean,false);
+        }
+        application.scanner("com.github.netty").inject();
+    }
+
+    protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
+        ServletContext servletContext = getServletContext();
+        InetAddress address = configurableWebServer.getAddress() == null? InetAddress.getLoopbackAddress():configurableWebServer.getAddress();
+        //服务器端口
+        servletContext.setServerAddress(new InetSocketAddress(address,configurableWebServer.getPort()));
+        servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
@@ -74,7 +111,14 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
             ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(),errorPage.getException(),errorPage.getPath());
             servletContext.getErrorPageManager().add(servletErrorPage);
         }
-        return servletContext;
+
+        Ssl ssl = configurableWebServer.getSsl();
+        if(ssl != null && ssl.isEnabled()){
+            SslStoreProvider sslStoreProvider = configurableWebServer.getSslStoreProvider();
+            KeyManagerFactory keyManagerFactory = getKeyManagerFactory(ssl,sslStoreProvider);
+            SslContextBuilder sslContextBuilder = getSslContext(keyManagerFactory,ssl,sslStoreProvider);
+            super.setSslContextBuilder(sslContextBuilder);
+        }
     }
 
     /**
@@ -85,8 +129,8 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
         //组合会话 (默认本地存储)
         SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
 
-        //启用session远程存储, 利用RPC
         if(StringUtil.isNotEmpty(properties.getSessionRemoteServerAddress())) {
+            //启用session远程存储, 利用RPC
             String remoteSessionServerAddress = properties.getSessionRemoteServerAddress();
             InetSocketAddress address;
             if(remoteSessionServerAddress.contains(":")){
@@ -100,10 +144,9 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
                     properties.getRpcClientIoThreads(),properties.getRpcClientChannels(),
                     properties.isEnablesRpcClientAutoReconnect(),properties.isEnableRpcHeartLog(),
                     properties.getRpcClientHeartIntervalSecond());
-        }
 
-        //启用session文件存储
-        if(properties.isEnablesLocalFileSession()){
+        }else if(properties.isEnablesLocalFileSession()){
+            //启用session文件存储
             compositeSessionService.enableLocalFileSession(servletContext.getResourceManager());
         }
         return compositeSessionService;
@@ -111,15 +154,12 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * 初始化 HTTPS的SSL 安全配置
-     * @param configurableWebServer
+     * @param keyManagerFactory
      * @return SSL上下文
      * @throws Exception
      */
-    protected SslContextBuilder initSslContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
-        SslContextBuilder builder = getSslContextBuilder();
-        Ssl ssl = configurableWebServer.getSsl();
-        SslStoreProvider sslStoreProvider = configurableWebServer.getSslStoreProvider();
-
+    protected SslContextBuilder getSslContext(KeyManagerFactory keyManagerFactory, Ssl ssl, SslStoreProvider sslStoreProvider) throws Exception {
+        SslContextBuilder builder = SslContextBuilder.forServer(keyManagerFactory);
         builder.trustManager(getTrustManagerFactory(ssl, sslStoreProvider));
         if (ssl.getEnabledProtocols() != null) {
             builder.protocols(ssl.getEnabledProtocols());
@@ -173,7 +213,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
      * @return
      * @throws Exception
      */
-    private static KeyManagerFactory getKeyManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
+    protected KeyManagerFactory getKeyManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
         KeyStore keyStore;
         if (sslStoreProvider != null) {
             keyStore = sslStoreProvider.getKeyStore();
@@ -199,7 +239,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
      * @return
      * @throws Exception
      */
-    private static KeyStore loadKeyStore(String type, String provider, String resource,String password) throws Exception {
+    protected KeyStore loadKeyStore(String type, String provider, String resource,String password) throws Exception {
         if (resource == null) {
             return null;
         }
@@ -208,33 +248,6 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
         URL url = ResourceUtils.getURL(resource);
         store.load(url.openStream(), (password == null) ? null : password.toCharArray());
         return store;
-    }
-
-    @Override
-    public void onServerStart() throws Exception {
-        super.onServerStart();
-
-        //注入到spring对象里
-        initApplication();
-    }
-
-    /**
-     *  注入到spring对象里
-     */
-    protected void initApplication(){
-        ApplicationX application = this.application;
-        ServletContext servletContext = getServletContext();
-
-        application.addInjectAnnotation(Autowired.class, Resource.class);
-        application.addInstance(servletContext.getSessionService());
-        application.addInstance(servletContext);
-        WebApplicationContext springApplication = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
-        String[] beans = springApplication.getBeanDefinitionNames();
-        for (String beanName : beans) {
-            Object bean = springApplication.getBean(beanName);
-            application.addInstance(beanName,bean,false);
-        }
-        application.scanner("com.github.netty").inject();
     }
 
 }

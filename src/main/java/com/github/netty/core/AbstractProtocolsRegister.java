@@ -17,5 +17,8 @@ public abstract class AbstractProtocolsRegister implements ProtocolsRegister{
 
     }
 
-
+    @Override
+    public String toString() {
+        return getProtocolName();
+    }
 }

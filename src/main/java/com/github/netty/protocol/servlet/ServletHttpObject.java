@@ -108,7 +108,7 @@ public class ServletHttpObject implements Recyclable{
     }
 
     public InetSocketAddress getServletServerAddress(){
-        return servletContext.getServletServerAddress();
+        return servletContext.getServerAddress();
     }
 
     public InetSocketAddress getLocalAddress(){

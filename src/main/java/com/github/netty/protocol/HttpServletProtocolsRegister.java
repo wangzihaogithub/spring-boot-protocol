@@ -51,10 +51,9 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 5 * 1024 * 1024;
 
-    public HttpServletProtocolsRegister(Executor executor, ServletContext servletContext, SslContextBuilder sslContextBuilder){
+    public HttpServletProtocolsRegister(Executor executor, ServletContext servletContext){
         this.servletContext = servletContext;
         this.servletHandler = new ServletChannelHandler(servletContext,executor);
-        this.sslContextBuilder = sslContextBuilder;
     }
 
     @Override
@@ -204,5 +203,9 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
 
     public SslContextBuilder getSslContextBuilder() {
         return sslContextBuilder;
+    }
+
+    public void setSslContextBuilder(SslContextBuilder sslContextBuilder) {
+        this.sslContextBuilder = sslContextBuilder;
     }
 }

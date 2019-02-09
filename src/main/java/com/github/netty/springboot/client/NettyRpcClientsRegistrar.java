@@ -35,7 +35,6 @@ import java.util.Set;
 @AutoConfigureAfter(NettyPropertiesAutoConfiguration.class)
 public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
         ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware {
-
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
     private Environment environment;
@@ -44,11 +43,11 @@ public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
-        Map<String, Object> enableNettyRpcClientsAttributes = metadata.getAnnotationAttributes(EnableNettyRpcClients.class.getCanonicalName());
-
         ClassPathScanningCandidateComponentProvider scanner = getScanner();
         scanner.setResourceLoader(resourceLoader);
         scanner.addIncludeFilter(new AnnotationTypeFilter(NettyRpcClient.class));
+        Map<String, Object> enableNettyRpcClientsAttributes = metadata.getAnnotationAttributes(EnableNettyRpcClients.class.getCanonicalName());
+        String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
 
         Set<String> basePackages = getBasePackages(metadata,enableNettyRpcClientsAttributes);
         for (String basePackage : basePackages) {
@@ -59,7 +58,7 @@ public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
                     AnnotationMetadata annotationMetadata = beanDefinition.getMetadata();
                     Assert.isTrue(annotationMetadata.isInterface(),"@NettyRpcClient can only be specified on an interface");
 
-                    Map<String, Object> attributes = annotationMetadata.getAnnotationAttributes(NettyRpcClient.class.getCanonicalName());
+                    Map<String, Object> attributes = annotationMetadata.getAnnotationAttributes(nettyRpcClientCanonicalName);
                     registerNettyRpcClient(registry, annotationMetadata, attributes);
                 }
             }
@@ -125,14 +124,16 @@ public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
 
     protected Set<String> getBasePackages(AnnotationMetadata importingClassMetadata,Map<String, Object> enableNettyRpcClientsAttributes) {
         Set<String> basePackages = new HashSet<>();
-        for (String pkg : (String[]) enableNettyRpcClientsAttributes.get("value")) {
-            if (StringUtils.hasText(pkg)) {
-                basePackages.add(pkg);
+        if(enableNettyRpcClientsAttributes != null) {
+            for (String pkg : (String[]) enableNettyRpcClientsAttributes.get("value")) {
+                if (StringUtils.hasText(pkg)) {
+                    basePackages.add(pkg);
+                }
             }
-        }
-        for (String pkg : (String[]) enableNettyRpcClientsAttributes.get("basePackages")) {
-            if (StringUtils.hasText(pkg)) {
-                basePackages.add(pkg);
+            for (String pkg : (String[]) enableNettyRpcClientsAttributes.get("basePackages")) {
+                if (StringUtils.hasText(pkg)) {
+                    basePackages.add(pkg);
+                }
             }
         }
 

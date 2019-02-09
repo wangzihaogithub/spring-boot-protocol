@@ -20,7 +20,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author 84215
  */
 public class NettyRpcClientFactoryBean implements FactoryBean<Object>, InitializingBean,ApplicationContextAware {
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private Class<?> objectType;
     private Class<?> fallback;
@@ -45,7 +44,6 @@ public class NettyRpcClientFactoryBean implements FactoryBean<Object>, Initializ
     private void oncePing(NettyRpcClientProxy nettyRpcClientProxy){
         if(oncePingFlag != null && oncePingFlag.compareAndSet(false,true)){
             ThreadPoolX.getDefaultInstance().execute(()->{
-
                     try {
                         nettyRpcClientProxy.pingOnceAfterDestroy();
                     }catch (RpcException e){

@@ -20,7 +20,7 @@ public class ServletDefaultHttpServlet extends HttpServlet {
         AsyncContext context = request.startAsync();
         context.start(()->{
             try {
-                response.getWriter().write("aaa啊");
+                response.getWriter().write("cc");
                 context.complete();
             } catch (IOException e) {
                 e.printStackTrace();

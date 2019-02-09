@@ -22,7 +22,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -74,11 +73,19 @@ public class ServletContext implements javax.servlet.ServletContext {
     private String requestCharacterEncoding;
     private String responseCharacterEncoding;
     private String servletContextName;
-    private InetSocketAddress servletServerAddress;
+    private InetSocketAddress serverAddress;
+    private ClassLoader classLoader;
 
-    public ServletContext(InetSocketAddress socketAddress,ClassLoader classLoader,String docBase) {
-        this.servletServerAddress = Objects.requireNonNull(socketAddress);
-        String workspace = '/' + (HostUtil.isLocalhost(socketAddress.getHostName())? "localhost":socketAddress.getHostName());
+    public ServletContext(ClassLoader classLoader) {
+        this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
+    }
+
+    public void setServerAddress(InetSocketAddress serverAddress) {
+        this.serverAddress = serverAddress;
+    }
+
+    public void setDocBase(String docBase){
+        String workspace = '/' + (serverAddress == null || HostUtil.isLocalhost(serverAddress.getHostName())? "localhost": serverAddress.getHostName());
         this.resourceManager = new ResourceManager(docBase,workspace,classLoader);
         this.resourceManager.mkdirs("/");
 
@@ -170,8 +177,8 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.responseWriterChunkMaxHeapByteLength = responseWriterChunkMaxHeapByteLength;
     }
 
-    public InetSocketAddress getServletServerAddress() {
-        return servletServerAddress;
+    public InetSocketAddress getServerAddress() {
+        return serverAddress;
     }
 
     public void setSessionService(SessionService sessionService) {
@@ -624,7 +631,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     public String getVirtualServerName() {
         return ServletUtil.getServerInfo()
         .concat(" (")
-        .concat(servletServerAddress.getHostName())
+        .concat(serverAddress.getHostName())
         .concat(":")
         .concat(SystemPropertyUtil.get("user.name"))
         .concat(")");
