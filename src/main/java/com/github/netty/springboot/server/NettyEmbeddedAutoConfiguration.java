@@ -61,6 +61,11 @@ public class NettyEmbeddedAutoConfiguration {
     @ConditionalOnMissingBean(HttpServletProtocolsRegister.class)
     public HttpServletProtocolsRegister httpServletProtocolsRegister(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
         HttpServletProtocolsRegisterSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolsRegisterSpringAdapter(nettyProperties,resourceLoader.getClassLoader());
+        httpServletProtocolsRegister.setMaxInitialLineLength(4096);
+        httpServletProtocolsRegister.setMaxHeaderSize(8192);
+        httpServletProtocolsRegister.setMaxContentLength(5 * 1024 * 1024);
+        httpServletProtocolsRegister.setMaxChunkSize(5 * 1024 * 1024);
+
         factory.addBeanPostProcessor(httpServletProtocolsRegister);
         return httpServletProtocolsRegister;
     }

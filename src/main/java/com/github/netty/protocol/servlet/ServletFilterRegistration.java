@@ -19,44 +19,36 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private Filter filter;
     private FilterConfig filterConfig;
     private ServletContext servletContext;
-    private Map<String,String> initParameterMap;
-    private ServletFilterRegistration self;
-    private Set<String> mappingSet;
-    private Set<String> servletNameMappingSet;
-    private boolean asyncSupported;
     private UrlMapper<ServletFilterRegistration> urlMapper;
+    private boolean asyncSupported = true;
+    private Map<String,String> initParameterMap = new HashMap<>();
+    private Set<String> mappingSet = new HashSet<>();
+    private Set<String> servletNameMappingSet = new HashSet<>();
 
     public ServletFilterRegistration(String filterName, Filter servlet,ServletContext servletContext,UrlMapper<ServletFilterRegistration> urlMapper) {
         this.filterName = filterName;
         this.filter = servlet;
         this.servletContext = servletContext;
         this.urlMapper = urlMapper;
-        this.initParameterMap = new HashMap<>();
-        this.mappingSet = new HashSet<>();
-        this.servletNameMappingSet = new HashSet<>();
-        this.asyncSupported = false;
-        this.self = this;
-
         this.filterConfig = new FilterConfig(){
-
             @Override
             public String getFilterName() {
-                return self.filterName;
+                return ServletFilterRegistration.this.filterName;
             }
 
             @Override
             public ServletContext getServletContext() {
-                return self.servletContext;
+                return ServletFilterRegistration.this.servletContext;
             }
 
             @Override
             public String getInitParameter(String name) {
-                return self.getInitParameter(name);
+                return ServletFilterRegistration.this.getInitParameter(name);
             }
 
             @Override
             public Enumeration<String> getInitParameterNames() {
-                return Collections.enumeration(self.getInitParameters().keySet());
+                return Collections.enumeration(ServletFilterRegistration.this.getInitParameters().keySet());
             }
         };
     }

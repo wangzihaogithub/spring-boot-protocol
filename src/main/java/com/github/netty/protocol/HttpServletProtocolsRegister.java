@@ -19,7 +19,7 @@ import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executor;
 
 /**
@@ -29,11 +29,6 @@ import java.util.concurrent.Executor;
  */
 public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = 100;
-
-    public static final String HANDLER_SSL = "SSL";
-    public static final String HANDLER_AGGREGATOR = "Aggregator";
-    public static final String HANDLER_SERVLET = "Servlet";
-    public static final String HANDLER_HTTP_CODEC = "HttpCodec";
 
     /**
      * servlet上下文
@@ -84,8 +79,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
      */
     protected void initFilter(ServletContext servletContext) throws ServletException {
         Map<String, ServletFilterRegistration> servletFilterRegistrationMap = servletContext.getFilterRegistrations();
-        for(Map.Entry<String,ServletFilterRegistration> entry : servletFilterRegistrationMap.entrySet()){
-            ServletFilterRegistration registration = entry.getValue();
+        for(ServletFilterRegistration registration : servletFilterRegistrationMap.values()){
             registration.getFilter().init(registration.getFilterConfig());
             registration.setInitParameter("_init","true");
         }
@@ -96,9 +90,9 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
      * @param servletContext
      */
     protected void initServlet(ServletContext servletContext) throws ServletException {
-        Map<String, ServletRegistration> servletRegistrationMap = servletContext.getServletRegistrations();
-        for(Map.Entry<String,ServletRegistration> entry : servletRegistrationMap.entrySet()){
-            ServletRegistration registration = entry.getValue();
+        List<ServletRegistration> servletRegistrations = new ArrayList<>(servletContext.getServletRegistrations().values());
+        servletRegistrations.sort(Comparator.comparingInt(ServletRegistration::getLoadOnStartup));
+        for(ServletRegistration registration : servletRegistrations){
             registration.getServlet().init(registration.getServletConfig());
             registration.setInitParameter("_init","true");
         }
@@ -109,14 +103,13 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
      */
     protected void destroyFilter(){
         Map<String, ServletFilterRegistration> servletRegistrationMap = servletContext.getFilterRegistrations();
-        for(Map.Entry<String,ServletFilterRegistration> entry : servletRegistrationMap.entrySet()){
-            ServletFilterRegistration registration = entry.getValue();
+        for(ServletFilterRegistration registration : servletRegistrationMap.values()){
             Filter filter = registration.getFilter();
             if(filter == null) {
                 continue;
             }
             String initFlag = registration.getInitParameter("_init");
-            if(initFlag != null && "true".equals(initFlag)){
+            if("true".equals(initFlag)){
                 filter.destroy();
             }
         }
@@ -127,14 +120,13 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
      */
     protected void destroyServlet(){
         Map<String, ServletRegistration> servletRegistrationMap = servletContext.getServletRegistrations();
-        for(Map.Entry<String,ServletRegistration> entry : servletRegistrationMap.entrySet()){
-            ServletRegistration registration = entry.getValue();
+        for(ServletRegistration registration : servletRegistrationMap.values()){
             Servlet servlet = registration.getServlet();
             if(servlet == null) {
                 continue;
             }
             String initFlag = registration.getInitParameter("_init");
-            if(initFlag != null && "true".equals(initFlag)){
+            if("true".equals(initFlag)){
                 servlet.destroy();
             }
         }
@@ -166,21 +158,21 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
                 sslContext = sslContextBuilder.build();
             }
             SSLEngine engine = sslContext.newEngine(ch.alloc());
-            pipeline.addLast(HANDLER_SSL, new SslHandler(engine,true));
+            pipeline.addLast("SSL", new SslHandler(engine,true));
         }
 
         //HTTP编码解码
-        pipeline.addLast(HANDLER_HTTP_CODEC, new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
+        pipeline.addLast("HttpCodec", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
 
         //HTTP请求聚合，设置最大消息值为 5M
-        pipeline.addLast(HANDLER_AGGREGATOR, new HttpObjectAggregator(maxContentLength));
+        pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength));
 
         //内容压缩
 //                    pipeline.addLast("ContentCompressor", new HttpContentCompressor());
 //                pipeline.addLast("ContentDecompressor", new HttpContentDecompressor());
 
         //业务调度器, 让对应的Servlet处理请求
-        pipeline.addLast(HANDLER_SERVLET, servletHandler);
+        pipeline.addLast("Servlet", servletHandler);
     }
 
     @Override
@@ -207,5 +199,21 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
 
     public void setSslContextBuilder(SslContextBuilder sslContextBuilder) {
         this.sslContextBuilder = sslContextBuilder;
+    }
+
+    public void setMaxContentLength(int maxContentLength) {
+        this.maxContentLength = maxContentLength;
+    }
+
+    public void setMaxInitialLineLength(int maxInitialLineLength) {
+        this.maxInitialLineLength = maxInitialLineLength;
+    }
+
+    public void setMaxHeaderSize(int maxHeaderSize) {
+        this.maxHeaderSize = maxHeaderSize;
+    }
+
+    public void setMaxChunkSize(int maxChunkSize) {
+        this.maxChunkSize = maxChunkSize;
     }
 }

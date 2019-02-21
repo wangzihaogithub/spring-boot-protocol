@@ -19,42 +19,39 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private Servlet servlet;
     private ServletConfig servletConfig;
     private ServletContext servletContext;
-    private Map<String,String> initParameterMap;
-    private ServletRegistration self;
-    private Set<String> mappingSet;
-    private Boolean asyncSupported;
     private UrlMapper<ServletRegistration> urlMapper;
     private MultipartConfigElement multipartConfigElement;
     private ServletSecurityElement servletSecurityElement;
+    private String roleName;
+    private boolean asyncSupported = true;
+    private int loadOnStartup = -1;
+    private Map<String,String> initParameterMap = new HashMap<>();
+    private Set<String> mappingSet = new HashSet<>();
 
     public ServletRegistration(String servletName, Servlet servlet,ServletContext servletContext,UrlMapper<ServletRegistration> urlMapper) {
         this.servletName = servletName;
         this.servlet = servlet;
         this.servletContext = servletContext;
         this.urlMapper = urlMapper;
-        this.initParameterMap = new HashMap<>();
-        this.mappingSet = new HashSet<>();
-        this.self = this;
-
         this.servletConfig = new ServletConfig() {
             @Override
             public String getServletName() {
-                return self.servletName;
+                return ServletRegistration.this.servletName;
             }
 
             @Override
             public javax.servlet.ServletContext getServletContext() {
-                return self.servletContext;
+                return ServletRegistration.this.servletContext;
             }
 
             @Override
             public String getInitParameter(String name) {
-                return self.getInitParameter(name);
+                return ServletRegistration.this.getInitParameter(name);
             }
 
             @Override
             public Enumeration<String> getInitParameterNames() {
-                return Collections.enumeration(self.getInitParameters().keySet());
+                return Collections.enumeration(ServletRegistration.this.getInitParameters().keySet());
             }
         };
     }
@@ -79,6 +76,10 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
         return asyncSupported;
     }
 
+    public int getLoadOnStartup() {
+        return loadOnStartup;
+    }
+
     @Override
     public Set<String> addMapping(String... urlPatterns) {
         mappingSet.addAll(Arrays.asList(urlPatterns));
@@ -97,7 +98,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
 
     @Override
     public String getRunAsRole() {
-        return null;
+        return roleName;
     }
 
     @Override
@@ -135,7 +136,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
 
     @Override
     public void setLoadOnStartup(int loadOnStartup) {
-
+        this.loadOnStartup = loadOnStartup;
     }
 
     @Override
@@ -151,7 +152,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
 
     @Override
     public void setRunAsRole(String roleName) {
-
+        this.roleName = roleName;
     }
 
     @Override
