@@ -185,7 +185,10 @@ public abstract class AbstractNettyClient implements Runnable{
                 return true;
             }
         } catch (Exception e) {
-            Throwable root = ExceptionUtil.getRootCauseNotNull(e);
+            Throwable root = e.getCause();
+            if(root == null){
+                root = e;
+            }
             logger.error("Connect fail "+remoteAddress +"  : ["+ root.toString()+"]");
             return false;
         }
@@ -224,7 +227,7 @@ public abstract class AbstractNettyClient implements Runnable{
     protected void stopAfter(Throwable cause){
         //有异常抛出
         if(cause != null){
-            ExceptionUtil.printRootCauseStackTrace(cause);
+            cause.printStackTrace();
         }
 
         logger.info(name + " stop [remoteAddress = "+remoteAddress+"]...");

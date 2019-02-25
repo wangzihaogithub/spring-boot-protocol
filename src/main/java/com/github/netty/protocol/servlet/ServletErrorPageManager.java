@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.ExceptionUtil;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.servlet.util.ServletUtil;
@@ -99,7 +98,15 @@ public class ServletErrorPageManager {
             }
         } catch (Throwable e) {
             logger.error("on handleErrorPage error. url="+request.getRequestURL()+", case="+e.getMessage(),e);
-            ExceptionUtil.handleThrowable(e);
+            if (e instanceof ThreadDeath) {
+                throw (ThreadDeath) e;
+            }
+            if (e instanceof StackOverflowError) {
+                return;
+            }
+            if (e instanceof VirtualMachineError) {
+                throw (VirtualMachineError) e;
+            }
         }
     }
 }

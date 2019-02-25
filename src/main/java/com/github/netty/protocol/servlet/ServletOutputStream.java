@@ -14,13 +14,18 @@ import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.WriteListener;
 import javax.servlet.http.Cookie;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -33,7 +38,15 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 @sun.misc.Contended
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable  {
-
+    private static final FastThreadLocal<DateFormat> DATE_FORMAT_GMT_LOCAL = new FastThreadLocal<DateFormat>() {
+        private TimeZone timeZone = TimeZone.getTimeZone("GMT");
+        @Override
+        protected DateFormat initialValue() {
+            DateFormat df = new SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.ENGLISH);
+            df.setTimeZone(timeZone);
+            return df;
+        }
+    };
     protected AtomicBoolean isEmpty = new AtomicBoolean(true);
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     protected AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
@@ -391,7 +404,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (null != contentType) {
             //Content Type 响应头的内容
             String value = (null == characterEncoding) ? contentType :
-                    new StringBuilder(contentType)
+                    RecyclableUtil.newStringBuilder()
+                            .append(contentType)
                             .append(';')
                             .append(HttpHeaderConstants.CHARSET)
                             .append('=')
@@ -400,7 +414,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             headers.set(HttpHeaderConstants.CONTENT_TYPE, value);
         }
         // 时间日期响应头
-        headers.set(HttpHeaderConstants.DATE, ServletUtil.newDateGMT());
+        headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
         //服务器信息响应头
         String serverHeader = servletRequest.getServletContext().getServerHeader();
         if(serverHeader != null && serverHeader.length() > 0) {
@@ -444,10 +458,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
         //其他业务或框架设置的cookie，逐条写入到响应头去
         if(cookies != null) {
-            NettyHttpCookie nettyCookie = new NettyHttpCookie();
             for (Cookie cookie : cookies) {
-                nettyCookie.wrap(ServletUtil.toNettyCookie(cookie));
-                headers.add(HttpHeaderConstants.SET_COOKIE, ServletUtil.encodeCookie(nettyCookie));
+                String value = ServletUtil.encodeCookie(cookie.getName(),cookie.getValue(),cookie.getMaxAge(),cookie.getPath(),cookie.getDomain(),cookie.getSecure(),cookie.isHttpOnly());
+                headers.add(HttpHeaderConstants.SET_COOKIE, value);
             }
         }
     }
@@ -460,7 +473,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             }
             close();
         } catch (IOException e) {
-            ExceptionUtil.printRootCauseStackTrace(e);
+            e.printStackTrace();
         }
     }
 
@@ -521,7 +534,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                     }
                 }
             }catch (Throwable throwable){
-                ExceptionUtil.printRootCauseStackTrace(throwable);
+                throwable.printStackTrace();
             }finally {
                 FlushListener.this.recycle();
             }

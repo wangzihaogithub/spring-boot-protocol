@@ -280,9 +280,9 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
                     if (ref != null) {
                         ref.release();
                     }
-                    return true;
+                    return Boolean.TRUE;
                 }
-                return false;
+                return Boolean.FALSE;
             }
         });
         return (result == Boolean.TRUE);
@@ -295,9 +295,9 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
             protected Boolean execute(Reference<K, V> ref, Entry<K, V> entry) {
                 if (entry != null && nullSafeEquals(entry.getValue(), oldValue)) {
                     entry.setValue(newValue);
-                    return true;
+                    return Boolean.TRUE;
                 }
-                return false;
+                return Boolean.FALSE;
             }
         });
         return (result == Boolean.TRUE);
@@ -1040,7 +1040,6 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
             clear();
         }
     }
-
 
     public static int nullSafeHashCode( Object obj) {
         if (obj == null) {

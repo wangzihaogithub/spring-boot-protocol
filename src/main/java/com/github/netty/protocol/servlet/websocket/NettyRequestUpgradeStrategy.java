@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet.websocket;
 
-import com.github.netty.protocol.servlet.NettyHttpRequest;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.core.util.Wrapper;
 import com.github.netty.protocol.servlet.ServletChannelHandler;
@@ -10,6 +9,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import org.springframework.http.server.ServerHttpRequest;
@@ -102,7 +102,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     protected void handshakeToWebsocket(ServletHttpServletRequest servletRequest, String subprotocols, int maxFramePayloadLength, Principal userPrincipal,
                                       List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
                                       Endpoint localEndpoint, EndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer){
-        NettyHttpRequest nettyRequest = servletRequest.getNettyRequest();
+        FullHttpRequest nettyRequest = servletRequest.getNettyRequest();
         ChannelHandlerContext channelContext = Wrapper.unwrap(servletRequest.getHttpServletObject().getChannelHandlerContext());
 
         String queryString = servletRequest.getQueryString();

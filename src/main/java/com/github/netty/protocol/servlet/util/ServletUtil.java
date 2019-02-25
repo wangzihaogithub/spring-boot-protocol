@@ -1,12 +1,10 @@
 package com.github.netty.protocol.servlet.util;
 
-import com.github.netty.core.util.CookieCodecUtil;
-import com.github.netty.protocol.servlet.NettyHttpCookie;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
-import io.netty.handler.codec.http.DefaultCookie;
+import io.netty.handler.codec.http.HttpConstants;
 import io.netty.util.CharsetUtil;
-import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletRequestWrapper;
@@ -20,9 +18,6 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -32,32 +27,8 @@ import java.util.*;
  */
 public class ServletUtil {
 
-    /**
-     * 生成HTTP报头时允许的唯一日期格式。
-     */
-    private static final String RFC1123_DATE =
-            "EEE, dd MMM yyyy HH:mm:ss zzz";
-
-    private static final SimpleDateFormat[] FORMATS_TEMPLATE = {
-            new SimpleDateFormat(RFC1123_DATE, Locale.ENGLISH),
-            new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.ENGLISH),
-            new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
-    };
     private static final String EMPTY_STRING = "";
     private static final char SPACE = 0x20;
-    /**
-     * SimpleDateFormat非线程安全，为了节省内存提高效率，把他放在ThreadLocal里
-     * 用于设置HTTP响应头的时间信息
-     */
-    private static final FastThreadLocal<DateFormat> HTTP_DATE_FORMAT = new FastThreadLocal<DateFormat>() {
-        private TimeZone timeZone = TimeZone.getTimeZone("GMT");
-        @Override
-        protected DateFormat initialValue() {
-            DateFormat df = new SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.ENGLISH);
-            df.setTimeZone(timeZone);
-            return df;
-        }
-    };
 
     public static String getCookieValue(Cookie[] cookies, String cookieName){
         if(cookies == null || cookieName == null) {
@@ -105,97 +76,199 @@ public class ServletUtil {
         return encoding.trim();
     }
 
-    public static String encodeCookie(io.netty.handler.codec.http.Cookie cookie){
-        String value = CookieCodecUtil.encode(cookie);
-        return value;
+    /**
+     * Encodes the specified cookie into a Set-Cookie header value.
+     * @param cookieName
+     * @param cookieValue
+     * @param maxAge
+     * @param path
+     * @param domain
+     * @param secure
+     * @param httpOnly
+     * @return a single Set-Cookie header value
+     */
+    public static String encodeCookie(String cookieName, String cookieValue, int maxAge, String path, String domain, boolean secure, boolean httpOnly) {
+        StringBuilder buf = RecyclableUtil.newStringBuilder();
+        buf.append(cookieName);
+        buf.append((char) io.netty.handler.codec.http.HttpConstants.EQUALS);
+        buf.append(cookieValue);
+        buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+        buf.append((char) io.netty.handler.codec.http.HttpConstants.SP);
+
+        if (maxAge > 0) {
+            buf.append(HttpHeaderConstants.MAX_AGE_1.toString());
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.EQUALS);
+            buf.append(maxAge);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SP);
+//            Date expires = new Date(cookie.maxAge() * 1000 + System.currentTimeMillis());
+//            addUnquoted(buf, HttpHeaderConstants.EXPIRES.toString(), HttpHeaderDateFormat.get().format(expires));
+        }
+        if (path != null) {
+            buf.append(HttpHeaderConstants.PATH.toString());
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.EQUALS);
+            buf.append(path);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SP);
+        }
+        if (domain != null) {
+            buf.append(HttpHeaderConstants.DOMAIN.toString());
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.EQUALS);
+            buf.append(domain);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SP);
+        }
+        if (secure) {
+            buf.append(HttpHeaderConstants.SECURE);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SP);
+        }
+        if (httpOnly) {
+            buf.append(HttpHeaderConstants.HTTPONLY);
+            buf.append((char) io.netty.handler.codec.http.HttpConstants.SEMICOLON);
+            buf.append((char) HttpConstants.SP);
+        }
+        if (buf.length() > 0) {
+            buf.setLength(buf.length() - 2);
+        }
+        return buf.toString();
     }
-
-    public static Cookie[] decodeCookie(String value){
-        if(value == null || value.isEmpty()){
-            return null;
-        }
-
-        Collection<io.netty.handler.codec.http.Cookie> nettyCookieSet = CookieCodecUtil.decode(value);
-        if(nettyCookieSet == null || nettyCookieSet.isEmpty()){
-            return null;
-        }
-
-        io.netty.handler.codec.http.Cookie[] nettyCookieArr = nettyCookieSet.toArray(new io.netty.handler.codec.http.Cookie[nettyCookieSet.size()]);
-        int size = nettyCookieArr.length;
-        Cookie[] cookies = new Cookie[size];
-
-        NettyHttpCookie nettyHttpCookie = new NettyHttpCookie();
-        for (int i=0; i< size; i++) {
-            io.netty.handler.codec.http.Cookie nettyCookie = nettyCookieArr[i];
-            if(nettyCookie == null){
-                continue;
-            }
-
-            nettyHttpCookie.wrap(nettyCookie);
-            cookies[i] = toServletCookie(nettyHttpCookie);
-        }
-        return cookies;
-    }
-
-    public static Cookie toServletCookie(NettyHttpCookie nettyCookie){
-        Cookie cookie = new Cookie(nettyCookie.getName(), nettyCookie.getValue());
-        String comment = nettyCookie.getComment();
-        if(comment != null) {
-            cookie.setComment(comment);
-        }
-        String domain = nettyCookie.getDomain();
-        if(domain != null) {
-            cookie.setDomain(domain);
-        }
-        cookie.setHttpOnly(nettyCookie.isHttpOnly());
-        cookie.setMaxAge((int) nettyCookie.getMaxAge());
-        cookie.setPath(nettyCookie.getPath());
-        cookie.setVersion(nettyCookie.getVersion());
-        cookie.setSecure(nettyCookie.isSecure());
-        return cookie;
-    }
-
-    public static io.netty.handler.codec.http.Cookie toNettyCookie(Cookie cookie){
-        io.netty.handler.codec.http.Cookie nettyCookie = new DefaultCookie(cookie.getName(),cookie.getValue());
-        String comment = cookie.getComment();
-        if(comment != null) {
-            nettyCookie.setComment(comment);
-        }
-        String domain = cookie.getDomain();
-        if(domain != null) {
-            nettyCookie.setDomain(domain);
-        }
-        nettyCookie.setHttpOnly(cookie.isHttpOnly());
-        nettyCookie.setMaxAge(cookie.getMaxAge());
-        nettyCookie.setPath(cookie.getPath());
-        nettyCookie.setVersion(cookie.getVersion());
-        nettyCookie.setSecure(cookie.getSecure());
-
-        return nettyCookie;
-    }
-
-    public static Long parseHeaderDate(String value) {
-        DateFormat[] formats = FORMATS_TEMPLATE;
-        Date date = null;
-        for (int i = 0; (date == null) && (i < formats.length); i++) {
-            try {
-                date = formats[i].parse(value);
-            } catch (ParseException e) {
-                // Ignore
-            }
-        }
-        if (date == null) {
-            return null;
-        }
-        return date.getTime();
-    }
-
 
     /**
-     * @return 线程安全的获取当前时间格式化后的字符串
+     * Decodes the specified Set-Cookie HTTP header value into a {@link io.netty.handler.codec.http.Cookie}.
+     * @return the decoded {@link io.netty.handler.codec.http.Cookie}
      */
-    public static String newDateGMT() {
-        return HTTP_DATE_FORMAT.get().format(new Date());
+    public static Set<Cookie> decodeCookie(String header) {
+        final int headerLen = header.length();
+
+        if (headerLen == 0) {
+            return Collections.emptySet();
+        }
+
+        Set<Cookie> cookies = new TreeSet<Cookie>();
+
+        int i = 0;
+
+        boolean rfc2965Style = false;
+        if (header.regionMatches(true, 0, "$Version", 0, 8)) {
+            // RFC 2965 style cookie, move to after version value
+            i = header.indexOf(';') + 1;
+            rfc2965Style = true;
+        }
+
+        loop: for (;;) {
+
+            // Skip spaces and separators.
+            for (;;) {
+                if (i == headerLen) {
+                    break loop;
+                }
+                char c = header.charAt(i);
+                if (c == '\t' || c == '\n' || c == 0x0b || c == '\f'
+                        || c == '\r' || c == ' ' || c == ',' || c == ';') {
+                    i++;
+                    continue;
+                }
+                break;
+            }
+
+            int newNameStart = i;
+            int newNameEnd = i;
+            String value;
+
+            if (i == headerLen) {
+                value = null;
+            } else {
+                keyValLoop: for (;;) {
+
+                    char curChar = header.charAt(i);
+                    if (curChar == ';') {
+                        // NAME; (no value till ';')
+                        newNameEnd = i;
+                        value = null;
+                        break keyValLoop;
+                    } else if (curChar == '=') {
+                        // NAME=VALUE
+                        newNameEnd = i;
+                        i++;
+                        if (i == headerLen) {
+                            // NAME= (empty value, i.e. nothing after '=')
+                            value = "";
+                            break keyValLoop;
+                        }
+
+                        int newValueStart = i;
+                        char c = header.charAt(i);
+                        if (c == '"') {
+                            // NAME="VALUE"
+                            StringBuilder newValueBuf = RecyclableUtil.newStringBuilder();
+
+                            final char q = c;
+                            boolean hadBackslash = false;
+                            i++;
+                            for (;;) {
+                                if (i == headerLen) {
+                                    value = newValueBuf.toString();
+                                    break keyValLoop;
+                                }
+                                if (hadBackslash) {
+                                    hadBackslash = false;
+                                    c = header.charAt(i++);
+                                    if (c == '\\' || c == '"') {
+                                        // Escape last backslash.
+                                        newValueBuf.setCharAt(newValueBuf.length() - 1, c);
+                                    } else {
+                                        // Do not escape last backslash.
+                                        newValueBuf.append(c);
+                                    }
+                                } else {
+                                    c = header.charAt(i++);
+                                    if (c == q) {
+                                        value = newValueBuf.toString();
+                                        break keyValLoop;
+                                    }
+                                    newValueBuf.append(c);
+                                    if (c == '\\') {
+                                        hadBackslash = true;
+                                    }
+                                }
+                            }
+                        } else {
+                            // NAME=VALUE;
+                            int semiPos = header.indexOf(';', i);
+                            if (semiPos > 0) {
+                                value = header.substring(newValueStart, semiPos);
+                                i = semiPos;
+                            } else {
+                                value = header.substring(newValueStart);
+                                i = headerLen;
+                            }
+                        }
+                        break keyValLoop;
+                    } else {
+                        i++;
+                    }
+
+                    if (i == headerLen) {
+                        // NAME (no value till the end of string)
+                        newNameEnd = headerLen;
+                        value = null;
+                        break;
+                    }
+                }
+            }
+
+            if (!rfc2965Style || (!header.regionMatches(newNameStart, "$Path", 0, "$Path".length()) &&
+                    !header.regionMatches(newNameStart, "$Domain", 0, "$Domain".length()) &&
+                    !header.regionMatches(newNameStart, "$Port", 0, "$Port".length()))) {
+
+                // skip obsolete RFC2965 fields
+                String name = header.substring(newNameStart, newNameEnd);
+                cookies.add(new Cookie(name, value));
+            }
+        }
+
+        return cookies;
     }
 
     /**

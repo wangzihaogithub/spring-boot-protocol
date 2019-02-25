@@ -5,10 +5,12 @@ import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.SnowflakeIdWorker;
+import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.multipart.*;
+import io.netty.util.ReferenceCountUtil;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -20,6 +22,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.Principal;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -38,6 +43,12 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
+    private static final String RFC1123_DATE = "EEE, dd MMM yyyy HH:mm:ss zzz";
+    private static final SimpleDateFormat[] FORMATS_TEMPLATE = {
+            new SimpleDateFormat(RFC1123_DATE, Locale.ENGLISH),
+            new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.ENGLISH),
+            new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
+    };
     private static final Map<String,ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
 
     private ServletHttpObject httpServletObject;
@@ -63,7 +74,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private boolean usingInputStream = false;
 
     private BufferedReader reader;
-    private NettyHttpRequest nettyRequest = new NettyHttpRequest();
+    private FullHttpRequest nettyRequest;
     private ServletInputStream inputStream = new ServletInputStream();
     private Map<String,Object> attributeMap = new ConcurrentHashMap<>(16);
     private Map<String,String[]> parameterMap = new HashMap<>(16);
@@ -76,11 +87,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     protected ServletHttpServletRequest() {}
 
     public static ServletHttpServletRequest newInstance(ServletHttpObject httpServletObject, FullHttpRequest fullHttpRequest) {
-        Objects.requireNonNull(httpServletObject);
-
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.httpServletObject = httpServletObject;
-        instance.nettyRequest.wrap(fullHttpRequest);
+        instance.nettyRequest = fullHttpRequest;
         instance.inputStream.wrap(fullHttpRequest.content());
         return instance;
     }
@@ -105,7 +114,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         return httpServletObject;
     }
 
-    public NettyHttpRequest getNettyRequest() {
+    public FullHttpRequest getNettyRequest() {
         return nettyRequest;
     }
 
@@ -276,11 +285,13 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      * 解析cookie
      */
     private void decodeCookie(){
-        Object value = getHeader(HttpHeaderConstants.COOKIE.toString());
-        if (value == null) {
-            return;
+        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
+        if (value != null && value.length() > 0) {
+            Set<Cookie> nettyCookieSet = ServletUtil.decodeCookie(value);
+            if(nettyCookieSet != null && nettyCookieSet.size() > 0){
+                this.cookies = nettyCookieSet.toArray(new Cookie[nettyCookieSet.size()]);
+            }
         }
-        this.cookies = ServletUtil.decodeCookie(value.toString());
         this.decodeCookieFlag = true;
     }
 
@@ -365,11 +376,19 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             return -1;
         }
 
-        Long timestamp = ServletUtil.parseHeaderDate(value);
-        if(timestamp == null){
+        DateFormat[] formats = FORMATS_TEMPLATE;
+        Date date = null;
+        for (int i = 0; (date == null) && (i < formats.length); i++) {
+            try {
+                date = formats[i].parse(value);
+            } catch (ParseException e) {
+                // Ignore
+            }
+        }
+        if (date == null) {
             throw new IllegalArgumentException(value);
         }
-        return (long)timestamp;
+        return date.getTime();
     }
 
     /**
@@ -1095,7 +1114,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public void recycle() {
         this.inputStream.recycle();
-        this.nettyRequest.recycle();
+        this.nettyRequest = null;
         if(this.postRequestDecoder != null) {
             this.postRequestDecoder.destroy();
             this.postRequestDecoder = null;

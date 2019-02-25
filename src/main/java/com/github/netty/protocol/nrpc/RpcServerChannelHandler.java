@@ -2,7 +2,6 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
-import com.github.netty.core.util.ExceptionUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -60,7 +59,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        ExceptionUtil.printRootCauseStackTrace(cause);
+        cause.printStackTrace();
         removeChannel(ctx.channel());
     }
 

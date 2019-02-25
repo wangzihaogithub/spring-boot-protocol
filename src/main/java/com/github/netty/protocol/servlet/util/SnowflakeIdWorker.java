@@ -87,11 +87,11 @@ public class SnowflakeIdWorker {
 
     // ==============================Methods==========================================
     /**
-     * 获得下一个ID (该方法是线程安全的)
+     * 获得下一个ID
      * @return SnowflakeId
      */
-    public synchronized long nextId() {
-        long timestamp = timeGen();
+    public long nextId() {
+        long timestamp = System.currentTimeMillis();
 
         //如果当前时间小于上一次ID生成的时间戳，说明系统时钟回退过这个时候应当抛出异常
         if (timestamp < lastTimestamp) {
@@ -107,9 +107,8 @@ public class SnowflakeIdWorker {
                 //阻塞到下一个毫秒,获得新的时间戳
                 timestamp = tilNextMillis(lastTimestamp);
             }
-        }
-        //时间戳改变，毫秒内序列重置
-        else {
+        }else {
+            //时间戳改变，毫秒内序列重置
             sequence = 0L;
         }
 
@@ -129,19 +128,11 @@ public class SnowflakeIdWorker {
      * @return 当前时间戳
      */
     private long tilNextMillis(long lastTimestamp) {
-        long timestamp = timeGen();
+        long timestamp = System.currentTimeMillis();
         while (timestamp <= lastTimestamp) {
-            timestamp = timeGen();
+            timestamp = System.currentTimeMillis();
         }
         return timestamp;
-    }
-
-    /**
-     * 返回以毫秒为单位的当前时间
-     * @return 当前时间(毫秒)
-     */
-    private long timeGen() {
-        return System.currentTimeMillis();
     }
 
     //==============================Test=============================================

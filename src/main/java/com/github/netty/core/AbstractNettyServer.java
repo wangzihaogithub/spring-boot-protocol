@@ -136,7 +136,7 @@ public abstract class AbstractNettyServer implements Runnable{
             channelFuture.addListener(this::startAfter);
             running = true;
         } catch (Throwable throwable) {
-            ExceptionUtil.printRootCauseStackTrace(throwable);
+            throwable.printStackTrace();
         }
     }
 
@@ -169,7 +169,7 @@ public abstract class AbstractNettyServer implements Runnable{
     protected void stopAfter(Throwable cause){
         //有异常抛出
         if(cause != null){
-            ExceptionUtil.printRootCauseStackTrace(cause);
+            cause.printStackTrace();
         }
         logger.info(name + " stop [port = "+getPort()+" , cause = "+cause+"]...");
     }

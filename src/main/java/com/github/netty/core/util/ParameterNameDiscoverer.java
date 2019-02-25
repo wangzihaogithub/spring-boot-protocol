@@ -25,11 +25,10 @@ public class ParameterNameDiscoverer {
 
     // marker object for classes that do not have any debug info
     private static final Map<Member, String[]> NO_DEBUG_INFO_MAP = Collections.emptyMap();
+    private static final Map<Class<?>, Method[]> DECLARED_METHODS_CACHE = new ConcurrentReferenceHashMap<>(256);
 
     // the cache uses a nested index (value is a map) to keep the top level cache relatively small in size
     private final Map<Class<?>, Map<Member, String[]>> parameterNamesCache = new ConcurrentHashMap<>(32);
-
-    private static final Map<Class<?>, Method[]> declaredMethodsCache = new ConcurrentReferenceHashMap<>(256);
 
     /**
      * Cache for {@link Class#getDeclaredFields()}, allowing for fast iteration.
@@ -264,7 +263,7 @@ public class ParameterNameDiscoverer {
 
     private static Method[] getDeclaredMethods(Class<?> clazz) {
         Objects.requireNonNull(clazz, "Class must not be null");
-        Method[] result = declaredMethodsCache.get(clazz);
+        Method[] result = DECLARED_METHODS_CACHE.get(clazz);
         if (result == null) {
             try {
                 Method[] declaredMethods = clazz.getDeclaredMethods();
@@ -281,7 +280,7 @@ public class ParameterNameDiscoverer {
                 else {
                     result = declaredMethods;
                 }
-                declaredMethodsCache.put(clazz, (result.length == 0 ? NO_METHODS : result));
+                DECLARED_METHODS_CACHE.put(clazz, (result.length == 0 ? NO_METHODS : result));
             }
             catch (Throwable ex) {
                 throw new IllegalStateException("Failed to introspect Class [" + clazz.getName() +

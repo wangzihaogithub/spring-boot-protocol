@@ -1,6 +1,5 @@
 package com.github.netty.core.util;
 
-import com.github.netty.protocol.servlet.NettyHttpRequest;
 import com.github.netty.protocol.servlet.NettyHttpResponse;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
@@ -173,8 +172,8 @@ public class HttpHeaderUtil {
     private static int getWebSocketContentLength(HttpMessage message) {
         // WebSockset messages have constant content-lengths.
         HttpHeaders h = message.headers();
-        if (message instanceof NettyHttpRequest) {
-            NettyHttpRequest req = (NettyHttpRequest) message;
+        if (message instanceof HttpRequest) {
+            HttpRequest req = (HttpRequest) message;
             if (HttpMethod.GET.equals(req.method()) &&
                     h.contains(HttpHeaderConstants.SEC_WEBSOCKET_KEY1) &&
                     h.contains(HttpHeaderConstants.SEC_WEBSOCKET_KEY2)) {
@@ -209,9 +208,9 @@ public class HttpHeaderUtil {
      * Returns {@code true} if and only if the specified message contains the
      * {@code "Expect: 100-continue"} header.
      */
-    public static boolean is100ContinueExpected(NettyHttpRequest message) {
+    public static boolean is100ContinueExpected(HttpRequest message) {
         // Expect: 100-continue is for requests only.
-        if (!(message instanceof HttpRequest)) {
+        if (message == null) {
             return false;
         }
 
