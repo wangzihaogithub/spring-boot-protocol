@@ -9,11 +9,10 @@ import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
- *  组合会话服务
+ *  Composite session service
  * @author wangzihao
  */
 public class SessionCompositeServiceImpl implements SessionService {
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String name = NamespaceUtil.newIdName(getClass());
 
@@ -83,7 +82,7 @@ public class SessionCompositeServiceImpl implements SessionService {
     @Override
     public Session getSession(String sessionId) {
         try {
-            // TODO: 10月16日/0016 缺少自动切换功能
+            // TODO: 10-16/0016 Lack of automatic switching
             return getSessionServiceImpl().getSession(sessionId);
         }catch (Throwable t){
             logger.error(t.toString());

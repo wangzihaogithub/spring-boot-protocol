@@ -8,21 +8,18 @@ import javax.servlet.*;
 import java.io.IOException;
 
 /**
- * servlet 输出流(包装类), 可以控制对流的访问
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
+ * Servlets output streams (wrapper classes) that control access to the flow
  * @author wangzihao
  */
 @sun.misc.Contended
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream
         implements Wrapper<ServletOutputStream>,Recyclable{
-
     /**
-     * 源数据
+     * The source data
      */
     private ServletOutputStream source;
     /**
-     * 暂停标志
+     * Pause symbol
      */
     private boolean suspendFlag = false;
 
@@ -33,16 +30,16 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     }
 
     /**
-     * 设置(开启/关闭)暂停输出操作
-     * @param suspendFlag true=暂停操作, false=恢复操作
+     * Set (on/off) to pause the output operation
+     * @param suspendFlag True = pause, false= resume
      */
     public void setSuspendFlag(boolean suspendFlag) {
         this.suspendFlag = suspendFlag;
     }
 
     /**
-     * 是否暂停操作输出流
-     * @return
+     * Whether to pause the operation output stream
+     * @return boolean suspendFlag
      */
     public boolean isSuspendFlag() {
         return suspendFlag;
@@ -125,7 +122,6 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
             source = null;
             out.recycle();
         }
-
         if(suspendFlag){
             suspendFlag = false;
         }

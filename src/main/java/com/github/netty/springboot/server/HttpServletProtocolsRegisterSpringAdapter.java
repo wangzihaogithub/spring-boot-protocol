@@ -36,8 +36,7 @@ import java.security.KeyStore;
 import java.util.Arrays;
 
 /**
- * httpServlet协议注册器 （适配spring）
- *
+ * HttpServlet protocol registry (spring adapter)
  * @author wangzihao
  * 2018/11/12/012
  */
@@ -75,7 +74,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     public void onServerStart() throws Exception {
         super.onServerStart();
 
-        //注入到spring对象里
+        //Injection into the spring object
         application.addInjectAnnotation(Autowired.class, Resource.class);
         ServletContext servletContext = getServletContext();
         application.addInstance(servletContext);
@@ -92,21 +91,21 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
         ServletContext servletContext = getServletContext();
         InetAddress address = configurableWebServer.getAddress() == null? InetAddress.getLoopbackAddress():configurableWebServer.getAddress();
-        //服务器端口
+        //Server port
         servletContext.setServerAddress(new InetSocketAddress(address,configurableWebServer.getPort()));
         servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
         servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getResponseWriterChunkMaxHeapByteLength());
-        //session超时时间
+        //Session timeout
         servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));
         for (MimeMappings.Mapping mapping :configurableWebServer.getMimeMappings()) {
             servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
         }
 
-        //注册错误页
+        //Error page
         for(ErrorPage errorPage : configurableWebServer.getErrorPages()) {
             ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(),errorPage.getException(),errorPage.getPath());
             servletContext.getErrorPageManager().add(servletErrorPage);
@@ -122,15 +121,15 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     }
 
     /**
-     * 新建会话服务
+     * New session service
      * @return
      */
     protected SessionService newSessionService(NettyProperties properties,ServletContext servletContext){
-        //组合会话 (默认本地存储)
+        //Composite session (default local storage)
         SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
 
         if(StringUtil.isNotEmpty(properties.getSessionRemoteServerAddress())) {
-            //启用session远程存储, 利用RPC
+            //Enable session remote storage using RPC
             String remoteSessionServerAddress = properties.getSessionRemoteServerAddress();
             InetSocketAddress address;
             if(remoteSessionServerAddress.contains(":")){
@@ -146,16 +145,16 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
                     properties.getRpcClientHeartIntervalSecond());
 
         }else if(properties.isEnablesLocalFileSession()){
-            //启用session文件存储
+            //Enable session file storage
             compositeSessionService.enableLocalFileSession(servletContext.getResourceManager());
         }
         return compositeSessionService;
     }
 
     /**
-     * 初始化 HTTPS的SSL 安全配置
+     * Initialize the SSL security configuration for HTTPS
      * @param keyManagerFactory
-     * @return SSL上下文
+     * @return The SSL context builder
      * @throws Exception
      */
     protected SslContextBuilder getSslContext(KeyManagerFactory keyManagerFactory, Ssl ssl, SslStoreProvider sslStoreProvider) throws Exception {
@@ -188,7 +187,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     }
 
     /**
-     * 获取信任管理器，用于对安全套接字执行身份验证。
+     * Gets a trust manager used to authenticate secure sockets.
      * @param ssl
      * @param sslStoreProvider
      * @return
@@ -207,7 +206,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     }
 
     /**
-     * 获取密匙管理器
+     * Get the key manager
      * @param ssl
      * @param sslStoreProvider
      * @return
@@ -231,7 +230,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
     }
 
     /**
-     * 加载密匙
+     * Load key
      * @param type
      * @param provider
      * @param resource

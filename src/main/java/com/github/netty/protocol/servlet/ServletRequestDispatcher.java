@@ -10,22 +10,21 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * servlet 请求调度
+ * Servlet request scheduling
  * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
-
     /**
-     * 调度路径 (与name字段互斥)
+     * Scheduling path (mutually exclusive with name field)
      */
     private String path;
     /**
-     * 调度servlet名称 (与path字段互斥)
+     * Scheduling servlet name (mutually exclusive with path field)
      */
     private String name;
     /**
-     * 过滤链
+     * The filter chain
      */
     private ServletFilterChain filterChain;
 
@@ -40,12 +39,11 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
     }
 
     /**
-     * 转发给其他servlet处理 (注:将响应的控制权转移给其他servlet)
-     *
-     * @param request
-     * @param response
-     * @throws ServletException
-     * @throws IOException
+     * Forward to other servlets for processing (note: transfer control of the response to other servlets)
+     * @param request request
+     * @param response response
+     * @throws ServletException ServletException
+     * @throws IOException IOException
      */
     @Override
     public void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException {
@@ -61,23 +59,23 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             throw new IOException("Cannot perform this operation after response has been committed");
         }
 
-        //移交输出流的控制权
+        //Hand over control of the output stream
         ServletOutputStreamWrapper outWrapper = httpResponse.getOutputStream();
-        //暂停当前响应
+        //Pause the current response
         outWrapper.setSuspendFlag(true);
-        //交给下一个servlet
+        //To the next servlet
         ServletHttpForwardResponse forwardResponse = new ServletHttpForwardResponse(httpResponse,outWrapper.unwrap());
-        // ServletHttpForwardRequest.class 会将新数据传递下去
+        // ServletHttpForwardRequest. The class will be passed on new data
         ServletHttpForwardRequest forwardRequest = new ServletHttpForwardRequest(httpRequest);
 
-        //根据名称
+        //According to the name
         if (path == null) {
             forwardRequest.setForwardName(name);
             forwardRequest.setPaths(httpRequest.getPathInfo(),httpRequest.getQueryString(),httpRequest.getRequestURI(),httpRequest.getServletPath());
             forwardRequest.setParameterMap(httpRequest.getParameterMap());
         } else {
             forwardRequest.setForwardPath(path);
-            //根据路径
+            //According to the path
             if (forwardRequest.getAttribute(FORWARD_REQUEST_URI) == null) {
                 forwardRequest.setAttribute(FORWARD_REQUEST_URI, httpRequest.getRequestURI());
                 forwardRequest.setAttribute(FORWARD_CONTEXT_PATH, httpRequest.getContextPath());
@@ -90,14 +88,12 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
     }
 
     /**
-     * 引入其他servlet的响应内容 (注:其他servlet可以写入数据,但无法提交数据)
-     *
-     *  前提 : 需要实现 Transfer-Encoding
-     *
-     * @param request
-     * @param response
-     * @throws ServletException
-     * @throws IOException
+     * Introduction of response content from other servlets (note: other servlets can write data, but cannot submit data)
+     *  Premise: transfer-encoding is required
+     * @param request request
+     * @param response response
+     * @throws ServletException ServletException
+     * @throws IOException IOException
      */
     @Override
     public void include(ServletRequest request, ServletResponse response) throws ServletException, IOException {
@@ -110,21 +106,21 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             throw new UnsupportedOperationException("Not found Original Request");
         }
 
-        //切换至分块传输流
+        //Switch to block transport stream
         httpResponse.changeToChunkStream();
-        // ServletHttpIncludeResponse.class 会禁止操作数据
+        // ServletHttpIncludeResponse. The class will prohibit operation data
         ServletHttpIncludeResponse includeResponse = new ServletHttpIncludeResponse(httpResponse);
-        // ServletHttpIncludeRequest.class 会将新数据传递下去
+        // ServletHttpIncludeRequest. The class will be passed on new data
         ServletHttpIncludeRequest includeRequest = new ServletHttpIncludeRequest(httpRequest);
 
-        //根据名称
+        //According to the name
         if (path == null) {
             includeRequest.setIncludeName(name);
             includeRequest.setPaths(httpRequest.getPathInfo(),httpRequest.getQueryString(),httpRequest.getRequestURI(),httpRequest.getServletPath());
             includeRequest.setParameterMap(httpRequest.getParameterMap());
         } else {
             includeRequest.setIncludePath(path);
-            //根据路径
+            //According to the path
             if (includeRequest.getAttribute(INCLUDE_REQUEST_URI) == null) {
                 includeRequest.setAttribute(INCLUDE_REQUEST_URI, includeRequest.getRequestURI());
                 includeRequest.setAttribute(INCLUDE_CONTEXT_PATH, includeRequest.getContextPath());
@@ -137,11 +133,11 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
     }
 
     /**
-     * 调度
-     * @param request
-     * @param response
-     * @throws ServletException
-     * @throws IOException
+     * dispatch
+     * @param request request
+     * @param response response
+     * @throws ServletException ServletException
+     * @throws IOException IOException
      */
     public void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
         try {
@@ -156,11 +152,11 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
     }
 
     /**
-     * 调度 (异步)
-     * @param request
-     * @param response
-     * @param asyncContext
-     * @return
+     * dispatch (asynchronous)
+     * @param request request
+     * @param response response
+     * @param asyncContext asyncContext
+     * @return Runnable
      */
     public Runnable dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext){
         if(path == null){
@@ -183,7 +179,7 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             throw new IllegalStateException("Cannot perform this operation after response has been committed");
         }
 
-        //移交输出流的控制权
+        //Hand over control of the output stream
         ServletOutputStreamWrapper outWrapper;
         try {
             outWrapper = httpResponse.getOutputStream();
@@ -191,9 +187,9 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             throw new IllegalStateException(e.getMessage(),e);
         }
 
-        //暂停当前响应
+        //Pause the current response
         outWrapper.setSuspendFlag(true);
-        //交给下一个servlet
+        //To the next servlet
         ServletHttpAsyncResponse asyncResponse = new ServletHttpAsyncResponse(httpResponse,outWrapper.unwrap());
         ServletHttpAsyncRequest asyncRequest = new ServletHttpAsyncRequest(request,asyncContext);
         asyncRequest.setDispatchPath(path);
@@ -205,7 +201,7 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             asyncRequest.setAttribute(AsyncContext.ASYNC_SERVLET_PATH, asyncRequest.getServletPath());
         }
 
-        //返回任务
+        //Return to the task
         Runnable runnable = ()->{
             try {
                 dispatch(asyncRequest, asyncResponse);

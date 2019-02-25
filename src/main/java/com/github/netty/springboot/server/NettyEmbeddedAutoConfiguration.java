@@ -20,7 +20,7 @@ import java.util.Comparator;
 import java.util.TreeSet;
 
 /**
- * netty容器自动配置
+ * The netty container is automatically configured
  * @author wangzihao
  */
 @AutoConfigureAfter(NettyPropertiesAutoConfiguration.class)
@@ -32,8 +32,9 @@ public class NettyEmbeddedAutoConfiguration {
     private NettyProperties nettyProperties;
 
     /**
-     * 添加tcp服务工厂
-     * @return
+     * Add a TCP service factory
+     * @param protocolsRegisters protocolsRegisters
+     * @return NettyTcpServerFactory
      */
     @Bean("nettyServerFactory")
     @ConditionalOnMissingBean(NettyTcpServerFactory.class)
@@ -44,8 +45,8 @@ public class NettyEmbeddedAutoConfiguration {
     }
 
     /**
-     * 添加rpc协议注册器
-     * @return
+     * Add the RPC protocol registry
+     * @return NRpcProtocolsRegister
      */
     @Bean("hRpcProtocolsRegister")
     @ConditionalOnMissingBean(NRpcProtocolsRegister.class)
@@ -54,8 +55,10 @@ public class NettyEmbeddedAutoConfiguration {
     }
 
     /**
-     * 添加http协议注册器
-     * @return
+     * Add the HTTP protocol registry
+     * @param factory factory
+     * @param resourceLoader resourceLoader
+     * @return HttpServletProtocolsRegister
      */
     @Bean("httpServletProtocolsRegister")
     @ConditionalOnMissingBean(HttpServletProtocolsRegister.class)

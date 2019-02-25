@@ -5,7 +5,7 @@ import com.github.netty.annotation.Protocol;
 import java.util.List;
 
 /**
- * session会话服务
+ * Session service
  * @author wangzihao
  * 2018/8/19/019
  */
@@ -13,40 +13,40 @@ import java.util.List;
 public interface SessionService {
 
     /**
-     * 获取session (根据id)
-     * @param sessionId
-     * @return
+     * Get session (by id)
+     * @param sessionId sessionId
+     * @return Session
      */
     Session getSession(@Protocol.RpcParam("sessionId")String sessionId);
 
     /**
-     * 保存session
-     * @param session
+     * Save the session
+     * @param session session
      */
     void saveSession(@Protocol.RpcParam("session")Session session);
 
     /**
-     * 删除session
-     * @param sessionId
+     * Delete session
+     * @param sessionId sessionId
      */
     void removeSession(@Protocol.RpcParam("sessionId")String sessionId);
 
     /**
-     * 删除session (批量)
-     * @param sessionIdList
+     * Delete session (batch)
+     * @param sessionIdList sessionIdList
      */
     void removeSessionBatch(@Protocol.RpcParam("sessionIdList")List<String> sessionIdList);
 
     /**
-     * 改变sessionId
-     * @param oldSessionId
-     * @param newSessionId
+     * Change the sessionId
+     * @param oldSessionId oldSessionId
+     * @param newSessionId newSessionId
      */
     void changeSessionId(@Protocol.RpcParam("oldSessionId")String oldSessionId, @Protocol.RpcParam("newSessionId")String newSessionId);
 
     /**
-     * 获取session数量
-     * @return
+     * Get the number of sessions
+     * @return count
      */
     int count();
 

@@ -16,11 +16,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 统计服务器信息的任务
+ * The task of statistics server information
  * @author wangzihao
  */
 public class NettyReportRunnable implements Runnable{
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private AtomicInteger reportCount = new AtomicInteger();
     private long beginTime = System.currentTimeMillis();

@@ -1,8 +1,7 @@
 package com.github.netty.protocol.nrpc.exception;
 
 /**
- * 超时异常
- *
+ * RpcTimeoutException
  * @author wangzihao
  *  2018/8/20/020
  */

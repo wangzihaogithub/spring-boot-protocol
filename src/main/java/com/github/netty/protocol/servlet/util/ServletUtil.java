@@ -21,7 +21,7 @@ import java.nio.charset.CoderResult;
 import java.util.*;
 
 /**
- * 工具类
+ * ServletUtil
  * @author wangzihao
  *  2018/7/15/015
  */
@@ -78,13 +78,13 @@ public class ServletUtil {
 
     /**
      * Encodes the specified cookie into a Set-Cookie header value.
-     * @param cookieName
-     * @param cookieValue
-     * @param maxAge
-     * @param path
-     * @param domain
-     * @param secure
-     * @param httpOnly
+     * @param cookieName cookieName
+     * @param cookieValue cookieValue
+     * @param maxAge maxAge
+     * @param path path
+     * @param domain domain
+     * @param secure secure
+     * @param httpOnly httpOnly
      * @return a single Set-Cookie header value
      */
     public static String encodeCookie(String cookieName, String cookieValue, int maxAge, String path, String domain, boolean secure, boolean httpOnly) {
@@ -136,6 +136,7 @@ public class ServletUtil {
 
     /**
      * Decodes the specified Set-Cookie HTTP header value into a
+     * @param header header
      * @return the decoded {@link Cookie}
      */
     public static Set<Cookie> decodeCookie(String header) {
@@ -272,9 +273,9 @@ public class ServletUtil {
     }
 
     /**
-     * 去掉包装
-     * @param response
-     * @return
+     * unWrapper
+     * @param response response
+     * @return ServletHttpServletResponse
      */
     public static ServletHttpServletResponse unWrapper(ServletResponse response){
         if(response instanceof ServletResponseWrapper){
@@ -287,9 +288,9 @@ public class ServletUtil {
     }
 
     /**
-     * 去掉包装
-     * @param request
-     * @return
+     * unWrapper
+     * @param request request
+     * @return ServletHttpServletRequest
      */
     public static ServletHttpServletRequest unWrapper(ServletRequest request){
         if(request instanceof ServletRequestWrapper){

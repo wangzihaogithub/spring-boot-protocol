@@ -15,14 +15,13 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 
 /**
- * netty容器 tcp层面的服务器
- *
+ * Netty container TCP layer server
  * @author wangzihao
  *  2018/7/14/014
  */
 public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     /**
-     * 容器配置信息
+     * Container configuration information
      */
     private final NettyProperties properties;
     private Collection<ProtocolsRegister> protocolsRegisters;
@@ -66,9 +65,8 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
 
     @Override
     protected void startAfter(Future<?super Void> future){
-        //有异常抛出
+        //Exception thrown
         Throwable cause = future.cause();
-        //有异常抛出
         if(cause != null){
             PlatformDependent.throwException(cause);
         }
@@ -83,18 +81,18 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     }
 
     /**
-     * 初始化 IO执行器
-     * @return
+     * Initializes the IO executor
+     * @return DynamicProtocolChannelHandler
      */
     @Override
     protected ChannelHandler newInitializerChannelHandler() {
-        //动态协议处理器
+        //Dynamic protocol processor
         return new DynamicProtocolChannelHandler(protocolsRegisters,properties.isEnableTcpPackageLog());
     }
 
     /**
-     * 获取协议注册器列表
-     * @return
+     * Gets the protocol registry list
+     * @return protocolsRegisters
      */
     public Collection<ProtocolsRegister> getProtocolsRegisters(){
         return protocolsRegisters;

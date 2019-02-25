@@ -68,10 +68,12 @@ public class RpcClientHeartbeatTask implements Runnable{
 
     /**
      * Assign reconnect tasks
-     * @param heartIntervalSecond
-     * @param timeUnit
-     * @param reconnectSuccessHandler
-     * @param rpcClient
+     * @param heartIntervalSecond heartIntervalSecond
+     * @param timeUnit timeUnit
+     * @param reconnectSuccessHandler reconnectSuccessHandler
+     * @param rpcClient rpcClient
+     * @param isLogHeartEvent isLogHeartEvent
+     * @return ScheduledFuture
      */
     public static ScheduledFuture<?> schedule(int heartIntervalSecond, TimeUnit timeUnit, Consumer<RpcClient> reconnectSuccessHandler, RpcClient rpcClient, boolean isLogHeartEvent){
         RpcClientHeartbeatTask heartbeatTask = new RpcClientHeartbeatTask(rpcClient,reconnectSuccessHandler,isLogHeartEvent);

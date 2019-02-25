@@ -48,9 +48,9 @@ public class ResourceManager {
     }
 
     /**
-     * 获取路径下的文件夹数量
-     * @param path 路径
-     * @return 文件夹数量
+     * Gets the number of folders in the path
+     * @param path path
+     * @return Number of folders
      */
     public int countDir(String path) {
         Objects.requireNonNull(path);
@@ -82,9 +82,9 @@ public class ResourceManager {
     }
 
     /**
-     * 获取路径下的文件数量
-     * @param path 路径
-     * @return 文件数量
+     * Gets the number of files in the path
+     * @param path path
+     * @return The number of files
      */
     public int countFile(String path) {
         Objects.requireNonNull(path);
@@ -116,9 +116,9 @@ public class ResourceManager {
     }
 
     /**
-     * 获取路径下的所有目录
-     * @param path 路径
-     * @return 目录. 如果没有则返回NULL
+     * Get all directories under path
+     * @param path path
+     * @return Directory. If not, return NULL
      */
     public Set<String> getResourcePaths(String path) {
         Objects.requireNonNull(path);
@@ -158,10 +158,10 @@ public class ResourceManager {
     }
 
     /**
-     * 获取资源
-     * @param path 相对路径
-     * @return url地址
-     * @throws MalformedURLException
+     * Access to resources
+     * @param path Relative paths
+     * @return The url address
+     * @throws MalformedURLException MalformedURLException
      */
     public URL getResource(String path) throws MalformedURLException {
         if(rootPath == null || rootPath.length() == 0){
@@ -184,9 +184,9 @@ public class ResourceManager {
     }
 
     /**
-     * 获取数据输入流
-     * @param path 路径
-     * @return 数据量
+     * Gets the data input stream
+     * @param path path
+     * @return InputStream
      */
     public InputStream getResourceAsStream(String path) {
         try {
@@ -207,9 +207,9 @@ public class ResourceManager {
     }
 
     /**
-     * 获取真实路径
-     * @param path 相对路径
-     * @return
+     * Get the real path
+     * @param path Relative paths
+     * @return RealPath
      */
     public String getRealPath(String path) {
         if(path == null || path.isEmpty()){
@@ -232,81 +232,82 @@ public class ResourceManager {
     }
 
     /**
-     * 写文件
-     * @param inputStream 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @throws IOException
+     * Write files
+     * @param inputStream data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @throws IOException IOException
      */
     public void writeFile(InputStream inputStream, String targetPath, String targetFileName) throws IOException {
         IOUtil.writeFile(inputStream, getRealPath(targetPath),targetFileName,false,8192);
     }
 
     /**
-     * 写文件
-     * @param dataIterator 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @throws IOException
+     * Write files
+     * @param dataIterator data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @throws IOException IOException
      */
     public void writeFile(Iterator<ByteBuffer> dataIterator, String targetPath, String targetFileName) throws IOException {
         IOUtil.writeFile(dataIterator, getRealPath(targetPath),targetFileName,false);
     }
 
     /**
-     * 写文件
-     * @param data 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @throws IOException
+     * Write files
+     * @param data data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @throws IOException IOException
      */
     public void writeFile(byte[]data, String targetPath, String targetFileName) throws IOException {
         IOUtil.writeFile(data, getRealPath(targetPath),targetFileName,false);
     }
 
     /**
-     * 写文件
-     * @param data 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
-     * @throws IOException
+     * Write files
+     * @param data data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
+     * @throws IOException IOException
      */
     public void writeFile(byte[]data, String targetPath, String targetFileName, boolean append) throws IOException {
         IOUtil.writeFile(data, getRealPath(targetPath),targetFileName,append);
     }
 
     /**
-     * 写文件 (注:用完记得关闭)
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
-     * @throws IOException
+     * Write file (note: close it after using)
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
+     * @throws IOException IOException
+     * @return FileOutputStream
      */
     public FileOutputStream writeFile(String targetPath, String targetFileName, boolean append) throws IOException {
         return IOUtil.writeFile(getRealPath(targetPath),targetFileName,append);
     }
 
     /**
-     * 读文件 (注:用完记得关闭)
-     * @param sourcePath 路径
-     * @param sourceFileName 文件名称
-     * @return 文件流
-     * @throws FileNotFoundException
+     * Read the file (note: close it after using)
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @return FileInputStream
+     * @throws FileNotFoundException FileNotFoundException
      */
     public FileInputStream readFile(String sourcePath,String sourceFileName) throws FileNotFoundException {
         return IOUtil.readFile(getRealPath(sourcePath),sourceFileName);
     }
 
     /**
-     * 拷贝文件
-     * @param sourcePath 源路径
-     * @param sourceFileName 源文件名称
-     * @param targetPath 目标路径
-     * @param targetFileName 目标文件名称
-     * @param buffCapacity 缓冲区大小
-     * @throws FileNotFoundException
-     * @throws IOException
+     * Copy files
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param buffCapacity buffCapacity
+     * @throws FileNotFoundException FileNotFoundException
+     * @throws IOException IOException
      */
     public void copyTo(String sourcePath,String sourceFileName,
                                     String targetPath,String targetFileName,int buffCapacity) throws FileNotFoundException,IOException {
@@ -315,8 +316,8 @@ public class ResourceManager {
     }
 
     /**
-     * 创建文件 (可以连带父文件创建)
-     * @param path 文件路径
+     * Create file (can be created with parent file)
+     * @param path The file path
      * @return <code>true</code> if and only if the directory was created,
      *          along with all necessary parent directories; <code>false</code>
      *          otherwise
@@ -332,9 +333,9 @@ public class ResourceManager {
     }
 
     /**
-     * 删除目录
-     * @param path
-     * @return
+     * Delete the directory
+     * @param path path
+     * @return boolean success
      */
     public boolean delete(String path) {
         if(path == null){
@@ -347,9 +348,8 @@ public class ResourceManager {
     }
 
     /**
-     * 删除目录下的所有子目录
-     * @param path
-     * @return
+     * Delete all subdirectories under directory
+     * @param path path
      */
     public void deleteChild(String path) {
         if(path == null){
@@ -362,16 +362,16 @@ public class ResourceManager {
     }
 
     /**
-     * 获取工作空间
-     * @return
+     * Get workspace
+     * @return workspace
      */
     public String getWorkspace() {
         return workspace;
     }
 
     /**
-     * 获取根路径
-     * @return
+     * Get the root path
+     * @return rootPath
      */
     public String getRootPath() {
         return rootPath;

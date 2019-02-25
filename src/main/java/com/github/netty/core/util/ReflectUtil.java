@@ -257,6 +257,9 @@ public class ReflectUtil {
 
 	/**
 	 * Read the object property values directly, ignoring the private/protected modifier, without going through the getter function.
+	 * @param obj obj
+	 * @param fieldName fieldName
+	 * @return ObjectValue
 	 */
 	public static Object getFieldValue(final Object obj, final String fieldName) {
 		Field field = getAccessibleField(obj, fieldName);
@@ -275,7 +278,10 @@ public class ReflectUtil {
 	/**
 	 * Loop up to get the DeclaredField of the object and force it to be accessible.
 	 * if the Object cannot be found even if the Object is transformed upward, null will be returned.
-	 */
+	 * @param obj obj
+	 * @param fieldName fieldName
+     * @return Field
+     */
 	public static Field getAccessibleField(final Object obj, final String fieldName) {
 		Objects.requireNonNull(obj, "object can't be null");
 		Objects.requireNonNull(fieldName, "fieldName can't be blank");
@@ -294,9 +300,12 @@ public class ReflectUtil {
 	/**
 	 * Loop up to get the DeclaredMethod for the object and force it to be accessible.
 	 * if the Object cannot be found even if the Object is transformed upward, null will be returned.
-	 * matches function name + parameter type.
-	 Method. Invoke (Object obj, Object... The args)
-	 */
+	 * matches function name + parameter type. Method. Invoke (Object obj, Object... The args)
+	 * @param clazz class
+	 * @param methodName methodName
+	 * @param parameterTypes parameterTypes
+     * @return Method
+     */
 	public static Method getAccessibleMethod(final Class clazz, final String methodName,
 			final Class<?>... parameterTypes) {
 		Objects.requireNonNull(methodName, "methodName can't be blank");

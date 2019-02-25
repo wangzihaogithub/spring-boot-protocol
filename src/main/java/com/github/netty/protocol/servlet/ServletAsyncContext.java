@@ -1,12 +1,12 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.RecyclableUtil;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -218,7 +218,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     @Override
     public void addListener(AsyncListener listener, ServletRequest servletRequest, ServletResponse servletResponse) {
         if(asyncListenerWrapperList == null){
-            asyncListenerWrapperList = RecyclableUtil.newRecyclableList(6);
+            asyncListenerWrapperList = new ArrayList<>(6);
         }
         asyncListenerWrapperList.add(new ServletAsyncListenerWrapper(listener,servletRequest,servletResponse));
     }

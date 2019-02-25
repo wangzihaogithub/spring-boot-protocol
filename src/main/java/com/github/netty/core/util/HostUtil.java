@@ -43,7 +43,7 @@ public class HostUtil {
 
     /**
      * 端口是否已存在
-     * @param port
+     * @param port port
      * @return true = 存在, false=不存在
      */
     public static boolean isExistPort(int port) {

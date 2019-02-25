@@ -10,12 +10,11 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 本地文件会话服务
+ * Local file session service
  * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionLocalFileServiceImpl implements SessionService {
-
     private String name = NamespaceUtil.newIdName(getClass());
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String rootPath = "/session";
@@ -24,7 +23,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
 
     public SessionLocalFileServiceImpl(ResourceManager resourceManager) {
         this.resourceManager = Objects.requireNonNull(resourceManager);
-        //20秒检查一次过期session
+        //The expired session is checked every 20 seconds
         this.sessionInvalidThread = new SessionInvalidThread(20 * 1000);
         this.sessionInvalidThread.start();
     }
@@ -48,7 +47,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
                     if (entry.getValue() instanceof Serializable) {
                         attributeSize++;
                     }else {
-            //                        logger.warn("session属性中key={}的value未实现序列化, 已自动跳过",entry.getKey());
+//                        logger.warn("The value of key={} in the session property is not serialized and has been skipped automatically",entry.getKey());
                     }
                 }
             }
@@ -106,7 +105,6 @@ public class SessionLocalFileServiceImpl implements SessionService {
     protected Session getSessionByFileName(String fileName){
         try (FileInputStream fileInputStream = resourceManager.readFile(rootPath,fileName);
              ObjectInputStream ois = new ObjectInputStream(fileInputStream)){
-
             Session session = new Session();
             session.setId(ois.readUTF());
             session.setCreationTime(ois.readLong());
@@ -160,18 +158,18 @@ public class SessionLocalFileServiceImpl implements SessionService {
     }
 
     /**
-     * 获取文件名称
-     * @param sessionId
-     * @return
+     * Get file name
+     * @param sessionId sessionId
+     * @return fileName
      */
     public String getFileName(String sessionId) {
-        return "s.".concat(sessionId);
+        return sessionId.concat(".s");
     }
 
     /**
-     * 获取过期读秒
-     * @param session
-     * @return
+     * Gets an expired read second
+     * @param session session
+     * @return expireSecond
      */
     public long getExpireSecond(Session session){
         long expireSecond = (session.getMaxInactiveInterval() * 1000 + session.getCreationTime() - System.currentTimeMillis()) / 1000;
@@ -179,8 +177,8 @@ public class SessionLocalFileServiceImpl implements SessionService {
     }
 
     /**
-     * session过期检测线程
-     * @return
+     * Session expiration detects threads
+     * @return SessionInvalidThread
      */
     public SessionInvalidThread getSessionInvalidThread() {
         return sessionInvalidThread;
@@ -192,7 +190,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
     }
 
     /**
-     * 超时的Session无效化，定期执行
+     * Sessions with a timeout are invalidated and executed periodically
      */
     class SessionInvalidThread extends Thread {
         private LoggerX logger = LoggerFactoryX.getLogger(getClass());

@@ -8,13 +8,13 @@ import java.lang.annotation.*;
 public @interface NettyRpcClient {
 
 	/**
-	 * 服务ID 同 serviceId
-	 * @return
+	 * The serviceId is the same as serviceId
+	 * @return value
 	 */
 	String value() default "";
     /**
-     * 服务ID 同 value
-     * @return
+     * The service ID is the same as value
+     * @return serviceId
      */
     String serviceId() default "";
 
@@ -23,8 +23,8 @@ public @interface NettyRpcClient {
     String qualifier() default "";
 
     /**
-     * 超时时间 (毫秒)
-     * @return
+     * Timeout time (milliseconds)
+     * @return timeout
      */
 //    int timeout() default RpcService.DEFAULT_TIME_OUT;
 

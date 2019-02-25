@@ -78,7 +78,8 @@ public class RpcClientInstance implements InvocationHandler {
 
     /**
      * Increase method
-     * @param rpcMethod
+     * @param rpcMethod rpcMethod
+     * @return boolean success
      */
     public boolean addMethod(RpcMethod rpcMethod){
         return rpcMethodMap.put(rpcMethod.getMethodName(),rpcMethod) == null;
@@ -86,11 +87,11 @@ public class RpcClientInstance implements InvocationHandler {
 
     /**
      * Make RPC calls
-     * @param proxy
-     * @param method
-     * @param args
-     * @return
-     * @throws Throwable
+     * @param proxy proxy
+     * @param method method
+     * @param args args
+     * @return Object
+     * @throws Throwable Throwable
      */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {

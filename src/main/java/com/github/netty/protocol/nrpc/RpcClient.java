@@ -86,7 +86,7 @@ public class RpcClient extends AbstractNettyClient{
     /**
      * New implementation class
      * @param clazz  interface
-     * @param <T>
+     * @param <T> type
      * @return  Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz){
@@ -109,7 +109,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param clazz  interface
      * @param timeout timeout
      * @param serviceName serviceName
-     * @param <T>
+     * @param <T> type
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz,int timeout,String serviceName){
@@ -122,7 +122,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param timeout timeout
      * @param serviceName serviceName
      * @param methodToParameterNamesFunction Method to a function with a parameter name
-     * @param <T>
+     * @param <T> type
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
@@ -148,7 +148,8 @@ public class RpcClient extends AbstractNettyClient{
 
     /**
      * Gets the implementation class
-     * @return
+     * @param serviceName serviceName
+     * @return RpcClientInstance
      */
     public RpcClientInstance getRpcInstance(String serviceName) {
         return rpcInstanceMap.get(serviceName);
@@ -156,7 +157,7 @@ public class RpcClient extends AbstractNettyClient{
 
     /**
      * New initialize all
-     * @return
+     * @return ChannelInitializer
      */
     @Override
     protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
@@ -224,8 +225,8 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 获取数据服务
-     * @return
+     * Access to data service
+     * @return RpcDBService
      */
     public RpcDBService getRpcDBService() {
         if(rpcDBService == null){
@@ -239,8 +240,8 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 获取命令服务
-     * @return
+     * Get command service
+     * @return RpcCommandService
      */
     public RpcCommandService getRpcCommandService() {
         if(rpcCommandService == null){
@@ -255,7 +256,7 @@ public class RpcClient extends AbstractNettyClient{
 
     /**
      * Get connection status
-     * @return
+     * @return State
      */
     public State getState() {
         return state;
@@ -263,7 +264,7 @@ public class RpcClient extends AbstractNettyClient{
 
     /**
      * Gets the thread that created the client
-     * @return
+     * @return Thread
      */
     public Thread getThread() {
         return thread;

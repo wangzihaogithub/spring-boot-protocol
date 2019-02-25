@@ -26,7 +26,7 @@ public interface ProtocolsRegister extends ServerListener {
     /**
      * registration protocol
      * @param channel TCP channel
-     * @throws Exception
+     * @throws Exception Exception
      */
     void register(Channel channel) throws Exception;
 

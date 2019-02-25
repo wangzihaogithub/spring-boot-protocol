@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.security.Principal;
 
 /**
- * servlet 身份
+ * The servlet identity
  * @author wangzihao
  */
 public class ServletPrincipal implements Principal,Serializable {

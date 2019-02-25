@@ -34,7 +34,6 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
     private ChannelHandler servletHandler;
-
     private int maxContentLength = 5 * 1024 * 1024;
     private int maxInitialLineLength = 4096;
     private int maxHeaderSize = 8192;
@@ -68,7 +67,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     /**
-     * 初始化过滤器
+     * Initialization filter
      * @param servletContext
      */
     protected void initFilter(ServletContext servletContext) throws ServletException {
@@ -80,7 +79,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     /**
-     * 初始化servlet
+     * Initialize the servlet
      * @param servletContext
      */
     protected void initServlet(ServletContext servletContext) throws ServletException {
@@ -93,7 +92,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     /**
-     * 销毁过滤器
+     * Destruction filter
      */
     protected void destroyFilter(){
         Map<String, ServletFilterRegistration> servletRegistrationMap = servletContext.getFilterRegistrations();
@@ -110,7 +109,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     /**
-     * 销毁servlet
+     * Destruction servlet
      */
     protected void destroyServlet(){
         Map<String, ServletRegistration> servletRegistrationMap = servletContext.getServletRegistrations();

@@ -8,31 +8,31 @@ public interface DataCodec {
 
     /**
      * Request data - encoding
-     * @param data
-     * @param rpcMethod
-     * @return
+     * @param data data
+     * @param rpcMethod rpcMethod
+     * @return byte[]
      */
     byte[] encodeRequestData(Object[] data, RpcMethod rpcMethod);
 
     /**
      * Request data - decoding
-     * @param data
-     * @param rpcMethod
-     * @return
+     * @param data data
+     * @param rpcMethod rpcMethod
+     * @return Object[]
      */
     Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod);
 
     /**
      * Response data - encoding
-     * @param data
-     * @return
+     * @param data data
+     * @return byte[]
      */
     byte[] encodeResponseData(Object data);
 
     /**
      * Response data - decoding
-     * @param data
-     * @return
+     * @param data data
+     * @return Object
      */
     Object decodeResponseData(byte[] data);
 

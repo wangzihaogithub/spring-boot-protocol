@@ -74,8 +74,8 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
 
     /**
      * Place the IO task package factory class on this connection
-     * @param channel
-     * @param messageToRunnable
+     * @param channel channel
+     * @param messageToRunnable messageToRunnable
      */
     public static void setMessageToRunnable(Channel channel, MessageToRunnable messageToRunnable){
         channel.attr(CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE).set(messageToRunnable);
@@ -83,8 +83,8 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
 
     /**
      * Pull out the IO task package factory class on this connection
-     * @param channel
-     * @return
+     * @param channel channel
+     * @return MessageToRunnable
      */
     public static MessageToRunnable getMessageToRunnable(Channel channel){
         MessageToRunnable taskFactory = channel.attr(CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE).get();

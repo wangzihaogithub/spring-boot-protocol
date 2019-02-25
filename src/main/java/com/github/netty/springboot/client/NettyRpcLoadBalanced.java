@@ -3,16 +3,16 @@ package com.github.netty.springboot.client;
 import java.net.InetSocketAddress;
 
 /**
- * 负载均衡
+ * Load balancing
  * @author wangzihao
  */
 @FunctionalInterface
 public interface NettyRpcLoadBalanced {
 
     /**
-     * 挑选一个IP地址
-     * @param request 请求
-     * @return IP地址
+     * Pick an IP address
+     * @param request request
+     * @return The IP address
      */
     InetSocketAddress chooseAddress(NettyRpcRequest request);
 

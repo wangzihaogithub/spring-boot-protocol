@@ -10,12 +10,11 @@ import java.util.RandomAccess;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 本地内存会话服务
+ * Local memory session service
  * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionLocalMemoryServiceImpl implements SessionService {
-
     private String name = NamespaceUtil.newIdName(getClass());
     private Map<String,Session> sessionMap;
     private SessionInvalidThread sessionInvalidThread;
@@ -26,7 +25,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
 
     public SessionLocalMemoryServiceImpl(Map<String, Session> sessionMap) {
         this.sessionMap = sessionMap;
-        //20秒检查一次过期session
+        //The expired session is checked every 20 seconds
         this.sessionInvalidThread = new SessionInvalidThread(20 * 1000);
         this.sessionInvalidThread.start();
     }
@@ -50,7 +49,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
             return;
         }
 
-        //减少创建迭代器
+        //Reduce the creation of iterators
         if(sessionIdList instanceof RandomAccess){
             int size = sessionIdList.size();
             for(int i=0; i<size; i++){
@@ -93,15 +92,15 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
     }
 
     /**
-     * session过期检测线程
-     * @return
+     * Session expiration detects threads
+     * @return SessionInvalidThread
      */
     public SessionInvalidThread getSessionInvalidThread() {
         return sessionInvalidThread;
     }
 
     /**
-     * 超时的Session无效化，定期执行
+     * Sessions with a timeout are invalidated and executed periodically
      */
     class SessionInvalidThread extends Thread {
         private LoggerX logger = LoggerFactoryX.getLogger(getClass());

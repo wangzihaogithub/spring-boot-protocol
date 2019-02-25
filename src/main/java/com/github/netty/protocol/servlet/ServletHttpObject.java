@@ -52,7 +52,8 @@ public class ServletHttpObject implements Recyclable{
 
     /**
      * Get httpSession from the properties bound in the pipe
-     * @return
+     * @param channelHandlerContext channelHandlerContext
+     * @return ServletHttpSession
      */
     public static ServletHttpSession getSession(ChannelHandlerContext channelHandlerContext){
         if(channelHandlerContext != null && channelHandlerContext.channel() != null) {
@@ -66,7 +67,8 @@ public class ServletHttpObject implements Recyclable{
 
     /**
      * Bind httpSession to the pipe property
-     * @param httpSession
+     * @param channelHandlerContext channelHandlerContext
+     * @param httpSession httpSession
      */
     public static void setSession(ChannelHandlerContext channelHandlerContext, ServletHttpSession httpSession){
         if(isChannelActive(channelHandlerContext)) {
@@ -76,7 +78,8 @@ public class ServletHttpObject implements Recyclable{
 
     /**
      * Whether the pipe is active
-     * @return
+     * @param channelHandlerContext channelHandlerContext
+     * @return boolean isChannelActive
      */
     public static boolean isChannelActive(ChannelHandlerContext channelHandlerContext){
         if(channelHandlerContext != null && channelHandlerContext.channel() != null && channelHandlerContext.channel().isActive()) {

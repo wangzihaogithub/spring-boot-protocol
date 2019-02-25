@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * formData 文本块
+ * formData Text block
  * @author wangzihao
  */
 public class ServletTextPart implements Part {

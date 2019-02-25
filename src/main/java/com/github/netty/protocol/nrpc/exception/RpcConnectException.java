@@ -1,7 +1,7 @@
 package com.github.netty.protocol.nrpc.exception;
 
 /**
- * 连接异常
+ * RpcConnectException
  * @author wangzihao
  * 2018/8/21/021
  */

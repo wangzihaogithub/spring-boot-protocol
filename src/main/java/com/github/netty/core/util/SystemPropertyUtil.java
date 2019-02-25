@@ -13,6 +13,8 @@ public final class SystemPropertyUtil {
     /**
      * Returns {@code true} if and only if the system property with the specified {@code key}
      * exists.
+     * @param key key
+     * @return contains boolean
      */
     public static boolean contains(String key) {
         return get(key) != null;
@@ -21,7 +23,7 @@ public final class SystemPropertyUtil {
     /**
      * Returns the value of the Java system property with the specified
      * {@code key}, while falling back to {@code null} if the property access fails.
-     *
+     * @param key key
      * @return the property value or {@code null}
      */
     public static String get(String key) {
@@ -30,12 +32,9 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
-     * {@code key}, while falling back to the specified default value if
-     * the property access fails.
-     *
+     * @param key while falling back to the specified default value if the property access fails.
+     * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
-     *         {@code def} if there's no such property or if an access to the
-     *         specified property is not allowed.
      */
     public static String get(final String key, String def) {
         if (key == null) {
@@ -70,12 +69,9 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
-     * {@code key}, while falling back to the specified default value if
-     * the property access fails.
-     *
+     * @param key while falling back to the specified default value if the property access fails.
+     * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
-     *         {@code def} if there's no such property or if an access to the
-     *         specified property is not allowed.
      */
     public static boolean getBoolean(String key, boolean def) {
         String value = get(key);
@@ -106,12 +102,9 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
-     * {@code key}, while falling back to the specified default value if
-     * the property access fails.
-     *
+     * @param key while falling back to the specified default value if the property access fails.
+     * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
-     *         {@code def} if there's no such property or if an access to the
-     *         specified property is not allowed.
      */
     public static int getInt(String key, int def) {
         String value = get(key);
@@ -136,12 +129,9 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
-     * {@code key}, while falling back to the specified default value if
-     * the property access fails.
-     *
+     * @param key while falling back to the specified default value if the property access fails.
+     * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
-     *         {@code def} if there's no such property or if an access to the
-     *         specified property is not allowed.
      */
     public static long getLong(String key, long def) {
         String value = get(key);
@@ -165,6 +155,5 @@ public final class SystemPropertyUtil {
     }
 
     private SystemPropertyUtil() {
-        // Unused
     }
 }

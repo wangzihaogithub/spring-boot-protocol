@@ -1,6 +1,5 @@
 package com.github.netty.core.util;
 
-import com.github.netty.protocol.servlet.NettyHttpResponse;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.*;
@@ -39,8 +38,8 @@ public class HttpHeaderUtil {
 
     /**
      * 是否接受分段传输
-     * @param headers
-     * @return
+     * @param headers headers
+     * @return boolean
      */
     public static boolean isAcceptTransferChunked(HttpHeaders headers){
         String transferEncodingValue = headers.get(HttpHeaderConstants.TE);
@@ -55,6 +54,8 @@ public class HttpHeaderUtil {
      * thus 'kept alive'.  This methods respects the value of the
      * {@code "Connection"} header first and then the return value of
      * {@link HttpVersion#isKeepAliveDefault()}.
+     * @param message message
+     * @return boolean isKeepAlive
      */
     public static boolean isKeepAlive(HttpRequest message) {
         HttpHeaders headers = message.headers();
@@ -91,10 +92,12 @@ public class HttpHeaderUtil {
      *     <li>remove otherwise.</li>
      *     </ul></li>
      * </ul>
+     * @param message message
+     * @param keepAlive keepAlive
      */
     public static void setKeepAlive(HttpResponse message, boolean keepAlive) {
         HttpHeaders h = message.headers();
-        if (message.getProtocolVersion().isKeepAliveDefault()) {
+        if (message.protocolVersion().isKeepAliveDefault()) {
             if (keepAlive) {
                 h.remove(HttpHeaderConstants.CONNECTION);
             } else {
@@ -120,6 +123,7 @@ public class HttpHeaderUtil {
      * @throws NumberFormatException
      *         if the message does not have the {@code "Content-Length"} header
      *         or its value is not a number
+     * @param message message
      */
     public static long getContentLength(HttpMessage message) {
         Long value = TypeUtil.castToLong(message.headers().get(HttpHeaderConstants.CONTENT_LENGTH));
@@ -147,6 +151,8 @@ public class HttpHeaderUtil {
      * @return the content length or {@code defaultValue} if this message does
      *         not have the {@code "Content-Length"} header or its value is not
      *         a number
+     * @param message message
+     * @param defaultValue defaultValue
      */
     public static long getContentLength(HttpMessage message, long defaultValue) {
         Long value = TypeUtil.castToLong(message.headers().get(HttpHeaderConstants.CONTENT_LENGTH));
@@ -179,9 +185,9 @@ public class HttpHeaderUtil {
                     h.contains(HttpHeaderConstants.SEC_WEBSOCKET_KEY2)) {
                 return 8;
             }
-        } else if (message instanceof NettyHttpResponse) {
-            NettyHttpResponse res = (NettyHttpResponse) message;
-            if (res.getStatus().code() == HttpResponseStatus.SWITCHING_PROTOCOLS.code() &&
+        } else if (message instanceof HttpResponse) {
+            HttpResponse res = (HttpResponse) message;
+            if (res.status().code() == HttpResponseStatus.SWITCHING_PROTOCOLS.code() &&
                     h.contains(HttpHeaderConstants.SEC_WEBSOCKET_ORIGIN) &&
                     h.contains(HttpHeaderConstants.SEC_WEBSOCKET_LOCATION)) {
                 return 16;
@@ -195,18 +201,18 @@ public class HttpHeaderUtil {
 
     /**
      * Sets the {@code "Content-Length"} header.
+     * @param headers headers
+     * @param length length
      */
-    public static void setContentLength(HttpMessage message, long length) {
-        message.headers().set(HttpHeaderConstants.CONTENT_LENGTH, (CharSequence)String.valueOf(length));
-    }
-
-    public static boolean isContentLengthSet(HttpMessage m) {
-        return m.headers().contains(HttpHeaderConstants.CONTENT_LENGTH);
+    public static void setContentLength(HttpHeaders headers, long length) {
+        headers.set(HttpHeaderConstants.CONTENT_LENGTH, (CharSequence)String.valueOf(length));
     }
 
     /**
      * Returns {@code true} if and only if the specified message contains the
      * {@code "Expect: 100-continue"} header.
+     * @param message message
+     * @return is100ContinueExpected
      */
     public static boolean is100ContinueExpected(HttpRequest message) {
         // Expect: 100-continue is for requests only.
@@ -238,6 +244,8 @@ public class HttpHeaderUtil {
      * the {@code "Expect: 100-continue"} header is set and all other previous
      * {@code "Expect"} headers are removed.  Otherwise, all {@code "Expect"}
      * headers are removed completely.
+     * @param message message
+     * @param expected expected
      */
     public static void set100ContinueExpected(HttpMessage message, boolean expected) {
         if (expected) {

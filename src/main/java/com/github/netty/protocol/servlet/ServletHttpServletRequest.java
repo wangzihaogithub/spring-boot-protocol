@@ -34,7 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @sun.misc.Contended
 public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
-
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
     private static final String RFC1123_DATE = "EEE, dd MMM yyyy HH:mm:ss zzz";
@@ -354,7 +353,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      , if the request does not have a header
      * specify a name, and this method returns -1. If the header Cannot convert to date,
      * @param name ，Specifies the name of the title
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException IllegalArgumentException
      * @return Indicates the specified date in milliseconds as of January 1, 1970, or -1, if a title is specified. Not included in request
      */
     @Override
@@ -389,8 +388,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      * getDateHeader
      * if the getIntHeader method cannot be converted to a header value of int, then a NumberFormatException is thrown. If getDateHeader side
      * method cannot convert the head into a Date object, then an IllegalArgumentException is thrown.
-     * @param name
-     * @return
+     * @param name name
+     * @return header value
      */
     @Override
     public String getHeader(String name) {
@@ -416,7 +415,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     /**
      * Copy the implementation of tomcat
-     * @return
+     * @return RequestURL
      */
     @Override
     public StringBuffer getRequestURL() {
@@ -446,7 +445,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     /**
      * PathInfo：Part of the request Path that is not part of the Context Path or Servlet Path. If there's no extra path, it's either null,
      * Or a string that starts with '/'.
-     * @return
+     * @return pathInfo
      */
     @Override
     public String getPathInfo() {
@@ -476,7 +475,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     /**
      * Servlet Path: the Path section corresponds directly to the mapping of the activation request. The path starts with the "/" character, if the request is in the "/ *" or "" mode."
      * matches, in which case it is an empty string.
-     * @return
+     * @return servletPath
      */
     @Override
     public String getServletPath() {

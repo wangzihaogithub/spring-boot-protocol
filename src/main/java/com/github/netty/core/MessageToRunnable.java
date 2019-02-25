@@ -13,7 +13,7 @@ public interface MessageToRunnable {
      * Create a new IO task
      * @param context The connection
      * @param msg IO messages (attention! : no automatic release, manual release is required)
-     * @return
+     * @return Runnable
      */
     Runnable newRunnable(ChannelHandlerContext context, Object msg);
 

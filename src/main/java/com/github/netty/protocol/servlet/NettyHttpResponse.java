@@ -17,7 +17,6 @@ import java.lang.reflect.Method;
  * 2018/7/28/028
  */
 public class NettyHttpResponse implements HttpResponse,Recyclable {
-
     public static final HttpResponseStatus DEFAULT_STATUS = HttpResponseStatus.OK;
 
     private DecoderResult decoderResult;
@@ -35,8 +34,8 @@ public class NettyHttpResponse implements HttpResponse,Recyclable {
     }
 
     /**
-     * 开启分块传输
-     * @return
+     * enableTransferEncodingChunked
+     * @return LastHttpContent
      */
     public LastHttpContent enableTransferEncodingChunked(){
         if(!isTransferEncodingChunked()){

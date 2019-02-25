@@ -16,7 +16,8 @@ public class RpcUtil {
 
     /**
      * Get the service name
-     * @param instanceClass
+     * @param instanceClass instanceClass
+     * @return serviceName
      */
     public static String getServiceName(Class instanceClass){
         String serviceName = "";

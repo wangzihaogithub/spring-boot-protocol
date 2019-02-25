@@ -131,7 +131,6 @@ public class MediaType {
      *
      * @param input a reader over the header text
      * @return a MediaType parsed from the input, or null if not valid
-     * @throws IOException if there was a problem reading the input
      */
     public static MediaType parseFast(String input) {
         return getMediaTypeCache().parse(input);

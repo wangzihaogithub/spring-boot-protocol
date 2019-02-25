@@ -42,7 +42,7 @@ public class RpcServer extends AbstractNettyServer{
 
     /**
      * Add implementation classes (not interfaces, abstract classes)
-     * @param instance
+     * @param instance instance
      */
     public void addInstance(Object instance){
         rpcServerHandler.addInstance(instance, RpcUtil.getServiceName(instance.getClass()));

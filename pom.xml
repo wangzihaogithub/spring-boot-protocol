@@ -18,6 +18,7 @@
     </parent>
 
     <properties>
+        <argLine>-Dfile.encoding=UTF-8</argLine>
         <!-- 文件拷贝时的编码 -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -208,7 +209,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-
                 <version>3.5.1</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
@@ -227,11 +227,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
                         <goals>
-                            <goal>jar-no-fork</goal>
+                            <goal>jar</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -241,7 +242,9 @@
             </plugin>
 
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.10.2</version>
                 <executions>
                     <execution>
                         <id>attach-javadoc</id>
@@ -262,7 +265,9 @@
             </plugin>
 
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
                 <executions>
                     <execution>
                         <id>sign-artifacts</id>
@@ -314,11 +319,12 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
+                        <version>3.0.1</version>
                         <executions>
                             <execution>
                                 <id>attach-sources</id>
                                 <goals>
-                                    <goal>jar-no-fork</goal>
+                                    <goal>jar</goal>
                                 </goals>
                             </execution>
                         </executions>
@@ -328,7 +334,9 @@
                     </plugin>
 
                     <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>2.10.2</version>
                         <executions>
                             <execution>
                                 <id>attach-javadoc</id>
@@ -349,7 +357,9 @@
                     </plugin>
 
                     <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
@@ -377,5 +387,5 @@
 
     <!--mvn clean deploy -P release verify -Dgpg.passphrase=password-->
     <!--gpg &#45;&#45;keyserver hkp://keyserver.ubuntu.com:11371 &#45;&#45;send-keys DF6BD576-->
-
+    <!--JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8-->
 </project>

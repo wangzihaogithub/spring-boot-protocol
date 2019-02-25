@@ -3,16 +3,15 @@ package com.github.netty.protocol.servlet;
 import javax.servlet.SessionCookieConfig;
 
 /**
- * 会话cookie的配置
+ * Configuration of session cookies
  * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletSessionCookieConfig implements SessionCookieConfig {
-
     private boolean httpOnly;
     private boolean secure;
     /**
-     * 单位秒
+     * Unit seconds
      */
     private int maxAge = -1;
     private String comment;

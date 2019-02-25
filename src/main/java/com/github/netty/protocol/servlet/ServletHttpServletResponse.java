@@ -28,7 +28,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private ServletHttpObject httpServletObject;
     private NettyHttpResponse nettyResponse = new NettyHttpResponse();
     private PrintWriter writer;
-    private List<Cookie> cookies;
+    private List<Cookie> cookies = new ArrayList<>();
     private String contentType;
     private String characterEncoding;
     private Locale locale;
@@ -195,9 +195,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public void addCookie(Cookie cookie) {
-        if(cookies == null){
-            cookies = RecyclableUtil.newRecyclableList(12);
-        }
         cookies.add(cookie);
     }
 
@@ -515,7 +512,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             contentLength = -1;
             httpServletObject = null;
             writer = null;
-            cookies = null;
+            cookies.clear();
             contentType = null;
             characterEncoding = null;
             locale = null;

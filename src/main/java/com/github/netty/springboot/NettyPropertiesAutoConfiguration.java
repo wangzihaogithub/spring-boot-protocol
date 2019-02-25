@@ -5,7 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * netty的spring资源文件自动配置
+ * Netty's spring resource files are automatically configured
  * @author wangzihao
  */
 @Configuration

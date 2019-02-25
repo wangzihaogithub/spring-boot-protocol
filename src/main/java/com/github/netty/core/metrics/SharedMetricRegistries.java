@@ -68,6 +68,7 @@ public class SharedMetricRegistries {
      * @param name           the default registry name
      * @param metricRegistry the default registry
      * @throws IllegalStateException if the default registry has already been set
+     * @return MetricRegistry
      */
     public static MetricRegistry setDefault(String name, MetricRegistry metricRegistry) {
         if (defaultRegistryName.compareAndSet(null, name)) {

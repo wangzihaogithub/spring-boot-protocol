@@ -31,9 +31,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * servlet 输出流
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
+ * Servlet OutputStream
  * @author wangzihao
  */
 @sun.misc.Contended
@@ -47,18 +45,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             return df;
         }
     };
+    public static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
+    private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
+
     protected AtomicBoolean isEmpty = new AtomicBoolean(true);
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     protected AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
-
     private ServletHttpObject httpServletObject;
     private CompositeByteBufX buffer;
     private Lock bufferReadWriterLock;
     private ChannelFutureListener closeListener;
     private ChannelFutureListener closeListenerWrapper = new CloseListenerRecycleWrapper();
     private int responseWriterChunkMaxHeapByteLength;
-
-    private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
     protected ServletOutputStream() {}
 
@@ -99,7 +97,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public void setWriteListener(WriteListener writeListener) {
-        // TODO: 10月16日/0016 监听写入事件
+        // TODO: 10-16/0016 Listen for write events
     }
 
     public void setCloseListener(ChannelFutureListener closeListener) {
@@ -113,9 +111,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 这里的int. 第三方框架都是按1个字节处理的, 不是4个字节
-     * @param b
-     * @throws IOException
+     * Int. Third-party frameworks are all 1 byte, not 4 bytes
+     * @param b byte
+     * @throws IOException IOException
      */
     @Override
     public void write(int b) throws IOException {
@@ -132,15 +130,15 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 结束响应对象
-     * 当响应被关闭时，容器必须立即刷出响应缓冲区中的所有剩余的内容到客户端。
-     * 以下事件表明servlet满足了请求且响应对象即将关闭：
-     * ■servlet的service方法终止。
-     * ■响应的setContentLength或setContentLengthLong方法指定了大于零的内容量，且已经写入到响应。
-     * ■sendError 方法已调用。
-     * ■sendRedirect 方法已调用。
-     * ■AsyncContext 的complete 方法已调用
-     * @throws IOException
+     * End response object
+     * The following events indicate that the servlet has satisfied the request and the response object is about to close
+     * The following events indicate that the servlet has satisfied the request and the response object is about to close：
+     * ■The service method of the servlet terminates.
+     * ■The setContentLength or setContentLengthLong method of the response specifies an internal capacity greater than zero, and has already been written to the response.
+     * ■sendError Method called。
+     * ■sendRedirect Method called。
+     * ■AsyncContext.complete Method called
+     * @throws IOException IOException
      */
     @Override
     public void close() throws IOException {
@@ -168,11 +166,11 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 发送响应
-     * @param finishListener 操作完成后的监听
+     * Send a response
+     * @param finishListener Monitoring after the operation is completed
      */
     protected void sendResponse(ChannelFutureListener finishListener){
-        //写入管道, 然后发送, 同时释放数据资源, 然后如果需要关闭则管理链接, 最后回调完成
+        //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
         ChannelHandlerContext channel = httpServletObject.getChannelHandlerContext();
         ServletHttpServletRequest servletRequest = httpServletObject.getHttpServletRequest();
         ServletHttpServletResponse servletResponse = httpServletObject.getHttpServletResponse();
@@ -186,7 +184,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 是否需要关闭管道
+     * Whether the pipe needs to be closed
      * @param isKeepAlive
      * @param status
      * @return
@@ -203,7 +201,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 检查是否关闭
+     * Check if it's closed
      * @throws ClosedChannelException
      */
     protected void checkClosed() throws IOException {
@@ -213,18 +211,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 创建新的缓冲区
-     * @return
+     * Create a new buffer
+     * @return CompositeByteBufX
      */
     protected CompositeByteBufX newContent(){
         return new CompositeByteBufX();
     }
 
     /**
-     * 分配缓冲区
-     * @param allocator 分配器
-     * @param len 需要的字节长度
-     * @return
+     * Allocation buffer
+     * @param allocator allocator distributor
+     * @param len The required byte length
+     * @return ByteBuf
      */
     protected ByteBuf allocByteBuf(ByteBufAllocator allocator,int len){
         ByteBuf ioByteBuf;
@@ -237,7 +235,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 销毁自己 ,
+     * Destroy yourself,
      */
     public void destroy(){
         this.httpServletObject = null;
@@ -247,8 +245,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 获取缓冲区 (带锁)
-     * @return
+     * Get buffer (with lock)
+     * @return CompositeByteBufX
      */
     public CompositeByteBufX lockBuffer(){
         if(bufferReadWriterLock == null){
@@ -263,7 +261,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 释放缓冲区的锁
+     * Releases the lock on the buffer
      */
     public void unlockBuffer(){
         if(bufferReadWriterLock != null) {
@@ -272,23 +270,23 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 获取缓冲区 (不带锁)
-     * @return
+     * Get buffer (without lock)
+     * @return CompositeByteBufX
      */
     protected CompositeByteBufX getBuffer() {
         return buffer;
     }
 
     /**
-     * 放入缓冲区
-     * @param buffer
+     * Set buffer
+     * @param buffer CompositeByteBufX buffer
      */
     protected void setBuffer(CompositeByteBufX buffer) {
         this.buffer = buffer;
     }
 
     /**
-     * 重置缓冲区
+     * Reset buffer
      */
     protected void resetBuffer() {
         if (isClosed()) {
@@ -310,48 +308,48 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 放入servlet对象
-     * @param httpServletObject
+     * Put in the servlet object
+     * @param httpServletObject httpServletObject
      */
     protected void setHttpServletObject(ServletHttpObject httpServletObject) {
         this.httpServletObject = httpServletObject;
     }
 
     /**
-     * 获取servlet对象
-     * @return
+     * Get servlet object
+     * @return ServletHttpObject
      */
     protected ServletHttpObject getHttpServletObject() {
         return httpServletObject;
     }
 
     /**
-     * 获取关闭监听
-     * @return
+     * Get off listening
+     * @return ChannelFutureListener ChannelFutureListener
      */
     protected ChannelFutureListener getCloseListener() {
         return closeListenerWrapper;
     }
 
     /**
-     * 是否关闭
-     * @return true=已关闭,false=未关闭
+     * Whether to shut down
+     * @return True = closed,false= not closed
      */
     public boolean isClosed(){
         return isClosed.get();
     }
 
     /**
-     * 写入响应
-     * @param isCloseChannel
-     * @param channel
-     * @param nettyResponse
-     * @param finishListener
+     * Written response
+     * @param isCloseChannel isCloseChannel
+     * @param channel channel
+     * @param nettyResponse nettyResponse
+     * @param finishListener finishListener
      */
     private static void writeResponseToChannel(boolean isCloseChannel, ChannelHandlerContext channel,
                                         NettyHttpResponse nettyResponse, ChannelFutureListener finishListener) {
         ChannelPromise promise;
-        //如果需要关闭管道 或者需要回调
+        //If you need to close the pipe or need a callback
         if(isCloseChannel || finishListener != null) {
             promise = channel.newPromise();
             promise.addListener(FlushListener.newInstance(isCloseChannel, finishListener));
@@ -370,97 +368,86 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 设置响应头
-     * @param isKeepAlive 保持连接
-     * @param nettyResponse netty响应
-     * @param servletRequest servlet请求
-     * @param servletResponse servlet响应
-     * @param sessionCookieConfig sessionCookie配置
+     * Set the response header
+     * @param isKeepAlive keep alive
+     * @param nettyResponse nettyResponse
+     * @param servletRequest servletRequest
+     * @param servletResponse servletResponse
+     * @param sessionCookieConfig sessionCookieConfig
      */
     private static void settingResponseHeader(boolean isKeepAlive, NettyHttpResponse nettyResponse,
                                        ServletHttpServletRequest servletRequest, ServletHttpServletResponse servletResponse,
                                        ServletSessionCookieConfig sessionCookieConfig) {
         HttpHeaderUtil.setKeepAlive(nettyResponse, isKeepAlive);
+        HttpHeaders headers = nettyResponse.headers();
 
-        if (
-//                !isKeepAlive &&
-                        !HttpHeaderUtil.isContentLengthSet(nettyResponse)) {
+        //Content length
+        if (!headers.contains(HttpHeaderConstants.CONTENT_LENGTH)) {
             long contentLength = servletResponse.getContentLength();
             if(contentLength >= 0){
-                HttpHeaderUtil.setContentLength(nettyResponse, contentLength);
+                headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
             }else {
                 ByteBuf content = nettyResponse.content();
                 if(content != null) {
-                    HttpHeaderUtil.setContentLength(nettyResponse, content.readableBytes());
+                    headers.set(HttpHeaderConstants.CONTENT_LENGTH, content.readableBytes());
                 }
             }
         }
 
-        String contentType = servletResponse.getContentType();
-        String characterEncoding = servletResponse.getCharacterEncoding();
-        List<Cookie> cookies = servletResponse.getCookies();
+        // Time and date response header
+        headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
 
-        HttpHeaders headers = nettyResponse.headers();
+        //Content Type The content of the response header
+        String contentType = servletResponse.getContentType();
         if (null != contentType) {
-            //Content Type 响应头的内容
+            String characterEncoding = servletResponse.getCharacterEncoding();
             String value = (null == characterEncoding) ? contentType :
                     RecyclableUtil.newStringBuilder()
                             .append(contentType)
-                            .append(';')
-                            .append(HttpHeaderConstants.CHARSET)
-                            .append('=')
+                            .append(APPEND_CONTENT_TYPE)
                             .append(characterEncoding).toString();
-
             headers.set(HttpHeaderConstants.CONTENT_TYPE, value);
         }
-        // 时间日期响应头
-        headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
-        //服务器信息响应头
+
+        //Server information response header
         String serverHeader = servletRequest.getServletContext().getServerHeader();
         if(serverHeader != null && serverHeader.length() > 0) {
             headers.set(HttpHeaderConstants.SERVER, serverHeader);
         }
 
-        //语言
+        //language
         Locale locale = servletResponse.getLocale();
-        if(locale != null && !headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
+        if(!headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
             headers.set(HttpHeaderConstants.CONTENT_LANGUAGE,locale.toLanguageTag());
         }
 
-        // cookies处理
-        //先处理Session ，如果是新Session 并且 sessionId不是与请求传的sessionId一样, 需要通过Cookie写入
+        // Cookies processing
+        //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
+        List<Cookie> cookies = servletResponse.getCookies();
         ServletHttpSession httpSession = servletRequest.getSession(true);
         if (httpSession.isNew() && !httpSession.getId().equals(servletRequest.getRequestedSessionId())) {
-            httpSession.setNewSessionFlag(false);
             String sessionCookieName = sessionCookieConfig.getName();
-            if(StringUtil.isEmpty(sessionCookieName)){
+            if(sessionCookieName == null || sessionCookieName.isEmpty()){
                 sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;
             }
-            Cookie cookie = new Cookie(sessionCookieName,servletRequest.getRequestedSessionId());
-            cookie.setHttpOnly(true);
-            if(sessionCookieConfig.getDomain() != null) {
-                cookie.setDomain(sessionCookieConfig.getDomain());
+            String sessionCookiePath = sessionCookieConfig.getPath();
+            if(sessionCookiePath == null || sessionCookiePath.isEmpty()) {
+                sessionCookiePath = HttpConstants.DEFAULT_SESSION_COOKIE_PATH;
             }
-            if(sessionCookieConfig.getPath() == null) {
-                cookie.setPath("/");
-            }else {
-                cookie.setPath(sessionCookieConfig.getPath());
-            }
-            cookie.setSecure(sessionCookieConfig.isSecure());
-            if(sessionCookieConfig.getComment() != null) {
-                cookie.setComment(sessionCookieConfig.getComment());
-            }
-            if(cookies == null) {
-                cookies = RecyclableUtil.newRecyclableList(1);
-                cookies.add(cookie);
-            }
+            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName,servletRequest.getRequestedSessionId(), -1,
+                    sessionCookiePath,sessionCookieConfig.getDomain(),sessionCookieConfig.isSecure(),Boolean.TRUE);
+            headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
+
+            httpSession.setNewSessionFlag(false);
         }
 
-        //其他业务或框架设置的cookie，逐条写入到响应头去
-        if(cookies != null) {
-            for (Cookie cookie : cookies) {
-                String value = ServletUtil.encodeCookie(cookie.getName(),cookie.getValue(),cookie.getMaxAge(),cookie.getPath(),cookie.getDomain(),cookie.getSecure(),cookie.isHttpOnly());
-                headers.add(HttpHeaderConstants.SET_COOKIE, value);
+        //Cookies set by other businesses or frameworks are written to the response header one by one
+        int cookieSize = cookies.size();
+        if(cookieSize > 0) {
+            for (int i=0; i<cookieSize; i++) {
+                Cookie cookie = cookies.get(i);
+                String cookieText = ServletUtil.encodeCookie(cookie.getName(),cookie.getValue(),cookie.getMaxAge(),cookie.getPath(),cookie.getDomain(),cookie.getSecure(),cookie.isHttpOnly());
+                headers.add(HttpHeaderConstants.SET_COOKIE, cookieText);
             }
         }
     }
@@ -478,7 +465,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 关闭监听的包装类 (用于回收数据)
+     * Closing the listening wrapper class (for data collection)
      */
     private class CloseListenerRecycleWrapper implements ChannelFutureListener{
         @Override
@@ -499,7 +486,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * 优化lambda实例数量, 减少gc次数
+     * FlushListener Optimize the number of lambda instances to reduce gc times
      */
     private static class FlushListener implements ChannelFutureListener,Recyclable {
         private boolean isCloseChannel;
@@ -539,6 +526,5 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 FlushListener.this.recycle();
             }
         }
-
     }
 }

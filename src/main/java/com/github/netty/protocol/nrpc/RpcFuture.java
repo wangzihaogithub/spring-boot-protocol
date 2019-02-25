@@ -15,7 +15,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * @author wangzihao
  */
 public class RpcFuture {
-
     private RpcResponse rpcResponse;
     public long beginTime;
     private final Lock lock = new ReentrantLock();
@@ -28,13 +27,13 @@ public class RpcFuture {
 
     /**
      * Get (note: block the current thread)
-     * @param timeout
-     * @param timeUnit
-     * @return
+     * @param timeout timeout
+     * @param timeUnit timeUnit
+     * @return RpcResponse
      */
     public RpcResponse get(int timeout, TimeUnit timeUnit) {
         TOTAL_INVOKE_COUNT.incrementAndGet();
-        //自旋, 因为如果是本地rpc调用,速度太快了, 没必要再堵塞
+        //Spin, because if it's a local RPC call, it's too fast and there's no need to jam
         int spinCount = CoreConstants.getRpcLockSpinCount();
         for (int i=0; rpcResponse == null && i<spinCount; i++){
             //

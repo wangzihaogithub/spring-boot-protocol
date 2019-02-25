@@ -90,7 +90,8 @@ public class WebSocketSession implements Session {
 
     /**
      * Get httpSession from the properties bound in the pipe
-     * @return
+     * @param channel channel
+     * @return WebSocketSession
      */
     public static WebSocketSession getSession(Channel channel){
         if(isChannelActive(channel)) {
@@ -104,7 +105,8 @@ public class WebSocketSession implements Session {
 
     /**
      * Bind WebsocketSession to the pipe property
-     * @param websocketSession
+     * @param websocketSession websocketSession
+     * @param channel channel
      */
     public static void setSession(Channel channel, WebSocketSession websocketSession){
         if(isChannelActive(channel)) {
@@ -114,7 +116,8 @@ public class WebSocketSession implements Session {
 
     /**
      * Whether the pipe is active
-     * @return
+     * @param channel channel
+     * @return boolean isChannelActive
      */
     public static boolean isChannelActive(Channel channel){
         if(channel != null && channel.isActive()) {

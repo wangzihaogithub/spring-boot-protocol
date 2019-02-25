@@ -71,24 +71,24 @@ import io.netty.handler.codec.http.HttpRequest;
      RTP stream data ......
 
 
-     C表示rtsp客户端, S表示rtsp服务端
+    C represents the RTSP client and S represents the RTSP server
 
-     1. C->S:OPTION request //Ask S what methods are available
-     1. S->C:OPTION response //The S response message includes all available methods provided
+     1. C- S:OPTION request //Ask S what methods are available
+     1. S- C:OPTION response //The S response message includes all available methods provided
 
-     2. C->S:DESCRIBE request //Request to get the media initialization description information provided by S
-     2. S->C:DESCRIBE response //S response media initialization description information, mainly SDP
+     2. C- S:DESCRIBE request //Request to get the media initialization description information provided by S
+     2. S- C:DESCRIBE response //S response media initialization description information, mainly SDP
 
-     3. C->S:SETUP request //Set the session's properties, as well as the transport mode, to remind S to establish a session
-     3. S->C:SETUP response //S establishes the session, returns the session identifier, and session-related information
+     3. C- S:SETUP request //Set the session's properties, as well as the transport mode, to remind S to establish a session
+     3. S- C:SETUP response //S establishes the session, returns the session identifier, and session-related information
 
-     4. C->S:PLAY request //C request play
-     4. S->C:PLAY response //S replies to the requested information
+     4. C- S:PLAY request //C request play
+     4. S- C:PLAY response //S replies to the requested information
 
-     S->C:发送流媒体数据
+     S- C:Send streaming data
 
-     5. C->S:TEARDOWN request //C requests to close the session
-     5. S->C:TEARDOWN response //S should respond to the request
+     5. C- S:TEARDOWN request //C requests to close the session
+     5. S- C:TEARDOWN response //S should respond to the request
 
  * Created by wangzihao on 2018/12/5/005.
  */

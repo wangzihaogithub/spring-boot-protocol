@@ -143,8 +143,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
 
     /**
      * Is there an instance
-     * @param instance
-     * @return
+     * @param instance instance
+     * @return boolean existInstance
      */
     public boolean existInstance(Object instance){
         if(serviceInstanceMap.isEmpty()){

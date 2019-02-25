@@ -1,15 +1,13 @@
 package com.github.netty.protocol.nrpc.exception;
 
 /**
- * RPC 异常响应
- *
+ * RpcResponseException
  * @author wangzihao
  *  2018/8/21/021
  */
 public class RpcResponseException extends RpcException {
-
     /**
-     * 错误状态码
+     * Error status code
      */
     private int status;
 

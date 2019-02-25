@@ -10,7 +10,6 @@ import java.lang.annotation.*;
 @Documented
 @Import({NettyPropertiesAutoConfiguration.class,NettyRpcClientsRegistrar.class})
 public @interface EnableNettyRpcClients {
-
 	String[] value() default {};
 	String[] basePackages() default {};
 }

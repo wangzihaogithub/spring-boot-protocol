@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * 内部RPC协议注册器 （适配spring）
+ * Internal RPC protocol registry (spring adapter)
  * @author wangzihao
  */
 public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
@@ -34,7 +34,6 @@ public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
             }
             super.addInstance(serviceImpl);
         }
-
         super.onServerStart();
     }
 
@@ -44,13 +43,13 @@ public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
             return false;
         }
 
-        //如果是服务端注解的方式，信息就从注解上取
+        //In the case of server-side annotations, the information is taken from the annotations
         RequestMapping requestMapping = (RequestMapping) annotationOnClass.getDeclaredAnnotation(RequestMapping.class);
         if(requestMapping == null) {
             return false;
         }
 
-        //获取服务名
+        //Get the service name
         String serviceName = requestMapping.name();
         String[] values = requestMapping.value();
         String[] paths = requestMapping.path();

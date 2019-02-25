@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * RPC客户端 (线程安全)
+ * RPC client (thread safe)
  * @author wangzihao
  */
 public class NettyRpcClientProxy implements InvocationHandler {
@@ -33,7 +33,6 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private Class<?> interfaceClass;
     private NettyProperties properties;
     private NettyRpcLoadBalanced loadBalanced;
-
     private FastThreadLocal<Map<InetSocketAddress,RpcClient>> clientMapThreadLocal = new FastThreadLocal<Map<InetSocketAddress,RpcClient>>(){
         @Override
         protected Map<InetSocketAddress,RpcClient> initialValue() throws Exception {
@@ -112,7 +111,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
     }
 
     /**
-     * 获取RPC客户端 (从当前线程获取,如果没有则自动创建)
+     * Get the RPC client (from the current thread, if not, create it automatically)
      * @return
      */
     private RpcClient getClient(InetSocketAddress address){
@@ -132,9 +131,9 @@ public class NettyRpcClientProxy implements InvocationHandler {
     }
 
     /**
-     * ping一次 会新建客户端并销毁客户端
-     * @return ping返回的消息
-     * @throws RpcException
+     * Ping creates a new client and destroys it
+     * @return Messages from ping
+     * @throws RpcException RpcException
      */
     public byte[] pingOnceAfterDestroy() throws RpcException {
         InetSocketAddress address = chooseAddress(requestThreadLocal.get());
@@ -157,16 +156,16 @@ public class NettyRpcClientProxy implements InvocationHandler {
         try {
             address = loadBalanced.chooseAddress(request);
         }catch (Exception e){
-            throw new RpcConnectException("选择客户端地址失败",e);
+            throw new RpcConnectException("Failed to select client address",e);
         }
         if (address == null) {
-            throw new NullPointerException("选择客户端地址失败, 获取客户端地址为null");
+            throw new NullPointerException("Failed to select the client address and get null");
         }
         return address;
     }
 
     /**
-     * 默认的nett请求 (参数[args数组] 可以修改)
+     * Default nett request (parameter [args array] can be modified)
      */
     private class DefaultNettyRpcRequest implements NettyRpcRequest {
         private Method method;

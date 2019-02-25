@@ -6,11 +6,10 @@ import java.util.Formatter;
 import java.util.Locale;
 
 /**
- *  打印流
+ *  Printing flow
  * @author wangzihao
  */
 public class ServletPrintWriter extends PrintWriter{
-
     private OutputStream out;
     private Charset charset;
     private String lineSeparator = System.lineSeparator();

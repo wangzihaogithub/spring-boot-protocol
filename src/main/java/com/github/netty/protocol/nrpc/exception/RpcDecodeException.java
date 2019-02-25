@@ -1,8 +1,7 @@
 package com.github.netty.protocol.nrpc.exception;
 
 /**
- * 解码异常
- *
+ * RpcDecodeException
  * @author wangzihao
  *  2018/8/20/020
  */

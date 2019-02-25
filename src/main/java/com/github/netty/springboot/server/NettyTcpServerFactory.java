@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.Objects;
 
 /**
- * netty容器工厂 tcp层面的服务器工厂
+ * Netty container factory TCP layer server factory
  *
  * EmbeddedWebApplicationContext - createEmbeddedServletContainer
  * ImportAwareBeanPostProcessor
@@ -47,9 +47,9 @@ public class NettyTcpServerFactory
     }
 
     /**
-     * 获取 Reactive 容器. 暂时用servlet代替
-     * @param httpHandler
-     * @return
+     * Reactive container (temporarily replaced by servlets)
+     * @param httpHandler httpHandler
+     * @return NettyTcpServer
      */
     @Override
     public WebServer getWebServer(HttpHandler httpHandler) {
@@ -61,7 +61,7 @@ public class NettyTcpServerFactory
                 servletRegistration.addMapping("/");
             }
 
-            //服务器端口
+            //Server port
             InetSocketAddress serverAddress = getServerSocketAddress();
             return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
         }catch (Exception e){
@@ -70,31 +70,31 @@ public class NettyTcpServerFactory
     }
 
     /**
-     * 获取servlet容器
-     * @param initializers 初始化
-     * @return
+     * Get servlet container
+     * @param initializers Initialize the
+     * @return NettyTcpServer
      */
     @Override
     public WebServer getWebServer(ServletContextInitializer... initializers) {
         ServletContext servletContext = Objects.requireNonNull(getServletContext());
         try {
-            //默认 servlet
+            //The default servlet
             if (super.isRegisterDefaultServlet()) {
                 servletContext.addServlet("default",new ServletDefaultHttpServlet())
                         .addMapping("/");
             }
 
-            //jsp 不支持
+            //JSP is not supported
             if(super.shouldRegisterJspServlet()){
                 Jsp jsp = getJsp();
             }
 
-            //初始化
+            //Initialize the
             for (ServletContextInitializer initializer : super.mergeInitializers(initializers)) {
                 initializer.onStartup(servletContext);
             }
 
-            //服务器端口
+            //Server port
             InetSocketAddress serverAddress = getServerSocketAddress();
             return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
         }catch (Exception e){
@@ -109,7 +109,7 @@ public class NettyTcpServerFactory
             dir = super.getDocumentRoot();
         }
         if(dir == null){
-            //临时目录
+            //The temporary directory
             dir = super.createTempDir("nettyx-docbase");
         }
         return dir;

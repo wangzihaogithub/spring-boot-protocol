@@ -14,7 +14,6 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class Recycler<T> {
-
     /**
      * The instance queue of the current object
      */
@@ -47,7 +46,7 @@ public class Recycler<T> {
 
     /**
      * Gets a list of all recyclers
-     * @return
+     * @return List
      */
     public static List<Recycler> getRecyclerList() {
         return RECYCLER_LIST;
@@ -55,7 +54,7 @@ public class Recycler<T> {
 
     /**
      * Get an instance
-     * @return
+     * @return object
      */
     public T getInstance() {
         TOTAL_COUNT.incrementAndGet();
@@ -69,16 +68,16 @@ public class Recycler<T> {
     }
 
     /**
-     * 回收实例
-     * @param value
+     * Recycling instance
+     * @param value value
      */
     public void recycleInstance(T value) {
         queue.push(value);
     }
 
     /**
-     * 实例的队列
-     * @param <E>
+     * Queue of instances
+     * @param <E> type
      */
     private static class Queue<E> extends ConcurrentLinkedDeque<E> {
          @Override

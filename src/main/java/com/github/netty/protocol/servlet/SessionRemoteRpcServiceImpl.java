@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.CoreConstants;
 import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.exception.RpcDecodeException;
@@ -13,14 +12,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 /**
- * 远程会话服务
+ * Remote session service
  * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionRemoteRpcServiceImpl implements SessionService {
+    private static final String SESSION_GROUP = "/session";
 
     private String name = NamespaceUtil.newIdName(getClass());
     private static final byte[] EMPTY = new byte[0];
@@ -31,8 +30,6 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     private boolean enablesAutoReconnect;
     private boolean enableRpcHeartLog;
     private int rpcClientHeartIntervalSecond;
-    private static final String SESSION_GROUP = "/session";
-
     private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>(){
         @Override
         protected RpcClient initialValue() throws Exception {
@@ -103,7 +100,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     }
 
     /**
-     * 解码
+     * decoding
      * @param bytes
      * @return
      */
@@ -167,7 +164,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     }
 
     /**
-     * 编码
+     * coding
      * @param session
      * @return
      */
@@ -194,7 +191,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
                     if (entry.getValue() instanceof Serializable) {
                         attributeSize++;
                     }else {
-//                        logger.warn("session属性中key={}的value未实现序列化, 已自动跳过",entry.getKey());
+//                        logger.warn("The value of key={} in the session property is not serialized and has been skipped automatically",entry.getKey());
                     }
                 }
             }

@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * (input | output) stream tool
@@ -29,8 +28,8 @@ public class IOUtil {
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
      * @param bufferCapacity buffer Capacity
-     * @throws FileNotFoundException
-     * @throws IOException
+     * @throws FileNotFoundException FileNotFoundException
+     * @throws IOException IOException
      */
     public static void copyTo(String sourcePath,String sourceFileName,
                               String targetPath,String targetFileName,boolean append,int bufferCapacity) throws FileNotFoundException,IOException {
@@ -68,7 +67,7 @@ public class IOUtil {
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
-     * @throws IOException
+     * @throws IOException IOException
      */
     public static void writeFile(byte[] data, String targetPath, String targetFileName, boolean append) throws IOException {
         if(targetPath == null){
@@ -94,7 +93,7 @@ public class IOUtil {
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
      * @param bufferCapacity buffer Capacity
-     * @throws IOException
+     * @throws IOException IOException
      */
     public static void writeFile(InputStream in, String targetPath, String targetFileName, boolean append,int bufferCapacity) throws IOException {
         if(targetPath == null){
@@ -140,7 +139,7 @@ public class IOUtil {
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
-     * @throws IOException
+     * @throws IOException IOException
      */
     public static void writeFile(Iterator<ByteBuffer> dataIterator, String targetPath, String targetFileName, boolean append) throws IOException {
         if(targetPath == null){
@@ -173,8 +172,8 @@ public class IOUtil {
       * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName
      * @return bytebuffer
-     * @throws FileNotFoundException
-     * @throws IOException
+     * @throws FileNotFoundException FileNotFoundException
+     * @throws IOException IOException
      */
     public static ByteBuf readFileToByteBuffer(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
         if(sourcePath == null){
@@ -204,8 +203,8 @@ public class IOUtil {
      * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName
      * @return byte[]
-     * @throws FileNotFoundException
-     * @throws IOException
+     * @throws FileNotFoundException FileNotFoundException
+     * @throws IOException IOException
      */
     public static byte[] readFileToBytes(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
         ByteBuf byteBuf = readFileToByteBuffer(sourcePath,sourceFileName);
@@ -228,7 +227,8 @@ public class IOUtil {
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
-     * @throws FileNotFoundException
+     * @throws FileNotFoundException FileNotFoundException
+     * @return FileOutputStream
      */
     public static FileOutputStream writeFile(String targetPath, String targetFileName, boolean append) throws IOException {
         if(targetPath == null){
@@ -247,7 +247,7 @@ public class IOUtil {
      * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName
      * @return File stream
-     * @throws FileNotFoundException
+     * @throws FileNotFoundException FileNotFoundException
      */
     public static FileInputStream readFile(String sourcePath, String sourceFileName) throws FileNotFoundException {
         if(sourcePath == null){
@@ -263,7 +263,7 @@ public class IOUtil {
      * @param sourceFileName sourceFileName
      * @param charset charset
      * @return File stream
-     * @throws FileNotFoundException
+     * @throws FileNotFoundException FileNotFoundException
      */
     public static String readFileToString(String sourcePath, String sourceFileName,String charset) throws FileNotFoundException {
         if(sourcePath == null){
@@ -287,9 +287,6 @@ public class IOUtil {
     /**
      * Delete all subdirectories or files in the directory
      * @param dir Folder path
-     * @return boolean Returns "true" if all deletions were successful.
-     *                 If a deletion fails, the method stops attempting to
-     *                 delete and returns "false".
      */
     public static void deleteDirChild(File dir) {
         if (!dir.isDirectory()) {
@@ -327,7 +324,7 @@ public class IOUtil {
 
     /**
      * Write mode to read mode
-     * @param byteBuf
+     * @param byteBuf byteBuf
      */
     public static void writerModeToReadMode(ByteBuf byteBuf){
         if(byteBuf == null){
@@ -340,8 +337,8 @@ public class IOUtil {
 
     /**
      * Read input stream
-     * @param inputStream
-     * @return
+     * @param inputStream inputStream
+     * @return InputText
      */
     public static String readInput(InputStream inputStream){
         return readInput(inputStream, Charset.defaultCharset().name());

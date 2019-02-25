@@ -4,7 +4,7 @@ package com.github.netty.protocol.nrpc.service;
 import com.github.netty.annotation.Protocol;
 
 /**
- * rpc命令服务
+ * RpcCommandService
  * @author wangzihao
  * 2018/8/20/020
  */
@@ -13,7 +13,7 @@ public interface RpcCommandService {
 
     /**
      * ping
-     * @return
+     * @return byte[]
      */
     byte[] ping();
 

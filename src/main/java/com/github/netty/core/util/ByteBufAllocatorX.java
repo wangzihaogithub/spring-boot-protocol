@@ -137,6 +137,8 @@ public class ByteBufAllocatorX implements ByteBufAllocator {
 
     /**
      * Create a new {@link ChannelHandlerContext} which wraps the given one anf force the usage of direct buffers.
+     * @param ctx ChannelHandlerContext
+     * @return ChannelHandlerContext
      */
     public static ChannelHandlerContext forceDirectAllocator(ChannelHandlerContext ctx) {
         return PooledChannelHandlerContext.newInstance(ctx);

@@ -4,7 +4,7 @@ import java.io.Serializable;
 import java.util.Map;
 
 /**
- * 会话实体类
+ * Session entity class
  * @author wangzihao
  *  2018/8/18/018
  */
@@ -12,12 +12,11 @@ public class Session implements Serializable{
     private static final long serialVersionUID = 1L;
 
     private String id;
-
     private Map<String,Object> attributeMap;
     private long creationTime;
     private long lastAccessedTime;
     /**
-     * 单位 秒
+     * Unit seconds
      */
     private int maxInactiveInterval;
     private int accessCount;
@@ -30,8 +29,8 @@ public class Session implements Serializable{
     }
 
     /**
-     * 是否有效
-     * @return true 有效, false无效
+     * The validity of
+     * @return True is valid, false is not
      */
     public boolean isValid() {
         return System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));

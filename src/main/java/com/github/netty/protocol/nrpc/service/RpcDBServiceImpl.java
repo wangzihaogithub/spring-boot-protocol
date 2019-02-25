@@ -1,20 +1,13 @@
 package com.github.netty.protocol.nrpc.service;
 
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
-
 import java.util.*;
 
 /**
- * 数据存储服务
+ * RpcDBServiceImpl
  * @author wangzihao
  */
 public class RpcDBServiceImpl implements RpcDBService {
-
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-
     private final Map<String,ExpiryMap<String,byte[]>> memExpiryGroupMap = new HashMap<>(16);
-
     private static final String SHARING_GROUP = "/sharing";
 
     @Override
@@ -34,7 +27,6 @@ public class RpcDBServiceImpl implements RpcDBService {
 
     @Override
     public void put4(String key, byte[] data, int expireSecond, String group) {
-        logger.info("保存数据 : key="+key);
         getMemExpiryMap(group).put(key,data,expireSecond);
     }
 
@@ -122,23 +114,13 @@ public class RpcDBServiceImpl implements RpcDBService {
     }
 
     /**
-     * 定时过期Map 会自动过期删除
-     * 常用场景 ： localCache
+     * timed expiration Map will automatically expire and be deleted
+     * common scenario: localCache
      */
     public class ExpiryMap <K, V> extends HashMap<K, V> {
-
         private final Object lock;
         private Map<K, Long> expiryMap;
-
-        /**
-         * 默认过期时间 2分钟
-         */
         private long defaultExpiryTime;
-
-
-        public ExpiryMap(){
-            this(1000 * 60 * 2);
-        }
 
         public ExpiryMap(long defaultExpiryTime){
             this(16, defaultExpiryTime);
@@ -150,9 +132,21 @@ public class RpcDBServiceImpl implements RpcDBService {
             this.expiryMap = new HashMap<K,Long>(initialCapacity);
             this.lock = new Object();
         }
+
         @Override
         public V put(K key, V value) {
             return put(key,value,defaultExpiryTime);
+        }
+
+        /**
+         * @param key key
+         * @param value value
+         * @param expiryTime The key value pair is valid in milliseconds
+         * @return old value
+         */
+        public V put(K key, V value, long expiryTime) {
+            expiryMap.put(key, System.currentTimeMillis() + expiryTime);
+            return super.put(key, value);
         }
 
         public void changeKey(K oldKey, K newKey) {
@@ -164,29 +158,22 @@ public class RpcDBServiceImpl implements RpcDBService {
             put(newKey,super.remove(oldKey),expiry);
         }
 
-        /**
-         * @param key
-         * @param value
-         * @param expiryTime 键值对有效期 毫秒
-         * @return
-         */
-        public V put(K key, V value, long expiryTime) {
-            expiryMap.put(key, System.currentTimeMillis() + expiryTime);
-            return super.put(key, value);
-        }
         @Override
         public boolean containsKey(Object key) {
             return !checkExpiry( key) && super.containsKey(key);
         }
+
         @Override
         public int size() {
             checkExpiry();
             return super.size();
         }
+
         @Override
         public boolean isEmpty() {
             return size() == 0;
         }
+
         @Override
         public boolean containsValue(Object value) {
             Iterator<Entry<K, V>> iterator = super.entrySet().iterator();
@@ -231,6 +218,7 @@ public class RpcDBServiceImpl implements RpcDBService {
             }
             return super.get(key);
         }
+
         @Override
         public void putAll(Map<? extends K, ? extends V> m) {
             for (Entry<? extends K, ? extends V> e : m.entrySet()) {
@@ -274,11 +262,12 @@ public class RpcDBServiceImpl implements RpcDBService {
         private void checkExpiry(){
             entrySet();
         }
+
         /**
          *
-         * @Description: 是否过期
-         * @param key true 过期
-         * @param isRemoveSuper true super删除
+         * @Description: Is late
+         * @param key True overdue
+         * @param isRemoveSuper true Super delete
          * @return
          */
         private boolean checkExpiry(Object key, boolean isRemoveSuper){
@@ -290,8 +279,8 @@ public class RpcDBServiceImpl implements RpcDBService {
             long currentTime = System.currentTimeMillis();
             boolean disable = currentTime > expiryTime;
 
-//        System.out.println( key + " 过期时间"+expiryTime);
-//        System.out.println( key + " 当前时间"+currentTime);
+//        System.out.println( key + " expiryTime"+expiryTime);
+//        System.out.println( key + " currentTime"+currentTime);
 
             if(disable){
                 if(isRemoveSuper) {
@@ -303,19 +292,6 @@ public class RpcDBServiceImpl implements RpcDBService {
 
         private boolean checkExpiry(Object key){
             return checkExpiry(key,true);
-        }
-
-        public long getDefaultExpiryTime() {
-            return defaultExpiryTime;
-        }
-
-        public void setDefaultExpiryTime(long defaultExpiryTime) {
-            this.defaultExpiryTime = defaultExpiryTime;
-        }
-
-        @Override
-        public String toString() {
-            return super.toString();
         }
     }
 

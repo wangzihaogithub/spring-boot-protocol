@@ -61,7 +61,7 @@ public class UrlMapper<T> {
      * @param urlPattern  urlPattern
      * @param object     object
      * @param objectName objectName
-     * @throws IllegalArgumentException
+     * @throws IllegalArgumentException IllegalArgumentException
      */
     public void addMapping(String urlPattern, T object, String objectName) throws IllegalArgumentException {
         Objects.requireNonNull(urlPattern);
@@ -98,7 +98,7 @@ public class UrlMapper<T> {
     /**
      * Gets a mapping object
      * @param absoluteUri An absolute path
-     * @return
+     * @return T object
      */
     public T getMappingObjectByUri(String absoluteUri) {
         int size = elementList.size();
@@ -118,8 +118,8 @@ public class UrlMapper<T> {
 
     /**
      * Add multiple mapping objects
+     * @param list add in list
      * @param absoluteUri An absolute path
-     * @return
      */
     public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
         int size = elementList.size();

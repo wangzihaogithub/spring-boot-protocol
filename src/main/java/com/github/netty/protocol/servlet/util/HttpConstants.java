@@ -19,5 +19,6 @@ public class HttpConstants {
     public static final int HTTP_PORT = 80;
     public static final String HTTP = "http";
     public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+    public static final String DEFAULT_SESSION_COOKIE_PATH = "/";
 
 }

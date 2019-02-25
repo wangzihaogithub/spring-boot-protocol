@@ -9,12 +9,11 @@ import javax.servlet.ServletSecurityElement;
 import java.util.*;
 
 /**
- * servlet注册
+ * The servlet register
  * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletRegistration implements javax.servlet.ServletRegistration, javax.servlet.ServletRegistration.Dynamic {
-
     private String servletName;
     private Servlet servlet;
     private ServletConfig servletConfig;
@@ -131,8 +130,6 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     public Map<String, String> getInitParameters() {
         return initParameterMap;
     }
-
-    //==============
 
     @Override
     public void setLoadOnStartup(int loadOnStartup) {

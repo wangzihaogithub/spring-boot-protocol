@@ -16,7 +16,7 @@ public class CoreConstants {
 
     /**
      * The number of RPC lock spins. If no response can be obtained after N times, the block will occur
-     * @return
+     * @return rpcLockSpinCount
      */
     public static int getRpcLockSpinCount(){
         return rpcLockSpinCount;
@@ -24,7 +24,7 @@ public class CoreConstants {
 
     /**
      * The recycling number
-     * @return
+     * @return recyclerCount
      */
     public static int getRecyclerCount() {
         return recyclerCount;

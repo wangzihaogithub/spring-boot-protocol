@@ -25,12 +25,12 @@ public class Protocol {
     public @interface RpcService{
         /**
          * Address of the interface
-         * @return
+         * @return value
          */
         String value() default "";
         /**
          * Timeout time (milliseconds)
-         * @return
+         * @return timeout
          */
         int timeout() default DEFAULT_TIME_OUT;
         /**

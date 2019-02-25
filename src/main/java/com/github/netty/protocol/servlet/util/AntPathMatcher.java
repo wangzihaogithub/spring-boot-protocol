@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  *
  * <p>Part of this mapping code has been kindly borrowed from <a href="http://ant.apache.org">Apache Ant</a>.
  *
- * <p>The mapping matches URLs using the following rules:<br>
+ * <p>The mapping matches URLs using the following rules:
  * <ul>
  * <li>{@code ?} matches one character</li>
  * <li>{@code *} matches zero or more characters</li>
@@ -113,7 +113,8 @@ public class AntPathMatcher {
 
     /**
      * Set the path separator to use for pattern parsing.
-     * <p>Default is "/", as in Ant.
+     * Default is "/", as in Ant.
+     * @param pathSeparator pathSeparator
      */
     public void setPathSeparator(String pathSeparator) {
         this.pathSeparator = (pathSeparator != null ? pathSeparator : DEFAULT_PATH_SEPARATOR);
@@ -122,8 +123,9 @@ public class AntPathMatcher {
 
     /**
      * Specify whether to perform pattern matching in a case-sensitive fashion.
-     * <p>Default is {@code true}. Switch this to {@code false} for case-insensitive matching.
+     * Default is {@code true}. Switch this to {@code false} for case-insensitive matching.
      * @since 4.2
+     * @param caseSensitive caseSensitive
      */
     public void setCaseSensitive(boolean caseSensitive) {
         this.caseSensitive = caseSensitive;
@@ -131,7 +133,8 @@ public class AntPathMatcher {
 
     /**
      * Specify whether to trim tokenized paths and patterns.
-     * <p>Default is {@code false}.
+     * Default is {@code false}.
+     * @param trimTokens trimTokens
      */
     public void setTrimTokens(boolean trimTokens) {
         this.trimTokens = trimTokens;
@@ -148,6 +151,7 @@ public class AntPathMatcher {
      * are coming in, with little chance for encountering a recurring pattern.
      * @since 4.0.1
      * @see #getStringMatcher(String)
+     * @param cachePatterns cachePatterns
      */
     public void setCachePatterns(boolean cachePatterns) {
         this.cachePatterns = cachePatterns;
@@ -446,19 +450,26 @@ public class AntPathMatcher {
     }
 
     /**
-     * Given a pattern and a full path, determine the pattern-mapped part. <p>For example: <ul>
-     * <li>'{@code /docs/cvs/commit.html}' and '{@code /docs/cvs/commit.html} -> ''</li>
-     * <li>'{@code /docs/*}' and '{@code /docs/cvs/commit} -> '{@code cvs/commit}'</li>
-     * <li>'{@code /docs/cvs/*.html}' and '{@code /docs/cvs/commit.html} -> '{@code commit.html}'</li>
-     * <li>'{@code /docs/**}' and '{@code /docs/cvs/commit} -> '{@code cvs/commit}'</li>
-     * <li>'{@code /docs/**\/*.html}' and '{@code /docs/cvs/commit.html} -> '{@code cvs/commit.html}'</li>
-     * <li>'{@code /*.html}' and '{@code /docs/cvs/commit.html} -> '{@code docs/cvs/commit.html}'</li>
-     * <li>'{@code *.html}' and '{@code /docs/cvs/commit.html} -> '{@code /docs/cvs/commit.html}'</li>
-     * <li>'{@code *}' and '{@code /docs/cvs/commit.html} -> '{@code /docs/cvs/commit.html}'</li> </ul>
+
+     */
+
+    /**
+     * Given a pattern and a full path, determine the pattern-mapped part.
+     * <p>For example: <ul>
+     * <li>'{@code /docs/cvs/commit.html}' and '{@code /docs/cvs/commit.html} -- ''</li>
+     * <li>'{@code /docs/*}' and '{@code /docs/cvs/commit} -- '{@code cvs/commit}'</li>
+     * <li>'{@code /docs/cvs/*.html}' and '{@code /docs/cvs/commit.html} -- '{@code commit.html}'</li>
+     * <li>'{@code /docs/**}' and '{@code /docs/cvs/commit} -- '{@code cvs/commit}'</li>
+     * <li>'{@code /docs/**\/*.html}' and '{@code /docs/cvs/commit.html} -- '{@code cvs/commit.html}'</li>
+     * <li>'{@code /*.html}' and '{@code /docs/cvs/commit.html} -- '{@code docs/cvs/commit.html}'</li>
+     * <li>'{@code *.html}' and '{@code /docs/cvs/commit.html} -- '{@code /docs/cvs/commit.html}'</li>
+     * <li>'{@code *}' and '{@code /docs/cvs/commit.html} -- '{@code /docs/cvs/commit.html}'</li> </ul>
      * <p>Assumes that {@link #match} returns {@code true} for '{@code pattern}' and '{@code path}', but
      * does <strong>not</strong> enforce this.
+     * @param pattern pattern
+     * @param path path
+     * @return Path cvs/commit.html
      */
-    
     public String extractPathWithinPattern(String pattern, String path) {
         String[] patternParts = tokenizeToStringArray(pattern, this.pathSeparator, this.trimTokens, true);
         String[] pathParts = tokenizeToStringArray(path, this.pathSeparator, this.trimTokens, true);
@@ -497,29 +508,12 @@ public class AntPathMatcher {
      * the first pattern contains a file extension match (e.g., {@code *.html}).
      * In that case, the second pattern will be merged into the first. Otherwise,
      * an {@code IllegalArgumentException} will be thrown.
-     * <h3>Examples</h3>
-     * <table border="1">
-     * <tr><th>Pattern 1</th><th>Pattern 2</th><th>Result</th></tr>
-     * <tr><td>{@code null}</td><td>{@code null}</td><td>&nbsp;</td></tr>
-     * <tr><td>/hotels</td><td>{@code null}</td><td>/hotels</td></tr>
-     * <tr><td>{@code null}</td><td>/hotels</td><td>/hotels</td></tr>
-     * <tr><td>/hotels</td><td>/bookings</td><td>/hotels/bookings</td></tr>
-     * <tr><td>/hotels</td><td>bookings</td><td>/hotels/bookings</td></tr>
-     * <tr><td>/hotels/*</td><td>/bookings</td><td>/hotels/bookings</td></tr>
-     * <tr><td>/hotels/&#42;&#42;</td><td>/bookings</td><td>/hotels/&#42;&#42;/bookings</td></tr>
-     * <tr><td>/hotels</td><td>{hotel}</td><td>/hotels/{hotel}</td></tr>
-     * <tr><td>/hotels/*</td><td>{hotel}</td><td>/hotels/{hotel}</td></tr>
-     * <tr><td>/hotels/&#42;&#42;</td><td>{hotel}</td><td>/hotels/&#42;&#42;/{hotel}</td></tr>
-     * <tr><td>/*.html</td><td>/hotels.html</td><td>/hotels.html</td></tr>
-     * <tr><td>/*.html</td><td>/hotels</td><td>/hotels.html</td></tr>
-     * <tr><td>/*.html</td><td>/*.txt</td><td>{@code IllegalArgumentException}</td></tr>
-     * </table>
+     * /*.html /hotels.html /hotels.html
      * @param pattern1 the first pattern
      * @param pattern2 the second pattern
      * @return the combination of the two patterns
      * @throws IllegalArgumentException if the two patterns cannot be combined
      */
-    
     public String combine(String pattern1, String pattern2) {
         if (!hasText(pattern1) && !hasText(pattern2)) {
             return "";

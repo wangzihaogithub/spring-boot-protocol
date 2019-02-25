@@ -3,7 +3,7 @@ package com.github.netty.core.metrics;
 
 /**
  * A gauge metric is an instantaneous reading of a particular value. To instrument a queue's depth,
- * for example:<br>
+ * for example:
  * <pre><code>
  * final Queue&lt;String&gt; queue = new ConcurrentLinkedQueue&lt;String&gt;();
  * final Gauge&lt;Integer&gt; queueDepth = new Gauge&lt;Integer&gt;() {
