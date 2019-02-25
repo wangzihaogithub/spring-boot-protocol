@@ -4,36 +4,35 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
 /**
- * 协议注册器
- *
- * @author acer01
+ * Protocol register
+ * @author wangzihao
  *  2018/11/11/011
  */
 public interface ProtocolsRegister extends ServerListener {
 
     /**
-     * 获取协议名称
-     * @return 名称
+     * Get the protocol name
+     * @return name
      */
     String getProtocolName();
 
     /**
-     * 是否支持协议
-     * @param msg 本次消息
-     * @return true=支持,false=不支持
+     * Support protocol
+     * @param msg This message
+     * @return true=Support, false=no Support
      */
     boolean canSupport(ByteBuf msg);
 
     /**
-     * 注册协议
-     * @param channel TCP管道
+     * registration protocol
+     * @param channel TCP channel
      * @throws Exception
      */
     void register(Channel channel) throws Exception;
 
     /**
-     * 优先级顺序
-     * @return order 的值越小,说明越先被执行
+     * Priority order
+     * @return The smaller the value of order, the more likely it is to be executed first
      */
     int order();
 

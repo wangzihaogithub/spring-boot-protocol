@@ -4,75 +4,75 @@ import java.util.Random;
 
 /**
  * Twitter_Snowflake<br>
- * SnowFlake的结构如下(每部分用-分开):<br>
- * 0 - 0000000000 0000000000 0000000000 0000000000 0 - 00000 - 00000 - 000000000000 <br>
- * 1位标识，由于long基本类型在Java中是带符号的，最高位是符号位，正数是0，负数是1，所以id一般是正数，最高位是0<br>
- * 41位时间截(毫秒级)，注意，41位时间截不是存储当前时间的时间截，而是存储时间截的差值（当前时间截 - 开始时间截)
- * 得到的值），这里的的开始时间截，一般是我们的id生成器开始使用的时间，由我们程序来指定的（如下下面程序IdWorker类的startTime属性）。41位的时间截，可以使用69年，年T = (1L << 41) / (1000L * 60 * 60 * 24 * 365) = 69<br>
- * 10位的数据机器位，可以部署在1024个节点，包括5位datacenterId和5位workerId<br>
- * 12位序列，毫秒内的计数，12位的计数顺序号支持每个节点每毫秒(同一机器，同一时间截)产生4096个ID序号<br>
- * 加起来刚好64位，为一个Long型。<br>
- * SnowFlake的优点是，整体上按照时间自增排序，并且整个分布式系统内不会产生ID碰撞(由数据中心ID和机器ID作区分)，并且效率较高，经测试，SnowFlake每秒能够产生26万ID左右。
- * @author 84215
+ * The structure of SnowFlake is as follows (each part is separated by -):<br>
+ * 0-0000000000 0000000000 0000000000 0-0000-0000-000000000 <br>
+ * 1 bit id. Since the long base type is signed in Java, the highest bit is the sign bit, positive is 0, negative is 1, so id is generally positive, and the highest bit is 0<br>
+ * 41-bit time cutoff (in milliseconds). Note that the 41-bit time cutoff does not store the current time cutoff, but rather the difference in the current time cutoff (current time cutoff - start time cutoff).
+ *, the starting time intercept, which is generally the time our id generator starts to use, is specified by our program (startTime attribute of IdWorker class below). The 41-bit time slice, which can be used for 69 years, is T = (1L << 41)/(1000L * 60 * 60 * 24 * 365) = 69<br>
+ * 10-bit data machine bits, which can be deployed on 1024 nodes, including 5-bit datacenterId and 5-bit workerId<br>
+ * 12-bit sequence, counting in milliseconds, 12-bit counting serial number supports each node to generate 4096 ID serial Numbers <br> per millisecond (same machine, same time slice)
+ * adds up to exactly 64 bits, making it a Long. < br >
+ * the advantage of SnowFlake is that it will sort itself in terms of time on the whole, and will not produce ID collisions across the distributed system (separated by data center ids and machine ids), and it will be highly efficient. As tested, SnowFlake will generate about 260,000 ids per second.
+ * @author wangzihao
  */
 public class SnowflakeIdWorker {
 
     // ==============================Fields===========================================
-    /** 开始时间截 (对象创建时间) */
+    /** Start time cutoff (object creation time) */
     private final long twepoch = System.currentTimeMillis();
 
-    /** 机器id所占的位数 */
+    /** The number of bits of machine id */
     private final long workerIdBits = 5L;
 
-    /** 数据标识id所占的位数 */
+    /** The number of digits occupied by the data id */
     private final long datacenterIdBits = 5L;
 
-    /** 支持的最大机器id，结果是31 (这个移位算法可以很快的计算出几位二进制数所能表示的最大十进制数) */
+    /** The maximum machine id supported, which is 31 (this shift algorithm can quickly calculate the maximum number of decimal digits that can be represented by several binary digits) */
     private final long maxWorkerId = -1L ^ (-1L << workerIdBits);
 
-    /** 支持的最大数据标识id，结果是31 */
+    /** The maximum supported data id, which is 31 */
     private final long maxDatacenterId = -1L ^ (-1L << datacenterIdBits);
 
-    /** 序列在id中占的位数 */
+    /** The number of bits of a sequence in an id */
     private final long sequenceBits = 12L;
 
-    /** 机器ID向左移12位 */
+    /** The machine ID moves 12 bits to the left */
     private final long workerIdShift = sequenceBits;
 
-    /** 数据标识id向左移17位(12+5) */
+    /** Data id moves 17 bits to the left (12+5) */
     private final long datacenterIdShift = sequenceBits + workerIdBits;
 
-    /** 时间截向左移22位(5+5+12) */
+    /** So our time intercept is going to be 22 to the left. */
     private final long timestampLeftShift = sequenceBits + workerIdBits + datacenterIdBits;
 
-    /** 生成序列的掩码，这里为4095 (0b111111111111=0xfff=4095) */
+    /** Generate the mask for the sequence, which is 4095 (0b111111111111=0xfff=4095) */
     private final long sequenceMask = -1L ^ (-1L << sequenceBits);
 
-    /** 工作机器ID(0~31) */
+    /** Working machine ID(0~31)*/
     private long workerId;
 
-    /** 数据中心ID(0~31) */
+    /** Data center ID(0~31) */
     private long datacenterId;
 
-    /** 毫秒内序列(0~4095) */
+    /** Millisecond sequence(0~4095) */
     private long sequence = 0L;
 
-    /** 上次生成ID的时间截 */
+    /** The last time the ID was generated */
     private long lastTimestamp = -1L;
 
     //==============================Constructors=====================================
 
     /**
-     * 构造函数
+     * The constructor
      */
     public SnowflakeIdWorker() {
         this(new Random().nextInt(31),new Random().nextInt(31));
     }
 
     /**
-     * 构造函数
-     * @param workerId 工作ID (0~31)
-     * @param datacenterId 数据中心ID (0~31)
+     * The constructor
+     * @param workerId Work ID (0~31)
+     * @param datacenterId Data center ID (0~31)
      */
     private SnowflakeIdWorker(long workerId, long datacenterId) {
         if (workerId > maxWorkerId || workerId < 0) {
@@ -87,35 +87,35 @@ public class SnowflakeIdWorker {
 
     // ==============================Methods==========================================
     /**
-     * 获得下一个ID
+     * Get the next ID
      * @return SnowflakeId
      */
     public long nextId() {
         long timestamp = System.currentTimeMillis();
 
-        //如果当前时间小于上一次ID生成的时间戳，说明系统时钟回退过这个时候应当抛出异常
+        //If the current time is less than the timestamp generated by the last ID, an exception should be thrown when the system clock has gone back
         if (timestamp < lastTimestamp) {
             throw new RuntimeException(
                     String.format("Clock moved backwards.  Refusing to generate id for %d milliseconds", lastTimestamp - timestamp));
         }
 
-        //如果是同一时间生成的，则进行毫秒内序列
+        //If it is generated at the same time, the millisecond sequence is performed
         if (lastTimestamp == timestamp) {
             sequence = (sequence + 1) & sequenceMask;
-            //毫秒内序列溢出
+            //Sequence overflow in milliseconds
             if (sequence == 0) {
-                //阻塞到下一个毫秒,获得新的时间戳
+                //Block to the next millisecond and get the new timestamp
                 timestamp = tilNextMillis(lastTimestamp);
             }
         }else {
-            //时间戳改变，毫秒内序列重置
+            //The timestamp changes and the sequence is reset in milliseconds
             sequence = 0L;
         }
 
-        //上次生成ID的时间截
+        //The last time the ID was generated
         lastTimestamp = timestamp;
 
-        //移位并通过或运算拼到一起组成64位的ID
+        //The shift and or operations are combined to form a 64-bit ID
         return ((timestamp - twepoch) << timestampLeftShift) //
                 | (datacenterId << datacenterIdShift) //
                 | (workerId << workerIdShift) //
@@ -123,9 +123,9 @@ public class SnowflakeIdWorker {
     }
 
     /**
-     * 阻塞到下一个毫秒，直到获得新的时间戳
-     * @param lastTimestamp 上次生成ID的时间截
-     * @return 当前时间戳
+     * Block to the next millisecond until a new timestamp is obtained
+     * @param lastTimestamp The last time the ID was generated
+     * @return Current timestamp
      */
     private long tilNextMillis(long lastTimestamp) {
         long timestamp = System.currentTimeMillis();
@@ -135,8 +135,10 @@ public class SnowflakeIdWorker {
         return timestamp;
     }
 
-    //==============================Test=============================================
-    /** 测试 */
+    /**
+     * test
+     * @param args
+     */
     public static void main(String[] args) {
         SnowflakeIdWorker idWorker = new SnowflakeIdWorker();
         for (int i = 0; i < 1000; i++) {

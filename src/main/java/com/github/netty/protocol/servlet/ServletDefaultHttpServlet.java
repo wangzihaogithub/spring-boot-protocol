@@ -8,9 +8,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
- * 一个默认的servlet
- *
- * @author acer01
+ * a default servlet
+ * @author wangzihao
  *  2018/7/15/015
  */
 public class ServletDefaultHttpServlet extends HttpServlet {

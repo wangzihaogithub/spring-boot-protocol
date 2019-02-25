@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * formData 文本块
- * @author 84215
+ * @author wangzihao
  */
 public class ServletTextPart implements Part {
     private Attribute attribute;

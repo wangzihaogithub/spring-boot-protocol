@@ -14,11 +14,10 @@ import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageD
 import java.util.*;
 
 /**
- * websocket13 握手, 附带协议扩展
- * @author 84215
+ * Websocket13 handshake, with protocol extensions
+ * @author wangzihao
  */
 public class WebSocketServerHandshaker13Extension extends WebSocketServerHandshaker13 {
-
     private static final char EXTENSION_SEPARATOR = ',';
     private static final char PARAMETER_SEPARATOR = ';';
     private static final char PARAMETER_EQUAL = '=';
@@ -60,7 +59,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     }
 
     /**
-     * 握手websocket协议扩展
+     * Handshake websocket protocol extension
      * @param requestHeaderValue
      * @param responseHeaderValue
      * @return
@@ -92,7 +91,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     }
 
     /**
-     * 获取websocket协议扩展的实现类
+     * Gets the implementation class for the websocket protocol extension
      * @param extensionsHeader
      * @return
      */
@@ -125,7 +124,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     }
 
     /**
-     * 拼接响应头部的扩展字符串
+     * Concatenate the extended string for the response header
      * @param currentHeaderValue
      * @param extensionName
      * @param extensionParameters

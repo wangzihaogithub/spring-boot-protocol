@@ -25,22 +25,22 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 /**
- * servlet上下文 (生命周期同服务器)
- * @author acer01
+ * Servlet context (lifetime same as server)
+ * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     /**
-     * 默认20分钟,
+     * Default: 20 minutes,
      */
     private int sessionTimeout = 1200;
     /**
-     * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
+     * The maximum number of bytes written to the outputstream.writer () method of the servlet each time it is called is exceeded
      */
     private int responseWriterChunkMaxHeapByteLength = 4096;
     /**
-     * 上传文件最小长度，单位：字节（如果大于16KB, 会变为临时文件存储）
+     * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
      */
     private long uploadMinSize = 4096 * 16;
     private Map<String,Object> attributeMap = new HashMap<>(16);
@@ -274,7 +274,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
-        filterUrlMapper.getMappingObjectsByUri(path,filterChain.getFilterRegistrationList());
+        filterUrlMapper.addMappingObjectsByUri(path,filterChain.getFilterRegistrationList());
 
         ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
         dispatcher.setPath(path);

@@ -1,7 +1,5 @@
 package com.github.netty.core.util;
 
-import com.github.netty.core.util.ReflectUtil;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -10,8 +8,8 @@ import java.util.*;
 import java.util.function.Function;
 
 /**
- * 基于注解的方法变参数名函数 （因为抽象方法不能用ASM 获取， 只有具体方法可以）
- * @author 84215
+ * Annotation-based method variable parameter name function (because abstract methods cannot be obtained with ASM, only concrete methods can)
+ * @author wangzihao
  */
 public class AnnotationMethodToParameterNamesFunction implements Function<Method,String[]> {
     private Collection<Class<?extends Annotation>> parameterAnnotationClasses;

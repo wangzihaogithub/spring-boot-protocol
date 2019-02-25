@@ -5,15 +5,15 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.CompositeByteBuf;
 
 /**
- * 组合字节缓冲
+ * Combined byte buffer
  *
- * @author acer01
+ * @author wangzihao
  *  2018/8/11/011
  */
 public class CompositeByteBufX extends CompositeByteBuf {
 
     /**
-     * 常用最大字节数 4096 * 32 = 128 KB
+     * Commonly used maximum number of bytes     4096 * 32 = 128 KB
      */
     public CompositeByteBufX() {
         super(ByteBufAllocatorX.INSTANCE, true, 32);

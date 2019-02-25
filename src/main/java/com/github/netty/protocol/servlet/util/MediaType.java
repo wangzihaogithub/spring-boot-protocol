@@ -6,15 +6,15 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 媒体类型 (提供解析与获取)
+ * Media type (provides parsing and retrieval)
  *
- *  例如: MediaType type = MediaType.parseFast(text/html;charset=utf-8);
+ *  example,: MediaType type = MediaType.parseFast(text/html;charset=utf-8);
  *
- * @author 84215
+ * @author wangzihao
  */
 public class MediaType {
     /**
-     * 默认文档编码
+     * Default document encoding
      */
     public static final String DEFAULT_DOCUMENT_CHARACTER_ENCODING = "ISO-8859-1";
     private static MediaTypeCache MEDIA_TYPE_CACHE;

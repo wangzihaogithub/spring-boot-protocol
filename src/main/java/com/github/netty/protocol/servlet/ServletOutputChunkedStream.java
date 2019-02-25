@@ -18,14 +18,11 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * servlet 输出流 (分段传输)
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author 84215
+ * Servlet output stream (segmented)
+ * @author wangzihao
  */
 @sun.misc.Contended
 public class ServletOutputChunkedStream extends ServletOutputStream {
-
     private ByteChunkedInput chunkedInput = new ByteChunkedInput();
 
     protected ServletOutputChunkedStream() {}
@@ -49,8 +46,8 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
     }
 
     /**
-     * 刷新缓冲区 (可以监听完成事件)
-     * @param listener 刷新缓冲区后调用
+     * Refresh buffer (listen for completion events)
+     * @param listener Called after refreshing the buffer
      * @throws IOException
      */
     private void flush0(ChannelFutureListener listener) throws IOException {
@@ -90,9 +87,6 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                     promise = channel.newProgressivePromise();
                     promise.addListener(listener);
                 }
-
-//                channel.writeAndFlush(new HttpChunkedInput(new ChunkedFile(
-//                        new File("C:\\Users\\acer01\\Desktop\\开发工具1\\gz.sql"))),promise);
                 channel.writeAndFlush(chunkedInput,promise);
             });
             return;

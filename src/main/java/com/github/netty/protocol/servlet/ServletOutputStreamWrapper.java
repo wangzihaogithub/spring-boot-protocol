@@ -11,7 +11,7 @@ import java.io.IOException;
  * servlet 输出流(包装类), 可以控制对流的访问
  *
  * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author 84215
+ * @author wangzihao
  */
 @sun.misc.Contended
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream

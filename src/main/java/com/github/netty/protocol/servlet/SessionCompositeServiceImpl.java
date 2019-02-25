@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  *  组合会话服务
- * @author 84215
+ * @author wangzihao
  */
 public class SessionCompositeServiceImpl implements SessionService {
 

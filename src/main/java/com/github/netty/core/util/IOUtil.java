@@ -9,10 +9,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.util.Iterator;
+import java.util.List;
 
 /**
- * (输入|输出)流工具
- * @author acer01
+ * (input | output) stream tool
+ * @author wangzihao
  *  2018/8/11/011
  */
 public class IOUtil {
@@ -21,18 +22,18 @@ public class IOUtil {
     public static final int LONG_LENGTH = 8;
 
     /**
-     * 拷贝文件
-     * @param sourcePath 源路径
-     * @param sourceFileName 源文件名称
-     * @param targetPath 目标路径
-     * @param targetFileName 目标文件名称
-     * @param append 是否拼接旧数据
-     * @param buffCapacity 缓冲区大小
+     * Copy files
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
+     * @param bufferCapacity buffer Capacity
      * @throws FileNotFoundException
      * @throws IOException
      */
     public static void copyTo(String sourcePath,String sourceFileName,
-                              String targetPath,String targetFileName,boolean append,int buffCapacity) throws FileNotFoundException,IOException {
+                              String targetPath,String targetFileName,boolean append,int bufferCapacity) throws FileNotFoundException,IOException {
         if(sourcePath == null){
             sourcePath = "";
         }
@@ -47,7 +48,7 @@ public class IOUtil {
             FileOutputStream out = new FileOutputStream(outFile,append);
             FileChannel inChannel = in.getChannel();
             FileChannel outChannel = out.getChannel()) {
-            ByteBuffer buffer = ByteBuffer.allocate(buffCapacity);
+            ByteBuffer buffer = ByteBuffer.allocate(bufferCapacity);
             while (true) {
                 buffer.clear();
                 int r = inChannel.read(buffer);
@@ -62,11 +63,11 @@ public class IOUtil {
     }
 
     /**
-     * 写文件
-     * @param data 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
+     * writeFile
+     * @param data data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
      * @throws IOException
      */
     public static void writeFile(byte[] data, String targetPath, String targetFileName, boolean append) throws IOException {
@@ -87,12 +88,12 @@ public class IOUtil {
     }
 
     /**
-     * 写文件
-     * @param in 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
-     * @param bufferCapacity buffer容量
+     * writeFile
+     * @param in data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
+     * @param bufferCapacity buffer Capacity
      * @throws IOException
      */
     public static void writeFile(InputStream in, String targetPath, String targetFileName, boolean append,int bufferCapacity) throws IOException {
@@ -134,11 +135,11 @@ public class IOUtil {
     }
 
     /**
-     * 写文件
-     * @param dataIterator 数据
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
+     * writeFile
+     * @param dataIterator data
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
      * @throws IOException
      */
     public static void writeFile(Iterator<ByteBuffer> dataIterator, String targetPath, String targetFileName, boolean append) throws IOException {
@@ -168,9 +169,9 @@ public class IOUtil {
     }
 
      /**
-     * 读文件至bytebuffer (注:用完记得关闭)
-     * @param sourcePath 路径
-     * @param sourceFileName 文件名称
+     * Read the file to bytebuffer.(note: remember to close after using)
+      * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
      * @return bytebuffer
      * @throws FileNotFoundException
      * @throws IOException
@@ -199,9 +200,9 @@ public class IOUtil {
     }
 
     /**
-     * 读文件至byte[]
-     * @param sourcePath 路径
-     * @param sourceFileName 文件名称
+     * Read file to byte[]
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
      * @return byte[]
      * @throws FileNotFoundException
      * @throws IOException
@@ -223,10 +224,10 @@ public class IOUtil {
     }
 
     /**
-     * 写文件 (注:用完记得关闭)
-     * @param targetPath 路径
-     * @param targetFileName 文件名称
-     * @param append 是否拼接旧数据
+     * Write file (note: close it after using)
+     * @param targetPath targetPath
+     * @param targetFileName targetFileName
+     * @param append Whether to concatenate old data
      * @throws FileNotFoundException
      */
     public static FileOutputStream writeFile(String targetPath, String targetFileName, boolean append) throws IOException {
@@ -242,10 +243,10 @@ public class IOUtil {
     }
 
     /**
-     * 读文件 (注:用完记得关闭)
-     * @param sourcePath 路径
-     * @param sourceFileName 文件名称
-     * @return 文件流
+     * Read the file (note: close it after using)
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @return File stream
      * @throws FileNotFoundException
      */
     public static FileInputStream readFile(String sourcePath, String sourceFileName) throws FileNotFoundException {
@@ -257,11 +258,11 @@ public class IOUtil {
     }
 
     /**
-     * 读文件
-     * @param sourcePath 路径
-     * @param sourceFileName 文件名称
-     * @param charset 文件编码
-     * @return 文件流
+     * Read the file
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @param charset charset
+     * @return File stream
      * @throws FileNotFoundException
      */
     public static String readFileToString(String sourcePath, String sourceFileName,String charset) throws FileNotFoundException {
@@ -284,8 +285,8 @@ public class IOUtil {
     }
 
     /**
-     * 删除目录下的 所有子目录或文件
-     * @param dir 文件夹路径
+     * Delete all subdirectories or files in the directory
+     * @param dir Folder path
      * @return boolean Returns "true" if all deletions were successful.
      *                 If a deletion fails, the method stops attempting to
      *                 delete and returns "false".
@@ -294,25 +295,30 @@ public class IOUtil {
         if (!dir.isDirectory()) {
             return;
         }
-
-        for (String children : dir.list()) {
-           deleteDir(new File(dir, children));
+        String[] childrens =  dir.list();
+        if(childrens != null) {
+            for (String children : childrens) {
+                deleteDir(new File(dir, children));
+            }
         }
     }
 
     /**
-     * 删除文件或目录
-     * @param dir 文件夹路径 或 文件路径
+     * Delete a file or directory
+     * @param dir Folder path or file path
      * @return boolean Returns "true" if all deletions were successful.
      *                 If a deletion fails, the method stops attempting to
      *                 delete and returns "false".
      */
     public static boolean deleteDir(File dir) {
         if (dir.isDirectory()) {
-            for (String children : dir.list()) {
-                boolean success = deleteDir(new File(dir, children));
-                if (!success) {
-                    return false;
+            String[] childrens =  dir.list();
+            if(childrens != null) {
+                for (String children : childrens) {
+                    boolean success = deleteDir(new File(dir, children));
+                    if (!success) {
+                        return false;
+                    }
                 }
             }
         }
@@ -320,7 +326,7 @@ public class IOUtil {
     }
 
     /**
-     * 写模式变读模式
+     * Write mode to read mode
      * @param byteBuf
      */
     public static void writerModeToReadMode(ByteBuf byteBuf){
@@ -333,7 +339,7 @@ public class IOUtil {
     }
 
     /**
-     * 读取输入流
+     * Read input stream
      * @param inputStream
      * @return
      */

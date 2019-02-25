@@ -32,9 +32,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- *
- * websocket版本号：草案8到草案12版本号都是8，草案13及以后的版本号都和草案号相同
- * @author 84215
+ * Websocket version number: the version number of draft 8 to draft 12 is 8, and the version number of draft 13 and later is the same as the draft number
+ * @author wangzihao
  */
 public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
 
@@ -89,7 +88,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     }
 
     /**
-     * WebSocket握手
+     * The WebSocket handshake
      * @param subprotocols
      * @param maxFramePayloadLength
      * @param userPrincipal
@@ -126,7 +125,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
 
                 localEndpoint.onOpen(websocketSession, endpointConfig);
             }else {
-                logger.error("Websocket握手失败 : "+ webSocketURL, future.cause());
+                logger.error("The Websocket handshake failed : "+ webSocketURL, future.cause());
             }
         });
     }

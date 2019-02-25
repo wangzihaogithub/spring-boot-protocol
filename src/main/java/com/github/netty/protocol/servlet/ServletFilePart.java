@@ -17,8 +17,8 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * formData 文件块
- * @author 84215
+ * formData File blocks
+ * @author wangzihao
  */
 public class ServletFilePart implements Part {
     private FileUpload fileUpload;

@@ -27,16 +27,12 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * servlet请求
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- *
- * @author acer01
+ * The servlet request
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
-
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
 
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
@@ -125,7 +121,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析请求方案
+     * Parse request scheme
      */
     private void decodeScheme(){
         String proto = getHeader(HttpHeaderConstants.X_FORWARDED_PROTO.toString());
@@ -142,7 +138,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析地区
+     * Parse area
      */
     private void decodeLocale(){
         Locale[] locales;
@@ -169,7 +165,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析编码
+     * Parsing coding
      */
     private void decodeCharacterEncoding() {
         String characterEncoding = ServletUtil.decodeCharacterEncoding(getContentType());
@@ -180,23 +176,23 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析参数规范
+     * parse parameter specification
      *
-     * getParameterValues方法返回一个String对象的数组，包含了与参数名称相关的所有参数值。getParameter
-     * 方法的返回值必须是getParameterValues方法返回的String对象数组中的第一个值。getParameterMap方法
-     * 返回请求参数的一个java.util.Map对象，其中以参数名称作为map键，参数值作为map值。
-     *  查询字符串和POST请求的数据被汇总到请求参数集合中。查询字符串数据在POST数据之前发送。例如，
-     * 如果请求由查询字符串a =hello 和POST数据a=goodbye&a=world 组成，得到的参数集合顺序将是 =(hello,goodbye,world)。
-     * 这些API不会暴露GET请求（HTTP 1.1所定义的）的路径参数。他们必须从getRequestURI方法或getPathInfo
-     * 方法返回的字符串值中解析。
+     * the getParameterValues method returns an array of String objects containing all the parameter values associated with the parameter name. The getParameter
+     The return value of the * method must be the first value in the String object array returned by the getParameterValues method. GetParameterMap method
+     * returns a java.util.map object of the request parameter, with the parameter name as the Map key and the parameter value as the Map value.
+     * the query string and the data from the POST request are aggregated into the set of request parameters. The query string data is sent before the POST data. For example,
+     * if the request consists of the query string a= hello and the POST data a=goodbye&a=world, the resulting parameter set order will be =(hello,goodbye,world).
+     * these apis do not expose the path parameters of GET requests (as defined in HTTP 1.1). They must be from the getRequestURI method or getPathInfo
+     * is resolved in the string value returned by the.
      *
-     * 以下是在POST表单数据填充到参数集前必须满足的条件：
-     * 1。该请求是一个HTTP或HTTPS请求。
-     * 2。HTTP方法是POST。
-     * 3。内容类型是application/x-www-form-urlencoded。
-     * 4。该servlet已经对request对象的任意getParameter方法进行了初始调用。
-     * 如果不满足这些条件，而且参数集中不包括POST表单数据，那么servlet必须可以通过request对象的输入
-     * 流得到POST数据。如果满足这些条件，那么从request对象的输入流中直接读取POST数据将不再有效。
+     * the following conditions must be met before the POST form data is populated into the parameter set:
+     * 1. The request is an HTTP or HTTPS request.
+     * 2. The HTTP method is POST.
+     * 3. Content type is application/x-www-form-urlencoded.
+     * 4. The servlet has made an initial call to any getParameter method of the request object.
+     * if these conditions are not met and POST form data is not included in the parameter set, the servlet must be able to pass the input of the request object
+     * stream gets POST data. If these conditions are met, it is no longer valid to read the POST data directly from the input stream of the request object.
      */
     private void decodeBody(boolean bodyPartFlag){
         Charset charset = Charset.forName(getCharacterEncoding());
@@ -226,7 +222,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         }
 
         /*
-         * HttpDataType有三种类型
+         * There are three types of HttpDataType
          * Attribute, FileUpload, InternalAttribute
          */
         while (postRequestDecoder.hasNext()) {
@@ -256,11 +252,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                     fileUploadList.add(part);
                     break;
                 }
-                case InternalAttribute: {
-//                    InternalAttribute data = (InternalAttribute) interfaceData;
-
-                    break;
-                }
                 default: {
 
                     break;
@@ -271,7 +262,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析URL参数
+     * Parsing URL parameters
      */
     private void decodeUrlParameter(){
         Charset charset = Charset.forName(getCharacterEncoding());
@@ -280,7 +271,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析cookie
+     * Parsing the cookie
      */
     private void decodeCookie(){
         String value = getHeader(HttpHeaderConstants.COOKIE.toString());
@@ -294,10 +285,10 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 解析路径
+     * Parsing path
      */
     private void decodePaths(){
-        // TODO: 10月16日/0016 加上pathInfo, web.xml里配置 /* 或/a/** 用的上
+        // TODO: 10-16/0016 Add pathInfo, web. XML configuration /* or /a/*
         ServletContext servletContext = getServletContext();
         String contextPath = servletContext.getContextPath();
         boolean existContextPath = contextPath != null && contextPath.length() > 0;
@@ -311,14 +302,14 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             servletPath = "/".concat(servletPath);
         }
 
-        //解析queryString
+        //Parsing the queryString
         int queryInx = servletPath.indexOf('?');
         if (queryInx > -1) {
             this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
             servletPath = servletPath.substring(0, queryInx);
         }
 
-        //解析requestURI, 保证 requestURI 前缀加 /
+        //Parse the requestURI and ensure that the requestURI prefix is + /
         String requestURI;
         if(existContextPath){
             requestURI = "/".concat(contextPath).concat(servletPath);
@@ -328,13 +319,13 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
         this.servletPath = servletPath;
         this.requestURI = requestURI;
-        // 1.加上pathInfo
+        // 1.Plus the pathInfo
         this.pathInfo = null;
         this.decodePathsFlag = true;
     }
 
     /**
-     * 新建会话ID
+     * New session ID
      * @return
      */
     private String newSessionId(){
@@ -351,21 +342,20 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * servlet标准 :
+     * servlet standard:
      *
-     * 返回指定请求头的值
-     *作为long值，代表a
-     * 日期对象。使用这种方法
-     *包含日期的标头，例如
-     返回日期为
-     从1970年1月1日开始的毫秒数。
-     头名不区分大小写。
-     ，如果请求没有页眉
-     *指定名称，此方法返回-1。如果消息头
-     不能转换为日期，方法抛出。
-     *IllegalArgumentException代码
-     * @param name ，指定标题的名称
-     * @return 表示指定的日期 在表示为毫秒数自1970年1月1日起，或-1，如果指定标题。未包括在请求
+     * returns the value of the specified request header
+     * is the long value, representing a
+     * date object. Using this method
+     * contains a header for the date, for example
+     Return date is
+     The number of milliseconds since January 1, 1970.
+     The first name is case insensitive.
+     , if the request does not have a header
+     * specify a name, and this method returns -1. If the header Cannot convert to date,
+     * @param name ，Specifies the name of the title
+     * @throws IllegalArgumentException
+     * @return Indicates the specified date in milliseconds as of January 1, 1970, or -1, if a title is specified. Not included in request
      */
     @Override
     public long getDateHeader(String name) throws IllegalArgumentException {
@@ -390,15 +380,15 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * getHeader方法返回给定头名称的头。多个头可以具有相同的名称，例如HTTP请求中的Cache-Control头。
-     * 如果多个头的名称相同，getHeader方法返回请求中的第一个头。getHeaders方法允许访问所有与特定头名
-     * 称相关的头值，返回一个String对象的枚举。
-     * 头可包含由String形式的int或Date数据。HttpServletRequest接口提供如下方便的方法访问这些类型的头
-     * 数据：头可包含由String形式的int或Date数据。HttpServletRequest接口提供如下方便的方法访问这些类型的头
-     *  getIntHeader
-     *  getDateHeader
-     * 如果getIntHeader方法不能转换为int的头值，则抛出NumberFormatException异常。如果getDateHeader方
-     * 法不能把头转换成一个Date对象，则抛出IllegalArgumentException异常。
+     * The getHeader method returns the header for the given header name. Multiple headers can have the same name, such as the cache-control header in an HTTP request.
+     * if multiple headers have the same name, the getHeader method returns the first header in the request. The getHeaders method allowed access to all names with specific headers
+     * calls the associated header value and returns an enumeration of the String object.
+     * the header can contain int or Date data in the form of a String. The HttpServletRequest interface provides the following convenient methods to access these types of headers
+     * data: the header can contain int or Date data in the form of a String. The HttpServletRequest interface provides the following convenient methods to access these types of headers
+     * getIntHeader
+     * getDateHeader
+     * if the getIntHeader method cannot be converted to a header value of int, then a NumberFormatException is thrown. If getDateHeader side
+     * method cannot convert the head into a Date object, then an IllegalArgumentException is thrown.
      * @param name
      * @return
      */
@@ -425,7 +415,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * 摘抄tomcat的实现
+     * Copy the implementation of tomcat
      * @return
      */
     @Override
@@ -449,18 +439,18 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         return url;
     }
 
-    // 现在把PathInfo恒为null，ServletPath恒为uri-contextPath
-    // 可以满足SpringBoot的需求，但不满足ServletPath和PathInfo的语义
-    // 需要在RequestUrlPatternMapper匹配的时候设置,new NettyRequestDispatcher的时候传入MapperData
+    // now set PathInfo to null and ServletPath to ur-contextpath
+    // satisfies the requirements of SpringBoot, but not the semantics of ServletPath and PathInfo
+    // need to be set when RequestUrlPatternMapper matches, pass MapperData when new NettyRequestDispatcher
 
     /**
-     * PathInfo：请求路径的一部分，不属于Context Path或Servlet Path。如果没有额外的路径，它要么是null，
-     * 要么是以'/'开头的字符串。
+     * PathInfo：Part of the request Path that is not part of the Context Path or Servlet Path. If there's no extra path, it's either null,
+     * Or a string that starts with '/'.
      * @return
      */
     @Override
     public String getPathInfo() {
-        // TODO: 10月16日/0016 ServletPath和PathInfo应该是互补的，根据URL-Pattern匹配的路径不同而不同
+        // TODO: 10-16 /0016 ServletPath and PathInfo should be complementary, depending on the url-pattern matching path
         if(!decodePathsFlag){
             decodePaths();
         }
@@ -484,8 +474,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     /**
-     * Servlet Path：路径部分直接与激活请求的映射对应。这个路径以“/”字符开头，如果请求与“/ *”或“”模式
-     * 匹配，在这种情况下，它是一个空字符串。
+     * Servlet Path: the Path section corresponds directly to the mapping of the activation request. The path starts with the "/" character, if the request is in the "/ *" or "" mode."
+     * matches, in which case it is an empty string.
      * @return
      */
     @Override
@@ -514,17 +504,15 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
 
     /**
-     * servlet标准:
+     * servlet standard:
      *
-     * 返回指定请求头的值
-     *作为int。如果请求没有标题
-     *指定的名称，此方法返回-1。如果
-     该方法不能将header转换为整数
-     *抛出一个NumberFormatException 代码。
-     头名不区分大小写。
-     * @param name String指定请求头的名称
-     * @exception NumberFormatException 如果标题值不能转换一个int。
-     * @return 一个表示值的整数 请求头或-1 如果请求没有此名称的页眉返回-1
+     * returns the value of the specified request header
+     * as int. If the request has no title
+     * the name specified by this method returns -1. if This method does not convert headers to integers
+     * throws a NumberFormatException code. The first name is case insensitive.
+     * @param name  specifies the name of the request header
+     * @exception NumberFormatException If the header value cannot be converted to an int。
+     * @return An integer request header representing a value or -1 if the request does not return -1 for the header with this name
      */
     @Override
     public int getIntHeader(String name) {
@@ -534,8 +522,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         }
         return Integer.parseInt(headerStringValue);
     }
-    /*====== Header 相关方法 结束 ======*/
-
 
     @Override
     public String getMethod() {
@@ -544,9 +530,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
 
     /**
-     * Context Path：与ServletContext相关联的路径前缀是这个servlet的一部分。如果这个上下文是基于Web
-     * 服务器的URL命名空间基础上的“默认”上下文，那么这个路径将是一个空字符串。否则，如果上下文不是
-     * 基于服务器的命名空间，那么这个路径以/字符开始，但不以/字符结束
+     * Context Path: the Path prefix associated with the ServletContext is part of this servlet. If the context is web-based
+     * the server's URL namespace based on the "default" context, then the path will be an empty string. Otherwise, if the context is not
+     * server-based namespaces, so the path starts with /, but does not end with /
      */
     @Override
     public String getContextPath() {
@@ -644,11 +630,11 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             return sessionId;
         }
 
-        //如果用户设置了sessionCookie名称, 则以用户设置的为准
+        //If the user sets the sessionCookie name, the user set the sessionCookie name
         String userSettingCookieName = getServletContext().getSessionCookieConfig().getName();
         String cookieSessionName = StringUtil.isNotEmpty(userSettingCookieName)? userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
 
-        //寻找sessionCookie的值, 优先从cookie里找, 找不到再从url参数头上找
+        //Find the value of sessionCookie first from cookie, then from url parameter
         String sessionId = ServletUtil.getCookieValue(getCookies(),cookieSessionName);
         if(StringUtil.isNotEmpty(sessionId)){
             sessionIdSource = SessionTrackingMode.COOKIE;
@@ -946,7 +932,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public ServletAsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException {
         if(!isAsyncSupported()){
-            throw new IllegalStateException("不支持异步");
+            throw new IllegalStateException("Asynchronous is not supported");
         }
 
         ServletContext servletContext = getServletContext();
@@ -998,11 +984,11 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     /**
      * "BASIC", or "DIGEST", or "SSL".
-     * @return 身份验证类型
+     * @return Authentication type
      */
     @Override
     public String getAuthType() {
-        // TODO: 10月16日/0016 身份验证 : 获取验证类型
+        // TODO: 10-16/0016 Authentication: gets the authentication type
         return null;
     }
 
@@ -1017,13 +1003,13 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public boolean isUserInRole(String role) {
-        // TODO: 10月16日/0016 身份验证 : 是否拥有某权限
+        // TODO: 10-16/0016 Authentication: whether you have a permission
         return false;
     }
 
     @Override
     public boolean authenticate(javax.servlet.http.HttpServletResponse response) throws IOException, ServletException {
-        // TODO: 10月16日/0016  身份验证接口
+        // TODO: 10-16/0016  Authentication interface
         return true;
     }
 
@@ -1034,7 +1020,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public void login(String username, String password) throws ServletException {
-        // TODO: 10月16日/0016  身份验证接口 : 登录
+        // TODO: 10-16/0016  Authentication interface: login
     }
 
     @Override

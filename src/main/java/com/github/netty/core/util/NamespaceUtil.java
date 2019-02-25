@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * @author 84215
+ * @author wangzihao
  */
 public class NamespaceUtil {
 

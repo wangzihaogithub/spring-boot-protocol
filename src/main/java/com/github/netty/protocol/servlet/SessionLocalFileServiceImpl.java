@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 本地文件会话服务
- * @author acer01
+ * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionLocalFileServiceImpl implements SessionService {

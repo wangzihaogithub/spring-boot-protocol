@@ -5,10 +5,9 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  *
- * JDK日志级别 [SEVERE   WARNING   INFO   CONFIG  FINE   FINER    FINEST]
- *        含意 [严重     警告      信息   配置    良好   较好     最好]
+ * JDK logging level  [SEVERE   WARNING   INFO   CONFIG  FINE   FINER    FINEST]
  *
- * @author acer01
+ * @author wangzihao
  *  2018/8/25/025
  */
 public class LoggerX {

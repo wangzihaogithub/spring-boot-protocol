@@ -18,47 +18,45 @@ import java.util.function.Consumer;
 
 /**
  *
- * 心跳任务 (包含自动重连功能)
+ * Heartbeat tasks (including automatic reconnection)
  *
- * @author 84215
+ * @author wangzihao
  */
 public class RpcClientHeartbeatTask implements Runnable{
 
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    /**
-     * RPC客户端
-     */
+
     private RpcClient rpcClient;
     /**
-     * 重连成功的回调方法
+     * Reconnect the successful callback method
      */
     private Consumer<RpcClient> reconnectSuccessHandler;
     /**
-     * 重连次数
+     * Reconnection number
      */
     private int reconnectCount;
     /**
-     * 最大超时重试次数
+     * Maximum number of timeout retries
      */
     private int maxTimeoutRetryNum = 3;
     /**
-     * 被调用过的次数
+     * The number of times it was called
      */
     private AtomicInteger scheduleCount = new AtomicInteger();
     /**
-     * 调度线程池
+     * Scheduling thread pool
      */
     private static ThreadPoolX SCHEDULE_POOL;
     /**
-     * 客户端与心跳任务的关系映射,一个客户端对象只有一个心跳任务, 如果已经存在任务, 新任务会覆盖旧任务。
+     * A client object has only one heartbeat task. If a task already exists, the new task will overwrite the old one.
      */
     private static final Map<RpcClient,ScheduledQueueTask> SCHEDULE_MAP = new HashMap<>();
     /**
-     * 心跳任务队列
+     * Heartbeat task queue
      */
     private static final BlockingQueue<RpcClientHeartbeatTask> TASK_QUEUE = new LinkedBlockingQueue<>();
     /**
-     * 是否日心跳事件
+     * Whether it is a daily heartbeat event
      */
     private boolean isLogHeartEvent;
 
@@ -69,7 +67,7 @@ public class RpcClientHeartbeatTask implements Runnable{
     }
 
     /**
-     * 分配重连任务
+     * Assign reconnect tasks
      * @param heartIntervalSecond
      * @param timeUnit
      * @param reconnectSuccessHandler
@@ -91,15 +89,17 @@ public class RpcClientHeartbeatTask implements Runnable{
     }
 
     /**
-     * 重连
-     * @param causeMessage 重连原因
-     * @return 是否成功
+     * reconnection
+     * @param causeMessage Reconnection reason
+     * @return The success of
      */
     private boolean reconnect(String causeMessage){
         int count = ++reconnectCount;
         boolean success = rpcClient.connect();
-
-        logger.info("第[" + count + "]次断线重连 :" + (success?"成功! 共保持"+rpcClient.getActiveSocketChannelCount()+"个连接":"失败") +", 重连原因["+ causeMessage +"]");
+        logger.info("Second [{}]disconnect reconnect :{}, reconnect reason[{}]",
+                count,
+                success? "succeeded! maintain" + rpcClient.getActiveSocketChannelCount()+"connections":"failed",
+                causeMessage);
         if (success) {
             reconnectCount = 0;
             if(reconnectSuccessHandler != null){
@@ -114,13 +114,13 @@ public class RpcClientHeartbeatTask implements Runnable{
         try {
             byte[] msg = rpcClient.getRpcCommandService().ping();
             if(isLogHeartEvent) {
-                logger.info(rpcClient.getName() + " 心跳包 : " + new String(msg));
+                logger.info(rpcClient.getName() + " The heartbeat packets : " + new String(msg));
             }
         }catch (RpcConnectException e) {
             reconnect(e.getMessage());
 
         }catch (RpcTimeoutException e){
-            //重ping N次, 如果N次后还ping不通, 则进行重连
+            //Repeat ping N times. If the ping fails after N times, reconnect
             for(int i = 0; i< maxTimeoutRetryNum; i++) {
                 try {
                     byte[] msg = rpcClient.getRpcCommandService().ping();
@@ -139,7 +139,7 @@ public class RpcClientHeartbeatTask implements Runnable{
     }
 
     /**
-     * 获取线程调度执行器, 注: 延迟创建
+     * Gets the thread scheduling executo
      * @return
      */
     private static ThreadPoolX getSchedulePool() {
@@ -154,9 +154,9 @@ public class RpcClientHeartbeatTask implements Runnable{
     }
 
     /**
-     * 选出执行次数最少的任务
-     * @param sourceTask 队列弹出的第一个任务
-     * @return 执行次数最少的任务
+     * Select the least frequently performed task
+     * @param sourceTask The first task from the queue pops up
+     * @return Perform the least frequent tasks
      */
     private static RpcClientHeartbeatTask chooseTask(RpcClientHeartbeatTask sourceTask){
         int minCount = 0;

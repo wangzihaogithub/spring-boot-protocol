@@ -25,8 +25,8 @@ import io.netty.util.AttributeKey;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 数据包监控 (读写/字节)
- * @author acer01
+ * Packet monitoring (read write/byte)
+ * @author wangzihao
  */
 @ChannelHandler.Sharable
 public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {

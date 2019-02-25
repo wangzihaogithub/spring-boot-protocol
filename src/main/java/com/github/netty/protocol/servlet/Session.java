@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * 会话实体类
- * @author acer01
+ * @author wangzihao
  *  2018/8/18/018
  */
 public class Session implements Serializable{

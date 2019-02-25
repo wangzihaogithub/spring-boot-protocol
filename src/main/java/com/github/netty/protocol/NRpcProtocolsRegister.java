@@ -17,10 +17,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * 内部RPC协议注册器
+ * Internal RPC protocol registry
  *
- *  |8字节固定协议头| body | END\r\n结束符|
- * @author acer01
+ *  |8 byte fixed protocol header | body | END\r\n END character |
+ * @author wangzihao
  * 2018/11/25/025
  */
 public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
@@ -32,7 +32,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
-     * 每次最大消息长度
+     * Maximum message length per pass
      */
     private int messageMaxLength;
 
@@ -79,7 +79,6 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
 
     @Override
     public void onServerStart() throws Exception {
-        //用户的服务
         Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
         for(Object serviceImpl : list){
             if(existInstance(serviceImpl)){
@@ -96,13 +95,13 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     /**
-     * 添加扩展的实例
+     * Add an instance of the extension
      */
     protected void addInstancePlugins(){
         if(addInstancePluginsFlag != null && addInstancePluginsFlag.compareAndSet(false,true)) {
-            //默认开启rpc基本命令服务
+            //The RPC basic command service is enabled by default
             addInstance(new RpcCommandServiceImpl());
-            //默认开启DB服务
+            //Open DB service by default
             addInstance(new RpcDBServiceImpl());
             addInstancePluginsFlag = null;
         }

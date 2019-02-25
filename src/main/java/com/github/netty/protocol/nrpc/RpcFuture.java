@@ -1,6 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.constants.CoreConstants;
+import com.github.netty.core.CoreConstants;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,8 +11,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * 简易版的 Future
- * @author 84215
+ * Simple Future
+ * @author wangzihao
  */
 public class RpcFuture {
 
@@ -27,7 +27,7 @@ public class RpcFuture {
     }
 
     /**
-     * 获取 (注: 堵塞当前线程)
+     * Get (note: block the current thread)
      * @param timeout
      * @param timeUnit
      * @return
@@ -54,7 +54,7 @@ public class RpcFuture {
             }
         }
 
-        //如果自旋后拿到响应 直接返回
+        //If the spin gets the response back directly
         if(rpcResponse != null){
             TOTAL_SPIN_RESPONSE_COUNT.incrementAndGet();
             return rpcResponse;
@@ -64,8 +64,8 @@ public class RpcFuture {
     }
 
     /**
-     * 已完成
-     * @param rpcResponse RPC响应
+     * Has been completed
+     * @param rpcResponse rpcResponse
      */
     public void done(RpcResponse rpcResponse){
         this.lock.lock();
@@ -78,11 +78,15 @@ public class RpcFuture {
     }
 
     /**
-     * 自旋成功数
+     * Spin success number
      */
     public static final AtomicLong TOTAL_SPIN_RESPONSE_COUNT = new AtomicLong();
-    //总调用次数
+    /**
+     * Total number of calls
+     */
     public static final AtomicLong TOTAL_INVOKE_COUNT = new AtomicLong();
-    //超时api
+    /**
+     * Timeout API
+     */
     public static final Map<String,Integer> TIMEOUT_API = new ConcurrentHashMap<>();
 }

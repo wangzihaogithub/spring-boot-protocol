@@ -9,8 +9,8 @@ import javax.servlet.FilterRegistration;
 import java.util.*;
 
 /**
- * servlet 过滤器注册
- * @author acer01
+ * servlet Filter registration
+ * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletFilterRegistration implements FilterRegistration,FilterRegistration.Dynamic {
@@ -95,8 +95,6 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     public Map<String, String> getInitParameters() {
         return initParameterMap;
     }
-
-    //==============
 
     @Override
     public void setAsyncSupported(boolean isAsyncSupported) {

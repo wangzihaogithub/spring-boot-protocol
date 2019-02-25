@@ -10,13 +10,12 @@ import io.netty.util.AttributeKey;
 import java.util.concurrent.Executor;
 
 /**
- * servlet处理器 (服务器的入口)
- * @author acer01
+ * Servlet processor (portal to the server)
+ * @author wangzihao
  *  2018/7/1/001
  */
 @ChannelHandler.Sharable
 public class ServletChannelHandler extends AbstractChannelHandler<Object,Object> {
-
     private Executor dispatcherExecutor;
     private NettyMessageToServletRunnable httpMessageToServletRunnable;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
@@ -56,7 +55,7 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
     }
 
     /**
-     * 保存并且清空会话
+     * Save and clear the session
      * @param ctx
      */
     protected void saveAndClearSession(ChannelHandlerContext ctx){
@@ -74,7 +73,7 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
     }
 
     /**
-     * 把IO任务包工厂类 放到这个连接上
+     * Place the IO task package factory class on this connection
      * @param channel
      * @param messageToRunnable
      */
@@ -83,7 +82,7 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
     }
 
     /**
-     * 取出这个连接上的 IO任务包工厂类
+     * Pull out the IO task package factory class on this connection
      * @param channel
      * @return
      */

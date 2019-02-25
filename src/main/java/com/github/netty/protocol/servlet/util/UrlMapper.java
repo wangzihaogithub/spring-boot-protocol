@@ -6,31 +6,31 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * url映射
+ * Url mapping
  *
- * 映射规范
- * 在web应用部署描述符中，以下语法用于定义映射：
- * ■  以‘/’字符开始、以‘/*’后缀结尾的字符串用于路径匹配。
- * ■  以‘*.’开始的字符串用于扩展名映射。
- * ■  空字符串“”是一个特殊的URL模式，其精确映射到应用的上下文根，即，http://host:port/context-root/
- * 请求形式。在这种情况下，路径信息是‘/’且servlet路径和上下文路径是空字符串（“”）。
- * ■  只包含“/”字符的字符串表示应用的“default”servlet。在这种情况下，servlet路径是请求URL减去上
- * 下文路径且路径信息是null。
- * ■  所以其他字符串仅用于精确匹配。
- * 如果一个有效的web.xml（在从fragment 和注解合并了信息后）包含人任意的url-pattern，其映射到多个servlet，那么部署将失败。
+ * Mapping specification
+ * In the web application deployment descriptor, the following syntax is used to define the mapping:
+ * ■  A string starting with the '/' character and ending with the '/*' suffix is used for path matching.
+ * ■  The string starting with '*.' is used for extension mapping.
+ * ■  The empty string "" is a special URL pattern that maps exactly to the context root of the application, http://host:port/context-root/
+ * Request form. In this case, the path information is'/' and the servlet path and context path are empty strings (" ").
+ * ■  A string containing only the "/" character represents the applied "default" servlet. In this case, the servlet path is the request URL minus
+ * The following path and path information is null。
+ * ■  So other strings are used only for exact matches。
+ * Deployment will fail if a valid web.xml (after merging information from fragments and annotations) contains arbitrary url-patterns mapped to multiple servlets.
  *
  *
- * 示例映射集合
- * 请看下面的一组映射：
- *  表12-1  示例映射集合
+ * Sample mapping set
+ * Look at the following set of mappings：
+ *  Table 12-1 sample mapping set
  *      Path Pattern            Servlet
  *
  *      /foo/bar/*              servlet1
  *      /baz/*                  servlet2
  *      /catalog                servlet3
  *      *.bop                   servlet4
- * 将产生以下行为：
- *  表12-2   传入路径应用于示例映射
+ * Will produce the following behavior：
+ *  Table 12-2. The incoming path is applied to the sample map
  *      Incoming Path           Servlet Handling Request
  *
  *      /foo/bar/index.html     servlet1
@@ -41,9 +41,9 @@ import java.util.Objects;
  *      /catalog/index.html    “default”  servlet
  *      /catalog/racecar.bop    servlet4
  *      /index.bop              servlet4
- * 请注意，在/catalog/index.html和/catalog/racecar.bop的情况下，不使用映射到“/catalog”的servlet，因为不是精确匹配的
+ * Note that in the case of /catalog/index.html and /catalog/racecar.bop, the servlet mapped to "/catalog" is not used because it is not an exact match
  *
- * @author acer01
+ * @author wangzihao
  * Created on 2017-08-25 11:32.
  */
 public class UrlMapper<T> {
@@ -57,12 +57,11 @@ public class UrlMapper<T> {
     }
 
     /**
-     * 增加映射关系
-     *
+     * Add mapping
      * @param urlPattern  urlPattern
-     * @param object     对象
-     * @param objectName 对象名称
-     * @throws IllegalArgumentException 异常
+     * @param object     object
+     * @param objectName objectName
+     * @throws IllegalArgumentException
      */
     public void addMapping(String urlPattern, T object, String objectName) throws IllegalArgumentException {
         Objects.requireNonNull(urlPattern);
@@ -83,8 +82,8 @@ public class UrlMapper<T> {
     }
 
     /**
-     * 删除映射
-     * @param objectName 对象名称
+     * Delete the mapping
+     * @param objectName objectName
      */
     public void removeMapping(String objectName) {
         Iterator<Element> it = elementList.iterator();
@@ -97,8 +96,8 @@ public class UrlMapper<T> {
     }
 
     /**
-     * 获取一个映射对象
-     * @param absoluteUri 绝对路径
+     * Gets a mapping object
+     * @param absoluteUri An absolute path
      * @return
      */
     public T getMappingObjectByUri(String absoluteUri) {
@@ -118,11 +117,11 @@ public class UrlMapper<T> {
     }
 
     /**
-     * 获取多个映射对象
-     * @param absoluteUri 绝对路径
+     * Add multiple mapping objects
+     * @param absoluteUri An absolute path
      * @return
      */
-    public List<T> getMappingObjectsByUri(String absoluteUri,List<T> list) {
+    public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
         int size = elementList.size();
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
@@ -134,7 +133,6 @@ public class UrlMapper<T> {
                 list.add(element.object);
             }
         }
-        return list;
     }
 
     private class Element {

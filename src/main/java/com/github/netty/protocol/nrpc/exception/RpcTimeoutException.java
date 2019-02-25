@@ -3,7 +3,7 @@ package com.github.netty.protocol.nrpc.exception;
 /**
  * 超时异常
  *
- * @author acer01
+ * @author wangzihao
  *  2018/8/20/020
  */
 public class RpcTimeoutException extends RpcException {

@@ -14,11 +14,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * 基于ASM参数名称解析
- * @author 84215
+ * Based on ASM parameter name resolution
+ * @author wangzihao
  */
 public class ParameterNameDiscoverer {
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     static final int ASM_VERSION = Opcodes.ASM7;
@@ -26,15 +25,10 @@ public class ParameterNameDiscoverer {
     // marker object for classes that do not have any debug info
     private static final Map<Member, String[]> NO_DEBUG_INFO_MAP = Collections.emptyMap();
     private static final Map<Class<?>, Method[]> DECLARED_METHODS_CACHE = new ConcurrentReferenceHashMap<>(256);
+    private static final Method[] NO_METHODS = {};
 
     // the cache uses a nested index (value is a map) to keep the top level cache relatively small in size
     private final Map<Class<?>, Map<Member, String[]>> parameterNamesCache = new ConcurrentHashMap<>(32);
-
-    /**
-     * Cache for {@link Class#getDeclaredFields()}, allowing for fast iteration.
-     */
-//    private static final Map<Class<?>, Field[]> declaredFieldsCache = new ConcurrentReferenceHashMap<>(256);
-    private static final Method[] NO_METHODS = {};
 
     public String[] getParameterNames(Method method) {
         Method originalMethod = findBridgedMethod(method);
@@ -338,16 +332,6 @@ public class ParameterNameDiscoverer {
         if (candidateMethods.size() == 1) {
             return candidateMethods.get(0);
         }
-
-        // Search for candidate match.
-//        Method bridgedMethod = searchCandidates(candidateMethods, bridgeMethod);
-//        if (bridgedMethod != null) {
-//            // Bridged method found...
-//            return bridgedMethod;
-//        }
-//
-        // A bridge method was passed in but we couldn't find the bridged method.
-        // Let's proceed with the passed-in method and hope for the best...
         return bridgeMethod;
     }
 
@@ -424,20 +408,6 @@ public class ParameterNameDiscoverer {
         if (genericParameters.length != candidateParameters.length) {
             return false;
         }
-//        for (int i = 0; i < candidateParameters.length; i++) {
-//            ResolvableType genericParameter = ResolvableType.forMethodParameter(genericMethod, i, declaringClass);
-//            Class<?> candidateParameter = candidateParameters[i];
-//            if (candidateParameter.isArray()) {
-//                // An array type: compare the component type.
-//                if (!candidateParameter.getComponentType().equals(genericParameter.getComponentType().toClass())) {
-//                    return false;
-//                }
-//            }
-//            // A non-array type: compare the type itself.
-//            if (!candidateParameter.equals(genericParameter.toClass())) {
-//                return false;
-//            }
-//        }
         return true;
     }
 }

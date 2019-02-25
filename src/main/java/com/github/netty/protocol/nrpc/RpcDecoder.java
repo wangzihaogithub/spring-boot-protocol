@@ -13,15 +13,16 @@ import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
 import static com.github.netty.protocol.nrpc.RpcEncoder.*;
 
 /**
- *  RPC 解码器
- * @author 84215
+ *  RPC decoder
+ * @author wangzihao
  */
 public class RpcDecoder extends DelimiterBasedFrameDecoder {
+    public static final byte[] EMPTY = new byte[0];
     /**
-     * 数据包最小长度
+     * Packet minimum length
      */
     public static final int MIN_PACKET_LENGTH =
-            //协议头长度 + 协议头 + 4个字段最小长度 + 结束符
+            //Protocol header length + protocol header length + minimum length of 4 fields + terminator
             BYTE_LENGTH + PROTOCOL_HEADER.length + INT_LENGTH * 4 + END_DELIMITER.length;
     private Supplier pojoSupplier;
 
@@ -51,7 +52,7 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
     }
 
     /**
-     * 解析至实体类
+     * Resolve to the entity class
      * @param msg
      * @return
      */
@@ -61,54 +62,54 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
         if(pojo instanceof RpcRequest){
             RpcRequest request = (RpcRequest) pojo;
 
-            //跳过协议头
+            //Skip protocol header
             int protocolLength = msg.readByte();
             msg.skipBytes(protocolLength);
 
-            //请求ID
+            //Request ID
             request.setRequestId(msg.readInt());
 
-            //请求服务
+            //Request service
             request.setServiceName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
-            //请求方法
+            //Request method
             request.setMethodName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
-            //请求数据
+            //Request data
             int dataLength = msg.readInt();
             if(dataLength > 0) {
                 request.setData(new byte[dataLength]);
                 msg.readBytes(request.getData());
             }else {
-                request.setData(RpcUtil.EMPTY);
+                request.setData(EMPTY);
             }
             return pojo;
         }else if(pojo instanceof RpcResponse){
             RpcResponse response = (RpcResponse) pojo;
 
-            //跳过协议头
+            //Skip protocol header
             int protocolLength = msg.readByte();
             msg.skipBytes(protocolLength);
 
-            //请求ID
+            //Request ID
             response.setRequestId(msg.readInt());
 
-            //请求服务
+            //Request service
             response.setStatus(msg.readInt());
 
-            //数据是否已经编码
+            //Whether the data has been encoded
             response.setEncode(msg.readByte());
 
-            //响应信息
+            //Response information
             response.setMessage(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
 
-            //请求数据
+            //Request data
             int dataLength = msg.readInt();
             if(dataLength > 0) {
                 response.setData(new byte[dataLength]);
                 msg.readBytes(response.getData());
             }else {
-                response.setData(RpcUtil.EMPTY);
+                response.setData(EMPTY);
             }
             return pojo;
         }else {

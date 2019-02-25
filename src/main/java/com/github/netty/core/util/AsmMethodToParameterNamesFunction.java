@@ -4,8 +4,8 @@ import java.lang.reflect.Method;
 import java.util.function.Function;
 
 /**
- * 基于ASM的方法变参数名函数 （注：抽象方法不能用ASM 获取，只有具体方法可以）
- * @author 84215
+ * ASM - based method variable parameter name function
+ * @author wangzihao
  */
 public class AsmMethodToParameterNamesFunction implements Function<Method,String[]> {
     private ParameterNameDiscoverer parameterNameDiscoverer = new ParameterNameDiscoverer();

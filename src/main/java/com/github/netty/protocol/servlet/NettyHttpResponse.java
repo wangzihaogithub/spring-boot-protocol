@@ -12,8 +12,8 @@ import io.netty.handler.codec.http.*;
 import java.lang.reflect.Method;
 
 /**
- * 用于兼容 netty4 与netty5
- * @author acer01
+ * NettyHttpResponse
+ * @author wangzihao
  * 2018/7/28/028
  */
 public class NettyHttpResponse implements HttpResponse,Recyclable {

@@ -3,7 +3,7 @@ package com.github.netty.core.util;
 import io.netty.util.concurrent.DefaultThreadFactory;
 
 /**
- * Created by acer01 on 2018/8/25/025.
+ * Created by wangzihao on 2018/8/25/025.
  */
 public class ThreadFactoryX extends DefaultThreadFactory implements java.util.concurrent.ThreadFactory {
 

@@ -10,8 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * 注：只实现了服务端，客户端的功能未实现
- * @author 84215
+ * WebSocket Server Container. Note: only the server is implemented, but the client is not
+ * @author wangzihao
  */
 public class WebSocketServerContainer implements WebSocketContainer,ServerContainer {
 

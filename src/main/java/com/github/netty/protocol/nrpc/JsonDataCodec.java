@@ -11,10 +11,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * @author 84215
+ * @author wangzihao
  */
 public class JsonDataCodec implements DataCodec {
-
+    public static final byte[] EMPTY = new byte[0];
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static SerializerFeature[] SERIALIZER_FEATURES = {
 //            SerializerFeature.WriteClassName
@@ -41,7 +41,7 @@ public class JsonDataCodec implements DataCodec {
     @Override
     public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
         if(data == null || data.length == 0){
-            return RpcUtil.EMPTY;
+            return EMPTY;
         }
 
         String[] parameterNames = rpcMethod.getParameterNames();
@@ -84,7 +84,7 @@ public class JsonDataCodec implements DataCodec {
     @Override
     public byte[] encodeResponseData(Object data) {
         if(data == null){
-            return RpcUtil.EMPTY;
+            return EMPTY;
         }
         return JSON.toJSONBytes(data,SERIALIZER_FEATURES);
     }
@@ -101,7 +101,7 @@ public class JsonDataCodec implements DataCodec {
         if(value == null){
             return false;
         }
-        //type 所对应类信息是arg对象所对应的类信息的父类或者是父接口，简单理解即type是arg的父类或接口
+        //The class information corresponding to type is the superclass or superinterface of the class information corresponding to arg object. Simply understood, type is the superclass or interface of arg
         if(type.isAssignableFrom(value.getClass())){
             return false;
         }

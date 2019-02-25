@@ -1,17 +1,14 @@
 package com.github.netty.core.util;
 
-/**
- * Created by acer01 on 2018/11/8/008.
- */
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
 /**
+ * Created by wangzihao on 2018/11/8/008.
  * A collection of utility methods to retrieve and parse the values of the Java system properties.
  */
 public final class SystemPropertyUtil {
-
-    private static final LoggerX logger = LoggerFactoryX.getLogger(SystemPropertyUtil.class);
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(SystemPropertyUtil.class);
 
     /**
      * Returns {@code true} if and only if the system property with the specified {@code key}
@@ -61,7 +58,7 @@ public final class SystemPropertyUtil {
                 });
             }
         } catch (SecurityException e) {
-            logger.warn("Unable to retrieve a system property '{}'; default values will be used.", key, e);
+            LOGGER.warn("Unable to retrieve a system property '{}'; default values will be used.", key, e);
         }
 
         if (value == null) {
@@ -99,7 +96,7 @@ public final class SystemPropertyUtil {
             return false;
         }
 
-        logger.warn(
+        LOGGER.warn(
                 "Unable to parse the boolean system property '{}':{} - using the default value: {}",
                 key, value, def
         );
@@ -129,7 +126,7 @@ public final class SystemPropertyUtil {
             // Ignore
         }
 
-        logger.warn(
+        LOGGER.warn(
                 "Unable to parse the integer system property '{}':{} - using the default value: {}",
                 key, value, def
         );
@@ -159,7 +156,7 @@ public final class SystemPropertyUtil {
             // Ignore
         }
 
-        logger.warn(
+        LOGGER.warn(
                 "Unable to parse the long integer system property '{}':{} - using the default value: {}",
                 key, value, def
         );

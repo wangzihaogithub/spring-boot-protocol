@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 统计服务器信息的任务
- * @author 84215
+ * @author wangzihao
  */
 public class NettyReportRunnable implements Runnable{
 

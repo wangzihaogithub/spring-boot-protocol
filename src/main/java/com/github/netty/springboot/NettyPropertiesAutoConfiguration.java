@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * netty的spring资源文件自动配置
- * @author 84215
+ * @author wangzihao
  */
 @Configuration
 public class NettyPropertiesAutoConfiguration {

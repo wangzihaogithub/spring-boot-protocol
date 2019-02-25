@@ -3,8 +3,8 @@ package com.github.netty.core;
 import io.netty.channel.Channel;
 
 /**
- * 抽象的协议注册器
- * @author 84215
+ * An abstract Protocols Register
+ * @author wangzihao
  */
 public abstract class AbstractProtocolsRegister implements ProtocolsRegister{
 

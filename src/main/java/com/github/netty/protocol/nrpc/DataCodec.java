@@ -1,13 +1,13 @@
 package com.github.netty.protocol.nrpc;
 
 /**
- *  数据编码解码器
- * @author 84215
+ *  Data encoder decoder
+ * @author wangzihao
  */
 public interface DataCodec {
 
     /**
-     * 请求数据-编码
+     * Request data - encoding
      * @param data
      * @param rpcMethod
      * @return
@@ -15,7 +15,7 @@ public interface DataCodec {
     byte[] encodeRequestData(Object[] data, RpcMethod rpcMethod);
 
     /**
-     * 请求数据-解码
+     * Request data - decoding
      * @param data
      * @param rpcMethod
      * @return
@@ -23,14 +23,14 @@ public interface DataCodec {
     Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod);
 
     /**
-     * 响应数据-编码
+     * Response data - encoding
      * @param data
      * @return
      */
     byte[] encodeResponseData(Object data);
 
     /**
-     * 响应数据-解码
+     * Response data - decoding
      * @param data
      * @return
      */

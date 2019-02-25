@@ -16,8 +16,8 @@ import java.net.InetSocketAddress;
 
 
 /**
- * 一个抽象的netty服务端
- * @author 84215
+ * An abstract netty server
+ * @author wangzihao
  */
 public abstract class AbstractNettyServer implements Runnable{
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());

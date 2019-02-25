@@ -1,8 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
 /**
- * RPC请求
- * @author 84215
+ * Rpc Request
+ * @author wangzihao
  */
 public class RpcRequest {
 

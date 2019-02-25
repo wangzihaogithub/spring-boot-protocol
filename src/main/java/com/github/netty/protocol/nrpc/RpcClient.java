@@ -27,40 +27,28 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * RPC 客户端
- * @author acer01
+ * RPC client
+ * @author wangzihao
  *  2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient{
-
-    /**
-     * rpc客户端处理器
-     */
     private RpcClientChannelHandler rpcClientHandler = new RpcClientChannelHandler(this::getSocketChannel);
     private RpcEncoder rpcEncoder = new RpcEncoder();
     private Supplier rpcResponseSupplier = RpcResponse::new;
-    /**
-     * 实例
-     */
     private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
-    /**
-     * rpc命令服务
-     */
+
     private RpcCommandService rpcCommandService;
-    /**
-     * rpc数据服务
-     */
     private RpcDBService rpcDBService;
     /**
-     * 连接状态
+     * Connection status
      */
     private State state;
     /**
-     * 创建客户端的线程
+     * The thread that creates the client
      */
     private Thread thread;
     /**
-     * 自动重连Future
+     * Automatic reconnect Future
      */
     private ScheduledFuture<?> autoReconnectScheduledFuture;
 
@@ -78,28 +66,28 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 开启自动重连
+     * Enable automatic reconnection
      */
     public void enableAutoReconnect(){
         enableAutoReconnect(20,TimeUnit.SECONDS,null,true);
     }
 
     /**
-     * 开启自动重连
-     * @param heartIntervalSecond 心跳任务放入队列的时间间隔
-     * @param timeUnit 时间单位
-     * @param reconnectSuccessHandler 重连成功后的回调方法
-     * @param isLogHeartEvent 是否开启心跳事件日志
+     * Enable automatic reconnection
+     * @param heartIntervalSecond The interval at which heartbeat tasks are placed on the queue
+     * @param timeUnit Unit of time
+     * @param reconnectSuccessHandler Callback method after successful reconnect
+     * @param isLogHeartEvent Whether heartbeat event logging is enabled
      */
     public void enableAutoReconnect(int heartIntervalSecond, TimeUnit timeUnit, Consumer<RpcClient> reconnectSuccessHandler, boolean isLogHeartEvent){
         autoReconnectScheduledFuture = RpcClientHeartbeatTask.schedule(heartIntervalSecond,timeUnit,reconnectSuccessHandler,this,isLogHeartEvent);
     }
 
     /**
-     * 新建实现类
-     * @param clazz 接口 interface
+     * New implementation class
+     * @param clazz  interface
      * @param <T>
-     * @return  接口的实现类
+     * @return  Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz){
         int timeout = Protocol.RpcService.DEFAULT_TIME_OUT;
@@ -117,25 +105,25 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 新建实现类
-     * @param clazz 接口 interface
-     * @param timeout 超时时间
-     * @param serviceName 服务名称
+     * New implementation class
+     * @param clazz  interface
+     * @param timeout timeout
+     * @param serviceName serviceName
      * @param <T>
-     * @return 接口的实现类
+     * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz,int timeout,String serviceName){
         return newInstance(clazz,timeout,serviceName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(Protocol.RpcParam.class)));
     }
 
     /**
-     * 新建实现类
-     * @param clazz 接口 interface
-     * @param timeout 超时时间
-     * @param serviceName 服务名称
-     * @param methodToParameterNamesFunction 方法转参数名的函数
+     * New implementation class
+     * @param clazz  interface
+     * @param timeout timeout
+     * @param serviceName serviceName
+     * @param methodToParameterNamesFunction Method to a function with a parameter name
      * @param <T>
-     * @return 接口的实现类
+     * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
         RpcClientInstance rpcInstance = rpcClientHandler.newInstance(timeout,serviceName,clazz,methodToParameterNamesFunction);
@@ -145,12 +133,12 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 新建实现类
-     * @param clazz 接口 interface
-     * @param timeout 超时时间
-     * @param serviceName 服务名称
-     * @param  methodToParameterNamesFunction 方法转参数名的函数
-     * @return 接口的实现类
+     * New implementation class
+     * @param clazz  interface
+     * @param timeout timeout
+     * @param serviceName serviceName
+     * @param  methodToParameterNamesFunction Method to a function with a parameter name
+     * @return Interface implementation class
      */
     public RpcClientInstance newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
         RpcClientInstance rpcInstance = rpcClientHandler.newInstance(timeout,serviceName,clazz,methodToParameterNamesFunction);
@@ -159,7 +147,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 获取实现类MAP
+     * Gets the implementation class
      * @return
      */
     public RpcClientInstance getRpcInstance(String serviceName) {
@@ -167,7 +155,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 初始化所有处理器
+     * New initialize all
      * @return
      */
     @Override
@@ -184,10 +172,6 @@ public class RpcClient extends AbstractNettyClient{
         };
     }
 
-    /**
-     * 获取链接
-     * @return
-     */
     @Override
     public SocketChannel getSocketChannel() {
         SocketChannel socketChannel = super.getSocketChannel();
@@ -270,7 +254,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 获取连接状态
+     * Get connection status
      * @return
      */
     public State getState() {
@@ -278,7 +262,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 获取创建客户端的线程
+     * Gets the thread that created the client
      * @return
      */
     public Thread getThread() {
@@ -286,7 +270,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * 客户端连接状态
+     * Client connection status
      */
     public enum State{
         DOWN,

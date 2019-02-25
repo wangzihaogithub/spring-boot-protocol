@@ -1,13 +1,13 @@
 package com.github.netty.core.util;
 
 /**
- * 可回收
- * @author 84215
+ * recycled
+ * @author wangzihao
  */
 public interface Recyclable {
 
     /**
-     * 回收
+     * recycle
      */
     void recycle();
 

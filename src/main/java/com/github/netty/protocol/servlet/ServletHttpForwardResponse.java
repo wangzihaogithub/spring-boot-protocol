@@ -9,16 +9,12 @@ import java.io.PrintWriter;
 import java.nio.charset.Charset;
 
 /**
- * servlet响应转发, (注:输出流的控制权转移给新servlet, 原始servlet将不能再操作输出流)
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- *
- * @author acer01
+ * Servlet response forwarding, (note: control of the output stream is transferred to the new servlet, and the original servlet can no longer operate the output stream)
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
-
     private ServletHttpObject httpServletObject;
     private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);;
     private PrintWriter writer;
@@ -94,7 +90,7 @@ public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
     }
 
     /**
-     * 检查提交状态
+     * Check the submission status
      * @throws IllegalStateException
      */
     private void checkCommitted() throws IllegalStateException {

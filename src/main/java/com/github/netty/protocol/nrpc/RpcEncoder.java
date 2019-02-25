@@ -12,8 +12,8 @@ import static com.github.netty.core.util.IOUtil.INT_LENGTH;
 
 
 /**
- * RPC 编码器
- * @author 84215
+ * RPC encoder
+ * @author wangzihao
  */
 @ChannelHandler.Sharable
 public class RpcEncoder extends MessageToByteEncoder {
@@ -30,60 +30,60 @@ public class RpcEncoder extends MessageToByteEncoder {
             RpcRequest request = (RpcRequest) in;
             int writeLength;
 
-            //协议头
+            //protocol head
             out.writeByte(PROTOCOL_HEADER.length);
             out.writeBytes(PROTOCOL_HEADER);
 
-            //请求ID
+            //Request ID
             out.writeInt(request.getRequestId());
 
-            //请求服务
+            //Request service
             out.writerIndex(out.writerIndex() + INT_LENGTH);
             writeLength = out.writeCharSequence(request.getServiceName(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
-            //请求方法
+            //Request method
             out.writerIndex(out.writerIndex() + INT_LENGTH);
             writeLength = out.writeCharSequence(request.getMethodName(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
-            //请求数据
+            //Request data
             byte[] data = request.getData();
             out.writeInt(data.length);
             if(data.length > 0){
                 out.writeBytes(data);
             }
 
-            //结束符
+            //Request terminator
             out.writeBytes(END_DELIMITER);
         }else if(in instanceof RpcResponse){
             RpcResponse response = (RpcResponse) in;
             int writeLength;
 
-            //协议头
+            //protocol head
             out.writeByte(PROTOCOL_HEADER.length);
             out.writeBytes(PROTOCOL_HEADER);
 
-            //请求ID
+            //Request ID
             out.writeInt(response.getRequestId());
-            //响应状态
+            //Response status
             out.writeInt(response.getStatus());
-            //数据是否已经编码
+            //Whether the data has been encoded
             out.writeByte(response.getEncode());
 
-            //响应信息
+            //Response information
             out.writerIndex(out.writerIndex() + INT_LENGTH);
             writeLength = out.writeCharSequence(response.getMessage(), RPC_CHARSET);
             out.setInt(out.writerIndex() - writeLength - INT_LENGTH,writeLength);
 
-            //响应数据
+            //Response data
             byte[] data = response.getData();
             out.writeInt(data.length);
             if(data.length > 0) {
                 out.writeBytes(data);
             }
 
-            //结束符
+            //Request terminator
             out.writeBytes(END_DELIMITER);
         }
     }

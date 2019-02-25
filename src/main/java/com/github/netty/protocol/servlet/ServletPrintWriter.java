@@ -7,7 +7,7 @@ import java.util.Locale;
 
 /**
  *  打印流
- * @author 84215
+ * @author wangzihao
  */
 public class ServletPrintWriter extends PrintWriter{
 

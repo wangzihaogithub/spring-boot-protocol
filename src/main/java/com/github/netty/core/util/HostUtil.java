@@ -12,7 +12,7 @@ import java.util.StringJoiner;
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
  *
  * Common functions that involve the host platform
- * @author 84215
+ * @author wangzihao
  */
 public class HostUtil {
 

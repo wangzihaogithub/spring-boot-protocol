@@ -16,15 +16,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * 服务端处理器
- * @author acer01
+ * Server side processor
+ * @author wangzihao
  *  2018/9/16/016
  */
 @ChannelHandler.Sharable
 public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,Object> {
 
     /**
-     * 数据编码解码器
+     * Data encoder decoder
      */
     private DataCodec dataCodec;
     private final Map<String,RpcServerInstance> serviceInstanceMap = new HashMap<>();
@@ -74,7 +74,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
     }
 
     /**
-     * 放入链接
+     * In the connection
      * @param channel
      */
     private void putChannel(Channel channel){
@@ -83,7 +83,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
             return;
         }
         channelMap.put(remoteAddress.getHostString() + ":" + remoteAddress.getPort(),channel);
-        logger.info("新入链接 = "+channel.toString());
+        logger.info("New connection = "+channel.toString());
     }
 
     /**
@@ -96,31 +96,31 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
             return;
         }
         channelMap.remove(remoteAddress.getHostString() + ":" + remoteAddress.getPort(),channel);
-        logger.info("断开链接" + channel.toString());
+        logger.info("Disconnect" + channel.toString());
     }
 
     /**
-     * 增加实例
-     * @param instance 实现类
+     * Increase the instance
+     * @param instance The implementation class
      */
     public void addInstance(Object instance){
         addInstance(instance,RpcUtil.getServiceName(instance.getClass()));
     }
 
     /**
-     * 增加实例
-     * @param instance 实现类
-     * @param serviceName 服务名称
+     * Increase the instance
+     * @param instance The implementation class
+     * @param serviceName serviceName
      */
     public void addInstance(Object instance,String serviceName){
         addInstance(instance,serviceName,new AsmMethodToParameterNamesFunction());
     }
 
     /**
-     * 增加实例
-     * @param instance 实现类
-     * @param serviceName 服务名称
-     * @param methodToParameterNamesFunction 方法转参数名的函数
+     * Increase the instance
+     * @param instance The implementation class
+     * @param serviceName serviceName
+     * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
     public void addInstance(Object instance,String serviceName,Function<Method,String[]> methodToParameterNamesFunction){
         synchronized (serviceInstanceMap) {
@@ -142,7 +142,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
     }
 
     /**
-     * 是否存在实例
+     * Is there an instance
      * @param instance
      * @return
      */
@@ -160,7 +160,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
     }
 
     /**
-     * 获取服务端的网络地址
+     * Gets the web address of the server
      * @param socketAddress
      * @return
      */

@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * session会话服务
- * @author acer01
+ * @author wangzihao
  * 2018/8/19/019
  */
 @Protocol.RpcService(value = "/hrpc/sessionService",timeout = 1000)

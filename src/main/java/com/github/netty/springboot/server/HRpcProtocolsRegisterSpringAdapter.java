@@ -14,7 +14,7 @@ import java.util.function.Function;
 
 /**
  * 内部RPC协议注册器 （适配spring）
- * @author 84215
+ * @author wangzihao
  */
 public class HRpcProtocolsRegisterSpringAdapter extends NRpcProtocolsRegister {
     public HRpcProtocolsRegisterSpringAdapter(int messageMaxLength,ApplicationX application) {

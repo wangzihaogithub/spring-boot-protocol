@@ -34,7 +34,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * servlet 输出流
  *
  * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author 84215
+ * @author wangzihao
  */
 @sun.misc.Contended
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable  {

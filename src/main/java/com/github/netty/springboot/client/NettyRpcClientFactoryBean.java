@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * RPC客户端工厂类
- * @author 84215
+ * @author wangzihao
  */
 public class NettyRpcClientFactoryBean implements FactoryBean<Object>, InitializingBean,ApplicationContextAware {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());

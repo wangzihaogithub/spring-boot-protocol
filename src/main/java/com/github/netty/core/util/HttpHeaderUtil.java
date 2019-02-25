@@ -9,7 +9,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * @author 84215
+ * @author wangzihao
  */
 public class HttpHeaderUtil {
 

@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * RPC方法
- * @author 84215
+ * Rpc Method
+ * @author wangzihao
  */
 public class RpcMethod {
     private Method method;
@@ -59,7 +59,7 @@ public class RpcMethod {
             RpcMethod rpcMethod = new RpcMethod(method,methodToParameterNamesFunction.apply(method));
             RpcMethod oldMethod = methodMap.put(rpcMethod.getMethodName(),rpcMethod);
             if(oldMethod != null){
-                throw new IllegalStateException("同一个类的暴露的方法不能重名, " +
+                throw new IllegalStateException("Exposed methods of the same class cannot have the same name, " +
                         "class=["+source.getSimpleName()+"], method=["+method.getName()+"]");
             }
         }

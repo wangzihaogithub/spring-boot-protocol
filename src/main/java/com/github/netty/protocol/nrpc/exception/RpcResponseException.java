@@ -3,7 +3,7 @@ package com.github.netty.protocol.nrpc.exception;
 /**
  * RPC 异常响应
  *
- * @author acer01
+ * @author wangzihao
  *  2018/8/21/021
  */
 public class RpcResponseException extends RpcException {

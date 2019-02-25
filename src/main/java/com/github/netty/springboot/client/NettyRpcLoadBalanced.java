@@ -4,7 +4,7 @@ import java.net.InetSocketAddress;
 
 /**
  * 负载均衡
- * @author 84215
+ * @author wangzihao
  */
 @FunctionalInterface
 public interface NettyRpcLoadBalanced {

@@ -1,6 +1,6 @@
 package com.github.netty.core.util;
 
-import com.github.netty.core.constants.CoreConstants;
+import com.github.netty.core.CoreConstants;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -10,25 +10,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
- * 回收者 (可以控制实例数量, 保证实例平稳, 不爆增,不爆减. 减少gc次数)
- *
- * 因为回收对象会频繁修改或清空内容, 建议加注解 @sun.misc.Contended.防止出现伪共享,刷新其他线程缓存, 该注解需设置 : -XX:-RestrictContended
- *
- * @author 84215
+ * Collector (can control the number of instances, ensure the stability of instances, no explosion, no explosion, reduce the number of gc)
+ * @author wangzihao
  */
 public class Recycler<T> {
 
     /**
-     * 当前对象的实例队列
+     * The instance queue of the current object
      */
     private Queue<T> queue;
     /**
-     * 当前对象的新建实例工厂
+     * New instance factory for the current object
      */
     private Supplier<T> supplier;
 
     /**
-     * 系统中所有的回收者
+     * All recyclers
      */
     private static final List<Recycler> RECYCLER_LIST = new LinkedList<>();
     public static final AtomicInteger TOTAL_COUNT = new AtomicInteger();
@@ -49,7 +46,7 @@ public class Recycler<T> {
     }
 
     /**
-     * 获取系统中所有的回收者列表
+     * Gets a list of all recyclers
      * @return
      */
     public static List<Recycler> getRecyclerList() {
@@ -57,11 +54,10 @@ public class Recycler<T> {
     }
 
     /**
-     * 获取一个实例
+     * Get an instance
      * @return
      */
     public T getInstance() {
-//        return supplier.get();
         TOTAL_COUNT.incrementAndGet();
         T value = queue.pop();
         if(value == null){

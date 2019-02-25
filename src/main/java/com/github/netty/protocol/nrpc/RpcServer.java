@@ -11,14 +11,14 @@ import java.net.InetSocketAddress;
 import java.util.function.Supplier;
 
 /**
- * RPC 服务端
- * @author acer01
+ * Rpc Server
+ * @author wangzihao
  *  2018/8/18/018
  */
 public class RpcServer extends AbstractNettyServer{
 
     /**
-     * rpc服务端处理器
+     * RPC server side processor
      */
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private Supplier rpcRequestSupplier = RpcRequest::new;
@@ -34,14 +34,14 @@ public class RpcServer extends AbstractNettyServer{
 
     public RpcServer(String preName,InetSocketAddress address) {
         super(preName,address);
-        //默认开启rpc基本命令服务
+        //The RPC basic command service is enabled by default
         addInstance(new RpcCommandServiceImpl());
-        //默认开启DB服务
+        //Enabled DB service by default
         addInstance(new RpcDBServiceImpl());
     }
 
     /**
-     * 增加实现类 (不能是接口,抽象类)
+     * Add implementation classes (not interfaces, abstract classes)
      * @param instance
      */
     public void addInstance(Object instance){
@@ -49,16 +49,16 @@ public class RpcServer extends AbstractNettyServer{
     }
 
     /**
-     * 增加实例
-     * @param instance 实现类
-     * @param serviceName 服务名称
+     * Increase the instance
+     * @param instance The implementation class
+     * @param serviceName serviceName
      */
     public void addInstance(Object instance,String serviceName){
         rpcServerHandler.addInstance(instance,serviceName);
     }
 
     /**
-     * 初始化所有处理器
+     * Initialize all processors
      * @return
      */
     @Override

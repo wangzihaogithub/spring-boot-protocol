@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * RPC客户端 (线程安全)
- * @author 84215
+ * @author wangzihao
  */
 public class NettyRpcClientProxy implements InvocationHandler {
     private String serviceId;

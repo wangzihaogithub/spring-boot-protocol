@@ -31,7 +31,7 @@ public class TypeUtil {
 
     public static boolean   compatibleWithJavaBean      = false;
     
-    /** 根据field name的大小写输出输入数据*/
+    /** Output the input data according to the case of the field name */
     public static boolean   compatibleWithFieldName      = false;
     
     private static boolean  oracleTimestampMethodInited = false;

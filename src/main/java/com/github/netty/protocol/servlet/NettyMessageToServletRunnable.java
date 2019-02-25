@@ -1,15 +1,11 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.ByteBufAllocatorX;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.stream.ChunkedWriteHandler;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
@@ -17,8 +13,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * http任务
- * @author 84215
+ * NettyMessageToServletRunnable
+ * @author wangzihao
  */
 public class NettyMessageToServletRunnable implements MessageToRunnable {
 
@@ -35,7 +31,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     @Override
     public Runnable newRunnable(ChannelHandlerContext context, Object msg) {
         if(!(msg instanceof FullHttpRequest)) {
-            throw new IllegalStateException("不支持的类型");
+            throw new IllegalStateException("Message type not supported");
         }
 
         HttpRunnable instance = RECYCLER.getInstance();
@@ -47,7 +43,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     }
 
     /**
-     * http任务
+     * http task
      */
     public static class HttpRunnable implements Runnable,Recyclable {
         private ServletHttpObject httpServletObject;
@@ -77,7 +73,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 SERVLET_AND_FILTER_TIME.addAndGet(totalTime);
 
                 /*
-                 * 错误页的获取依据有两种 1.依据异常类型 2.依据状态码
+                 * Error pages are obtained according to two types: 1. By exception type; 2. By status code
                  */
                 if(realThrowable == null) {
                     realThrowable = (Throwable) httpServletRequest.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
@@ -99,30 +95,30 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         errorPage = errorPageManager.find(0);
                     }
                 }
-                //处理错误页
+                //Error page
                 if(errorPage != null){
                     errorPageManager.handleErrorPage(errorPage,realThrowable,httpServletRequest,httpServletResponse);
                 }
 
                 /*
-                 * 如果不是异步， 或者异步已经结束
-                 * 每个响应对象是只有当在servlet的service方法的范围内或在filter的doFilter方法范围内是有效的，除非该
-                 * 组件关联的请求对象已经开启异步处理。如果相关的请求已经启动异步处理，那么直到AsyncContext的
-                 * complete 方法被调用，请求对象一直有效。为了避免响应对象创建的性能开销，容器通常回收响应对象。
-                 * 在相关的请求的startAsync 还没有调用时，开发人员必须意识到保持到响应对象引用，超出之上描述的范
-                 * 围可能导致不确定的行为
+                 * If not asynchronous, or asynchronous has ended
+                 * each response object is valid only if it is within the scope of the servlet's service method or the filter's doFilter method, unless the
+                 * the request object associated with the component has started asynchronous processing. If the relevant request has already started asynchronous processing, then up to the AsyncContext
+                 * complete method is called, and the request object remains valid. To avoid the performance overhead of creating response objects, the container typically recycles the response object.
+                 * before the startAsync of the relevant request is invoked, the developer must be aware that the response object reference remains outside the scope described above
+                 * circumference may lead to uncertain behavior
                  */
                 if(httpServletRequest.isAsync()){
                     ServletAsyncContext asyncContext = httpServletRequest.getAsyncContext();
-                    //如果异步执行完成, 进行回收
+                    //If the asynchronous execution completes, recycle
                     if(asyncContext.isComplete()){
                         httpServletObject.recycle();
                     }else {
-                        //标记主线程已经执行结束
+                        //Marks the end of execution for the main thread
                         httpServletRequest.getAsyncContext().markIoThreadOverFlag();
                     }
                 }else {
-                    //不是异步直接回收
+                    //Not asynchronous direct collection
                     httpServletObject.recycle();
                 }
 
@@ -136,7 +132,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             httpServletObject = null;
             RECYCLER.recycleInstance(HttpRunnable.this);
         }
-
     }
 
 }

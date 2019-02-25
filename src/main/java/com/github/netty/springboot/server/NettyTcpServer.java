@@ -17,7 +17,7 @@ import java.util.Collection;
 /**
  * netty容器 tcp层面的服务器
  *
- * @author acer01
+ * @author wangzihao
  *  2018/7/14/014
  */
 public class NettyTcpServer extends AbstractNettyServer implements WebServer {

@@ -2,7 +2,7 @@ package com.github.netty.core.util;
 
 /**
  *
- * @author acer01
+ * @author wangzihao
  * 2018/8/25/025
  */
 public class LoggerFactoryX {

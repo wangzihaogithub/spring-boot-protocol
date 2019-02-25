@@ -5,7 +5,7 @@ import java.security.Principal;
 
 /**
  * servlet 身份
- * @author 84215
+ * @author wangzihao
  */
 public class ServletPrincipal implements Principal,Serializable {
 

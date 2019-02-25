@@ -1,7 +1,7 @@
 package com.github.netty.protocol.servlet.util;
 
 /**
- * @author 84215
+ * @author wangzihao
  */
 public class HttpHeaderConstants {
 

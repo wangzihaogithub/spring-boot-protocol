@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  *
- * @author acer01
+ * @author wangzihao
  *  2018/7/15/015
  */
 public class HttpConstants {

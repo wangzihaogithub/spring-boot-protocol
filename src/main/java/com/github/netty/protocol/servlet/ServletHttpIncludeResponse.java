@@ -8,16 +8,12 @@ import java.io.IOException;
 import java.util.Locale;
 
 /**
- * servlet响应引入
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- *
- * @author acer01
+ * Servlet response introduction
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletHttpIncludeResponse extends HttpServletResponseWrapper {
-
     public ServletHttpIncludeResponse(HttpServletResponse response) {
         super(response);
     }

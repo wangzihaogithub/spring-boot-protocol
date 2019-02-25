@@ -11,11 +11,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 错误页管理
- * @author 84215
+ * Error page management
+ * @author wangzihao
  */
 public class ServletErrorPageManager {
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private Map<String, ServletErrorPage> exceptionPages = new ConcurrentHashMap<>();
     private Map<Integer, ServletErrorPage> statusPages = new ConcurrentHashMap<>();
@@ -63,11 +62,11 @@ public class ServletErrorPageManager {
     }
 
     /**
-     * 处理错误页
-     * @param errorPage 错误页
-     * @param throwable 错误
-     * @param httpServletRequest 请求
-     * @param httpServletResponse 响应
+     * Handle error page
+     * @param errorPage errorPage
+     * @param throwable throwable
+     * @param httpServletRequest httpServletRequest
+     * @param httpServletResponse httpServletResponse
      */
     public void handleErrorPage(ServletErrorPage errorPage,Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse){
         if(errorPage == null){

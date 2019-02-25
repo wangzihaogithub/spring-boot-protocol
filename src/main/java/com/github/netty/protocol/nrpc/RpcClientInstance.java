@@ -3,7 +3,6 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
-import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
@@ -16,13 +15,12 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * RPC客户端实例
- * @author 84215
+ * RPC client instance
+ * @author wangzihao
  */
 public class RpcClientInstance implements InvocationHandler {
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
@@ -30,19 +28,19 @@ public class RpcClientInstance implements InvocationHandler {
     private String serviceName;
     private String instanceId = NamespaceUtil.newIdName(getClass());
     /**
-     * 生成请求id
+     * Generate request id
      */
     private static final AttributeKey<AtomicInteger> REQUEST_ID_INCR_ATTR = AttributeKey.valueOf(AtomicInteger.class+"#AtomicInteger");
     /**
-     * 数据编码解码器
+     * Data encoder decoder
      */
     private DataCodec dataCodec;
     /**
-     * 获取链接
+     * Get connected
      */
     private Supplier<SocketChannel> channelSupplier;
     /**
-     * 请求锁
+     * Request a lock
      */
     private Map<Integer,RpcFuture> futureMap;
 
@@ -55,7 +53,7 @@ public class RpcClientInstance implements InvocationHandler {
                                 Map<Integer,RpcFuture> futureMap) {
         this.rpcMethodMap = RpcMethod.getMethodMap(interfaceClass,methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
-            throw new IllegalStateException("rpc服务接口必须至少拥有一个方法, class=["+interfaceClass.getSimpleName()+"]");
+            throw new IllegalStateException("The RPC service interface must have at least one method, class=["+interfaceClass.getSimpleName()+"]");
         }
         this.timeout = timeout;
         this.serviceName = serviceName;
@@ -65,7 +63,7 @@ public class RpcClientInstance implements InvocationHandler {
     }
 
     /**
-     * 新建请求id
+     * New request id
      * @return
      */
     protected int newRequestId(Channel channel){
@@ -79,7 +77,7 @@ public class RpcClientInstance implements InvocationHandler {
     }
 
     /**
-     * 增加方法
+     * Increase method
      * @param rpcMethod
      */
     public boolean addMethod(RpcMethod rpcMethod){
@@ -87,7 +85,7 @@ public class RpcClientInstance implements InvocationHandler {
     }
 
     /**
-     * 进行rpc调用
+     * Make RPC calls
      * @param proxy
      * @param method
      * @param args
@@ -131,12 +129,12 @@ public class RpcClientInstance implements InvocationHandler {
             throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], rpcRequest = ["+rpcRequest+"]",true);
         }
 
-        //400以上的状态都是错误状态
+        //All states above 400 are in error
         if(rpcResponse.getStatus() >= RpcResponse.NO_SUCH_METHOD){
             throw new RpcResponseException(rpcResponse.getStatus(),rpcResponse.getMessage(),true);
         }
 
-        //如果服务器未编码, 直接返回
+        //If the server is not encoded, return directly
         if(rpcResponse.getEncode() == RpcResponse.ENCODE_NO) {
             return rpcResponse.getData();
         }else {

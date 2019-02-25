@@ -17,15 +17,12 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * servlet响应
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author acer01
+ * Servlet response
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse,Recyclable {
-
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
 
     private ServletHttpObject httpServletObject;
@@ -69,7 +66,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 检查是否提交
+     * Servlet response
      * @throws IllegalStateException
      */
     private void checkCommitted() throws IllegalStateException {
@@ -79,10 +76,10 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 检查头部特殊字段, 如果是特殊字段, 则进行处理
-     * @param name 特殊字段
-     * @param value 值
-     * @return 是否进行过处理. true=处理过, false=没处理过
+     * The header special field is checked, and if it is a special field, it is processed
+     * @param name Special field
+     * @param value value
+     * @return True = processed, false= not processed
      */
     private boolean checkSpecialHeader(String name, String value) {
         if (HttpHeaderConstants.CONTENT_TYPE.toString().equalsIgnoreCase(name)) {
@@ -104,7 +101,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 添加头部字段 (仅支持一个字段一个值)
+     * Add header fields (only one field and one value is supported)
      * @param name
      * @param value
      */
@@ -116,7 +113,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return;
         }
 
-        //减少判断的时间，提高效率
+        //Reduce judgment time and improve efficiency
         char c = name.charAt(0);
         if ('C' == c || 'c' == c) {
             if (checkSpecialHeader(name, value.toString())) {
@@ -127,7 +124,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 添加头部字段, (支持一个字段多个值)
+     * Add header fields (support multiple values for one field)
      * @param name
      * @param value
      */
@@ -138,7 +135,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         if (isCommitted()) {
             return;
         }
-        //减少判断的时间，提高效率
+        //Reduce judgment time and improve efficiency
         char c = name.charAt(0);
         if ('C' == c || 'c' == c) {
             if (checkSpecialHeader(name, value.toString())) {
@@ -160,12 +157,11 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 改变为分块传输流
+     * Change to block transfer stream
      */
     public void changeToChunkStream() {
-        //如果客户端不接受分块传输, 则不进行切换
-        if(!HttpHeaderUtil.isAcceptTransferChunked(
-                httpServletObject.getHttpServletRequest().getNettyHeaders())){
+        //If the client does not accept block transfers, no switch is made
+        if(!HttpHeaderUtil.isAcceptTransferChunked(httpServletObject.getHttpServletRequest().getNettyHeaders())){
             return;
         }
 
@@ -213,7 +209,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public String encodeURL(String url) {
         if(!httpServletObject.getHttpServletRequest().isRequestedSessionIdFromCookie()){
-            //来自Cookie的Session ID,则客户端肯定支持Cookie，无需重写URL
+            //If the Session ID comes from a Cookie, then the client definitely supports cookies and does not need to rewrite the URL
             return url;
         }
         return url + ";" + HttpConstants.JSESSION_ID_URL + "=" + httpServletObject.getHttpServletRequest().getRequestedSessionId();
@@ -365,7 +361,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return characterEncoding;
     }
 
-    //Writer和OutputStream不能同时使用
+    //Writer and OutputStream cannot be used together
     @Override
     public ServletOutputStreamWrapper getOutputStream() throws IOException {
         if(outWrapper.unwrap() == null){
@@ -441,7 +437,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 重置响应 (全部重置, 头部,状态, 响应缓冲区)
+     * Reset response (full reset, head, state, response buffer)
      */
     @Override
     public void reset() {
@@ -455,7 +451,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 重置响应 (仅重置响应缓冲区)
+     * Reset response (only reset response buffer)
      */
     @Override
     public void resetBuffer() {
@@ -463,8 +459,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 是否重置打印流
-     * @param resetWriterStreamFlags true=重置打印流, false=不重置打印流
+     * Whether to reset the print stream
+     * @param resetWriterStreamFlags True = resets the print stream, false= does not reset the print stream
      */
     public void resetBuffer(boolean resetWriterStreamFlags) {
         checkCommitted();
@@ -491,7 +487,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public void recycle() {
-        //回收顺序 -> 1.先关闭输出流, 2.(通过回调 CloseListener)回收netty响应 3.回收servlet响应
+        //1. Close the output stream first; 2.(by calling back CloseListener) recycle the netty response; 3
         outWrapper.recycle();
     }
 
@@ -508,8 +504,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     /**
-     * 监听关闭流
-     * 优化lambda实例数量, 减少gc次数
+     * Listen for closed flow
+     * Optimize the number of lambda instances to reduce gc times
      */
     private class CloseListener implements ChannelFutureListener{
         @Override

@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.constants.CoreConstants;
+import com.github.netty.core.CoreConstants;
 import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.exception.RpcDecodeException;
@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 
 /**
  * 远程会话服务
- * @author acer01
+ * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionRemoteRpcServiceImpl implements SessionService {
@@ -68,22 +68,6 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     public void saveSession(Session session) {
         byte[] bytes = encode(session);
         long expireSecond = (session.getMaxInactiveInterval() * 1000 + session.getCreationTime() - System.currentTimeMillis()) / 1000;
-
-        if(CoreConstants.isEnableExecuteHold()) {
-            CoreConstants.holdExecute(new Runnable() {
-                @Override
-                public void run() {
-                    if (expireSecond > 0) {
-                        getRpcDBService().put4(session.getId(), bytes, (int) expireSecond,SESSION_GROUP);
-                    } else {
-                        getRpcDBService().remove2(session.getId(),SESSION_GROUP);
-                    }
-                };
-            });
-            return;
-        }
-
-
         if (expireSecond > 0) {
             getRpcDBService().put4(session.getId(), bytes, (int) expireSecond,SESSION_GROUP);
         } else {
@@ -103,17 +87,6 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
 
     @Override
     public Session getSession(String sessionId) {
-        if(CoreConstants.isEnableExecuteHold()) {
-            return CoreConstants.holdExecute(new Supplier<Session>() {
-                @Override
-                public Session get() {
-                    byte[] bytes = getRpcDBService().get2(sessionId,SESSION_GROUP);
-                    Session session = decode(bytes);
-                    return session;
-                }
-            });
-        }
-
         byte[] bytes = getRpcDBService().get2(sessionId,SESSION_GROUP);
         Session session = decode(bytes);
         return session;

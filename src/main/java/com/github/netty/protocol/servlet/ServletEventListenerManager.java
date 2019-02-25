@@ -7,13 +7,11 @@ import java.util.List;
 import java.util.function.Function;
 
 /**
- * servlet全局事件监听
- *
- * @author acer01
+ * Servlet global event listener
+ * @author wangzihao
  *  2018/7/29/029
  */
 public class ServletEventListenerManager {
-
     private final Object lock = new Object();
 
     private List<ServletContextAttributeListener> servletContextAttributeListenerList;

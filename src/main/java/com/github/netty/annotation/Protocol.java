@@ -3,11 +3,11 @@ package com.github.netty.annotation;
 import java.lang.annotation.*;
 
 /**
- * Created by acer01 on 2018/12/5/005.
+ * Created by wangzihao on 2018/12/5/005.
  */
 public class Protocol {
     /**
-     * rpc参数 注:(客户端的接口上用， 服务端不需要用)
+     * RPC parameter note :(used on the client interface, not required on the server)
      */
     @Target({ElementType.PARAMETER})
     @Retention(RetentionPolicy.RUNTIME)
@@ -17,24 +17,24 @@ public class Protocol {
     }
 
     /**
-     * rpc服务 注:(要使用rpc, 接口或类上可以用这个注解配置, 也可以不打注解， 默认是接口的类名)
+     * RPC service note :(to use RPC, the interface or class can be configured with or without annotations, the default is the class name of the interface)
      */
     @Target(ElementType.TYPE)
     @Retention(RetentionPolicy.RUNTIME)
     @Documented
     public @interface RpcService{
         /**
-         * 接口地址
+         * Address of the interface
          * @return
          */
         String value() default "";
         /**
-         * 超时时间 (毫秒)
+         * Timeout time (milliseconds)
          * @return
          */
         int timeout() default DEFAULT_TIME_OUT;
         /**
-         * 默认超时时间
+         * Default timeout
          */
         int DEFAULT_TIME_OUT = 1000;
     }

@@ -6,7 +6,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
- * @author 84215
+ * @author wangzihao
  */
 public class ThreadPoolX extends ScheduledThreadPoolExecutor {
 
@@ -56,9 +56,7 @@ public class ThreadPoolX extends ScheduledThreadPoolExecutor {
 
         @Override
         public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
-            throw new RejectedExecutionException("Task " + r.toString() +
-                    " rejected from " +
-                    e.toString());
+            throw new RejectedExecutionException("Task " + r.toString() + " rejected from " + e.toString());
         }
     }
 

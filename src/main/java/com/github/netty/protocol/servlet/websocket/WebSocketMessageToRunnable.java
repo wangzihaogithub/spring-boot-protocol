@@ -13,8 +13,8 @@ import java.nio.ByteBuffer;
 import java.util.Set;
 
 /**
- * websocket任务工厂
- * @author 84215
+ * WebSocketMessageToRunnable
+ * @author wangzihao
  */
 public class WebSocketMessageToRunnable implements MessageToRunnable {
 
@@ -37,11 +37,11 @@ public class WebSocketMessageToRunnable implements MessageToRunnable {
         if(parent != null){
             return parent.newRunnable(channelHandlerContext,msg);
         }
-        throw new IllegalStateException("["+msg.getClass().getName()+"] 无法处理的消息数据类型");
+        throw new IllegalStateException("["+msg.getClass().getName()+"] Message data type that cannot be processed");
     }
 
     /**
-     * Websocket任务
+     * Websocket task
      */
     public static class WebsocketTask implements Runnable,Recyclable {
         private ChannelHandlerContext context;
@@ -55,26 +55,26 @@ public class WebSocketMessageToRunnable implements MessageToRunnable {
                     return;
                 }
 
-                // 关闭消息
+                // Close the message
                 if (frame instanceof CloseWebSocketFrame) {
                     wsSession.getWebSocketServerHandshaker().close(context.channel(), (CloseWebSocketFrame) frame.retain());
                     return;
                 }
 
-                // Ping消息
+                // Ping message
                 if (frame instanceof PingWebSocketFrame) {
                     ByteBuffer request = frame.content().nioBuffer();
                     onWebsocketMessage(wsSession, frame, (PongMessage) () -> request);
                     return;
                 }
 
-                // 二进制消息
+                // Binary message
                 if (frame instanceof BinaryWebSocketFrame) {
                     onWebsocketMessage(wsSession, frame, frame.content().nioBuffer());
                     return;
                 }
 
-                // 字符串消息
+                // String message
                 if (frame instanceof TextWebSocketFrame) {
                     onWebsocketMessage(wsSession, frame, ((TextWebSocketFrame) frame).text());
                 }
@@ -119,8 +119,6 @@ public class WebSocketMessageToRunnable implements MessageToRunnable {
             context = null;
             frame = null;
         }
-
     }
-
 
 }

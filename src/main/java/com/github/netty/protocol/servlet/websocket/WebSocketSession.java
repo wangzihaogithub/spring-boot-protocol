@@ -28,12 +28,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * websocket会话
- * @author acer01
+ * Websocket session
+ * @author wangzihao
  *  2018/10/13/013
  */
 public class WebSocketSession implements Session {
-
     public static final AttributeKey<WebSocketSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(WebSocketSession.class + "#WebSocketSession");
     private static AtomicLong ids = new AtomicLong(0);
 
@@ -90,7 +89,7 @@ public class WebSocketSession implements Session {
     }
 
     /**
-     * 从管道中绑定的属性中获取 httpSession
+     * Get httpSession from the properties bound in the pipe
      * @return
      */
     public static WebSocketSession getSession(Channel channel){
@@ -104,7 +103,7 @@ public class WebSocketSession implements Session {
     }
 
     /**
-     * 把 WebsocketSession绑定到管道属性中
+     * Bind WebsocketSession to the pipe property
      * @param websocketSession
      */
     public static void setSession(Channel channel, WebSocketSession websocketSession){
@@ -114,7 +113,7 @@ public class WebSocketSession implements Session {
     }
 
     /**
-     * 管道是否处于活动状态
+     * Whether the pipe is active
      * @return
      */
     public static boolean isChannelActive(Channel channel){
@@ -320,7 +319,7 @@ public class WebSocketSession implements Session {
 
         @Override
         public void setSendTimeout(long timeout) {
-            // TODO: 10月16日/0016 未实现socket发送超时的设置
+            // TODO: 10-16/0016 The socket send timeout setting is not implemented
             sendTimeout = timeout;
         }
 
@@ -371,7 +370,7 @@ public class WebSocketSession implements Session {
 
         @Override
         public void flushBatch() throws IOException {
-            // TODO: 10月16日/0016 未实现socket批量刷新
+            // TODO: 10-16 Failed to implement socket batch refresh
             channel.flush();
         }
 
@@ -477,7 +476,7 @@ public class WebSocketSession implements Session {
 
         @Override
         public void flushBatch() throws IOException {
-            // TODO: 10月16日/0016 未实现socket批量刷新
+            // TODO: 10-16 Failed to implement socket batch refresh
             channel.flush();
         }
 

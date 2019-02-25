@@ -2,7 +2,7 @@ package com.github.netty.protocol.nrpc.service;
 
 /**
  * rpc命令服务
- * @author acer01
+ * @author wangzihao
  * 2018/8/20/020
  */
 public class RpcCommandServiceImpl implements RpcCommandService {

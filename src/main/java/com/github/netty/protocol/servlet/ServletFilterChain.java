@@ -13,17 +13,15 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * servlet过滤链
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author 84215
+ * The servlet filter chain
+ * @author wangzihao
  */
 @sun.misc.Contended
 public class ServletFilterChain implements FilterChain,Recyclable {
 
     /**
-     * 考虑到每个请求只有一个线程处理，而且ServletContext在每次请求时都会new 一个SimpleFilterChain对象
-     * 所以这里把过滤器链的Iterator作为FilterChain的私有变量，没有线程安全问题
+     * Consider that each request is handled by only one thread, and that the ServletContext will create a new SimpleFilterChain object on each request
+     * therefore, the FilterChain's Iterator is used as a private variable of the FilterChain, without thread safety problems
      */
     private List<ServletFilterRegistration> filterRegistrationList = new ArrayList<>(16);
     private ServletRegistration servletRegistration;
@@ -48,9 +46,9 @@ public class ServletFilterChain implements FilterChain,Recyclable {
     }
 
     /**
-     * 每个Filter在处理完请求之后调用FilterChain的这个方法。
-     * 这时候应该找到下一个Filter，调用其doFilter()方法。
-     * 如果没有下一个了，应该调用servlet的service()方法了
+     * each Filter calls the FilterChain method after processing the request.
+     * this should find the next Filter, call its doFilter() method.
+     * if there is no next one, you should call the servlet's service() method
      */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
@@ -85,12 +83,12 @@ public class ServletFilterChain implements FilterChain,Recyclable {
                     listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext,request));
                 }
 
-                //回收异步请求
+                //Reclaim asynchronous requests
                 if(request instanceof ServletHttpAsyncRequest){
                     ((ServletHttpAsyncRequest)request).getAsyncContext().recycle();
                 }
 
-                //回收自身
+                //Recycling itself
                 recycle();
             }
         }

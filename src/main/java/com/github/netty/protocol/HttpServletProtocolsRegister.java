@@ -23,20 +23,14 @@ import java.util.*;
 import java.util.concurrent.Executor;
 
 /**
- * httpServlet协议注册器
- * @author acer01
+ * HttpServlet protocol registry
+ * @author wangzihao
  *  2018/11/11/011
  */
 public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = 100;
 
-    /**
-     * servlet上下文
-     */
     private final ServletContext servletContext;
-    /**
-     * https 配置信息
-     */
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
     private ChannelHandler servletHandler;
@@ -151,8 +145,6 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     @Override
     public void registerTo(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
-
-        //初始化SSL
         if (sslContextBuilder != null) {
             if(sslContext == null) {
                 sslContext = sslContextBuilder.build();
@@ -161,17 +153,17 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
             pipeline.addLast("SSL", new SslHandler(engine,true));
         }
 
-        //HTTP编码解码
+        //HTTP encoding decoding
         pipeline.addLast("HttpCodec", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
 
-        //HTTP请求聚合，设置最大消息值为 5M
+        //HTTP request aggregation, set the maximum message value to 5M
         pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength));
 
-        //内容压缩
+        //The content of compression
 //                    pipeline.addLast("ContentCompressor", new HttpContentCompressor());
 //                pipeline.addLast("ContentDecompressor", new HttpContentDecompressor());
 
-        //业务调度器, 让对应的Servlet处理请求
+        //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);
     }
 

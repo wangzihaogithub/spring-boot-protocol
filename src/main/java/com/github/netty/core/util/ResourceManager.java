@@ -10,8 +10,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * 资源管理 (注:操作的所有目录前缀都要加 /)
- * @author 84215
+ * Resource management (note: prefix all directories with/for operations)
+ * @author wangzihao
  */
 public class ResourceManager {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());

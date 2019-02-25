@@ -5,8 +5,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * RPC服务端实例
- * @author 84215
+ * RPC server instance
+ * @author wangzihao
  */
 public class RpcServerInstance {
     private Object instance;
@@ -14,15 +14,15 @@ public class RpcServerInstance {
     private DataCodec dataCodec;
 
     /**
-     * 构造方法
-     * @param instance 实现类
-     * @param dataCodec 编码解码
-     * @param methodToParameterNamesFunction 方法转参数名的函数
+     * A constructor
+     * @param instance The implementation class
+     * @param dataCodec Data encoding and decoding
+     * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
     protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction) {
         this.rpcMethodMap = RpcMethod.getMethodMap(instance.getClass(), methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
-            throw new IllegalStateException("rpc服务必须至少拥有一个方法, class=["+instance.getClass().getSimpleName()+"]");
+            throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
         this.instance = instance;
         this.dataCodec = dataCodec;
@@ -42,7 +42,7 @@ public class RpcServerInstance {
         try {
             Object[] args = dataCodec.decodeRequestData(rpcRequest.getData(),rpcMethod);
             Object result = rpcMethod.getMethod().invoke(instance, args);
-            //是否进行编码
+            //Whether to code or not
             if(result instanceof byte[]){
                 rpcResponse.setEncode(RpcResponse.ENCODE_NO);
                 rpcResponse.setData((byte[]) result);

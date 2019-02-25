@@ -6,7 +6,7 @@ import java.lang.reflect.Method;
 
 /**
  * RPC请求的信息
- * @author 84215
+ * @author wangzihao
  */
 public interface NettyRpcRequest {
     /**

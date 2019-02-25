@@ -12,13 +12,11 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 
 /**
- * servlet对象 (包含3大对象 : 请求, 响应, tcp通道 )
- *
- * @author acer01
+ * Servlet object (contains 3 big objects: request, response, TCP channel)
+ * @author wangzihao
  *  2018/8/1/001
  */
 public class ServletHttpObject implements Recyclable{
-
     private static final Recycler<ServletHttpObject> RECYCLER = new Recycler<>(ServletHttpObject::new);
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
 
@@ -37,9 +35,9 @@ public class ServletHttpObject implements Recyclable{
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(fullHttpRequest);
 
-        //创建新的servlet请求对象
+        //Create a new servlet request object
         instance.httpServletRequest = ServletHttpServletRequest.newInstance(instance,fullHttpRequest);
-        //创建新的servlet响应对象
+        //Create a new servlet response object
         instance.httpServletResponse = ServletHttpServletResponse.newInstance(instance);
         return instance;
     }
@@ -53,7 +51,7 @@ public class ServletHttpObject implements Recyclable{
     }
 
     /**
-     * 从管道中绑定的属性中获取 httpSession
+     * Get httpSession from the properties bound in the pipe
      * @return
      */
     public static ServletHttpSession getSession(ChannelHandlerContext channelHandlerContext){
@@ -67,7 +65,7 @@ public class ServletHttpObject implements Recyclable{
     }
 
     /**
-     * 把 httpSession绑定到管道属性中
+     * Bind httpSession to the pipe property
      * @param httpSession
      */
     public static void setSession(ChannelHandlerContext channelHandlerContext, ServletHttpSession httpSession){
@@ -77,7 +75,7 @@ public class ServletHttpObject implements Recyclable{
     }
 
     /**
-     * 管道是否处于活动状态
+     * Whether the pipe is active
      * @return
      */
     public static boolean isChannelActive(ChannelHandlerContext channelHandlerContext){
@@ -134,7 +132,7 @@ public class ServletHttpObject implements Recyclable{
     }
 
     /**
-     * 回收servlet对象
+     * Recycle servlet object
      */
     @Override
     public void recycle() {

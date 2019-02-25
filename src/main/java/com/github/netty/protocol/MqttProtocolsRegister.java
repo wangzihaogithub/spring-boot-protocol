@@ -24,8 +24,8 @@ import java.text.ParseException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 物联网消息传输协议
- * @author acer01
+ * Internet of things messaging protocol
+ * @author wangzihao
  *  2018/12/5/005
  */
 public class MqttProtocolsRegister extends AbstractProtocolsRegister {
@@ -54,9 +54,9 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
 
     /**
      *
-     * @param messageMaxLength 每次最大消息长度 (字节)
-     * @param nettyReaderIdleTimeSeconds 读空闲间隔 (秒)
-     * @param autoFlushIdleTime 自动刷新缓冲区间隔时间(秒). 如果大于0则开启并自动刷新, 小于等于0则每次发送都会刷新
+     * @param messageMaxLength Maximum message length per pass (bytes)
+     * @param nettyReaderIdleTimeSeconds Read idle interval (seconds)
+     * @param autoFlushIdleTime Auto refresh buffer interval (s). If greater than 0, it will be on and auto refresh. If less than or equal to 0, it will refresh every time
      */
     public MqttProtocolsRegister(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
         this.messageMaxLength = messageMaxLength;
@@ -135,7 +135,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     protected IAuthorizatorPolicy initializeAuthorizatorPolicy() {
         IAuthorizatorPolicy authorizatorPolicy;
         String aclFilePath = null;
-        if (aclFilePath == null || aclFilePath.isEmpty()) {
+        if (null == null || aclFilePath.isEmpty()) {
             authorizatorPolicy = new PermitAllAuthorizatorPolicy();
         } else {
             authorizatorPolicy = new DenyAllAuthorizatorPolicy();

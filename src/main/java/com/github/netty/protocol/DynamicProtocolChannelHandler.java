@@ -15,24 +15,24 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 
 /**
- * Created by acer01 on 2018/12/9/009.
+ * Created by wangzihao on 2018/12/9/009.
  */
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf,Object> {
     /**
-     * 协议注册器列表, 动态协议会找一个合适的协议注册到新链接上
+     * Protocol registry list, dynamic protocol will find a suitable protocol to register on the new link
      */
     private Collection<ProtocolsRegister> protocolsRegisters;
     /**
-     * 通信监控 (读写/次)
+     * Communication monitoring (read write/time)
      */
     private MessageMetricsChannelHandler messageMetricsChannelHandler;
     /**
-     * 数据包监控 (读写/字节)
+     * Packet monitoring (read write/byte)
      */
     private BytesMetricsChannelHandler bytesMetricsChannelHandler;
     /**
-     * 日志打印
+     * Log print
      */
     private LoggingHandler loggingHandler;
 

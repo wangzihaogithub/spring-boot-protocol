@@ -1,8 +1,5 @@
 package com.github.netty.core.util;
 
-/**
- * Created by acer01 on 2018/8/5/005.
- */
 import io.netty.buffer.*;
 import io.netty.channel.*;
 import io.netty.util.Attribute;
@@ -14,6 +11,7 @@ import java.net.SocketAddress;
 import java.util.Objects;
 
 /**
+ * Created by wangzihao on 2018/8/5/005.
  * A {@link ByteBufAllocator} which is partial pooled. Which means only direct {@link ByteBuf}s are pooled. The rest
  * is unpooled.
  *
@@ -24,9 +22,9 @@ public class ByteBufAllocatorX implements ByteBufAllocator {
     // We can remove this once the following netty issue is fixed:
     // See https://github.com/netty/netty/issues/2264
 
-    //池化的堆外内存分配器
+    //A pooled off-heap memory allocator
     private static final ByteBufAllocator POOLED_DIRECT = new PooledByteBufAllocator(true);
-    //非池化的堆内内存分配器
+    //A non-pooled heap memory allocator
     private static final ByteBufAllocator UNPOOLED_UNDIRECT = new UnpooledByteBufAllocator(false);
 
     public static final ByteBufAllocatorX INSTANCE = new ByteBufAllocatorX();

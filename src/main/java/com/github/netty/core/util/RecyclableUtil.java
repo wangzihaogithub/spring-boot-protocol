@@ -6,8 +6,8 @@ import io.netty.util.internal.RecyclableArrayList;
 import java.util.List;
 
 /**
- * 回收工具
- * @author 84215
+ * RecyclableUtil
+ * @author wangzihao
  */
 public class RecyclableUtil {
 

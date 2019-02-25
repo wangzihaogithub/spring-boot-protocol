@@ -21,11 +21,10 @@ import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * 轻量级容器, 支持资源注入
- * @author acer01
+ * Lightweight container that supports resource injection
+ * @author wangzihao
  *  2016/11/11/011
  *
- * 2016年11月12日 21:04:39
  */
 public class ApplicationX {
     private Collection<Class<? extends Annotation>> scannerAnnotationList = new HashSet<>(

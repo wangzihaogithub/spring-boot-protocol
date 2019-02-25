@@ -4,7 +4,7 @@ import javax.servlet.SessionCookieConfig;
 
 /**
  * 会话cookie的配置
- * @author acer01
+ * @author wangzihao
  *  2018/7/14/014
  */
 public class ServletSessionCookieConfig implements SessionCookieConfig {

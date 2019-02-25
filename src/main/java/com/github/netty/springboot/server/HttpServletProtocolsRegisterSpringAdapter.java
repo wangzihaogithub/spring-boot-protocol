@@ -38,7 +38,7 @@ import java.util.Arrays;
 /**
  * httpServlet协议注册器 （适配spring）
  *
- * @author acer01
+ * @author wangzihao
  * 2018/11/12/012
  */
 public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtocolsRegister implements BeanPostProcessor {

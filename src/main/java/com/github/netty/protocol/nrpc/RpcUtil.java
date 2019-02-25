@@ -9,15 +9,13 @@ import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
 
 /**
  *
- * @author acer01
+ * @author wangzihao
  *  2018/11/25/025
  */
 public class RpcUtil {
 
-    public static final byte[] EMPTY = new byte[0];
-
     /**
-     * 获取服务名称
+     * Get the service name
      * @param instanceClass
      */
     public static String getServiceName(Class instanceClass){
@@ -39,9 +37,9 @@ public class RpcUtil {
     }
 
     /**
-     * 该消息是否是RPC协议
-     * @param msg 消息
-     * @return true=是, false=否
+     * Whether the message is an RPC protocol
+     * @param msg message
+     * @return true=yes, false=no
      */
     public static boolean isRpcProtocols(ByteBuf msg){
         if(msg == null || msg.readableBytes() < RpcDecoder.MIN_PACKET_LENGTH){

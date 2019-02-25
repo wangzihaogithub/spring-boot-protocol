@@ -13,8 +13,8 @@ import io.netty.handler.codec.rtsp.RtspEncoder;
 
 /**
  *
- * 实时流媒体传输协议 （常用于直播，视频）
- * @author acer01
+ * Real-time streaming media transfer protocol (commonly used for live streaming, video)
+ * @author wangzihao
  *  2018/12/5/005
  */
 public class RtspProtocolsRegister extends AbstractProtocolsRegister {

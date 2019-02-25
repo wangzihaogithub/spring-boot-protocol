@@ -4,11 +4,10 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 
 /**
- * 错误页
- * @author 84215
+ * Error page
+ * @author wangzihao
  */
 public class ServletErrorPage {
-
     private final int status;
     private final Class<? extends Throwable> exception;
     private final String path;

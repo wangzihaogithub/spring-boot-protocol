@@ -8,11 +8,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * servlet会话
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- *
- * @author acer01
+ * The servlet session
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
@@ -25,7 +22,7 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
     private long creationTime;
     private long currAccessedTime;
     private long lastAccessedTime;
-    //单位 秒
+    //Unit seconds
     private int maxInactiveInterval;
     private boolean newSessionFlag;
     private AtomicInteger accessCount;
@@ -34,7 +31,7 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
 
     private Session source;
     /**
-     * servlet身份
+     * The servlet principal
      */
     private ServletPrincipal principal;
 
@@ -234,8 +231,8 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
     }
 
     /**
-     * 是否有效
-     * @return true 有效, false无效
+     * The validity of
+     * @return True is valid, false is not
      */
     public boolean isValid() {
         return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));
@@ -267,7 +264,7 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
         this.attributeMap = source.getAttributeMap();
         this.creationTime = source.getCreationTime();
         this.lastAccessedTime = source.getLastAccessedTime();
-        //单位 秒
+        //Unit seconds
         this.maxInactiveInterval = source.getMaxInactiveInterval();
         this.accessCount = new AtomicInteger(source.getAccessCount());
 

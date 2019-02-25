@@ -8,24 +8,14 @@ import java.lang.reflect.*;
 import java.util.*;
 
 /**
- * 反射工具类.
- * 提供调用getter/setter方法, 访问私有变量, 调用私有方法, 获取泛型类型Class, 被AOP过的真实类等工具函数.
- * @author acer01
- *
+ * ReflectUtil
+ * Provide utility functions for calling getter/setter methods, accessing private variables, calling private methods, getting generic type classes, real classes that have been aoped, and so on.
+ * @author wangzihao
  */
-@SuppressWarnings("rawtypes")
 public class ReflectUtil {
 
-    private static final String POINT = ".";
-	
-	private static final String SETTER_PREFIX = "set";
-
-	private static final String GETTER_PREFIX = "get";
-
-	private static final String CGLIB_CLASS_SEPARATOR = "$$";
-
 	/** Suffix for array class names: {@code "[]"}. */
-	public static final String ARRAY_SUFFIX = "[]";
+	private static final String ARRAY_SUFFIX = "[]";
 
 	/** Prefix for internal array class names: {@code "["}. */
 	private static final String INTERNAL_ARRAY_PREFIX = "[";
@@ -36,40 +26,23 @@ public class ReflectUtil {
 	/** The package separator character: {@code '.'}. */
 	private static final char PACKAGE_SEPARATOR = '.';
 
-	/** The path separator character: {@code '/'}. */
-	private static final char PATH_SEPARATOR = '/';
-
-	/** The inner class separator character: {@code '$'}. */
-	private static final char INNER_CLASS_SEPARATOR = '$';
-
-	/** The ".class" file suffix. */
-	public static final String CLASS_FILE_SUFFIX = ".class";
-	private static final Set<Class<?>> javaLanguageInterfaces;
-
-
 	/**
 	 * Map with primitive wrapper type as key and corresponding primitive
 	 * type as value, for example: Integer.class -> int.class.
 	 */
-	private static final Map<Class<?>, Class<?>> primitiveWrapperTypeMap = new IdentityHashMap<>(8);
-
-	/**
-	 * Map with primitive type as key and corresponding wrapper
-	 * type as value, for example: int.class -> Integer.class.
-	 */
-	private static final Map<Class<?>, Class<?>> primitiveTypeToWrapperMap = new IdentityHashMap<>(8);
+	private static final Map<Class<?>, Class<?>> PRIMITIVE_WRAPPER_TYPE_MAP = new IdentityHashMap<>(8);
 
 	/**
 	 * Map with primitive type name as key and corresponding primitive
 	 * type as value, for example: "int" -> "int.class".
 	 */
-	private static final Map<String, Class<?>> primitiveTypeNameMap = new HashMap<>(32);
+	private static final Map<String, Class<?>> PRIMITIVE_TYPE_NAME_MAP = new HashMap<>(32);
 
 	/**
 	 * Map with common Java language class name as key and corresponding Class as value.
 	 * Primarily for efficient deserialization of remote invocations.
 	 */
-	private static final Map<String, Class<?>> commonClassCache = new HashMap<>(64);
+	private static final Map<String, Class<?>> COMMON_CLASS_CACHE = new HashMap<>(64);
 
 	private static final ConcurrentReferenceHashMap<Integer,Method> METHOD_CACHE = new ConcurrentReferenceHashMap<>();
 
@@ -98,7 +71,7 @@ public class ReflectUtil {
 		// SHOULD sit in a package, so a length check is worthwhile.
 		if (name != null && name.length() <= 8) {
 			// Could be a primitive - likely.
-			result = primitiveTypeNameMap.get(name);
+			result = PRIMITIVE_TYPE_NAME_MAP.get(name);
 		}
 		return result;
 	}
@@ -110,7 +83,7 @@ public class ReflectUtil {
 
 		Class<?> clazz = resolvePrimitiveClassName(name);
 		if (clazz == null) {
-			clazz = commonClassCache.get(name);
+			clazz = COMMON_CLASS_CACHE.get(name);
 		}
 		if (clazz != null) {
 			return clazz;
@@ -148,7 +121,7 @@ public class ReflectUtil {
 			int lastDotIndex = name.lastIndexOf(PACKAGE_SEPARATOR);
 			if (lastDotIndex != -1) {
 				String innerClassName =
-						name.substring(0, lastDotIndex) + INNER_CLASS_SEPARATOR + name.substring(lastDotIndex + 1);
+						name.substring(0, lastDotIndex) + '$' + name.substring(lastDotIndex + 1);
 				try {
 					return Class.forName(innerClassName, false, clToUse);
 				}
@@ -283,46 +256,12 @@ public class ReflectUtil {
 	}
 
 	/**
-	 * 调用Getter方法.
-	 * 支持多级，如：对象名.对象名.方法
-	 */
-	public static Object invokeGetter(Object obj, String propertyName) {
-		Object object = obj;
-		String[] splits = propertyName.split(POINT);
-
-		for (String name :splits){
-			String getterMethodName = GETTER_PREFIX + StringUtil.capitalize(name);
-			object = invokeMethod(object, getterMethodName, new Class[] {}, new Object[] {});
-		}
-		return object;
-	}
-
-	/**
-	 * 调用Setter方法, 仅匹配方法名。
-	 * 支持多级，如：对象名.对象名.方法
-	 */
-	public static void invokeSetter(Object obj, String propertyName, Object value) {
-		Object object = obj;
-		String[] names = propertyName.split( ".");
-
-		for (int i=0; i<names.length; i++){
-			if(i<names.length-1){
-				String getterMethodName = GETTER_PREFIX + StringUtil.capitalize(names[i]);
-				object = invokeMethod(object, getterMethodName, new Class[] {}, new Object[] {});
-			}else{
-				String setterMethodName = SETTER_PREFIX + StringUtil.capitalize(names[i]);
-				invokeMethodByName(object, setterMethodName, new Object[] { value });
-			}
-		}
-	}
-
-	/**
-	 * 直接读取对象属性值, 无视private/protected修饰符, 不经过getter函数.
+	 * Read the object property values directly, ignoring the private/protected modifier, without going through the getter function.
 	 */
 	public static Object getFieldValue(final Object obj, final String fieldName) {
 		Field field = getAccessibleField(obj, fieldName);
 		if (field == null) {
-			throw new IllegalArgumentException("在 [" + obj.getClass() + "] 中，没有找到 [" + fieldName + "] 字段 ");
+			throw new IllegalArgumentException("in [" + obj.getClass() + "] ，not found [" + fieldName + "]  ");
 		}
 		Object result = null;
 		try {
@@ -334,101 +273,8 @@ public class ReflectUtil {
 	}
 
 	/**
-	 * 直接设置对象属性值, 无视private/protected修饰符, 不经过setter函数.
-	 */
-	public static void setFieldValue(final Object obj, final String fieldName, final Object value) {
-		Field field = getAccessibleField(obj, fieldName);
-		if (field == null) {
-			throw new IllegalArgumentException("在 [" + obj.getClass() + "] 中，没有找到 [" + fieldName + "] 字段 ");
-		}
-		try {
-			field.set(obj, value);
-		} catch (IllegalAccessException e) {
-			e.printStackTrace();
-		}
-	}
-
-    /**
-     * 执行任意方法一次
-     * @param obj
-     * @param methodList
-     * @param args
-     * @return
-     */
-	public static Object invokeMethodOnce(Object obj, List<Method> methodList, Object...args) {
-		try {
-			for(Method method : methodList) {
-				if(method != null) {
-					return method.invoke(obj, args);
-				}
-			}
-		} catch (Exception e) {
-		    //
-		}
-        return null;
-	}
-
-    /**
-     * 执行方法
-     * @param obj
-     * @param method
-     * @param args
-     * @return
-     */
-    public static Object invokeMethod(Object obj, Method method, Object...args) {
-        try {
-            if(method != null) {
-                return method.invoke(obj, args);
-            }
-        } catch (Exception e) {
-            //
-        }
-        return null;
-    }
-
-	/**
-	 * 直接调用对象方法, 无视private/protected修饰符.
-	 * 用于一次性调用的情况，否则应使用getAccessibleMethod()函数获得Method后反复调用.
-	 * 同时匹配方法名+参数类型，
-	 */
-	public static Object invokeMethod(final Object obj, final String methodName, final Class<?>[] parameterTypes,
-			final Object[] args) {
-		if (obj == null || methodName == null){
-			return null;
-		}
-		Method method = getAccessibleMethod(obj.getClass(), methodName, parameterTypes);
-		if (method == null) {
-			throw new IllegalArgumentException("在 [" + obj.getClass() + "] 中，没有找到 [" + methodName + "] 方法 ");
-		}
-		try {
-			return method.invoke(obj, args);
-		} catch (Exception e) {
-			String msg = "method: "+method+", obj: "+obj+", args: "+args+"";
-			throw convertReflectionExceptionToUnchecked(msg, e);
-		}
-	}
-
-	/**
-	 * 直接调用对象方法, 无视private/protected修饰符，
-	 * 用于一次性调用的情况，否则应使用getAccessibleMethodByName()函数获得Method后反复调用.
-	 * 只匹配函数名，如果有多个同名函数调用第一个。
-	 */
-	public static Object invokeMethodByName(final Object obj, final String methodName, final Object[] args) {
-		Method method = getAccessibleMethodByName(obj.getClass(), methodName, args.length);
-		if (method == null) {
-			throw new IllegalArgumentException("在 [" + obj.getClass() + "] 中，没有找到 [" + methodName + "] 方法 ");
-		}
-		try {
-			return method.invoke(obj, args);
-		} catch (Exception e) {
-			String msg = "method: "+method+", obj: "+obj+", args: "+args+"";
-			throw convertReflectionExceptionToUnchecked(msg, e);
-		}
-	}
-
-	/**
-	 * 循环向上转型, 获取对象的DeclaredField, 并强制设置为可访问.
-	 * 如向上转型到Object仍无法找到, 返回null.
+	 * Loop up to get the DeclaredField of the object and force it to be accessible.
+	 * if the Object cannot be found even if the Object is transformed upward, null will be returned.
 	 */
 	public static Field getAccessibleField(final Object obj, final String fieldName) {
 		Objects.requireNonNull(obj, "object can't be null");
@@ -436,20 +282,20 @@ public class ReflectUtil {
 		for (Class<?> superClass = obj.getClass(); superClass != Object.class; superClass = superClass.getSuperclass()) {
 			try {
 				Field field = superClass.getDeclaredField(fieldName);
-				makeAccessible(field);
+				field.setAccessible(true);
 				return field;
-			} catch (NoSuchFieldException e) {//NOSONAR
-				// Field不在当前类定义,继续向上转型
+			} catch (NoSuchFieldException ignored) {
+
 			}
 		}
 		return null;
 	}
 
 	/**
-	 * 循环向上转型, 获取对象的DeclaredMethod,并强制设置为可访问.
-	 * 如向上转型到Object仍无法找到, 返回null.
-	 * 匹配函数名+参数类型。
-	 * 用于方法需要被多次调用的情况. 先使用本函数先取得Method,然后调用Method.invoke(Object obj, Object... args)
+	 * Loop up to get the DeclaredMethod for the object and force it to be accessible.
+	 * if the Object cannot be found even if the Object is transformed upward, null will be returned.
+	 * matches function name + parameter type.
+	 Method. Invoke (Object obj, Object... The args)
 	 */
 	public static Method getAccessibleMethod(final Class clazz, final String methodName,
 			final Class<?>... parameterTypes) {
@@ -462,118 +308,14 @@ public class ReflectUtil {
 		for (Class<?> searchType = clazz; searchType != Object.class && searchType != null; searchType = searchType.getSuperclass()) {
 			try {
 				Method method = searchType.getDeclaredMethod(methodName, parameterTypes);
-				makeAccessible(method);
+				method.setAccessible(true);
 				METHOD_CACHE.put(hash,method);
 				return method;
 			} catch (NoSuchMethodException e) {
-				// Method不在当前类定义,继续向上转型
+				//
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * 循环向上转型, 获取对象的DeclaredMethod,并强制设置为可访问.
-	 * 如向上转型到Object仍无法找到, 返回null.
-	 * 只匹配函数名。
-	 * 用于方法需要被多次调用的情况. 先使用本函数先取得Method,然后调用Method.invoke(Object obj, Object... args)
-	 */
-	public static Method getAccessibleMethodByName(final Class clazz, final String methodName, int argsNum) {
-		Objects.requireNonNull(clazz, "object can't be null");
-		Objects.requireNonNull(methodName, "methodName can't be blank");
-		int hash = (clazz.getName().concat(methodName)+ argsNum).hashCode();
-		Method oldMethod = METHOD_CACHE.get(hash);
-		if(oldMethod != null){
-			return oldMethod;
-		}
-		for (Class<?> searchType = clazz; searchType != Object.class; searchType = searchType.getSuperclass()) {
-			Method[] methods = searchType.getDeclaredMethods();
-			for (Method method : methods) {
-                Class<?>[]  types = method.getParameterTypes();
-
-				if (method.getName().equals(methodName) && types.length == argsNum) {
-					makeAccessible(method);
-					METHOD_CACHE.put(hash,method);
-					return method;
-				}
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * 改变private/protected的方法为public，尽量不调用实际改动的语句，避免JDK的SecurityManager抱怨。
-	 */
-	public static void makeAccessible(Method method) {
-//		boolean accessBoolean = (!Modifier.isPublic(method.getModifiers()) || !Modifier.isPublic(method.getDeclaringClass().getModifiers())) && !method.isAccessible();
-//		if (accessBoolean) {
-			method.setAccessible(true);
-//		}
-	}
-
-	/**
-	 * 改变private/protected的成员变量为public，尽量不调用实际改动的语句，避免JDK的SecurityManager抱怨。
-	 */
-	public static void makeAccessible(Field field) {
-//	    boolean accessBoolean = (!Modifier.isPublic(field.getModifiers()) || !Modifier.isPublic(field.getDeclaringClass().getModifiers()) || Modifier.isFinal(field.getModifiers())) && !field.isAccessible();
-//		if (accessBoolean) {
-			field.setAccessible(true);
-//		}
-	}
-
-	/**
-	 * 通过反射, 获得Class定义中声明的泛型参数的类型, 注意泛型必须定义在父类处
-	 * 如无法找到, 返回Object.class.
-	 * eg.
-	 * public UserDao extends HibernateDao<User>
-	 * @param clazz The class to introspect
-	 * @return the first generic declaration, or Object.class if cannot be determined
-	 */
-	@SuppressWarnings("unchecked")
-	public static <T> Class<T> getClassGenricType(final Class clazz) {
-		return getClassGenricType(clazz, 0);
-	}
-
-	/**
-	 * 通过反射, 获得Class定义中声明的父类的泛型参数的类型.
-	 * 如无法找到, 返回Object.class.
-	 * 如public UserDao extends HibernateDao<User,Long>
-	 * @param clazz clazz The class to introspect
-	 * @param index the Index of the generic ddeclaration,start from 0.
-	 * @return the index generic declaration, or Object.class if cannot be determined
-	 */
-	private static Class getClassGenricType(final Class clazz, final int index) {
-
-		Type genType = clazz.getGenericSuperclass();
-
-		if (!(genType instanceof ParameterizedType)) {
-
-			return Object.class;
-		}
-
-		Type[] params = ((ParameterizedType) genType).getActualTypeArguments();
-
-		if (index >= params.length || index < 0) {
-			return Object.class;
-		}
-		if (!(params[index] instanceof Class)) {
-			return Object.class;
-		}
-
-		return (Class) params[index];
-	}
-
-	/**
-	 * 将反射时的checked exception转换为unchecked exception.
-	 */
-	private static RuntimeException convertReflectionExceptionToUnchecked(String msg, Exception e) {
-		if (e instanceof IllegalAccessException || e instanceof IllegalArgumentException
-				|| e instanceof NoSuchMethodException) {
-			return new IllegalArgumentException(msg, e);
-		} else if (e instanceof InvocationTargetException) {
-			return new RuntimeException(msg, ((InvocationTargetException) e).getTargetException());
-		}
-		return new RuntimeException(msg, e);
 	}
 
 	/**
@@ -586,39 +328,38 @@ public class ReflectUtil {
 		Objects.requireNonNull(clazz, "Class must not be null");
 		String className = clazz.getName();
 		int lastDotIndex = className.lastIndexOf(PACKAGE_SEPARATOR);
-		return className.substring(lastDotIndex + 1) + CLASS_FILE_SUFFIX;
+		return className.substring(lastDotIndex + 1) + ".class";
 	}
 
 	private static void registerCommonClasses(Class<?>... commonClasses) {
 		for (Class<?> clazz : commonClasses) {
-			commonClassCache.put(clazz.getName(), clazz);
+			COMMON_CLASS_CACHE.put(clazz.getName(), clazz);
 		}
 	}
 
 
 	static {
-		primitiveWrapperTypeMap.put(Boolean.class, boolean.class);
-		primitiveWrapperTypeMap.put(Byte.class, byte.class);
-		primitiveWrapperTypeMap.put(Character.class, char.class);
-		primitiveWrapperTypeMap.put(Double.class, double.class);
-		primitiveWrapperTypeMap.put(Float.class, float.class);
-		primitiveWrapperTypeMap.put(Integer.class, int.class);
-		primitiveWrapperTypeMap.put(Long.class, long.class);
-		primitiveWrapperTypeMap.put(Short.class, short.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Boolean.class, boolean.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Byte.class, byte.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Character.class, char.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Double.class, double.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Float.class, float.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Integer.class, int.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Long.class, long.class);
+		PRIMITIVE_WRAPPER_TYPE_MAP.put(Short.class, short.class);
 
 		// Map entry iteration is less expensive to initialize than forEach with lambdas
-		for (Map.Entry<Class<?>, Class<?>> entry : primitiveWrapperTypeMap.entrySet()) {
-			primitiveTypeToWrapperMap.put(entry.getValue(), entry.getKey());
+		for (Map.Entry<Class<?>, Class<?>> entry : PRIMITIVE_WRAPPER_TYPE_MAP.entrySet()) {
 			registerCommonClasses(entry.getKey());
 		}
 
 		Set<Class<?>> primitiveTypes = new HashSet<>(32);
-		primitiveTypes.addAll(primitiveWrapperTypeMap.values());
+		primitiveTypes.addAll(PRIMITIVE_WRAPPER_TYPE_MAP.values());
 		Collections.addAll(primitiveTypes, boolean[].class, byte[].class, char[].class,
 				double[].class, float[].class, int[].class, long[].class, short[].class);
 		primitiveTypes.add(void.class);
 		for (Class<?> primitiveType : primitiveTypes) {
-			primitiveTypeNameMap.put(primitiveType.getName(), primitiveType);
+			PRIMITIVE_TYPE_NAME_MAP.put(primitiveType.getName(), primitiveType);
 		}
 
 		registerCommonClasses(Boolean[].class, Byte[].class, Character[].class, Double[].class,
@@ -633,7 +374,6 @@ public class ReflectUtil {
 		Class<?>[] javaLanguageInterfaceArray = {Serializable.class, Externalizable.class,
 				Closeable.class, AutoCloseable.class, Cloneable.class, Comparable.class};
 		registerCommonClasses(javaLanguageInterfaceArray);
-		javaLanguageInterfaces = new HashSet<>(Arrays.asList(javaLanguageInterfaceArray));
 	}
 
 }

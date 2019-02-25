@@ -13,16 +13,12 @@ import java.nio.charset.Charset;
 import java.util.*;
 
 /**
- * servlet请求转发
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- *
- * @author acer01
+ * Servlet request forwarding
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
-
     private String pathInfo = null;
     private String queryString = null;
     private String requestURI = null;
@@ -37,7 +33,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
     private String forwardName;
 
     /**
-     * servlet规范要求的参数key
+     * The parameter key required by the servlet specification
      * The set of attribute names that are special for request dispatchers.
      */
     private static final String specials[] = {
@@ -49,7 +45,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
     };
 
     /**
-     * servlet规范要求的参数值
+     * The parameter values required by the servlet specification
      * Special attributes.
      */
     private final Object[] specialAttributes = new Object[specials.length];
@@ -191,7 +187,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
     }
 
     /**
-     * 解析路径
+     * Parsing path
      */
     private void decodePaths(){
         ServletContext servletContext = getServletContext();
@@ -207,14 +203,14 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
             servletPath = '/' + servletPath;
         }
 
-        //解析queryString
+        //Parsing the queryString
         int queryInx = servletPath.indexOf('?');
         if (queryInx > -1) {
             this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
             servletPath = servletPath.substring(0, queryInx);
         }
 
-        //解析requestURI, 保证 requestURI 前缀加 /
+        //Parse the requestURI and ensure that the requestURI prefix is + /
         String requestURI;
         if(existContextPath){
             requestURI = '/' + contextPath + servletPath;
@@ -224,13 +220,13 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
 
         this.servletPath = servletPath;
         this.requestURI = requestURI;
-        // 1.加上pathInfo
+        // 1.Plus the pathInfo
         this.pathInfo = null;
         this.decodePathsFlag = true;
     }
 
     /**
-     * 解析转发参数
+     * Parse forward parameter
      */
     private void decodeParameter(){
         Map<String,String[]> sourceParameterMap = super.getParameterMap();

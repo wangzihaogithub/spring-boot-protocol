@@ -1,22 +1,21 @@
 package com.github.netty.core.util;
 
 /**
- * 包装者
- *
- * @author acer01
+ * Wrapper
+ * @author wangzihao
  * 2018/7/31/031
  */
 public interface Wrapper<T> {
 
     /**
-     * 包装
-     * @param source 源对象
+     * wrap
+     * @param source source object
      */
     void wrap(T source);
 
     /**
-     * 获取源对象
-     * @return 源对象
+     * get source object
+     * @return source object
      */
     T unwrap();
 

@@ -10,8 +10,8 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.TypeParameterMatcher;
 
 /**
- *  用于兼容 netty4 与netty5
- * @author 84215
+ *  An abstract netty ChannelHandler
+ * @author wangzihao
  */
 public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());

@@ -11,16 +11,13 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * servlet 输入流
- *
- * 频繁更改, 需要cpu对齐. 防止伪共享, 需设置 : -XX:-RestrictContended
- * @author acer01
+ * The servlet input stream
+ * @author wangzihao
  *  2018/7/15/015
  */
 @sun.misc.Contended
 public class ServletInputStream extends javax.servlet.ServletInputStream implements Wrapper<ByteBuf>, Recyclable {
-
-    private AtomicBoolean closed = new AtomicBoolean(false); //输入流是否已经关闭，保证线程安全
+    private AtomicBoolean closed = new AtomicBoolean(false); //Whether the input stream has been closed to ensure thread safety
     private ByteBuf source;
     private int contentLength;
 
@@ -38,12 +35,12 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     @Override
     public int readLine(byte[] b, int off, int len) throws IOException {
         checkClosed();
-        return super.readLine(b, off, len); //模板方法，会调用当前类实现的read()方法
+        return super.readLine(b, off, len); //Template method, which invokes the read() method of the current class implementation
     }
 
     /**
-     * 本次请求没再有新的HttpContent输入，而且当前的内容全部被读完
-     * @return true=读取完毕 反之false
+     * There is no new HttpContent input for this request, and all of the current content has been read
+     * @return True = false after reading
      */
     @Override
     public boolean isFinished() {
@@ -54,7 +51,7 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     }
 
     /**
-     * 已读入至少一次HttpContent且未读取完所有内容，或者HttpContent队列非空
+     * HttpContent has been read in at least once and not all of it has been read, or the HttpContent queue is not empty
      */
     @Override
     public boolean isReady() {
@@ -66,11 +63,11 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
 
     @Override
     public void setReadListener(ReadListener readListener) {
-        // TODO: 10月16日/0016 监听写入事件
+        // TODO: 10月16日/0016 Listen for write events
     }
 
     /**
-     * 跳过n个字节
+     * Skip n bytes
      */
     @Override
     public long skip(long n) throws IOException {
@@ -81,7 +78,7 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     }
 
     /**
-     * @return 可读字节数
+     * @return Number of readable bytes
      */
     @Override
     public int available() throws IOException {
@@ -100,8 +97,8 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     }
 
     /**
-     * 尝试更新current，然后读取len个字节并复制到b中（off下标开始）
-     * @return 实际读取的字节数
+     * Try to update current, then read len bytes and copy to b (start with off subscript)
+     * @return The number of bytes actually read
      */
     @Override
     public int read(byte[] bytes, int off, int len) throws IOException {
@@ -113,18 +110,18 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
             return -1;
         }
 
-        //读取len个字节
+        //Read len bytes
         ByteBuf byteBuf = readContent(len);
-        //总共可读的字节数
+        //Total number of readable bytes
         int readableBytes = byteBuf.readableBytes();
-        //复制到bytes数组
+        //Copy to the bytes array
         byteBuf.readBytes(bytes, off, readableBytes);
-        //返回实际读取的字节数
+        //Returns the number of bytes actually read
         return readableBytes - byteBuf.readableBytes();
     }
 
     /**
-     * 尝试更新current，然后读取一个字节，并返回 ,这里虽然返回int, 但第三方框架都是按1个字节处理的,而不是4个字节
+     * Try updating current, then read a byte, and return, where int is returned, but third-party frameworks treat it as one byte instead of four
      */
     @Override
     public int read() throws IOException {
@@ -136,7 +133,7 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     }
 
     /**
-     * 从中读取length个字节
+     * Read length bytes from it
      */
     private ByteBuf readContent(int length) {
         if (length < source.readableBytes()) {

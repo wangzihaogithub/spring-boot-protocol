@@ -24,8 +24,8 @@ import io.netty.util.AttributeKey;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 通信监控 (读写/次)
- * @author acer01
+ * Communication monitoring (read write/time)
+ * @author wangzihao
  */
 @ChannelHandler.Sharable
 public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,Object> {

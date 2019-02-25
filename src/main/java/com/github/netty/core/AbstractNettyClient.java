@@ -16,9 +16,8 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 一个抽象的netty客户端
- *
- * @author acer01
+ *  An abstract netty client
+ * @author wangzihao
  *  2018/8/18/018
  */
 public abstract class AbstractNettyClient implements Runnable{

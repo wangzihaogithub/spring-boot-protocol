@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Created by acer01 on 2018/9/9/009.
+ * Created by wangzihao on 2018/9/9/009.
  */
 public class NettyThreadX extends FastThreadLocalThread {
     private List<Consumer<NettyThreadX>> threadStopListenerList;

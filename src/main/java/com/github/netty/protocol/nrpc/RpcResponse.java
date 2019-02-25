@@ -1,8 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
 /**
- * RPC响应
- * @author 84215
+ * Rpc Response
+ * @author wangzihao
  */
 public class RpcResponse {
 
@@ -12,13 +12,9 @@ public class RpcResponse {
     private byte encode;
     private byte[] data;
 
-    //正常返回
     public static final int OK = 200;
-    //找不到方法
     public static final int NO_SUCH_METHOD = 400;
-    //找不到服务
     public static final int NO_SUCH_SERVICE = 401;
-    //服务器错误
     public static final int SERVER_ERROR = 500;
 
     public static final byte ENCODE_YES = 1;
