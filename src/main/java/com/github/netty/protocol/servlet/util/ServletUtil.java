@@ -135,8 +135,8 @@ public class ServletUtil {
     }
 
     /**
-     * Decodes the specified Set-Cookie HTTP header value into a {@link io.netty.handler.codec.http.Cookie}.
-     * @return the decoded {@link io.netty.handler.codec.http.Cookie}
+     * Decodes the specified Set-Cookie HTTP header value into a
+     * @return the decoded {@link Cookie}
      */
     public static Set<Cookie> decodeCookie(String header) {
         final int headerLen = header.length();
