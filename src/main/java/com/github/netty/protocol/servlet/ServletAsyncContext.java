@@ -18,44 +18,38 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
- * 异步处理的上下文
+ * Context for asynchronous processing
  * @author wangzihao
  *  2018/7/15/015
  */
 public class ServletAsyncContext implements AsyncContext,Recyclable {
-
-    private HttpServletRequest httpServletRequest;
-    private HttpServletResponse httpServletResponse;
-    private ExecutorService executorService;
-
-    /**
-     * 是否已经回收
-     */
-    private AtomicBoolean recycleFlag = new AtomicBoolean(false);
-    /**
-     * IO线程是否执行结束
-     */
-    private AtomicBoolean ioThreadExecuteOverFlag = new AtomicBoolean(false);
-
-    /**
-     * 0=初始, 1=开始, 2=完成
-      */
-    private AtomicInteger status;
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;
     private static final int STATUS_COMPLETE = 2;
 
     /**
-     * 超时时间 -> 毫秒
+     * Has it been recycled
+     */
+    private AtomicBoolean recycleFlag = new AtomicBoolean(false);
+    /**
+     * Whether the IO thread has finished executing
+     */
+    private AtomicBoolean ioThreadExecuteOverFlag = new AtomicBoolean(false);
+    /**
+     * 0=init, 1=start, 2=complete
+      */
+    private AtomicInteger status = new AtomicInteger(STATUS_INIT);;
+    /**
+     * Timeout time -> ms
      */
     private long timeout;
-
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
-
     private ServletContext servletContext;
     private ServletHttpObject httpServletObject;
     private Throwable throwable;
-    private Runnable task;
+    private HttpServletRequest httpServletRequest;
+    private HttpServletResponse httpServletResponse;
+    private ExecutorService executorService;
 
     public ServletAsyncContext(ServletHttpObject httpServletObject, ServletContext servletContext, ExecutorService executorService, ServletRequest httpServletRequest, ServletResponse httpServletResponse) {
         this.httpServletObject = Objects.requireNonNull(httpServletObject);
@@ -63,7 +57,6 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         this.executorService = Objects.requireNonNull(executorService);
         this.httpServletRequest = (HttpServletRequest)Objects.requireNonNull(httpServletRequest);
         this.httpServletResponse = (HttpServletResponse)Objects.requireNonNull(httpServletResponse);
-        this.status = new AtomicInteger(STATUS_INIT);
     }
 
     public Throwable getThrowable() {
@@ -125,7 +118,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     @Override
     public void complete() {
         if(status.compareAndSet(STATUS_START,STATUS_COMPLETE)){
-            //通知结束
+            //Notify the end
             notifyEvent(listenerWrapper -> {
                 try {
                     AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
@@ -135,7 +128,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                 }
             });
 
-            //如果handler已经结束, 则自己进行回收
+            //If the handler has finished, recycle it yourself
             if(ioThreadExecuteOverFlag.get()) {
                 recycle();
             }
@@ -143,7 +136,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     }
 
     /**
-     * 标记主线程结束
+     * Marks the end of the main thread
      */
     public void markIoThreadOverFlag() {
         this.ioThreadExecuteOverFlag.compareAndSet(false,true);
@@ -151,7 +144,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
 
     @Override
     public void recycle(){
-        //如果未回收, 则进行回收
+        //If not, recycle
         if(recycleFlag.compareAndSet(false,true)){
             httpServletObject.recycle();
         }
@@ -160,7 +153,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     @Override
     public void start(Runnable runnable) {
         if(status.compareAndSet(STATUS_INIT,STATUS_START)){
-            task = newTaskWrapper(runnable);
+            Runnable task = newTaskWrapper(runnable);
             executorService.execute(task);
         }
     }
@@ -169,7 +162,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         return () -> {
             Future future = executorService.submit(run);
             try {
-                //通知开始
+                //Notify the start
                 notifyEvent(listenerWrapper -> {
                     AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
                     try {
@@ -182,7 +175,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                 future.get(getTimeout(), TimeUnit.MILLISECONDS);
 
             } catch (TimeoutException e) {
-                //通知超时
+                //Notice the timeout
                 notifyEvent(listenerWrapper -> {
                     try {
                         AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
@@ -197,7 +190,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                 }
                 setThrowable(throwable);
 
-                //通知异常
+                //Notify the throwable
                 notifyEvent(listenerWrapper -> {
                     AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
                     try {
@@ -246,7 +239,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     private void check() {
         if (httpServletRequest == null) {
             // AsyncContext has been recycled and should not be being used
-            throw new IllegalStateException("请求不能为空");
+            throw new IllegalStateException("The request cannot be null");
         }
     }
 
@@ -270,8 +263,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         AsyncListener asyncListener;
         ServletRequest servletRequest;
         ServletResponse servletResponse;
-
-        private ServletAsyncListenerWrapper(AsyncListener asyncListener, ServletRequest servletRequest, ServletResponse servletResponse) {
+        ServletAsyncListenerWrapper(AsyncListener asyncListener, ServletRequest servletRequest, ServletResponse servletResponse) {
             this.asyncListener = asyncListener;
             this.servletRequest = servletRequest;
             this.servletResponse = servletResponse;

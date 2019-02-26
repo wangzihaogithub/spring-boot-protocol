@@ -48,14 +48,15 @@ public class ServletErrorPage {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ServletErrorPage)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ServletErrorPage)) {
+            return false;
+        }
 
         ServletErrorPage errorPage = (ServletErrorPage) o;
-
-        if (status != errorPage.status) return false;
-        if (exception != null ? !exception.equals(errorPage.exception) : errorPage.exception != null) return false;
-        return path != null ? path.equals(errorPage.path) : errorPage.path == null;
+        return status == errorPage.status && (exception != null ? exception.equals(errorPage.exception) : errorPage.exception == null) && (path != null ? path.equals(errorPage.path) : errorPage.path == null);
     }
 
     @Override

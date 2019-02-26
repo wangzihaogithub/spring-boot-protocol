@@ -159,13 +159,13 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public long getAsyncTimeout(){
         String value = getInitParameter("asyncTimeout");
-        if(value == null){
-            return 10000;
+        if(value == null || value.isEmpty()){
+            return 30000;
         }
         try {
             return Long.parseLong(value);
         }catch (NumberFormatException e){
-            return 10000;
+            return 30000;
         }
     }
 

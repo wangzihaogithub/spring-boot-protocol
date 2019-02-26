@@ -36,10 +36,16 @@ import java.util.Map;
  * @author wangzihao
  */
 public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
-
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
+    private int maxFramePayloadLength;
 
-    private int maxFramePayloadLength =  64 * 1024;
+    public NettyRequestUpgradeStrategy() {
+        this(64 * 1024);
+    }
+
+    public NettyRequestUpgradeStrategy(int maxFramePayloadLength) {
+        this.maxFramePayloadLength = maxFramePayloadLength;
+    }
 
     @Override
     public String[] getSupportedVersions() {
@@ -88,15 +94,16 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     }
 
     /**
-     * The WebSocket handshake
-     * @param subprotocols
-     * @param maxFramePayloadLength
-     * @param userPrincipal
-     * @param negotiatedExtensions
-     * @param pathParameters
-     * @param localEndpoint
-     * @param endpointConfig
-     * @param webSocketContainer
+     *  The WebSocket handshake
+     * @param servletRequest servletRequest
+     * @param subprotocols subprotocols
+     * @param maxFramePayloadLength maxFramePayloadLength
+     * @param userPrincipal userPrincipal
+     * @param negotiatedExtensions negotiatedExtensions
+     * @param pathParameters pathParameters
+     * @param localEndpoint localEndpoint
+     * @param endpointConfig endpointConfig
+     * @param webSocketContainer webSocketContainer
      */
     protected void handshakeToWebsocket(ServletHttpServletRequest servletRequest, String subprotocols, int maxFramePayloadLength, Principal userPrincipal,
                                       List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
@@ -149,5 +156,11 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         return scheme + host + req.getRequestURI();
     }
 
+    public void setMaxFramePayloadLength(int maxFramePayloadLength) {
+        this.maxFramePayloadLength = maxFramePayloadLength;
+    }
 
+    public int getMaxFramePayloadLength() {
+        return maxFramePayloadLength;
+    }
 }

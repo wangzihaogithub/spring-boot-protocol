@@ -253,6 +253,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
      * Override the <code>getAttribute()</code> method of the wrapped request.
      *
      * @param name Name of the attribute to retrieve
+     * @return attribute
      */
     @Override
     public Object getAttribute(String name) {
@@ -272,6 +273,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
     /**
      * Override the <code>getAttributeNames()</code> method of the wrapped
      * request.
+     * @return attributeNames
      */
     @Override
     public Enumeration<String> getAttributeNames() {

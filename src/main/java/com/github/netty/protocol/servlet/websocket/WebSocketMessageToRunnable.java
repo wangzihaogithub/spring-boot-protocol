@@ -17,7 +17,6 @@ import java.util.Set;
  * @author wangzihao
  */
 public class WebSocketMessageToRunnable implements MessageToRunnable {
-
     private static final Recycler<WebsocketTask> RECYCLER = new Recycler<>(WebsocketTask::new);
 
     private MessageToRunnable parent;

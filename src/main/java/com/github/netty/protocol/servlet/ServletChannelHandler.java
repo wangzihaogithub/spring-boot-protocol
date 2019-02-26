@@ -56,7 +56,7 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
 
     /**
      * Save and clear the session
-     * @param ctx
+     * @param ctx ctx
      */
     protected void saveAndClearSession(ChannelHandlerContext ctx){
         ServletHttpSession httpSession = ServletHttpObject.getSession(ctx);

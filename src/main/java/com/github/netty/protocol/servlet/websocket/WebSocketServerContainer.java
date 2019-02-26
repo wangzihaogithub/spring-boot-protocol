@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentMap;
  * @author wangzihao
  */
 public class WebSocketServerContainer implements WebSocketContainer,ServerContainer {
-
     private final Map<Endpoint, Set<Session>> endpointSessionMap = new HashMap<>();
     private final Map<Session,Session> sessions = new ConcurrentHashMap<>();
     private final Object endPointSessionMapLock = new Object();

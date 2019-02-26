@@ -17,12 +17,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author wangzihao
  */
 public class NettyMessageToServletRunnable implements MessageToRunnable {
-
+    private static final Recycler<HttpRunnable> RECYCLER = new Recycler<>(HttpRunnable::new);
     public static final AtomicLong SERVLET_AND_FILTER_TIME = new AtomicLong();
     public static final AtomicLong SERVLET_QUERY_COUNT = new AtomicLong();
-    private ServletContext servletContext;
 
-    private static final Recycler<HttpRunnable> RECYCLER = new Recycler<>(HttpRunnable::new);
+    private ServletContext servletContext;
 
     public NettyMessageToServletRunnable(ServletContext servletContext) {
         this.servletContext = servletContext;

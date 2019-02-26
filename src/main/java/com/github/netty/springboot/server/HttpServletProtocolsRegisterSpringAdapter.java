@@ -122,7 +122,9 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * New session service
-     * @return
+     * @param properties properties
+     * @param servletContext servletContext
+     * @return SessionService
      */
     protected SessionService newSessionService(NettyProperties properties,ServletContext servletContext){
         //Composite session (default local storage)
@@ -153,9 +155,11 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * Initialize the SSL security configuration for HTTPS
-     * @param keyManagerFactory
+     * @param keyManagerFactory keyManagerFactory
+     * @param ssl ssl
+     * @param sslStoreProvider sslStoreProvider
      * @return The SSL context builder
-     * @throws Exception
+     * @throws Exception Exception
      */
     protected SslContextBuilder getSslContext(KeyManagerFactory keyManagerFactory, Ssl ssl, SslStoreProvider sslStoreProvider) throws Exception {
         SslContextBuilder builder = SslContextBuilder.forServer(keyManagerFactory);
@@ -188,10 +192,10 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * Gets a trust manager used to authenticate secure sockets.
-     * @param ssl
-     * @param sslStoreProvider
-     * @return
-     * @throws Exception
+     * @param ssl ssl
+     * @param sslStoreProvider sslStoreProvider
+     * @return TrustManagerFactory
+     * @throws Exception Exception
      */
     protected TrustManagerFactory getTrustManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
         KeyStore store;
@@ -207,10 +211,10 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * Get the key manager
-     * @param ssl
-     * @param sslStoreProvider
-     * @return
-     * @throws Exception
+     * @param ssl ssl
+     * @param sslStoreProvider sslStoreProvider
+     * @return KeyManagerFactory
+     * @throws Exception Exception
      */
     protected KeyManagerFactory getKeyManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
         KeyStore keyStore;
@@ -231,12 +235,12 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     /**
      * Load key
-     * @param type
-     * @param provider
-     * @param resource
-     * @param password
-     * @return
-     * @throws Exception
+     * @param type type
+     * @param provider provider
+     * @param resource resource
+     * @param password password
+     * @return KeyStore
+     * @throws Exception Exception
      */
     protected KeyStore loadKeyStore(String type, String provider, String resource,String password) throws Exception {
         if (resource == null) {
