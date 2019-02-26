@@ -39,14 +39,14 @@ public class NettyHttpResponse implements HttpResponse,Recyclable {
      */
     public LastHttpContent enableTransferEncodingChunked(){
         if(!isTransferEncodingChunked()){
-            HttpHeaderUtil.setTransferEncodingChunked(this,true);
+            HttpHeaderUtil.setTransferEncodingChunked(headers,true);
             lastHttpContent = new DefaultLastHttpContent(Unpooled.EMPTY_BUFFER,false);
         }
         return lastHttpContent;
     }
 
     public boolean isTransferEncodingChunked(){
-        return HttpHeaderUtil.isTransferEncodingChunked(this);
+        return HttpHeaderUtil.isTransferEncodingChunked(headers);
     }
 
     @Override

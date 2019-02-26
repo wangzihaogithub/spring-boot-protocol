@@ -257,20 +257,24 @@ public class HttpHeaderUtil {
 
     /**
      * Checks to see if the transfer encoding in a specified {@link HttpMessage} is chunked
-     *
-     * @param message The message to check
+     * @param headers The message to check
      * @return True if transfer encoding is chunked, otherwise false
      */
-    public static boolean isTransferEncodingChunked(HttpMessage message) {
-        return message.headers().contains(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED, true);
+    public static boolean isTransferEncodingChunked(HttpHeaders headers) {
+        return headers.contains(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED, true);
     }
 
-    public static void setTransferEncodingChunked(HttpMessage m, boolean chunked) {
+    /**
+     * Sets the block transport header
+     * @param headers The header of the set
+     * @param chunked Whether to block transmission, is to add header information, otherwise remove header information
+     */
+    public static void setTransferEncodingChunked(HttpHeaders headers, boolean chunked) {
         if (chunked) {
-            m.headers().add(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED);
-            m.headers().remove(HttpHeaderConstants.CONTENT_LENGTH);
+            headers.add(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED);
+            headers.remove(HttpHeaderConstants.CONTENT_LENGTH);
         } else {
-            List values = m.headers().getAll(HttpHeaderConstants.TRANSFER_ENCODING);
+            List values = headers.getAll(HttpHeaderConstants.TRANSFER_ENCODING);
             if (values.isEmpty()) {
                 return;
             }
@@ -282,9 +286,9 @@ public class HttpHeaderUtil {
                 }
             }
             if (values.isEmpty()) {
-                m.headers().remove(HttpHeaderConstants.TRANSFER_ENCODING);
+                headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
             } else {
-                m.headers().set( HttpHeaderConstants.TRANSFER_ENCODING, (Iterable) values);
+                headers.set( HttpHeaderConstants.TRANSFER_ENCODING, (Iterable) values);
             }
         }
     }

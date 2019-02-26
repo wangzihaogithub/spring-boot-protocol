@@ -147,13 +147,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     private HttpHeaders getNettyHeaders(){
-        HttpHeaders headers;
-        if(nettyResponse.isTransferEncodingChunked()){
-            headers = nettyResponse.getLastHttpContent().trailingHeaders();
-        }else {
-            headers = nettyResponse.headers();
-        }
-        return headers;
+        return nettyResponse.headers();
     }
 
     /**
