@@ -58,7 +58,7 @@ public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtoc
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if(bean instanceof AbstractServletWebServerFactory){
+        if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
             try {
                 configurableServletContext((AbstractServletWebServerFactory) bean);
             } catch (Exception e) {
