@@ -41,10 +41,8 @@ github地址 : https://github.com/wangzihaogithub
     }
 
 #### 3.启动, 已经成功替换tomcat, 切换至 NettyTcpServer!
-
-    2018-11-13 19:29:46.176  INFO 17544 --- [           main] c.g.n.e.s.ExampleApplication      : Started ExampleApplication in 1.847 seconds (JVM running for 2.988)
-    2018-11-13 19:29:46.424  INFO 17544 --- [ettyTcpServer@1] c.g.netty.springboot.NettyTcpServer      : NettyTcpServer@1 start [port = 10002, os = windows 10, pid = 17544]...
-    
+	2019-02-28 22:06:16.192  INFO 9096 --- [er-Boss-NIO-2-1] c.g.n.springboot.server.NettyTcpServer   : NettyTcpServer@1 start (port = 10004, pid = 9096, protocol = [my-protocol, http, nrpc, mqtt], os = windows 8.1) ...
+	2019-02-28 22:06:16.193  INFO 9096 --- [           main] c.g.example.ProtocolApplication10004     : Started ProtocolApplication10004 in 2.508 seconds (JVM running for 3.247)    
 ---
 
 #### 更多功能例子example-> [请点击这里查看示例代码](https://github.com/wangzihaogithub/netty-example "https://github.com/wangzihaogithub/netty-example")
