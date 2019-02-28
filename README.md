@@ -56,6 +56,6 @@ github地址 : https://github.com/wangzihaogithub
 
 ###### 例4. 协议网关, 监控各个协议的流量
 
- [点击这里跳转代码示例 netty-example]: https://github.com/wangzihaogithub/netty-example] "点击这里跳转代码示例 netty-example"
+ [点击这里跳转代码示例 netty-example]:https://github.com/wangzihaogithub/netty-example "点击这里跳转代码示例 netty-example"
 
 
