@@ -46,7 +46,7 @@ github地址 : https://github.com/wangzihaogithub
     2018-11-13 19:29:46.424  INFO 17544 --- [ettyTcpServer@1] c.g.netty.springboot.NettyTcpServer      : NettyTcpServer@1 start [port = 10002, os = windows 10, pid = 17544]...
     
     
-#### 更多功能例子
+#### 更多功能例子example  <a href="https://github.com/wangzihaogithub/netty-example" target="_blank">请点击这里查看示例代码</a>
 
 ###### 例1. 自定义传输协议
 
@@ -57,7 +57,6 @@ github地址 : https://github.com/wangzihaogithub
 ###### 例4. 协议网关, 监控各个协议的流量
 
 
-[点击这里跳转代码示例 netty-example](https://github.com/wangzihaogithub/netty-example "点击这里跳转代码示例 netty-example")
- 
+
 
 
