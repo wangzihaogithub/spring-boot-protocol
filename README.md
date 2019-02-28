@@ -48,7 +48,7 @@ github地址 : https://github.com/wangzihaogithub
     
 #### 更多功能例子example-> [请点击这里查看示例代码](https://github.com/wangzihaogithub/netty-example "https://github.com/wangzihaogithub/netty-example")
 
-##### 示例1. 自定义传输协议
+##### 示例1. 编写并添加一个自定义传输协议
 
 ##### 示例2. springcloud中替换Feign的调用方式
 
