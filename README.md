@@ -5,7 +5,7 @@ Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多�
     
     2.HttpServlet性能比tomcat的NIO高出 20%(TPS)
     
-    3.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码直接切换RPC
+    3.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码替换Feign调用
     
     4.MQTT等物联网协议可以在不依赖协议网关, 单机同时支持N种协议 (例: HTTP,MQTT,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
     
@@ -40,7 +40,22 @@ github地址 : https://github.com/wangzihaogithub
         }
     }
 
-#### 3.完成!
+#### 3.启动, 已经成功替换tomcat, 切换至 NettyTcpServer!
 
     2018-11-13 19:29:46.176  INFO 17544 --- [           main] c.g.n.e.s.ExampleApplication      : Started ExampleApplication in 1.847 seconds (JVM running for 2.988)
     2018-11-13 19:29:46.424  INFO 17544 --- [ettyTcpServer@1] c.g.netty.springboot.NettyTcpServer      : NettyTcpServer@1 start [port = 10002, os = windows 10, pid = 17544]...
+    
+    
+#### 更多功能例子
+
+###### 例1. 自定义传输协议
+
+###### 例2. springcloud中替换Feign的调用方式
+
+###### 例3. 对springboot-websocket的支持
+
+###### 例4. 协议网关, 监控各个协议的流量
+
+netty-example代码示例 [https://github.com/wangzihaogithub/netty-example] (点击这里跳转代码示例 # netty-example) 
+
+
