@@ -64,11 +64,10 @@ public abstract class AbstractNettyClient implements Runnable{
     public void setIoRatio(int ioRatio) {
         if(worker instanceof NioEventLoopGroup){
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
-            this.ioRatio = ioRatio;
         }else if(worker instanceof EpollEventLoopGroup){
             ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
-            this.ioRatio = ioRatio;
         }
+        this.ioRatio = ioRatio;
     }
 
     public void setIoThreadCount(int ioThreadCount) {
