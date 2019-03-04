@@ -52,7 +52,7 @@ public abstract class AbstractNettyClient implements Runnable{
      * @param remoteAddress 远程地址
      */
     public AbstractNettyClient(String namePre,InetSocketAddress remoteAddress) {
-        this.enableEpoll = HostUtil.isLinux() && Epoll.isAvailable();
+        this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
         this.name = NamespaceUtil.newIdName(namePre,getClass());
     }
