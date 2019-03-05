@@ -52,7 +52,7 @@ public abstract class AbstractNettyClient implements Runnable{
      * @param remoteAddress 远程地址
      */
     public AbstractNettyClient(String namePre,InetSocketAddress remoteAddress) {
-        this.enableEpoll = HostUtil.isLinux() && Epoll.isAvailable();
+        this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
         this.name = NamespaceUtil.newIdName(namePre,getClass());
     }
@@ -64,11 +64,10 @@ public abstract class AbstractNettyClient implements Runnable{
     public void setIoRatio(int ioRatio) {
         if(worker instanceof NioEventLoopGroup){
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
-            this.ioRatio = ioRatio;
         }else if(worker instanceof EpollEventLoopGroup){
             ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
-            this.ioRatio = ioRatio;
         }
+        this.ioRatio = ioRatio;
     }
 
     public void setIoThreadCount(int ioThreadCount) {
