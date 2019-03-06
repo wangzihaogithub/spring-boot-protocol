@@ -71,6 +71,7 @@
             <artifactId>spring-boot-configuration-processor</artifactId>
             <version>${spring-boot.version}</version>
             <optional>true</optional>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
