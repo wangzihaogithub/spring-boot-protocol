@@ -36,4 +36,43 @@ public interface DataCodec {
      */
     Object decodeResponseData(byte[] data);
 
+
+    /**
+     * data encode enum
+     */
+    enum Encode{
+        /**
+         * json data encode
+         */
+        JSON("json",(byte)1),
+        /**
+         * binary data encode
+         */
+        BINARY("binary",(byte) 0);
+
+        private String name;
+        private int id;
+
+        Encode(String name,int id) {
+            this.name = name;
+            this.id = id;
+        }
+
+        public static Encode indexOf(int id){
+            for(Encode encode : values()){
+                if(encode.id == id){
+                    return encode;
+                }
+            }
+            return null;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int getId() {
+            return id;
+        }
+    }
 }

@@ -11,6 +11,8 @@ public class RpcRequest {
     private String methodName;
     private byte[] data;
 
+    public static final byte RPC_TYPE = 1;
+
     public RpcRequest() {
     }
 

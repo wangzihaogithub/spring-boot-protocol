@@ -1,38 +1,53 @@
 package com.github.netty.protocol.nrpc;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.DelimiterBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 
 import java.util.function.Supplier;
 
-import static com.github.netty.core.util.IOUtil.INT_LENGTH;
-import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
-import static com.github.netty.protocol.nrpc.RpcEncoder.*;
+import static com.github.netty.core.util.IOUtil.*;
+import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
+import static com.github.netty.protocol.nrpc.RpcEncoder.RPC_CHARSET;
 
 /**
  *  RPC decoder
+ *
+ *   Request Packet (note:  1 = request type)
+ *-+------8B--------+--1B--+------2B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----2B------+-------length-------------+
+ * | header/version | type | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
+ * |   NRPC/010     |  1   |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
+ *
+ *
+ *   Response Packet (note: 2 = response type)
+ *-+------8B--------+--1B--+------2B------+-----4B-----+---1B---+--------1B------+--length--+---1B---+-----2B------+----------length----------+
+ * | header/version | type | total length | Request ID | status | message length | message  | encode | data length |         data             |
+ * |   NRPC/010     |  2   |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
+ *
  * @author wangzihao
  */
-public class RpcDecoder extends DelimiterBasedFrameDecoder {
-    public static final byte[] EMPTY = new byte[0];
+public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     /**
      * Packet minimum length
+     * ProtocolHeader(8B)  + Type(1B) + TotalLength(2B) + DataLength(2B)
      */
-    public static final int MIN_PACKET_LENGTH =
-            //Protocol header length + protocol header length + minimum length of 4 fields + terminator
-            BYTE_LENGTH + PROTOCOL_HEADER.length + INT_LENGTH * 4 + END_DELIMITER.length;
-    private Supplier pojoSupplier;
+    public static final int MIN_PACKET_LENGTH =  PROTOCOL_HEADER.length + BYTE_LENGTH + CHAR_LENGTH * 2 ;
+    private static final byte[] EMPTY = new byte[0];
 
-    public RpcDecoder(Supplier pojoSupplier) {
-        this(2 * 1024 * 1024, pojoSupplier);
+    private Supplier<RpcRequest> requestSupplier;
+    private Supplier<RpcResponse> responseSupplier;
+
+    public RpcDecoder(Supplier<RpcRequest> requestSupplier,Supplier<RpcResponse> responseSupplier) {
+        this(10 * 1024 * 1024, requestSupplier,responseSupplier);
     }
 
-    public RpcDecoder(int maxLength,Supplier pojoSupplier) {
-        super(maxLength, true, true, new ByteBuf[]{Unpooled.wrappedBuffer(END_DELIMITER)});
-        this.pojoSupplier = pojoSupplier;
+    public RpcDecoder(int maxLength,Supplier<RpcRequest> requestSupplier,Supplier<RpcResponse> responseSupplier) {
+        super(maxLength, PROTOCOL_HEADER.length + BYTE_LENGTH,CHAR_LENGTH,0,0,true);
+        this.requestSupplier = requestSupplier;
+        this.responseSupplier = responseSupplier;
     }
 
     @Override
@@ -53,67 +68,71 @@ public class RpcDecoder extends DelimiterBasedFrameDecoder {
 
     /**
      * Resolve to the entity class
-     * @param msg
+     * @param msg msg
      * @return
      */
-    private Object decodeToPojo(ByteBuf msg){
-        Object pojo = pojoSupplier.get();
+    protected Object decodeToPojo(ByteBuf msg){
+        //Skip protocol header
+        msg.skipBytes(PROTOCOL_HEADER.length);
 
-        if(pojo instanceof RpcRequest){
-            RpcRequest request = (RpcRequest) pojo;
+        byte rpcType = msg.readByte();
+        switch (rpcType){
+            case RpcRequest.RPC_TYPE:{
+                RpcRequest request = requestSupplier.get();
+                //skip total length
+                msg.skipBytes(CHAR_LENGTH);
 
-            //Skip protocol header
-            int protocolLength = msg.readByte();
-            msg.skipBytes(protocolLength);
+                //Request ID
+                request.setRequestId(msg.readInt());
 
-            //Request ID
-            request.setRequestId(msg.readInt());
+                //Request service
+                request.setServiceName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
-            //Request service
-            request.setServiceName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
+                //Request method
+                request.setMethodName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
-            //Request method
-            request.setMethodName(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
-
-            //Request data
-            int dataLength = msg.readInt();
-            if(dataLength > 0) {
-                request.setData(new byte[dataLength]);
-                msg.readBytes(request.getData());
-            }else {
-                request.setData(EMPTY);
+                //Request data
+                int dataLength = msg.readUnsignedShort();
+                if(dataLength > 0) {
+                    request.setData(new byte[dataLength]);
+                    msg.readBytes(request.getData());
+                }else {
+                    request.setData(EMPTY);
+                }
+                return request;
             }
-            return pojo;
-        }else if(pojo instanceof RpcResponse){
-            RpcResponse response = (RpcResponse) pojo;
+            case RpcResponse.RPC_TYPE:{
+                RpcResponse response = responseSupplier.get();
+                //skip total length
+                msg.skipBytes(CHAR_LENGTH);
 
-            //Skip protocol header
-            int protocolLength = msg.readByte();
-            msg.skipBytes(protocolLength);
+                //Request ID
+                response.setRequestId(msg.readInt());
 
-            //Request ID
-            response.setRequestId(msg.readInt());
+                //Response status
+                response.setStatus((int) msg.readUnsignedByte());
 
-            //Request service
-            response.setStatus(msg.readInt());
+                //Response encode
+                response.setEncode(DataCodec.Encode.indexOf(msg.readUnsignedByte()));
 
-            //Whether the data has been encoded
-            response.setEncode(msg.readByte());
+                //Response information
+                response.setMessage(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
-            //Response information
-            response.setMessage(msg.readCharSequence(msg.readInt(), RPC_CHARSET).toString());
-
-            //Request data
-            int dataLength = msg.readInt();
-            if(dataLength > 0) {
-                response.setData(new byte[dataLength]);
-                msg.readBytes(response.getData());
-            }else {
-                response.setData(EMPTY);
+                //Request data
+                int dataLength = msg.readUnsignedByte();
+                if(dataLength > 0) {
+                    response.setData(new byte[dataLength]);
+                    msg.readBytes(response.getData());
+                }else {
+                    response.setData(null);
+                }
+                return response;
             }
-            return pojo;
-        }else {
-            return null;
+            default:{
+                //Unknown type
+                msg.readerIndex(msg.readableBytes());
+                return null;
+            }
         }
     }
 

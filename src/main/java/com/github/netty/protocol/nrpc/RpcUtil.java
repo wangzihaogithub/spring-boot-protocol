@@ -46,13 +46,8 @@ public class RpcUtil {
         if(msg == null || msg.readableBytes() < RpcDecoder.MIN_PACKET_LENGTH){
             return false;
         }
-        int protocolLength = msg.getByte(0);
-        if(PROTOCOL_HEADER.length != protocolLength){
-            return false;
-        }
-
-        for(int i=0; i< protocolLength; i++) {
-            if(msg.getByte(i + 1) != PROTOCOL_HEADER[i]){
+        for(int i=0; i< PROTOCOL_HEADER.length; i++) {
+            if(msg.getByte(i) != PROTOCOL_HEADER[i]){
                 return false;
             }
         }

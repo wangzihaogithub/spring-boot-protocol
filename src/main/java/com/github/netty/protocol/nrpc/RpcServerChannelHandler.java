@@ -46,10 +46,10 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
         RpcServerInstance rpcInstance = serviceInstanceMap.get(rpcRequest.getServiceName());
         if(rpcInstance == null){
             rpcResponse = new RpcResponse(rpcRequest.getRequestId());
-            rpcResponse.setEncode(RpcResponse.ENCODE_YES);
+            rpcResponse.setEncode(DataCodec.Encode.BINARY);
             rpcResponse.setStatus(RpcResponse.NO_SUCH_SERVICE);
             rpcResponse.setMessage("not found service ["+rpcRequest.getServiceName()+"]");
-            rpcResponse.setData(dataCodec.encodeResponseData(null));
+            rpcResponse.setData(null);
         }else {
             rpcResponse = rpcInstance.invoke(rpcRequest);
         }

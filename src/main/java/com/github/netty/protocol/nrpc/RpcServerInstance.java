@@ -32,10 +32,10 @@ public class RpcServerInstance {
         RpcResponse rpcResponse = new RpcResponse(rpcRequest.getRequestId());
         RpcMethod rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
         if(rpcMethod == null) {
-            rpcResponse.setEncode(RpcResponse.ENCODE_YES);
+            rpcResponse.setEncode(DataCodec.Encode.BINARY);
             rpcResponse.setStatus(RpcResponse.NO_SUCH_METHOD);
             rpcResponse.setMessage("not found method [" + rpcRequest.getMethodName() + "]");
-            rpcResponse.setData(dataCodec.encodeResponseData(null));
+            rpcResponse.setData(null);
             return rpcResponse;
         }
 
@@ -44,10 +44,10 @@ public class RpcServerInstance {
             Object result = rpcMethod.getMethod().invoke(instance, args);
             //Whether to code or not
             if(result instanceof byte[]){
-                rpcResponse.setEncode(RpcResponse.ENCODE_NO);
+                rpcResponse.setEncode(DataCodec.Encode.BINARY);
                 rpcResponse.setData((byte[]) result);
             }else {
-                rpcResponse.setEncode(RpcResponse.ENCODE_YES);
+                rpcResponse.setEncode(DataCodec.Encode.JSON);
                 rpcResponse.setData(dataCodec.encodeResponseData(result));
             }
             rpcResponse.setStatus(RpcResponse.OK);
@@ -55,10 +55,10 @@ public class RpcServerInstance {
             return rpcResponse;
         }catch (Throwable t){
             String message = t.getMessage();
-            rpcResponse.setEncode(RpcResponse.ENCODE_YES);
+            rpcResponse.setEncode(DataCodec.Encode.BINARY);
             rpcResponse.setStatus(RpcResponse.SERVER_ERROR);
             rpcResponse.setMessage(message == null? t.toString(): message);
-            rpcResponse.setData(dataCodec.encodeResponseData(null));
+            rpcResponse.setData(null);
             return rpcResponse;
         }
     }

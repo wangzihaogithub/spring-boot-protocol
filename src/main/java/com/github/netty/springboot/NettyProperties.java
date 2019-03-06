@@ -69,9 +69,9 @@ public class NettyProperties implements Serializable{
      */
     private int rpcClientHeartIntervalSecond = 20;
     /**
-     * RPC服务端 - 每次消息最大长度 (默认2M)
+     * RPC服务端 - 每次消息最大长度 (默认10M)
      */
-    private int rpcServerMessageMaxLength = 2 * 1024 * 1024;
+    private int rpcServerMessageMaxLength = 10 * 1024 * 1024;
     /**
      * session存储 - 是否开启本地文件存储
      */

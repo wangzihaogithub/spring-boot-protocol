@@ -16,7 +16,7 @@ import java.nio.charset.Charset;
 @sun.misc.Contended
 public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
     private ServletHttpObject httpServletObject;
-    private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);;
+    private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);
     private PrintWriter writer;
 
     public ServletHttpForwardResponse(ServletHttpServletResponse response,ServletOutputStream outputStream) {

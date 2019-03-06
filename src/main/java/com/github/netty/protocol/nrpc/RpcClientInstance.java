@@ -136,7 +136,7 @@ public class RpcClientInstance implements InvocationHandler {
         }
 
         //If the server is not encoded, return directly
-        if(rpcResponse.getEncode() == RpcResponse.ENCODE_NO) {
+        if(rpcResponse.getEncode() == DataCodec.Encode.BINARY) {
             return rpcResponse.getData();
         }else {
             return dataCodec.decodeResponseData(rpcResponse.getData());

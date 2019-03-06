@@ -9,7 +9,7 @@ public class RpcResponse {
     private int requestId;
     private int status;
     private String message;
-    private byte encode;
+    private DataCodec.Encode encode;
     private byte[] data;
 
     public static final int OK = 200;
@@ -17,8 +17,7 @@ public class RpcResponse {
     public static final int NO_SUCH_SERVICE = 401;
     public static final int SERVER_ERROR = 500;
 
-    public static final byte ENCODE_YES = 1;
-    public static final byte ENCODE_NO = 0;
+    public static final byte RPC_TYPE = 2;
 
     public RpcResponse() {
     }
@@ -27,7 +26,7 @@ public class RpcResponse {
         this.requestId = requestId;
     }
 
-    public RpcResponse(int requestId, Integer status, String message, byte encode, byte[] data) {
+    public RpcResponse(int requestId, Integer status, String message, DataCodec.Encode encode, byte[] data) {
         this.requestId = requestId;
         this.status = status;
         this.message = message;
@@ -59,11 +58,11 @@ public class RpcResponse {
         this.message = message;
     }
 
-    public byte getEncode() {
+    public DataCodec.Encode getEncode() {
         return encode;
     }
 
-    public void setEncode(byte encode) {
+    public void setEncode(DataCodec.Encode encode) {
         this.encode = encode;
     }
 
@@ -85,4 +84,6 @@ public class RpcResponse {
                 ", dataLength=" + (data == null? "null":data.length) +
                 '}';
     }
+
+
 }

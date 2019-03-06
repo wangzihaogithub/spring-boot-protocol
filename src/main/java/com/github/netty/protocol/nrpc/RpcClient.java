@@ -34,7 +34,8 @@ import java.util.function.Supplier;
 public class RpcClient extends AbstractNettyClient{
     private RpcClientChannelHandler rpcClientHandler = new RpcClientChannelHandler(this::getSocketChannel);
     private RpcEncoder rpcEncoder = new RpcEncoder();
-    private Supplier rpcResponseSupplier = RpcResponse::new;
+    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
+    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
 
     private RpcCommandService rpcCommandService;
@@ -167,7 +168,7 @@ public class RpcClient extends AbstractNettyClient{
                 ChannelPipeline pipeline = ch.pipeline();
 
                 pipeline.addLast(rpcEncoder);
-                pipeline.addLast(new RpcDecoder(rpcResponseSupplier));
+                pipeline.addLast(new RpcDecoder(rpcRequestSupplier,rpcResponseSupplier));
                 pipeline.addLast(rpcClientHandler);
             }
         };
@@ -221,6 +222,17 @@ public class RpcClient extends AbstractNettyClient{
         super.stop();
         if(autoReconnectScheduledFuture != null){
             autoReconnectScheduledFuture.cancel(false);
+        }
+    }
+
+    @Override
+    protected void startAfter() {
+    }
+
+    @Override
+    protected void stopAfter(Throwable cause) {
+        if(cause != null){
+            logger.error(cause.getMessage(),cause);
         }
     }
 

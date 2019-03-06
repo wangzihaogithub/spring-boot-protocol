@@ -28,7 +28,8 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
 
     private RpcEncoder rpcEncoder = new RpcEncoder();
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-    private Supplier rpcRequestSupplier = RpcRequest::new;
+    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
+    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
@@ -67,7 +68,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     public void registerTo(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
-        pipeline.addLast(new RpcDecoder(messageMaxLength,rpcRequestSupplier));
+        pipeline.addLast(new RpcDecoder(messageMaxLength,rpcRequestSupplier,rpcResponseSupplier));
         pipeline.addLast(rpcEncoder);
         pipeline.addLast(rpcServerHandler);
     }

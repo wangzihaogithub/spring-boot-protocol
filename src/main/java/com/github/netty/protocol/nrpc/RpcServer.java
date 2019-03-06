@@ -21,7 +21,8 @@ public class RpcServer extends AbstractNettyServer{
      * RPC server side processor
      */
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-    private Supplier rpcRequestSupplier = RpcRequest::new;
+    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
+    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private RpcEncoder rpcEncoder = new RpcEncoder();
 
     public RpcServer(int port) {
@@ -67,7 +68,7 @@ public class RpcServer extends AbstractNettyServer{
             @Override
             protected void initChannel(Channel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast(new RpcDecoder(rpcRequestSupplier));
+                pipeline.addLast(new RpcDecoder(rpcRequestSupplier,rpcResponseSupplier));
                 pipeline.addLast(rpcEncoder);
                 pipeline.addLast(rpcServerHandler);
             }
