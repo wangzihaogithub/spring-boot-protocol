@@ -119,7 +119,7 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
                 response.setMessage(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
                 //Request data
-                int dataLength = msg.readUnsignedByte();
+                int dataLength = msg.readUnsignedShort();
                 if(dataLength > 0) {
                     response.setData(new byte[dataLength]);
                     msg.readBytes(response.getData());

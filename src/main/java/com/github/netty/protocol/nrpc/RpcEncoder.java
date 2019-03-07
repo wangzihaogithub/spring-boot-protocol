@@ -123,7 +123,7 @@ public class RpcEncoder extends MessageToByteEncoder {
             out.writeByte(response.getStatus());
 
             //(1 byte Unsigned) Whether the data has been encoded
-            out.writeByte(response.getEncode().getId());
+            out.writeByte(response.getEncode().getIndex());
 
             //(length byte) Response information
             out.writerIndex(out.writerIndex() + BYTE_LENGTH);

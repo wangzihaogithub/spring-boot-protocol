@@ -38,41 +38,36 @@ public interface DataCodec {
 
 
     /**
-     * data encode enum
+     * data encode enum  (note: 0=binary, 1=json)
      */
     enum Encode{
         /**
-         * json data encode
-         */
-        JSON("json",(byte)1),
-        /**
          * binary data encode
          */
-        BINARY("binary",(byte) 0);
+        BINARY(0),
+        /**
+         * json data encode
+         */
+        JSON(1);
 
-        private String name;
-        private int id;
+        private int index;
 
-        Encode(String name,int id) {
-            this.name = name;
-            this.id = id;
+        Encode(int index) {
+            this.index = index;
         }
 
-        public static Encode indexOf(int id){
+        public int getIndex() {
+            return index;
+        }
+
+        public static Encode indexOf(int index){
             for(Encode encode : values()){
-                if(encode.id == id){
+                if(encode.index == index){
                     return encode;
                 }
             }
             return null;
         }
 
-        public String getName() {
-            return name;
-        }
-
-        public int getId() {
-            return id;
-        }
     }
 }
