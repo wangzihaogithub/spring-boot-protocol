@@ -165,7 +165,7 @@ public class RpcClient extends AbstractNettyClient{
             protected void initChannel(Channel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
 
-                pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 0, idleTime));
+                pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
                 pipeline.addLast(rpcEncoder);
                 pipeline.addLast(new RpcDecoder());
                 pipeline.addLast(rpcClientHandler);
