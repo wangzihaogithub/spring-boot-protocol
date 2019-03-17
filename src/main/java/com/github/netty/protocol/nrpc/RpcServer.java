@@ -8,7 +8,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 
 import java.net.InetSocketAddress;
-import java.util.function.Supplier;
 
 /**
  * Rpc Server
@@ -21,8 +20,6 @@ public class RpcServer extends AbstractNettyServer{
      * RPC server side processor
      */
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
-    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private RpcEncoder rpcEncoder = new RpcEncoder();
 
     public RpcServer(int port) {
@@ -68,9 +65,12 @@ public class RpcServer extends AbstractNettyServer{
             @Override
             protected void initChannel(Channel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast(new RpcDecoder(rpcRequestSupplier,rpcResponseSupplier));
+                pipeline.addLast(new RpcDecoder());
                 pipeline.addLast(rpcEncoder);
                 pipeline.addLast(rpcServerHandler);
+
+                //TrafficShaping
+//                pipeline.addLast(new ChannelTrafficShapingHandler());
             }
         };
     }

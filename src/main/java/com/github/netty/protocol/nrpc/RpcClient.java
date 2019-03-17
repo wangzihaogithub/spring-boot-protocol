@@ -13,6 +13,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -24,7 +25,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * RPC client
@@ -34,10 +34,8 @@ import java.util.function.Supplier;
 public class RpcClient extends AbstractNettyClient{
     private RpcClientChannelHandler rpcClientHandler = new RpcClientChannelHandler(this::getSocketChannel);
     private RpcEncoder rpcEncoder = new RpcEncoder();
-    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
-    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
-
+    private int idleTime = 10;
     private RpcCommandService rpcCommandService;
     private RpcDBService rpcDBService;
     /**
@@ -167,8 +165,9 @@ public class RpcClient extends AbstractNettyClient{
             protected void initChannel(Channel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
 
+                pipeline.addLast("idleStateHandler", new IdleStateHandler(0, 0, idleTime));
                 pipeline.addLast(rpcEncoder);
-                pipeline.addLast(new RpcDecoder(rpcRequestSupplier,rpcResponseSupplier));
+                pipeline.addLast(new RpcDecoder());
                 pipeline.addLast(rpcClientHandler);
             }
         };

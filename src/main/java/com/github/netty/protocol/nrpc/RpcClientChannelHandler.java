@@ -13,12 +13,15 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+
 /**
  * Client handler
  * @author wangzihao
  */
 @ChannelHandler.Sharable
-public class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponse,Object> {
+public class RpcClientChannelHandler extends AbstractChannelHandler<ResponsePacket,Object> {
 
     /**
      * Request a lock map
@@ -49,13 +52,21 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponse,
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, RpcResponse rpcResponse) throws Exception {
+    protected void onMessageReceived(ChannelHandlerContext ctx, ResponsePacket rpcResponse) throws Exception {
         RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
         //If the fetch does not indicate that the timeout has occurred, it is released
         if (future == null) {
             return;
         }
         future.done(rpcResponse);
+    }
+
+    @Override
+    protected void onReaderIdle(ChannelHandlerContext ctx) {
+        //heart beat
+        RpcPacket packet = new RpcPacket(RpcPacket.PING_TYPE);
+        packet.setAck(ACK_YES);
+        ctx.writeAndFlush(packet);
     }
 
     /**

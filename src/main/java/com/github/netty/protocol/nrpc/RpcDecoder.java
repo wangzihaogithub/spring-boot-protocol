@@ -5,49 +5,51 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 
-import java.util.function.Supplier;
-
-import static com.github.netty.core.util.IOUtil.*;
+import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
+import static com.github.netty.core.util.IOUtil.CHAR_LENGTH;
 import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
 import static com.github.netty.protocol.nrpc.RpcEncoder.RPC_CHARSET;
+import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 
 /**
  *  RPC decoder
  *
  *   Request Packet (note:  1 = request type)
- *-+------8B--------+--1B--+------2B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----2B------+-------length-------------+
- * | header/version | type | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
- * |   NRPC/010     |  1   |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
- *-+----------------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
+ *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----2B------+-------length-------------+
+ * | header/version | type | ACK   | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
+ * |   NRPC/010     |  1   | 1    |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
  *
  *
  *   Response Packet (note: 2 = response type)
- *-+------8B--------+--1B--+------2B------+-----4B-----+---1B---+--------1B------+--length--+---1B---+-----2B------+----------length----------+
- * | header/version | type | total length | Request ID | status | message length | message  | encode | data length |         data             |
- * |   NRPC/010     |  2   |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
- *-+----------------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
+ *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+---1B---+--------1B------+--length--+---1B---+-----2B------+----------length----------+
+ * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
+ * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
  *
  * @author wangzihao
  */
 public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     /**
      * Packet minimum length
-     * ProtocolHeader(8B)  + Type(1B) + TotalLength(2B) + DataLength(2B)
+     * ProtocolHeader(8B)  + Type(1B) + Ack(1B) + TotalLength(2B) + DataLength(2B)
      */
-    public static final int MIN_PACKET_LENGTH =  PROTOCOL_HEADER.length + BYTE_LENGTH + CHAR_LENGTH * 2 ;
+    public static final int MIN_PACKET_LENGTH =  PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH + CHAR_LENGTH * 2 ;
     private static final byte[] EMPTY = new byte[0];
 
-    private Supplier<RpcRequest> requestSupplier;
-    private Supplier<RpcResponse> responseSupplier;
-
-    public RpcDecoder(Supplier<RpcRequest> requestSupplier,Supplier<RpcResponse> responseSupplier) {
-        this(10 * 1024 * 1024, requestSupplier,responseSupplier);
+    public RpcDecoder() {
+        this(10 * 1024 * 1024);
     }
 
-    public RpcDecoder(int maxLength,Supplier<RpcRequest> requestSupplier,Supplier<RpcResponse> responseSupplier) {
-        super(maxLength, PROTOCOL_HEADER.length + BYTE_LENGTH,CHAR_LENGTH,0,0,true);
-        this.requestSupplier = requestSupplier;
-        this.responseSupplier = responseSupplier;
+    public RpcDecoder(int maxLength) {
+        super(maxLength,
+                //  header | type | ACK
+                PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH,
+                CHAR_LENGTH,
+                0,
+                0,
+                true);
     }
 
     @Override
@@ -74,64 +76,76 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     protected Object decodeToPojo(ByteBuf msg){
         //Skip protocol header
         msg.skipBytes(PROTOCOL_HEADER.length);
+        //read total length
+        int totalLength = msg.readUnsignedShort();
 
         byte rpcType = msg.readByte();
+        byte ack = msg.readByte();
         switch (rpcType){
-            case RpcRequest.RPC_TYPE:{
-                RpcRequest request = requestSupplier.get();
-                //skip total length
-                msg.skipBytes(CHAR_LENGTH);
+            case RpcPacket.REQUEST_TYPE:{
+                RequestPacket packet = new RequestPacket();
+                //Ack
+                packet.setAck(ack);
 
                 //Request ID
-                request.setRequestId(msg.readInt());
+                packet.setRequestId(msg.readInt());
 
                 //Request service
-                request.setServiceName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
+                packet.setServiceName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
                 //Request method
-                request.setMethodName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
+                packet.setMethodName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
                 //Request data
                 int dataLength = msg.readUnsignedShort();
                 if(dataLength > 0) {
-                    request.setData(new byte[dataLength]);
-                    msg.readBytes(request.getData());
+                    packet.setData(new byte[dataLength]);
+                    msg.readBytes(packet.getData());
                 }else {
-                    request.setData(EMPTY);
+                    packet.setData(EMPTY);
                 }
-                return request;
+                return packet;
             }
-            case RpcResponse.RPC_TYPE:{
-                RpcResponse response = responseSupplier.get();
-                //skip total length
-                msg.skipBytes(CHAR_LENGTH);
+            case RpcPacket.RESPONSE_TYPE:{
+                ResponsePacket packet = new ResponsePacket();
+                //Ack
+                packet.setAck(ack);
 
                 //Request ID
-                response.setRequestId(msg.readInt());
+                packet.setRequestId(msg.readInt());
 
                 //Response status
-                response.setStatus((int) msg.readUnsignedByte());
+                packet.setStatus((int) msg.readUnsignedByte());
 
                 //Response encode
-                response.setEncode(DataCodec.Encode.indexOf(msg.readUnsignedByte()));
+                packet.setEncode(DataCodec.Encode.indexOf(msg.readUnsignedByte()));
 
                 //Response information
-                response.setMessage(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
+                packet.setMessage(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
                 //Request data
                 int dataLength = msg.readUnsignedShort();
                 if(dataLength > 0) {
-                    response.setData(new byte[dataLength]);
-                    msg.readBytes(response.getData());
+                    packet.setData(new byte[dataLength]);
+                    msg.readBytes(packet.getData());
                 }else {
-                    response.setData(null);
+                    packet.setData(null);
                 }
-                return response;
+                return packet;
             }
             default:{
-                //Unknown type
-                msg.readerIndex(msg.readableBytes());
-                return null;
+                RpcPacket packet = new RpcPacket(rpcType);
+                //ack
+                packet.setAck(ack);
+
+                //data
+                if(totalLength > 0) {
+                    packet.setData(new byte[totalLength]);
+                    msg.readBytes(packet.getData());
+                }else {
+                    packet.setData(null);
+                }
+                return packet;
             }
         }
     }

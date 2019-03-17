@@ -13,6 +13,10 @@ import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
  *  2018/11/25/025
  */
 public class RpcUtil {
+    public static final int OK = 200;
+    public static final int NO_SUCH_METHOD = 400;
+    public static final int NO_SUCH_SERVICE = 401;
+    public static final int SERVER_ERROR = 500;
 
     /**
      * Get the service name
@@ -46,7 +50,8 @@ public class RpcUtil {
         if(msg == null || msg.readableBytes() < RpcDecoder.MIN_PACKET_LENGTH){
             return false;
         }
-        for(int i=0; i< PROTOCOL_HEADER.length; i++) {
+        for(int i=0; i< 4; i++) {
+            //NPRC == NPRC
             if(msg.getByte(i) != PROTOCOL_HEADER[i]){
                 return false;
             }

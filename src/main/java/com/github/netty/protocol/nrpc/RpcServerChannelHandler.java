@@ -15,14 +15,16 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
+import static com.github.netty.protocol.nrpc.RpcPacket.*;
+import static com.github.netty.protocol.nrpc.RpcUtil.*;
+
 /**
  * Server side processor
  * @author wangzihao
  *  2018/9/16/016
  */
 @ChannelHandler.Sharable
-public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,Object> {
-
+public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
     /**
      * Data encoder decoder
      */
@@ -40,21 +42,37 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcRequest,O
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, RpcRequest rpcRequest) throws Exception {
-        RpcResponse rpcResponse;
+    protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket rpcPacket) throws Exception {
+        int packetType = rpcPacket.getPacketType();
+        switch (packetType){
+            case REQUEST_TYPE:{
+                RequestPacket request = (RequestPacket) rpcPacket;
+                ResponsePacket rpcResponse;
 
-        RpcServerInstance rpcInstance = serviceInstanceMap.get(rpcRequest.getServiceName());
-        if(rpcInstance == null){
-            rpcResponse = new RpcResponse(rpcRequest.getRequestId());
-            rpcResponse.setEncode(DataCodec.Encode.BINARY);
-            rpcResponse.setStatus(RpcResponse.NO_SUCH_SERVICE);
-            rpcResponse.setMessage("not found service ["+rpcRequest.getServiceName()+"]");
-            rpcResponse.setData(null);
-        }else {
-            rpcResponse = rpcInstance.invoke(rpcRequest);
+                RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getServiceName());
+                if(rpcInstance == null){
+                    rpcResponse = new ResponsePacket(request.getRequestId());
+                    rpcResponse.setEncode(DataCodec.Encode.BINARY);
+                    rpcResponse.setStatus(NO_SUCH_SERVICE);
+                    rpcResponse.setMessage("not found service ["+request.getServiceName()+"]");
+                    rpcResponse.setData(null);
+                }else {
+                    rpcResponse = rpcInstance.invoke(request);
+                }
+
+                if(request.getAck() == ACK_YES) {
+                    ctx.writeAndFlush(rpcResponse);
+                }
+                break;
+            }
+            default:{
+                if(rpcPacket.getAck() == ACK_YES){
+                    RpcPacket packet = new RpcPacket(PONG_TYPE);
+                    packet.setAck(ACK_NO);
+                    ctx.writeAndFlush(packet);
+                }
+            }
         }
-
-        ctx.writeAndFlush(rpcResponse);
     }
 
     @Override

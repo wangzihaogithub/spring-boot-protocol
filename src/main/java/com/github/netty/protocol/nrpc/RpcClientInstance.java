@@ -18,6 +18,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
+import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
+
 /**
  * RPC client instance
  * @author wangzihao
@@ -73,7 +78,7 @@ public class RpcClientInstance implements InvocationHandler {
             incr = new AtomicInteger();
             attr.set(incr);
         }
-        return incr.incrementAndGet();
+        return Math.abs(incr.incrementAndGet());
     }
 
     /**
@@ -117,21 +122,26 @@ public class RpcClientInstance implements InvocationHandler {
 
         Channel channel = channelSupplier.get();
 
-        byte[] requestDataBytes = dataCodec.encodeRequestData(args,rpcMethod);
-        RpcRequest rpcRequest = new RpcRequest(newRequestId(channel),serviceName,methodName,requestDataBytes);
+        RequestPacket rpcRequest = new RequestPacket();
+        rpcRequest.setRequestId(newRequestId(channel));
+        rpcRequest.setServiceName(serviceName);
+        rpcRequest.setMethodName(methodName);
+        rpcRequest.setData(dataCodec.encodeRequestData(args,rpcMethod));
+        rpcRequest.setAck(ACK_YES);
+
         RpcFuture future = new RpcFuture(rpcRequest);
         futureMap.put(rpcRequest.getRequestId(),future);
 
         channel.writeAndFlush(rpcRequest);
 
-        RpcResponse rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+        ResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
         if(rpcResponse == null){
             futureMap.remove(rpcRequest.getRequestId());
             throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], rpcRequest = ["+rpcRequest+"]",true);
         }
 
         //All states above 400 are in error
-        if(rpcResponse.getStatus() >= RpcResponse.NO_SUCH_METHOD){
+        if(rpcResponse.getStatus() >= NO_SUCH_METHOD){
             throw new RpcResponseException(rpcResponse.getStatus(),rpcResponse.getMessage(),true);
         }
 

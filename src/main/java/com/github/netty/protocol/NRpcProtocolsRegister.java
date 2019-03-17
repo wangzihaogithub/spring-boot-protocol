@@ -14,12 +14,23 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * Internal RPC protocol registry
  *
- *  |8 byte fixed protocol header | body | END\r\n END character |
+ *   Request Packet (note:  1 = request type)
+ *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----2B------+-------length-------------+
+ * | header/version | type | ACK   | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
+ * |   NRPC/010     |  1   | 1    |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
+ *
+ *
+ *   Response Packet (note: 2 = response type)
+ *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+---1B---+--------1B------+--length--+---1B---+-----2B------+----------length----------+
+ * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
+ * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
+ *
  * @author wangzihao
  * 2018/11/25/025
  */
@@ -28,8 +39,6 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
 
     private RpcEncoder rpcEncoder = new RpcEncoder();
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-    private Supplier<RpcRequest> rpcRequestSupplier = RpcRequest::new;
-    private Supplier<RpcResponse> rpcResponseSupplier = RpcResponse::new;
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
@@ -68,7 +77,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     public void registerTo(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
-        pipeline.addLast(new RpcDecoder(messageMaxLength,rpcRequestSupplier,rpcResponseSupplier));
+        pipeline.addLast(new RpcDecoder(messageMaxLength));
         pipeline.addLast(rpcEncoder);
         pipeline.addLast(rpcServerHandler);
     }

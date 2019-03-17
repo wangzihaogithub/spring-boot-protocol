@@ -92,6 +92,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
                     break;
             }
         }
+        ctx.fireUserEventTriggered(evt);
     }
 
     protected void onAllIdle(ChannelHandlerContext ctx){

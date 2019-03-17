@@ -9,19 +9,21 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 
 /**
  * Simple Future
  * @author wangzihao
  */
 public class RpcFuture {
-    private RpcResponse rpcResponse;
+    private ResponsePacket rpcResponse;
     public long beginTime;
     private final Lock lock = new ReentrantLock();
     private final Condition done = lock.newCondition();
-    private RpcRequest rpcRequest;
+    private RequestPacket rpcRequest;
 
-    public RpcFuture(RpcRequest rpcRequest) {
+    public RpcFuture(RequestPacket rpcRequest) {
         this.rpcRequest = rpcRequest;
     }
 
@@ -31,12 +33,14 @@ public class RpcFuture {
      * @param timeUnit timeUnit
      * @return RpcResponse
      */
-    public RpcResponse get(int timeout, TimeUnit timeUnit) {
+    public ResponsePacket get(int timeout, TimeUnit timeUnit) {
         TOTAL_INVOKE_COUNT.incrementAndGet();
         //Spin, because if it's a local RPC call, it's too fast and there's no need to jam
         int spinCount = CoreConstants.getRpcLockSpinCount();
-        for (int i=0; rpcResponse == null && i<spinCount; i++){
-            //
+        if(spinCount > 0) {
+            for (int i = 0; rpcResponse == null && i < spinCount; i++) {
+                Thread.yield();
+            }
         }
 
         beginTime = System.currentTimeMillis();
@@ -66,7 +70,7 @@ public class RpcFuture {
      * Has been completed
      * @param rpcResponse rpcResponse
      */
-    public void done(RpcResponse rpcResponse){
+    public void done(ResponsePacket rpcResponse){
         this.lock.lock();
         try {
             this.rpcResponse = rpcResponse;

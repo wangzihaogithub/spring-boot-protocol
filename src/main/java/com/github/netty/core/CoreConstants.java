@@ -10,7 +10,7 @@ public class CoreConstants {
     private static int recyclerCount;
 
     static {
-        rpcLockSpinCount = SystemPropertyUtil.getInt("netty-core.rpcLockSpinCount",150);
+        rpcLockSpinCount = SystemPropertyUtil.getInt("netty-core.rpcLockSpinCount",0);
         recyclerCount = SystemPropertyUtil.getInt("netty-core.recyclerCount",30);
     }
 

@@ -4,6 +4,10 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.function.Function;
 
+import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+import static com.github.netty.protocol.nrpc.RpcUtil.*;
+
 /**
  * RPC server instance
  * @author wangzihao
@@ -28,12 +32,12 @@ public class RpcServerInstance {
         this.dataCodec = dataCodec;
     }
 
-    public RpcResponse invoke(RpcRequest rpcRequest){
-        RpcResponse rpcResponse = new RpcResponse(rpcRequest.getRequestId());
+    public ResponsePacket invoke(RequestPacket rpcRequest){
+        ResponsePacket rpcResponse = new ResponsePacket(rpcRequest.getRequestId());
         RpcMethod rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
         if(rpcMethod == null) {
             rpcResponse.setEncode(DataCodec.Encode.BINARY);
-            rpcResponse.setStatus(RpcResponse.NO_SUCH_METHOD);
+            rpcResponse.setStatus(NO_SUCH_METHOD);
             rpcResponse.setMessage("not found method [" + rpcRequest.getMethodName() + "]");
             rpcResponse.setData(null);
             return rpcResponse;
@@ -50,13 +54,13 @@ public class RpcServerInstance {
                 rpcResponse.setEncode(DataCodec.Encode.JSON);
                 rpcResponse.setData(dataCodec.encodeResponseData(result));
             }
-            rpcResponse.setStatus(RpcResponse.OK);
+            rpcResponse.setStatus(OK);
             rpcResponse.setMessage("ok");
             return rpcResponse;
         }catch (Throwable t){
             String message = t.getMessage();
             rpcResponse.setEncode(DataCodec.Encode.BINARY);
-            rpcResponse.setStatus(RpcResponse.SERVER_ERROR);
+            rpcResponse.setStatus(SERVER_ERROR);
             rpcResponse.setMessage(message == null? t.toString(): message);
             rpcResponse.setData(null);
             return rpcResponse;
