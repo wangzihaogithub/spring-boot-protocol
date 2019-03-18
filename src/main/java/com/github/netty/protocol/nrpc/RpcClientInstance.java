@@ -6,7 +6,6 @@ import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
-import io.netty.channel.socket.SocketChannel;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
@@ -16,12 +15,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
-import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
-import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
-import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.*;
 import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
+import static com.github.netty.protocol.nrpc.RpcClientChannelHandler.FUTURE_MAP_ATTR;
 
 /**
  * RPC client instance
@@ -41,30 +38,24 @@ public class RpcClientInstance implements InvocationHandler {
      */
     private DataCodec dataCodec;
     /**
-     * Get connected
+     * Channel
      */
-    private Supplier<SocketChannel> channelSupplier;
-    /**
-     * Request a lock
-     */
-    private Map<Integer,RpcFuture> futureMap;
+    private Channel channel;
 
     private Map<String,RpcMethod> rpcMethodMap;
 
     protected RpcClientInstance(int timeout, String serviceName,
-                                Supplier<SocketChannel> channelSupplier,
+                                Channel channel,
                                 DataCodec dataCodec,
-                                Class interfaceClass, Function<Method,String[]> methodToParameterNamesFunction,
-                                Map<Integer,RpcFuture> futureMap) {
+                                Class interfaceClass, Function<Method,String[]> methodToParameterNamesFunction) {
         this.rpcMethodMap = RpcMethod.getMethodMap(interfaceClass,methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("The RPC service interface must have at least one method, class=["+interfaceClass.getSimpleName()+"]");
         }
         this.timeout = timeout;
         this.serviceName = serviceName;
-        this.channelSupplier = channelSupplier;
+        this.channel = channel;
         this.dataCodec = dataCodec;
-        this.futureMap = futureMap;
     }
 
     /**
@@ -120,7 +111,7 @@ public class RpcClientInstance implements InvocationHandler {
             return method.invoke(this,args);
         }
 
-        Channel channel = channelSupplier.get();
+        Channel channel = this.channel;
 
         RequestPacket rpcRequest = new RequestPacket();
         rpcRequest.setRequestId(newRequestId(channel));
@@ -128,6 +119,8 @@ public class RpcClientInstance implements InvocationHandler {
         rpcRequest.setMethodName(methodName);
         rpcRequest.setData(dataCodec.encodeRequestData(args,rpcMethod));
         rpcRequest.setAck(ACK_YES);
+
+        Map<Integer,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
 
         RpcFuture future = new RpcFuture(rpcRequest);
         futureMap.put(rpcRequest.getRequestId(),future);

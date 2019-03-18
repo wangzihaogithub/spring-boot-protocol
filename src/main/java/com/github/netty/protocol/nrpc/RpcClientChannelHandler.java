@@ -1,17 +1,13 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.AbstractChannelHandler;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.*;
+import io.netty.util.AttributeKey;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
 import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
@@ -26,33 +22,38 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<ResponsePack
     /**
      * Request a lock map
      */
-    private Map<Integer,RpcFuture> futureMap;
+    protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
     /**
-     * Get connected
+     * Channel
      */
-    private Supplier<SocketChannel> channelSupplier;
+    private Channel channel;
     /**
      * Data encoder decoder
      */
     private DataCodec dataCodec;
 
-    public RpcClientChannelHandler(Supplier<SocketChannel> channelSupplier) {
-        this(channelSupplier, new JsonDataCodec());
+    public RpcClientChannelHandler(Channel channel) {
+        this(channel, new JsonDataCodec());
     }
 
-    public RpcClientChannelHandler(Supplier<SocketChannel> channelSupplier, DataCodec dataCodec) {
-        this.channelSupplier = Objects.requireNonNull(channelSupplier);
+    public RpcClientChannelHandler(Channel channel, DataCodec dataCodec) {
+        this.channel = Objects.requireNonNull(channel);
+
         this.dataCodec = dataCodec;
         try {
             //For 4.0.x version to 4.1.x version adaptation
-            this.futureMap = intObjectHashMapConstructor != null? (Map<Integer, RpcFuture>) intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64);
+            channel.attr(FUTURE_MAP_ATTR).set(
+                    intObjectHashMapConstructor != null?
+                            (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
         } catch (Exception e) {
-            this.futureMap = new HashMap<>(64);
+            channel.attr(FUTURE_MAP_ATTR).set(new HashMap<>(64));
         }
     }
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, ResponsePacket rpcResponse) throws Exception {
+        Map<Integer,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
+
         RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
         //If the fetch does not indicate that the timeout has occurred, it is released
         if (future == null) {
@@ -66,20 +67,12 @@ public class RpcClientChannelHandler extends AbstractChannelHandler<ResponsePack
         //heart beat
         RpcPacket packet = new RpcPacket(RpcPacket.PING_TYPE);
         packet.setAck(ACK_YES);
-        ctx.writeAndFlush(packet);
-    }
+        ctx.writeAndFlush(packet).addListener(new ChannelFutureListener() {
+            @Override
+            public void operationComplete(ChannelFuture future) throws Exception {
 
-    /**
-     * New implementation class
-     * @param timeout timeout
-     * @param serviceName serviceName
-     * @param interfaceClass Interface class
-     * @param methodToParameterNamesFunction Method to a function with a parameter name
-     * @return Interface implementation class
-     */
-    public RpcClientInstance newInstance(int timeout, String serviceName, Class interfaceClass, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,channelSupplier,dataCodec,interfaceClass,methodToParameterNamesFunction,futureMap);
-        return rpcInstance;
+            }
+        });
     }
 
     private static Constructor<?> intObjectHashMapConstructor;

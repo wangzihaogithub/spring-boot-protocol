@@ -1,6 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.Protocol;
+import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.ReflectUtil;
@@ -9,22 +10,22 @@ import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.service.RpcCommandService;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
+import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.AttributeKey;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
 
 /**
  * RPC client
@@ -32,7 +33,11 @@ import java.util.function.Function;
  *  2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient{
-    private RpcClientChannelHandler rpcClientHandler = new RpcClientChannelHandler(this::getSocketChannel);
+    /**
+     * Request a lock map
+     */
+    protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
+
     private RpcEncoder rpcEncoder = new RpcEncoder();
     private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
     private int idleTime = 10;
@@ -51,6 +56,8 @@ public class RpcClient extends AbstractNettyClient{
      */
     private ScheduledFuture<?> autoReconnectScheduledFuture;
 
+    private DataCodec dataCodec;
+
     public RpcClient(String remoteHost, int remotePort) {
         this(new InetSocketAddress(remoteHost, remotePort));
     }
@@ -62,6 +69,7 @@ public class RpcClient extends AbstractNettyClient{
     public RpcClient(String namePre, InetSocketAddress remoteAddress) {
         super(namePre + Thread.currentThread().getName()+"-", remoteAddress);
         this.thread = Thread.currentThread();
+        this.dataCodec = new JsonDataCodec();
     }
 
     /**
@@ -125,7 +133,9 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = rpcClientHandler.newInstance(timeout,serviceName,clazz,methodToParameterNamesFunction);
+        Channel channel = getSocketChannel();
+        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,channel,
+                dataCodec,clazz,methodToParameterNamesFunction);
         rpcInstanceMap.put(serviceName,rpcInstance);
         Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
         return (T) instance;
@@ -140,7 +150,9 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public RpcClientInstance newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = rpcClientHandler.newInstance(timeout,serviceName,clazz,methodToParameterNamesFunction);
+        Channel channel = getSocketChannel();
+        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,channel,
+                dataCodec,clazz,methodToParameterNamesFunction);
         rpcInstanceMap.put(serviceName,rpcInstance);
         return rpcInstance;
     }
@@ -162,13 +174,17 @@ public class RpcClient extends AbstractNettyClient{
     protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
         return new ChannelInitializer<Channel>() {
             @Override
-            protected void initChannel(Channel ch) throws Exception {
-                ChannelPipeline pipeline = ch.pipeline();
+            protected void initChannel(Channel channel) throws Exception {
+                ChannelPipeline pipeline = channel.pipeline();
+                //For 4.0.x version to 4.1.x version adaptation
+                channel.attr(FUTURE_MAP_ATTR).set(
+                        intObjectHashMapConstructor != null?
+                                (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
 
                 pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
                 pipeline.addLast(rpcEncoder);
                 pipeline.addLast(new RpcDecoder());
-                pipeline.addLast(rpcClientHandler);
+                pipeline.addLast(new RpcClientChannelHandler());
             }
         };
     }
@@ -296,4 +312,44 @@ public class RpcClient extends AbstractNettyClient{
                 '}';
     }
 
+
+    public class RpcClientChannelHandler extends AbstractChannelHandler<RpcPacket.ResponsePacket,Object> {
+        public RpcClientChannelHandler() {}
+
+        @Override
+        protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket.ResponsePacket rpcResponse) throws Exception {
+            Map<Integer,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
+
+            RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
+            //If the fetch does not indicate that the timeout has occurred, it is released
+            if (future == null) {
+                return;
+            }
+            future.done(rpcResponse);
+        }
+
+        @Override
+        protected void onReaderIdle(ChannelHandlerContext ctx) {
+            //heart beat
+            RpcPacket packet = new RpcPacket(RpcPacket.PING_TYPE);
+            packet.setAck(ACK_YES);
+            ctx.writeAndFlush(packet).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+
+                }
+            });
+        }
+    }
+
+    private static Constructor<?> intObjectHashMapConstructor;
+    static {
+        try {
+            Class<?> intObjectHashMapClass = Class.forName("io.netty.util.collection.IntObjectHashMap");
+            Constructor constructor = intObjectHashMapClass.getConstructor(int.class);
+            intObjectHashMapConstructor = constructor;
+        } catch (Exception e) {
+            intObjectHashMapConstructor = null;
+        }
+    }
 }
