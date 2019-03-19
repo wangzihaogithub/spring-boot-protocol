@@ -6,7 +6,6 @@ import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFutureListener;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -15,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
 import static com.github.netty.protocol.nrpc.RpcClient.REQUEST_ID_INCR_ATTR;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
@@ -96,28 +94,11 @@ public class RpcClientInstance implements InvocationHandler {
             return this.equals(args[0]);
         }
 
-        RpcMethod rpcMethod = rpcMethodMap.get(methodName);
-        if(rpcMethod == null){
-            return method.invoke(this,args);
-        }
-
-        Channel channel = channelSupplier.get();
-
-        RequestPacket rpcRequest = new RequestPacket();
-        rpcRequest.setRequestId(newRequestId(channel));
-        rpcRequest.setServiceName(serviceName);
-        rpcRequest.setMethodName(methodName);
-        rpcRequest.setData(dataCodec.encodeRequestData(args,rpcMethod));
-        rpcRequest.setAck(ACK_YES);
-
-        RpcFuture future = new RpcFuture(rpcRequest);
-        channel.attr(FUTURE_MAP_ATTR).get().put(rpcRequest.getRequestId(),future);
-        channel.writeAndFlush(rpcRequest).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
-
+        RpcFuture future = invoke(methodName,args);
         ResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
         if(rpcResponse == null){
-            channel.attr(FUTURE_MAP_ATTR).get().remove(rpcRequest.getRequestId());
-            throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], rpcRequest = ["+rpcRequest+"]",true);
+            future.cancel();
+            throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], ["+future+"]", true);
         }
 
         //All states above 400 are in error
@@ -131,6 +112,27 @@ public class RpcClientInstance implements InvocationHandler {
         }else {
             return dataCodec.decodeResponseData(rpcResponse.getData());
         }
+    }
+
+    public RpcFuture invoke(String methodName,Object[] args) {
+        RpcMethod rpcMethod = rpcMethodMap.get(methodName);
+        if(rpcMethod == null){
+            return null;
+        }
+
+        Channel channel = channelSupplier.get();
+
+        RequestPacket rpcRequest = new RequestPacket();
+        rpcRequest.setRequestId(newRequestId(channel));
+        rpcRequest.setServiceName(serviceName);
+        rpcRequest.setMethodName(methodName);
+        rpcRequest.setData(dataCodec.encodeRequestData(args,rpcMethod));
+        rpcRequest.setAck(ACK_YES);
+        return new RpcFuture(rpcRequest,channel);
+    }
+
+    public int getTimeout() {
+        return timeout;
     }
 
     @Override

@@ -15,7 +15,6 @@ import java.net.InetSocketAddress;
  *  2018/8/18/018
  */
 public class RpcServer extends AbstractNettyServer{
-
     /**
      * RPC server side processor
      */

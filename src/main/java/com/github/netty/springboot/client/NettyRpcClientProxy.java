@@ -33,12 +33,8 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private Class<?> interfaceClass;
     private NettyProperties properties;
     private NettyRpcLoadBalanced loadBalanced;
-    private FastThreadLocal<Map<InetSocketAddress,RpcClient>> clientMapThreadLocal = new FastThreadLocal<Map<InetSocketAddress,RpcClient>>(){
-        @Override
-        protected Map<InetSocketAddress,RpcClient> initialValue() throws Exception {
-            return new HashMap<>(5);
-        }
-    };
+    private Map<InetSocketAddress,RpcClient> clientMap = new HashMap<>(5);
+
     private FastThreadLocal<DefaultNettyRpcRequest> requestThreadLocal = new FastThreadLocal<DefaultNettyRpcRequest>(){
         @Override
         protected DefaultNettyRpcRequest initialValue() throws Exception {
@@ -115,8 +111,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
      * @return
      */
     private RpcClient getClient(InetSocketAddress address){
-        Map<InetSocketAddress,RpcClient> rpcClientMap = clientMapThreadLocal.get();
-        RpcClient rpcClient = rpcClientMap.get(address);
+        RpcClient rpcClient = clientMap.get(address);
         if(rpcClient == null) {
             rpcClient = new RpcClient(address);
             rpcClient.setSocketChannelCount(1);
@@ -125,7 +120,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
             if (properties.isEnablesRpcClientAutoReconnect()) {
                 rpcClient.enableAutoReconnect(properties.getRpcClientHeartIntervalSecond(), TimeUnit.SECONDS,null, properties.isEnableRpcHeartLog());
             }
-            rpcClientMap.put(address,rpcClient);
+            clientMap.put(address,rpcClient);
         }
         return rpcClient;
     }
@@ -151,10 +146,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
     }
 
-    private InetSocketAddress chooseAddress(NettyRpcRequest request){
+    private InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){
         InetSocketAddress address;
         try {
             address = loadBalanced.chooseAddress(request);
+            request.args = null;
+            request.method = null;
         }catch (Exception e){
             throw new RpcConnectException("Failed to select client address",e);
         }

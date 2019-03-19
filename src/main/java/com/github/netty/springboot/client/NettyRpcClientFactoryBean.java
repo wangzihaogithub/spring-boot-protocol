@@ -47,7 +47,7 @@ public class NettyRpcClientFactoryBean implements FactoryBean<Object>, Initializ
                     try {
                         nettyRpcClientProxy.pingOnceAfterDestroy();
                     }catch (RpcException e){
-                        logger.error("Unable to connect to remote address " + e.toString());
+                        logger.error(e.getMessage());
                     }finally {
                         oncePingFlag = null;
                     }

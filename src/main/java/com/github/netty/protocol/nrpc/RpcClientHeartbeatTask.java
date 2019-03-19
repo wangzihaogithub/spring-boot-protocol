@@ -96,11 +96,12 @@ public class RpcClientHeartbeatTask implements Runnable{
      * @return The success of
      */
     private boolean reconnect(String causeMessage){
-        int count = ++reconnectCount;
+        ++reconnectCount;
         boolean success = rpcClient.connect();
-        logger.info("Rpc reconnect={}, clientCount={}, info={}",
+        logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
                 success? "success! ":"fail",
-                count,
+                reconnectCount,
+                rpcClient.getActiveSocketChannelCount(),
                 causeMessage);
         if (success) {
             reconnectCount = 0;
@@ -134,7 +135,6 @@ public class RpcClientHeartbeatTask implements Runnable{
                     //
                 }
             }
-            reconnect(e.getMessage());
         }catch (Exception e){
             logger.error(e.getMessage(),e);
         }
@@ -221,17 +221,15 @@ public class RpcClientHeartbeatTask implements Runnable{
     static {
         long heartIntervalSecond = SystemPropertyUtil.getLong("netty-rpc.heartIntervalSecond",5L);
         getSchedulePool().scheduleWithFixedDelay(()->{
-            while (true) {
-                try {
-                    RpcClientHeartbeatTask sourceTask = TASK_QUEUE.take();
-                    if(!TASK_QUEUE.contains(sourceTask)) {
-                        RpcClientHeartbeatTask task = chooseTask(sourceTask);
-                        task.scheduleCount.incrementAndGet();
-                        task.run();
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+            try {
+                RpcClientHeartbeatTask sourceTask = TASK_QUEUE.take();
+                if(!TASK_QUEUE.contains(sourceTask)) {
+                    RpcClientHeartbeatTask task = chooseTask(sourceTask);
+                    task.scheduleCount.incrementAndGet();
+                    task.run();
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         },heartIntervalSecond,heartIntervalSecond,TimeUnit.SECONDS);
     }
