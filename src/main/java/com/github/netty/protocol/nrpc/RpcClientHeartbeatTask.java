@@ -98,9 +98,9 @@ public class RpcClientHeartbeatTask implements Runnable{
     private boolean reconnect(String causeMessage){
         int count = ++reconnectCount;
         boolean success = rpcClient.connect();
-        logger.info("Second [{}]disconnect reconnect :{}, reconnect reason[{}]",
+        logger.info("Rpc reconnect={}, clientCount={}, info={}",
+                success? "success! ":"fail",
                 count,
-                success? "succeeded! maintain" + rpcClient.getActiveSocketChannelCount()+"connections":"failed",
                 causeMessage);
         if (success) {
             reconnectCount = 0;

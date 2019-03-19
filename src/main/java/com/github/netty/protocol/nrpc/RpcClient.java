@@ -19,9 +19,13 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -37,6 +41,10 @@ public class RpcClient extends AbstractNettyClient{
      * Request a lock map
      */
     protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
+    /**
+     * Generate request id
+     */
+    protected static final AttributeKey<AtomicInteger> REQUEST_ID_INCR_ATTR = AttributeKey.valueOf(AtomicInteger.class+"#AtomicInteger");
 
     private RpcEncoder rpcEncoder = new RpcEncoder();
     private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
@@ -70,6 +78,10 @@ public class RpcClient extends AbstractNettyClient{
         super(namePre + Thread.currentThread().getName()+"-", remoteAddress);
         this.thread = Thread.currentThread();
         this.dataCodec = new JsonDataCodec();
+    }
+
+    public void setIdleTime(int idleTime) {
+        this.idleTime = idleTime;
     }
 
     /**
@@ -133,9 +145,8 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        Channel channel = getSocketChannel();
-        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,channel,
-                dataCodec,clazz,methodToParameterNamesFunction);
+        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName, this::getSocketChannel,
+                dataCodec, clazz, methodToParameterNamesFunction);
         rpcInstanceMap.put(serviceName,rpcInstance);
         Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
         return (T) instance;
@@ -150,8 +161,7 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public RpcClientInstance newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        Channel channel = getSocketChannel();
-        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,channel,
+        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,this::getSocketChannel,
                 dataCodec,clazz,methodToParameterNamesFunction);
         rpcInstanceMap.put(serviceName,rpcInstance);
         return rpcInstance;
@@ -177,9 +187,9 @@ public class RpcClient extends AbstractNettyClient{
             protected void initChannel(Channel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
                 //For 4.0.x version to 4.1.x version adaptation
-                channel.attr(FUTURE_MAP_ATTR).set(
-                        intObjectHashMapConstructor != null?
+                channel.attr(FUTURE_MAP_ATTR).set(intObjectHashMapConstructor != null?
                                 (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
+                channel.attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
 
                 pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
                 pipeline.addLast(rpcEncoder);
@@ -313,9 +323,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
 
-    public class RpcClientChannelHandler extends AbstractChannelHandler<RpcPacket.ResponsePacket,Object> {
-        public RpcClientChannelHandler() {}
-
+    public static class RpcClientChannelHandler extends AbstractChannelHandler<RpcPacket.ResponsePacket,Object> {
         @Override
         protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket.ResponsePacket rpcResponse) throws Exception {
             Map<Integer,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
@@ -333,12 +341,7 @@ public class RpcClient extends AbstractNettyClient{
             //heart beat
             RpcPacket packet = new RpcPacket(RpcPacket.PING_TYPE);
             packet.setAck(ACK_YES);
-            ctx.writeAndFlush(packet).addListener(new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-
-                }
-            });
+            ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
     }
 

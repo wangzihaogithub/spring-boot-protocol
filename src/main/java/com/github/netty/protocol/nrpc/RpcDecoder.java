@@ -33,9 +33,9 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     /**
      * Packet minimum length
-     * ProtocolHeader(8B)  + Type(1B) + Ack(1B) + TotalLength(2B) + DataLength(2B)
+     * ProtocolHeader(8B)  + Type(1B) + Ack(1B) + TotalLength(2B)
      */
-    public static final int MIN_PACKET_LENGTH =  PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH + CHAR_LENGTH * 2 ;
+    public static final int MIN_PACKET_LENGTH =  PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH + CHAR_LENGTH;
     private static final byte[] EMPTY = new byte[0];
 
     public RpcDecoder() {
@@ -76,11 +76,13 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     protected Object decodeToPojo(ByteBuf msg){
         //Skip protocol header
         msg.skipBytes(PROTOCOL_HEADER.length);
-        //read total length
-        int totalLength = msg.readUnsignedShort();
 
         byte rpcType = msg.readByte();
         byte ack = msg.readByte();
+
+        //read total length
+        int totalLength = msg.readUnsignedShort();
+
         switch (rpcType){
             case RpcPacket.REQUEST_TYPE:{
                 RequestPacket packet = new RequestPacket();

@@ -38,7 +38,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
      * protocol header
      * Fixed 8 length
      */
-    public static final byte[] PROTOCOL_HEADER = new byte[]{'N','R','P','C','/',0,1,0};
+    public static final byte[] PROTOCOL_HEADER = new byte[]{'N','R','P','C','/',RpcVersion.V2_0_1.index(),0,0};
     public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
     /**
      * Fixed request length (note : Not including the total length.)
@@ -161,7 +161,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.writeByte(packet.getStatus());
 
         //(1 byte Unsigned) Whether the data has been encoded
-        out.writeByte(packet.getEncode().getIndex());
+        out.writeByte(packet.getEncode().index());
 
         //(length byte) Response information
         out.writerIndex(out.writerIndex() + BYTE_LENGTH);

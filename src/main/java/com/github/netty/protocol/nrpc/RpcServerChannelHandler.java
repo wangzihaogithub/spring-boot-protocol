@@ -2,21 +2,18 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
-import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.lang.reflect.Method;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
-import static com.github.netty.protocol.nrpc.RpcUtil.*;
+import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_SERVICE;
 
 /**
  * Server side processor
@@ -30,7 +27,6 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      */
     private DataCodec dataCodec;
     private final Map<String,RpcServerInstance> serviceInstanceMap = new HashMap<>();
-    private Map<String,Channel> channelMap = new ConcurrentHashMap<>();
 
     public RpcServerChannelHandler() {
         this(new JsonDataCodec());
@@ -61,7 +57,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
                 }
 
                 if(request.getAck() == ACK_YES) {
-                    ctx.writeAndFlush(rpcResponse);
+                    ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 }
                 break;
             }
@@ -69,52 +65,10 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
                 if(rpcPacket.getAck() == ACK_YES){
                     RpcPacket packet = new RpcPacket(PONG_TYPE);
                     packet.setAck(ACK_NO);
-                    ctx.writeAndFlush(packet);
+                    ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 }
             }
         }
-    }
-
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        cause.printStackTrace();
-        removeChannel(ctx.channel());
-    }
-
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        putChannel(ctx.channel());
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        removeChannel(ctx.channel());
-    }
-
-    /**
-     * In the connection
-     * @param channel
-     */
-    private void putChannel(Channel channel){
-        InetSocketAddress remoteAddress = getInetSocketAddress(channel.remoteAddress());
-        if(remoteAddress == null){
-            return;
-        }
-        channelMap.put(remoteAddress.getHostString() + ":" + remoteAddress.getPort(),channel);
-        logger.info("New connection = "+channel.toString());
-    }
-
-    /**
-     * 移除链接
-     * @param channel
-     */
-    private void removeChannel(Channel channel){
-        InetSocketAddress remoteAddress = getInetSocketAddress(channel.remoteAddress());
-        if(remoteAddress == null){
-            return;
-        }
-        channelMap.remove(remoteAddress.getHostString() + ":" + remoteAddress.getPort(),channel);
-        logger.info("Disconnect" + channel.toString());
     }
 
     /**
@@ -175,18 +129,6 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
             }
         }
         return false;
-    }
-
-    /**
-     * Gets the web address of the server
-     * @param socketAddress
-     * @return
-     */
-    private InetSocketAddress getInetSocketAddress(SocketAddress socketAddress){
-        if(socketAddress instanceof InetSocketAddress){
-            return (InetSocketAddress) socketAddress;
-        }
-        return null;
     }
 
 }

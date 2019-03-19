@@ -6,19 +6,19 @@ import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
-import io.netty.util.Attribute;
-import io.netty.util.AttributeKey;
+import io.netty.channel.ChannelFutureListener;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
+import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
+import static com.github.netty.protocol.nrpc.RpcClient.REQUEST_ID_INCR_ATTR;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
-import static com.github.netty.protocol.nrpc.RpcClientChannelHandler.FUTURE_MAP_ATTR;
 
 /**
  * RPC client instance
@@ -30,22 +30,18 @@ public class RpcClientInstance implements InvocationHandler {
     private String serviceName;
     private String instanceId = NamespaceUtil.newIdName(getClass());
     /**
-     * Generate request id
-     */
-    private static final AttributeKey<AtomicInteger> REQUEST_ID_INCR_ATTR = AttributeKey.valueOf(AtomicInteger.class+"#AtomicInteger");
-    /**
      * Data encoder decoder
      */
     private DataCodec dataCodec;
     /**
-     * Channel
+     * channelSupplier
      */
-    private Channel channel;
+    private Supplier<Channel> channelSupplier;
 
     private Map<String,RpcMethod> rpcMethodMap;
 
     protected RpcClientInstance(int timeout, String serviceName,
-                                Channel channel,
+                                Supplier<Channel> channelSupplier,
                                 DataCodec dataCodec,
                                 Class interfaceClass, Function<Method,String[]> methodToParameterNamesFunction) {
         this.rpcMethodMap = RpcMethod.getMethodMap(interfaceClass,methodToParameterNamesFunction);
@@ -54,7 +50,7 @@ public class RpcClientInstance implements InvocationHandler {
         }
         this.timeout = timeout;
         this.serviceName = serviceName;
-        this.channel = channel;
+        this.channelSupplier = channelSupplier;
         this.dataCodec = dataCodec;
     }
 
@@ -63,13 +59,7 @@ public class RpcClientInstance implements InvocationHandler {
      * @return
      */
     protected int newRequestId(Channel channel){
-        Attribute<AtomicInteger> attr = channel.attr(REQUEST_ID_INCR_ATTR);
-        AtomicInteger incr = attr.get();
-        if(incr == null){
-            incr = new AtomicInteger();
-            attr.set(incr);
-        }
-        return Math.abs(incr.incrementAndGet());
+        return Math.abs(channel.attr(REQUEST_ID_INCR_ATTR).get().incrementAndGet());
     }
 
     /**
@@ -111,7 +101,7 @@ public class RpcClientInstance implements InvocationHandler {
             return method.invoke(this,args);
         }
 
-        Channel channel = this.channel;
+        Channel channel = channelSupplier.get();
 
         RequestPacket rpcRequest = new RequestPacket();
         rpcRequest.setRequestId(newRequestId(channel));
@@ -120,16 +110,13 @@ public class RpcClientInstance implements InvocationHandler {
         rpcRequest.setData(dataCodec.encodeRequestData(args,rpcMethod));
         rpcRequest.setAck(ACK_YES);
 
-        Map<Integer,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
-
         RpcFuture future = new RpcFuture(rpcRequest);
-        futureMap.put(rpcRequest.getRequestId(),future);
-
-        channel.writeAndFlush(rpcRequest);
+        channel.attr(FUTURE_MAP_ATTR).get().put(rpcRequest.getRequestId(),future);
+        channel.writeAndFlush(rpcRequest).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
 
         ResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
         if(rpcResponse == null){
-            futureMap.remove(rpcRequest.getRequestId());
+            channel.attr(FUTURE_MAP_ATTR).get().remove(rpcRequest.getRequestId());
             throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], rpcRequest = ["+rpcRequest+"]",true);
         }
 
