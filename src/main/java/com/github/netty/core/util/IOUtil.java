@@ -524,8 +524,9 @@ public class IOUtil {
     public static void main(String[] args) throws InterruptedException {
         System.setProperty("netty-core.defaultThreadPoolCount","1000");
 
-        CountDownLatch latch = new CountDownLatch(1);
-        for(int i=0 ;i< 100;i++) {
+        int count = 100;
+        CountDownLatch latch = new CountDownLatch(count);
+        for(int i=0 ;i< count;i++) {
             ThreadPoolX.getDefaultInstance().execute(
                     new Runnable() {
                         @Override
