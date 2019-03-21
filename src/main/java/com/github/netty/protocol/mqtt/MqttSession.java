@@ -23,6 +23,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
 import io.netty.util.ReferenceCountUtil;
 
+import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.DelayQueue;
 import java.util.concurrent.Delayed;
@@ -367,6 +368,13 @@ class MqttSession {
     public void receivedPubRelQos2(int messageID) {
         final MqttPublishMessage removedMsg = qos2Receiving.remove(messageID);
         ReferenceCountUtil.release(removedMsg);
+    }
+
+    Optional<InetSocketAddress> remoteAddress() {
+        if (connected()) {
+            return Optional.of(mqttConnection.remoteAddress());
+        }
+        return Optional.empty();
     }
 
     @Override

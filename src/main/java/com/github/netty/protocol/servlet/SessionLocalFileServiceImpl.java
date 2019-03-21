@@ -32,7 +32,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
     public void saveSession(Session session) {
         String fileName = getFileName(session.getId());
 
-        try (FileOutputStream fileOutputStream = resourceManager.writeFile(rootPath,fileName,false);
+        try (FileOutputStream fileOutputStream = resourceManager.newFileOutputStream(rootPath,fileName,false);
              ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream)){
             objectOutputStream.writeUTF(session.getId());
             objectOutputStream.writeLong(session.getCreationTime());
@@ -103,7 +103,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
     }
 
     protected Session getSessionByFileName(String fileName){
-        try (FileInputStream fileInputStream = resourceManager.readFile(rootPath,fileName);
+        try (FileInputStream fileInputStream = resourceManager.newFileInputStream(rootPath,fileName);
              ObjectInputStream ois = new ObjectInputStream(fileInputStream)){
             Session session = new Session();
             session.setId(ois.readUTF());
@@ -143,7 +143,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
         String newFileName = getFileName(newSessionId);
 
         try {
-            resourceManager.copyTo(rootPath,oldFileName,rootPath,newFileName,4096);
+            resourceManager.copyFile(rootPath,oldFileName,rootPath,newFileName);
             removeSession(oldSessionId);
         }catch (FileNotFoundException e){
             //

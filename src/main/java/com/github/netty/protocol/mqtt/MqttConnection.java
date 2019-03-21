@@ -27,6 +27,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.mqtt.*;
 import io.netty.handler.timeout.IdleStateHandler;
 
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -487,6 +488,10 @@ public final class MqttConnection {
 
     int nextPacketId() {
         return lastPacketId.incrementAndGet();
+    }
+
+    InetSocketAddress remoteAddress() {
+        return (InetSocketAddress) channel.remoteAddress();
     }
 
     @Override

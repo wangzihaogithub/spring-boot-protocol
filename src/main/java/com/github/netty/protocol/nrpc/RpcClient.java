@@ -145,9 +145,7 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName, this::getSocketChannel,
-                dataCodec, clazz, methodToParameterNamesFunction);
-        rpcInstanceMap.put(serviceName,rpcInstance);
+        RpcClientInstance rpcInstance = newRpcInstance(clazz,timeout,serviceName,methodToParameterNamesFunction);
         Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
         return (T) instance;
     }
@@ -186,10 +184,6 @@ public class RpcClient extends AbstractNettyClient{
             @Override
             protected void initChannel(Channel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
-                //For 4.0.x version to 4.1.x version adaptation
-                channel.attr(FUTURE_MAP_ATTR).set(intObjectHashMapConstructor != null?
-                                (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
-                channel.attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
 
                 pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
                 pipeline.addLast(rpcEncoder);
@@ -221,7 +215,7 @@ public class RpcClient extends AbstractNettyClient{
         }
 
         SocketChannel channel = super.getSocketChannel();
-        if(channel == null){
+        if(channel == null || !channel.isActive()){
             return false;
         }
         try {
@@ -325,6 +319,14 @@ public class RpcClient extends AbstractNettyClient{
 
     public static class RpcClientChannelHandler extends AbstractChannelHandler<RpcPacket.ResponsePacket,Object> {
         @Override
+        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+            //For 4.0.x version to 4.1.x version adaptation
+            ctx.channel().attr(FUTURE_MAP_ATTR).set(intObjectHashMapConstructor != null?
+                    (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
+            ctx.channel().attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
+        }
+
+        @Override
         protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket.ResponsePacket rpcResponse) throws Exception {
             Map<Integer,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
 
@@ -343,16 +345,15 @@ public class RpcClient extends AbstractNettyClient{
             packet.setAck(ACK_YES);
             ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
-    }
 
-    private static Constructor<?> intObjectHashMapConstructor;
-    static {
-        try {
-            Class<?> intObjectHashMapClass = Class.forName("io.netty.util.collection.IntObjectHashMap");
-            Constructor constructor = intObjectHashMapClass.getConstructor(int.class);
-            intObjectHashMapConstructor = constructor;
-        } catch (Exception e) {
-            intObjectHashMapConstructor = null;
+        private static Constructor<?> intObjectHashMapConstructor;
+        static {
+            try {
+                intObjectHashMapConstructor = Class.forName("io.netty.util.collection.IntObjectHashMap").getConstructor(int.class);;
+            } catch (Exception e) {
+                intObjectHashMapConstructor = null;
+            }
         }
     }
+
 }

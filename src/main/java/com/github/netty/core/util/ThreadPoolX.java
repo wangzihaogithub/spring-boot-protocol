@@ -16,7 +16,7 @@ public class ThreadPoolX extends ScheduledThreadPoolExecutor {
         if(DEFAULT_INSTANCE == null){
             synchronized (ThreadPoolX.class){
                 if(DEFAULT_INSTANCE == null){
-                    DEFAULT_INSTANCE = new ThreadPoolX("Default",3);
+                    DEFAULT_INSTANCE = new ThreadPoolX("Default",SystemPropertyUtil.getInt("netty-core.defaultThreadPoolCount",3));
                 }
             }
         }

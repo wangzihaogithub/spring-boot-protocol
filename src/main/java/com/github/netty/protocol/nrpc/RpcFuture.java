@@ -113,6 +113,10 @@ public class RpcFuture {
      * @param rpcResponse rpcResponse
      */
     public void done(ResponsePacket rpcResponse){
+        if(cancelFlag.get()){
+            return;
+        }
+
         this.response = rpcResponse;
         if(done != null) {
             lock.lock();

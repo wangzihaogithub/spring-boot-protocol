@@ -7,8 +7,11 @@ import io.netty.util.ReferenceCountUtil;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * (input | output) stream tool
@@ -21,6 +24,21 @@ public class IOUtil {
     public static final int CHAR_LENGTH = 2;
     public static final int LONG_LENGTH = 8;
 
+    public static boolean FORCE_META_DATA = false;
+
+    /**
+     * Write mode to read mode
+     * @param byteBuf byteBuf
+     */
+    public static void writerModeToReadMode(ByteBuf byteBuf){
+        if(byteBuf == null){
+            return;
+        }
+        if(byteBuf.readableBytes() == 0 && byteBuf.capacity() > 0) {
+            byteBuf.writerIndex(byteBuf.capacity());
+        }
+    }
+
     /**
      * Copy files
      * @param sourcePath sourcePath
@@ -28,37 +46,31 @@ public class IOUtil {
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
-     * @param bufferCapacity buffer Capacity
      * @throws FileNotFoundException FileNotFoundException
      * @throws IOException IOException
      */
-    public static void copyTo(String sourcePath,String sourceFileName,
-                              String targetPath,String targetFileName,boolean append,int bufferCapacity) throws FileNotFoundException,IOException {
+    public static void copyFile(String sourcePath, String sourceFileName,
+                                String targetPath, String targetFileName, boolean append) throws FileNotFoundException,IOException {
         if(sourcePath == null){
             sourcePath = "";
         }
         if(targetPath == null){
             targetPath = "";
         }
-        new File(targetPath).mkdirs();
+        File parentTarget = new File(targetPath);
+        parentTarget.mkdirs();
         File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
-        File outFile = new File(targetPath.concat(File.separator).concat(targetFileName));
-
+        File outFile = new File(parentTarget,targetFileName);
+        if(!outFile.exists()){
+            outFile.createNewFile();
+        }
         try(FileInputStream in =  new FileInputStream(inFile);
             FileOutputStream out = new FileOutputStream(outFile,append);
             FileChannel inChannel = in.getChannel();
             FileChannel outChannel = out.getChannel()) {
-            ByteBuffer buffer = ByteBuffer.allocate(bufferCapacity);
-            while (true) {
-                buffer.clear();
-                int r = inChannel.read(buffer);
-                if (r == -1) {
-                    break;
-                }
-                buffer.flip();
-                outChannel.write(buffer);
-            }
-            outChannel.force(false);
+
+            inChannel.transferTo(0, inChannel.size(), outChannel);
+            outChannel.force(FORCE_META_DATA);
         }
     }
 
@@ -71,20 +83,20 @@ public class IOUtil {
      * @throws IOException IOException
      */
     public static void writeFile(byte[] data, String targetPath, String targetFileName, boolean append) throws IOException {
-        if(targetPath == null){
-            targetPath = "";
-        }
-        new File(targetPath).mkdirs();
-        File outFile = new File(targetPath.concat(File.separator).concat(targetFileName));
-        if(!outFile.exists()){
-            outFile.createNewFile();
-        }
-        try(FileOutputStream out = new FileOutputStream(outFile,append);
-            FileChannel outChannel = out.getChannel()) {
+        writeFile(new Iterator<ByteBuffer>() {
             ByteBuffer buffer = ByteBuffer.wrap(data);
-            outChannel.write(buffer);
-            outChannel.force(false);
-        }
+            @Override
+            public boolean hasNext() {
+                return buffer != null;
+            }
+
+            @Override
+            public ByteBuffer next() {
+                ByteBuffer tempBuffer = this.buffer;
+                this.buffer = null;
+                return tempBuffer;
+            }
+        },targetPath,targetFileName,append);
     }
 
     /**
@@ -93,10 +105,9 @@ public class IOUtil {
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
-     * @param bufferCapacity buffer Capacity
      * @throws IOException IOException
      */
-    public static void writeFile(InputStream in, String targetPath, String targetFileName, boolean append,int bufferCapacity) throws IOException {
+    public static void writeFile(InputStream in, String targetPath, String targetFileName, boolean append) throws IOException {
         if(targetPath == null){
             targetPath = "";
         }
@@ -106,31 +117,39 @@ public class IOUtil {
         if(!outFile.exists()){
             outFile.createNewFile();
         }
+
         try(FileOutputStream out = new FileOutputStream(outFile,append);
-            FileChannel outChannel = out.getChannel();
-            InputStream inputStream = in) {
-            if(inputStream instanceof FileInputStream){
-                try(FileChannel inChannel = ((FileInputStream) inputStream).getChannel()){
-                    long chunkSize = bufferCapacity;
-                    long position = 0;
-                    long size = inChannel.size();
-                    while (position < size) {
-                        if (chunkSize < size - position) {
-                            chunkSize = size - position;
-                        }
-                        position += inChannel.transferTo(position, chunkSize, outChannel);
-                    }
+            FileChannel outChannel = out.getChannel()) {
+            if(in instanceof FileInputStream){
+                try(FileChannel inChannel = ((FileInputStream) in).getChannel()){
+                    inChannel.transferTo(0, inChannel.size(), outChannel);
                 }
             }else {
-                byte[] buffer = new byte[bufferCapacity];
-                int len;
-                while ((len = inputStream.read(buffer)) != -1) {
-                    out.write(buffer, 0, len);
-                    out.flush();
-                }
+                outChannel.transferFrom(new ReadableByteChannel() {
+                    byte[] buffer;
+                    @Override
+                    public int read(ByteBuffer dst) throws IOException {
+                        if(buffer == null){
+                            buffer = new byte[dst.limit()];
+                        }
+                        int len = in.read(buffer);
+                        if(len > 0){
+                            dst.put(buffer, 0, len);
+                        }
+                        return len;
+                    }
+
+                    @Override
+                    public boolean isOpen() {
+                        return true;
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        in.close();
+                    }
+                },outChannel.position(),in.available());
             }
-        }catch (IOException e){
-            throw e;
         }
     }
 
@@ -151,22 +170,41 @@ public class IOUtil {
         if(!outFile.exists()){
             outFile.createNewFile();
         }
+
         try(FileOutputStream out = new FileOutputStream(outFile,append);
-            FileChannel outChannel = out.getChannel();) {
+            FileChannel outChannel = out.getChannel()) {
+
+            long position = outChannel.position();
             while (dataIterator.hasNext()){
                 ByteBuffer buffer = dataIterator.next();
-                if(buffer != null) {
-                    if(buffer.position() != 0){
-                        buffer.flip();
-                    }
-                    outChannel.write(buffer);
+                if(buffer == null) {
+                    continue;
                 }
+                if(!buffer.hasRemaining()){
+                    buffer.flip();
+                }
+
+                int remaining = buffer.remaining();
+                position += outChannel.transferFrom(new ReadableByteChannel() {
+                    @Override
+                    public boolean isOpen() {
+                        return true;
+                    }
+
+                    @Override
+                    public void close() throws IOException {}
+
+                    @Override
+                    public int read(ByteBuffer dst) throws IOException {
+                        dst.put(buffer);
+                        return remaining;
+                    }
+                },position,remaining);
             }
-            outChannel.force(false);
-        }catch (IOException e){
-            throw e;
+            outChannel.force(FORCE_META_DATA);
         }
     }
+
 
      /**
      * Read the file to bytebuffer.(note: remember to close after using)
@@ -176,25 +214,13 @@ public class IOUtil {
      * @throws FileNotFoundException FileNotFoundException
      * @throws IOException IOException
      */
-    public static ByteBuf readFileToByteBuffer(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
-        if(sourcePath == null){
-            sourcePath = "";
-        }
-        File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
+    public static ByteBuf readFileToByteBuf(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
+        try(FileInputStream in = newFileInputStream(sourcePath,sourceFileName);
+            FileChannel inChannel = in.getChannel()) {
 
-        try(FileInputStream in =  new FileInputStream(inFile);
-            FileChannel inChannel = in.getChannel();) {
-            ByteBuffer byteBuffer = ByteBuffer.allocate(8192);
-            ByteBuf buffer = Unpooled.buffer();
-            while (true) {
-                byteBuffer.clear();
-                int r = inChannel.read(byteBuffer);
-                if (r == -1) {
-                    break;
-                }
-                byteBuffer.flip();
-                buffer.writeBytes(byteBuffer);
-            }
+            int size = (int) inChannel.size();
+            ByteBuf buffer = Unpooled.buffer(size,size);
+            buffer.writeBytes(inChannel,0, size);
             return buffer;
         }
     }
@@ -208,14 +234,14 @@ public class IOUtil {
      * @throws IOException IOException
      */
     public static byte[] readFileToBytes(String sourcePath, String sourceFileName) throws FileNotFoundException,IOException {
-        ByteBuf byteBuf = readFileToByteBuffer(sourcePath,sourceFileName);
+        ByteBuf byteBuf = readFileToByteBuf(sourcePath,sourceFileName);
         writerModeToReadMode(byteBuf);
         try {
             if (byteBuf.hasArray()) {
                 return byteBuf.array();
             }else {
                 byte[] bytes = new byte[byteBuf.readableBytes()];
-                byteBuf.writeBytes(bytes);
+                byteBuf.readBytes(bytes);
                 return bytes;
             }
         }finally {
@@ -224,14 +250,57 @@ public class IOUtil {
     }
 
     /**
-     * Write file (note: close it after using)
+     * Read the file
+     * @param sourcePath sourcePath
+     * @param sourceFileName sourceFileName
+     * @param charset charset
+     * @return File stream
+     * @throws FileNotFoundException FileNotFoundException
+     */
+    public static String readFileToString(String sourcePath, String sourceFileName,String charset) throws FileNotFoundException {
+        return readInput(newFileInputStream(sourcePath,sourceFileName),charset);
+    }
+
+    /**
+     * Read input stream
+     * @param inputStream inputStream
+     * @return InputText
+     */
+    public static String readInput(InputStream inputStream){
+        return readInput(inputStream, Charset.defaultCharset().name());
+    }
+
+    public static String readInput(InputStream inputStream,String encode){
+        try {
+            StringBuilder sb = RecyclableUtil.newStringBuilder();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, encode));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+            return sb.toString();
+        }catch (Exception e){
+            return null;
+        }finally {
+            if(inputStream != null){
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    //
+                }
+            }
+        }
+    }
+
+    /**
+     * newFileOutputStream (note: close it after using)
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
      * @throws FileNotFoundException FileNotFoundException
      * @return FileOutputStream
      */
-    public static FileOutputStream writeFile(String targetPath, String targetFileName, boolean append) throws IOException {
+    public static FileOutputStream newFileOutputStream(String targetPath, String targetFileName, boolean append) throws IOException {
         if(targetPath == null){
             targetPath = "";
         }
@@ -244,34 +313,18 @@ public class IOUtil {
     }
 
     /**
-     * Read the file (note: close it after using)
+     * newFileInputStream (note: close it after using)
      * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName
      * @return File stream
      * @throws FileNotFoundException FileNotFoundException
      */
-    public static FileInputStream readFile(String sourcePath, String sourceFileName) throws FileNotFoundException {
+    public static FileInputStream newFileInputStream(String sourcePath, String sourceFileName) throws FileNotFoundException {
         if(sourcePath == null){
             sourcePath = "";
         }
         File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
         return new FileInputStream(inFile);
-    }
-
-    /**
-     * Read the file
-     * @param sourcePath sourcePath
-     * @param sourceFileName sourceFileName
-     * @param charset charset
-     * @return File stream
-     * @throws FileNotFoundException FileNotFoundException
-     */
-    public static String readFileToString(String sourcePath, String sourceFileName,String charset) throws FileNotFoundException {
-        if(sourcePath == null){
-            sourcePath = "";
-        }
-        File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
-        return readInput(new FileInputStream(inFile),charset);
     }
 
     public static int indexOf(ByteBuf byteBuf,byte value){
@@ -323,48 +376,10 @@ public class IOUtil {
         return dir.delete();
     }
 
-    /**
-     * Write mode to read mode
-     * @param byteBuf byteBuf
-     */
-    public static void writerModeToReadMode(ByteBuf byteBuf){
-        if(byteBuf == null){
-            return;
-        }
-        if(byteBuf.readableBytes() == 0 && byteBuf.capacity() > 0) {
-            byteBuf.writerIndex(byteBuf.capacity());
-        }
-    }
-
-    /**
-     * Read input stream
-     * @param inputStream inputStream
-     * @return InputText
-     */
-    public static String readInput(InputStream inputStream){
-        return readInput(inputStream, Charset.defaultCharset().name());
-    }
-
-    public static String readInput(InputStream inputStream,String encode){
-        try {
-            StringBuilder sb = new StringBuilder();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, encode));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line);
-            }
-            return sb.toString();
-        }catch (Exception e){
-            return null;
-        }finally {
-            if(inputStream != null){
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    //
-                }
-            }
-        }
+    public static long readLong(InputStream in) throws IOException {
+        byte[] bytes = new byte[8];
+        in.read(bytes);
+        return getLong(bytes,0);
     }
 
     public static String getString(byte[] memory, Charset charset) {
@@ -430,12 +445,6 @@ public class IOUtil {
                 ((long) memory[index + 5] & 0xff) << 16 |
                 ((long) memory[index + 6] & 0xff) <<  8 |
                 (long) memory[index + 7] & 0xff;
-    }
-
-    public static long readLong(InputStream in) throws IOException {
-        byte[] bytes = new byte[8];
-        in.read(bytes);
-        return getLong(bytes,0);
     }
 
     public static long getLongLE(byte[] memory, int index) {
@@ -509,6 +518,45 @@ public class IOUtil {
         memory[index + 5] = (byte) (value >>> 40);
         memory[index + 6] = (byte) (value >>> 48);
         memory[index + 7] = (byte) (value >>> 56);
+    }
+
+
+    public static void main(String[] args) throws InterruptedException {
+        System.setProperty("netty-core.defaultThreadPoolCount","1000");
+
+        CountDownLatch latch = new CountDownLatch(1);
+        for(int i=0 ;i< 100;i++) {
+            ThreadPoolX.getDefaultInstance().execute(
+                    new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                copyFile("C:\\ProgramData\\MySQL\\MySQL Server 5.5\\data\\messagecenter", "db.opt",
+                                        "D:\\","test_copyFile_bytes.txt", false);
+
+                                byte[] bytes = readFileToBytes("D:\\", "test_copyFile_bytes.txt");
+                                InputStream in = new ByteArrayInputStream(bytes);
+                                writeFile(in,
+                                        "D:\\", "test_writeFile_bytes.txt", false);
+
+                                writeFile(Arrays.asList(
+                                        ByteBuffer.wrap("1".getBytes()),
+                                        ByteBuffer.wrap("2".getBytes()),
+                                        ByteBuffer.wrap("\r\n".getBytes())
+                                        ).iterator(),
+                                        "D:\\", "test_writeFile_123.txt", false);
+                                System.out.println(Thread.currentThread());
+                            } catch(IOException e){
+                                e.printStackTrace();
+                            }finally {
+                                latch.countDown();
+                            }
+                        }
+                    }
+            );
+        }
+        latch.await();
+        ThreadPoolX.getDefaultInstance().shutdown();
     }
 
 }

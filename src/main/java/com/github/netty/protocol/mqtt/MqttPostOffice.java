@@ -106,12 +106,7 @@ public class MqttPostOffice {
         final int messageId = MqttUtil.messageId(msg);
         for (MqttTopicSubscription req : msg.payload().topicSubscriptions()) {
             Topic topic = new Topic(req.topicName());
-            if (!authorizatorPolicy.canRead(topic, username, clientID)) {
-                // send SUBACK with 0x80, the user hasn't credentials to read the topic
-                LOG.warn("Client does not have read permissions on the topic CId={}, username: {}, messageId: {}, " +
-                        "topic: {}", clientID, username, messageId, topic);
-                ackTopics.add(new MqttTopicSubscription(topic.toString(), FAILURE));
-            } else {
+            if (authorizatorPolicy.canRead(topic, username, clientID)) {
                 MqttQoS qos;
                 if (topic.isValid()) {
                     LOG.debug("Client will be subscribed to the topic CId={}, username: {}, messageId: {}, topic: {}",
@@ -123,6 +118,11 @@ public class MqttPostOffice {
                     qos = FAILURE;
                 }
                 ackTopics.add(new MqttTopicSubscription(topic.toString(), qos));
+            } else {
+                // send SUBACK with 0x80, the user hasn't credentials to read the topic
+                LOG.warn("Client does not have read permissions on the topic CId={}, username: {}, messageId: {}, " +
+                        "topic: {}", clientID, username, messageId, topic);
+                ackTopics.add(new MqttTopicSubscription(topic.toString(), FAILURE));
             }
         }
         return ackTopics;

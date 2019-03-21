@@ -27,9 +27,13 @@ import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttQoS;
 
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 public class MqttSessionRegistry {
 
@@ -98,6 +102,21 @@ public class MqttSessionRegistry {
             final MqttSession session = pool.get(clientId);
             session.sendQueuedMessagesWhileOffline();
         }
+    }
+
+    Collection<MqttClientDescriptor> listConnectedClients() {
+        return pool.values().stream()
+                .filter(MqttSession::connected)
+                .map(this::createClientDescriptor)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+    }
+
+    private Optional<MqttClientDescriptor> createClientDescriptor(MqttSession s) {
+        final String clientID = s.getClientID();
+        final Optional<InetSocketAddress> remoteAddressOpt = s.remoteAddress();
+        return remoteAddressOpt.map(r -> new MqttClientDescriptor(clientID, r.getHostString(), r.getPort()));
     }
 
     private PostConnectAction bindToExistingSession(MqttConnection mqttConnection, MqttConnectMessage msg,

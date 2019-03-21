@@ -36,7 +36,7 @@ public class ResourceManager {
         }else {
             this.rootPath = rootPath;
         }
-        if(workspace == null || workspace.equals("/")){
+        if(workspace == null || "/".equals(workspace)){
             workspace = "";
         }
         if(workspace.length() > 0 && workspace.charAt(0) != '/'){
@@ -239,7 +239,7 @@ public class ResourceManager {
      * @throws IOException IOException
      */
     public void writeFile(InputStream inputStream, String targetPath, String targetFileName) throws IOException {
-        IOUtil.writeFile(inputStream, getRealPath(targetPath),targetFileName,false,8192);
+        IOUtil.writeFile(inputStream, getRealPath(targetPath),targetFileName,false);
     }
 
     /**
@@ -277,26 +277,26 @@ public class ResourceManager {
     }
 
     /**
-     * Write file (note: close it after using)
+     * newFileOutputStream (note: close it after using)
      * @param targetPath targetPath
      * @param targetFileName targetFileName
      * @param append Whether to concatenate old data
      * @throws IOException IOException
      * @return FileOutputStream
      */
-    public FileOutputStream writeFile(String targetPath, String targetFileName, boolean append) throws IOException {
-        return IOUtil.writeFile(getRealPath(targetPath),targetFileName,append);
+    public FileOutputStream newFileOutputStream(String targetPath, String targetFileName, boolean append) throws IOException {
+        return IOUtil.newFileOutputStream(getRealPath(targetPath),targetFileName,append);
     }
 
     /**
-     * Read the file (note: close it after using)
+     * newFileInputStream (note: close it after using)
      * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName
      * @return FileInputStream
      * @throws FileNotFoundException FileNotFoundException
      */
-    public FileInputStream readFile(String sourcePath,String sourceFileName) throws FileNotFoundException {
-        return IOUtil.readFile(getRealPath(sourcePath),sourceFileName);
+    public FileInputStream newFileInputStream(String sourcePath, String sourceFileName) throws FileNotFoundException {
+        return IOUtil.newFileInputStream(getRealPath(sourcePath),sourceFileName);
     }
 
     /**
@@ -305,14 +305,13 @@ public class ResourceManager {
      * @param sourceFileName sourceFileName
      * @param targetPath targetPath
      * @param targetFileName targetFileName
-     * @param buffCapacity buffCapacity
      * @throws FileNotFoundException FileNotFoundException
      * @throws IOException IOException
      */
-    public void copyTo(String sourcePath,String sourceFileName,
-                                    String targetPath,String targetFileName,int buffCapacity) throws FileNotFoundException,IOException {
-        IOUtil.copyTo(getRealPath(sourcePath),sourceFileName,
-                getRealPath(targetPath),targetFileName,false,buffCapacity);
+    public void copyFile(String sourcePath, String sourceFileName,
+                         String targetPath, String targetFileName) throws FileNotFoundException,IOException {
+        IOUtil.copyFile(getRealPath(sourcePath),sourceFileName,
+                getRealPath(targetPath),targetFileName,false);
     }
 
     /**
