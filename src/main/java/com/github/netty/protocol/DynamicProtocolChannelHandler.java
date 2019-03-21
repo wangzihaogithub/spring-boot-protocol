@@ -8,17 +8,21 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.util.AttributeKey;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.concurrent.Semaphore;
 
 /**
  * Created by wangzihao on 2018/12/9/009.
  */
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf,Object> {
+    public static final AttributeKey<Boolean> CONNECTION_OVERLOAD_ATTR = AttributeKey.valueOf("connectionOverload");
     /**
      * Protocol registry list, dynamic protocol will find a suitable protocol to register on the new link
      */
@@ -35,8 +39,13 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
      * Log print
      */
     private LoggingHandler loggingHandler;
+    /**
+     * maxConnections
+     */
+    private Semaphore maxConnectionSemaphore;
+    private int maxConnections;
 
-    public DynamicProtocolChannelHandler(Collection<ProtocolsRegister> protocolsRegisters, boolean enableTcpPackageLog) {
+    public DynamicProtocolChannelHandler(Collection<ProtocolsRegister> protocolsRegisters, boolean enableTcpPackageLog,int maxConnections) {
         super(false);
         this.protocolsRegisters = protocolsRegisters;
         if(enableTcpPackageLog) {
@@ -44,6 +53,8 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             this.messageMetricsChannelHandler = new MessageMetricsChannelHandler();
             this.bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
         }
+        this.maxConnections = maxConnections;
+        this.maxConnectionSemaphore = new Semaphore(maxConnections,false);
     }
 
     @Override
@@ -84,9 +95,29 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     }
 
     @Override
+    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        if(!maxConnectionSemaphore.tryAcquire()){
+            ctx.channel().attr(CONNECTION_OVERLOAD_ATTR).set(Boolean.TRUE);
+            logger.warn("Connection overload! maxConnections={},availablePermits={}, threads waiting to acquire number={} ",
+                    maxConnections,maxConnectionSemaphore.availablePermits(),maxConnectionSemaphore.getQueueLength());
+            ctx.close();
+        }
+    }
+
+    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
         ctx.close();
+    }
+
+    @Override
+    public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
+        Channel channel = ctx.channel();
+        // connectionOverload
+        if(channel.hasAttr(CONNECTION_OVERLOAD_ATTR) && channel.attr(CONNECTION_OVERLOAD_ATTR).get()){
+            return;
+        }
+        maxConnectionSemaphore.release();
     }
 
 }

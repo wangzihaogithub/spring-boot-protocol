@@ -15,6 +15,11 @@ import java.util.concurrent.Executor;
 @ConfigurationProperties(prefix = "server.netty", ignoreUnknownFields = true)
 public class NettyProperties implements Serializable{
     private static final long serialVersionUID = 1L;
+
+    /**
+     * 服务端 - TCP级别最大同时在线的连接数
+     */
+    private int maxConnections = 10000;
     /**
      * 服务端 - 是否tcp数据包日志
      */
@@ -235,10 +240,19 @@ public class NettyProperties implements Serializable{
         this.enableTcpPackageLog = enableTcpPackageLog;
     }
 
+    public int getMaxConnections() {
+        return maxConnections;
+    }
+
+    public void setMaxConnections(int maxConnections) {
+        this.maxConnections = maxConnections;
+    }
+
     @Override
     public String toString() {
         return "NettyProperties{" +
-                "serverWorkerCount=" + serverIoThreads +
+                "maxConnections=" + maxConnections +
+                ", serverWorkerCount=" + serverIoThreads +
                 ", serverIoRatio=" + serverIoRatio +
                 ", rpcClientWorkerCount=" + rpcClientIoThreads +
                 ", rpcClientIoRatio=" + rpcClientIoRatio +
