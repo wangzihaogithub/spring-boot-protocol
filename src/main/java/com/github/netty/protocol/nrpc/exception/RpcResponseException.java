@@ -1,5 +1,7 @@
 package com.github.netty.protocol.nrpc.exception;
 
+import com.github.netty.protocol.nrpc.RpcResponseStatus;
+
 /**
  * RpcResponseException
  * @author wangzihao
@@ -9,19 +11,19 @@ public class RpcResponseException extends RpcException {
     /**
      * Error status code
      */
-    private int status;
+    private RpcResponseStatus status;
 
-    public RpcResponseException(int status,String message) {
+    public RpcResponseException(RpcResponseStatus status,String message) {
         super(message, null, false, false);
         this.status = status;
     }
 
-    public RpcResponseException(int status,String message,boolean writableStackTrace) {
+    public RpcResponseException(RpcResponseStatus status, String message, boolean writableStackTrace) {
         super(message, null, false, writableStackTrace);
         this.status = status;
     }
 
-    public int getStatus() {
+    public RpcResponseStatus getStatus() {
         return status;
     }
 }

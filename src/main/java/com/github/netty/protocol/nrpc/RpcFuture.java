@@ -3,6 +3,7 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.core.CoreConstants;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.util.AsciiString;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,8 +16,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
-import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
-import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 
 /**
  * Simple Future
@@ -25,13 +24,13 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 public class RpcFuture {
     private Lock lock;
     private Condition done;
-    private RequestPacket request;
-    private ResponsePacket response;
+    private RpcRequestPacket request;
+    private RpcResponsePacket response;
     private Channel channel;
     private AtomicBoolean cancelFlag = new AtomicBoolean();
-    private Consumer<ResponsePacket> responseConsumer;
+    private Consumer<RpcResponsePacket> responseConsumer;
 
-    public RpcFuture(RequestPacket request, Channel channel) {
+    public RpcFuture(RpcRequestPacket request, Channel channel) {
         this.request = request;
         this.channel = channel;
     }
@@ -40,7 +39,7 @@ public class RpcFuture {
      * Get (note: no block the current thread)
      * @param responseConsumer responseConsumer
      */
-    public void get(Consumer<ResponsePacket> responseConsumer) {
+    public void get(Consumer<RpcResponsePacket> responseConsumer) {
         this.responseConsumer = responseConsumer;
     }
 
@@ -50,7 +49,7 @@ public class RpcFuture {
      * @param timeUnit timeUnit
      * @return RpcResponse
      */
-    public ResponsePacket get(int timeout, TimeUnit timeUnit) {
+    public RpcResponsePacket get(int timeout, TimeUnit timeUnit) {
         if(response != null){
             return response;
         }
@@ -99,7 +98,7 @@ public class RpcFuture {
      */
     public boolean cancel(){
         if(cancelFlag.compareAndSet(false,true)){
-            Map<Integer,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
+            Map<AsciiString,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
             if(futureMap != null) {
                 futureMap.remove(request.getRequestId());
             }
@@ -112,7 +111,7 @@ public class RpcFuture {
      * Has been completed
      * @param rpcResponse rpcResponse
      */
-    public void done(ResponsePacket rpcResponse){
+    public void done(RpcResponsePacket rpcResponse){
         if(cancelFlag.get()){
             return;
         }
@@ -131,11 +130,11 @@ public class RpcFuture {
         }
     }
 
-    public RequestPacket getRequest() {
+    public RpcRequestPacket getRequest() {
         return request;
     }
 
-    public ResponsePacket getResponse() {
+    public RpcResponsePacket getResponse() {
         return response;
     }
 
@@ -150,7 +149,7 @@ public class RpcFuture {
     /**
      * Timeout API
      */
-    public static final Map<String,Integer> TIMEOUT_API = new ConcurrentHashMap<>();
+    public static final Map<AsciiString,Integer> TIMEOUT_API = new ConcurrentHashMap<>();
 
     @Override
     public String toString() {

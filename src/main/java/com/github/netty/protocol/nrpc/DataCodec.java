@@ -1,5 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
+import io.netty.util.AsciiString;
+
 /**
  *  Data encoder decoder
  * @author wangzihao
@@ -44,30 +46,35 @@ public interface DataCodec {
         /**
          * binary data encode
          */
-        BINARY(0),
+        BINARY((byte)0),
         /**
          * json data encode
          */
-        JSON(1);
+        JSON((byte) 1);
 
-        private int index;
+        private int code;
+        private AsciiString ascii;
 
-        Encode(int index) {
-            this.index = index;
+        Encode(byte code) {
+            this.code = code;
+            this.ascii = new AsciiString(new byte[]{code},false);
         }
 
-        public int index() {
-            return index;
+        public int getCode() {
+            return code;
         }
 
-        public static Encode indexOf(int index){
+        public AsciiString getAscii() {
+            return ascii;
+        }
+
+        public static Encode indexOf(AsciiString ascii){
             for(Encode encode : values()){
-                if(encode.index == index){
+                if(encode.ascii.equals(ascii)){
                     return encode;
                 }
             }
             return null;
         }
-
     }
 }

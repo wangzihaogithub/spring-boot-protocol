@@ -1,6 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.util.ReflectUtil;
+import io.netty.util.AsciiString;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -46,6 +47,15 @@ public class RpcMethod {
             }
         }
         return methodMap;
+    }
+
+
+    public static Map<AsciiString,RpcMethod> toAsciiMethodMap(Map<String,RpcMethod> methodMap){
+        Map<AsciiString,RpcMethod> asciiMethodMap = new HashMap<>(methodMap.size());
+        for(Map.Entry<String,RpcMethod> entry : methodMap.entrySet()){
+            asciiMethodMap.put(AsciiString.of(entry.getKey()),entry.getValue());
+        }
+        return asciiMethodMap;
     }
 
     private static void initMethod(Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod> methodMap){

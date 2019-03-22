@@ -2,6 +2,7 @@ package com.github.netty.core.util;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
 
 import java.io.*;
@@ -9,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
+import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
@@ -22,6 +24,7 @@ public class IOUtil {
     public static final int BYTE_LENGTH = 1;
     public static final int INT_LENGTH = 4;
     public static final int CHAR_LENGTH = 2;
+    public static final int SHORT_LENGTH = 2;
     public static final int LONG_LENGTH = 8;
 
     public static boolean FORCE_META_DATA = false;
@@ -427,6 +430,13 @@ public class IOUtil {
                 (memory[index + 1] & 0xff) << 16 |
                 (memory[index + 2] & 0xff) <<  8 |
                 memory[index + 3] & 0xff;
+    }
+
+    public static int getInt(AsciiString memory) {
+        return  (memory.byteAt(0)  & 0xff) << 24 |
+                (memory.byteAt(1)  & 0xff) << 16 |
+                (memory.byteAt(2)  & 0xff) <<  8 |
+                memory.byteAt(3) & 0xff;
     }
 
     public static int getIntLE(byte[] memory, int index) {

@@ -65,12 +65,12 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
 
     @Override
     public String getProtocolName() {
-        return "nrpc";
+        return RpcVersion.CURRENT_VERSION.getText();
     }
 
     @Override
     public boolean canSupport(ByteBuf msg) {
-        return RpcUtil.isRpcProtocols(msg);
+        return RpcVersion.CURRENT_VERSION.isSupport(msg);
     }
 
     @Override

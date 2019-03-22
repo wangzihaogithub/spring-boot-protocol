@@ -3,6 +3,7 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
+import com.github.netty.core.Packet;
 import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
@@ -13,6 +14,7 @@ import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.AsciiString;
 import io.netty.util.AttributeKey;
 
 import java.lang.reflect.Constructor;
@@ -29,8 +31,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
-
 /**
  * RPC client
  * @author wangzihao
@@ -40,7 +40,7 @@ public class RpcClient extends AbstractNettyClient{
     /**
      * Request a lock map
      */
-    protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
+    protected static final AttributeKey<Map<AsciiString,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
     /**
      * Generate request id
      */
@@ -317,7 +317,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
 
-    public static class RpcClientChannelHandler extends AbstractChannelHandler<RpcPacket.ResponsePacket,Object> {
+    public static class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponsePacket,Object> {
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
             //For 4.0.x version to 4.1.x version adaptation
@@ -327,8 +327,8 @@ public class RpcClient extends AbstractNettyClient{
         }
 
         @Override
-        protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket.ResponsePacket rpcResponse) throws Exception {
-            Map<Integer,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
+        protected void onMessageReceived(ChannelHandlerContext ctx, RpcResponsePacket rpcResponse) throws Exception {
+            Map<AsciiString,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
 
             RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
             //If the fetch does not indicate that the timeout has occurred, it is released
@@ -341,8 +341,8 @@ public class RpcClient extends AbstractNettyClient{
         @Override
         protected void onReaderIdle(ChannelHandlerContext ctx) {
             //heart beat
-            RpcPacket packet = new RpcPacket(RpcPacket.PING_TYPE);
-            packet.setAck(ACK_YES);
+            Packet packet = new Packet(Packet.TYPE_PING);
+            packet.setAck(Packet.ACK_YES);
             ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
 
