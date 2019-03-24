@@ -1,20 +1,25 @@
 package com.github.netty.protocol.nrpc;
 
-import io.netty.util.AsciiString;
+import com.github.netty.core.util.RecyclableUtil;
+import io.netty.buffer.ByteBuf;
+
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
- *  Data encoder decoder
+ *  Data encoder decoder. (Serialization or Deserialization)
  * @author wangzihao
  */
 public interface DataCodec {
+    Charset CHARSET_UTF8 = StandardCharsets.UTF_8;
 
     /**
      * Request data - encoding
      * @param data data
      * @param rpcMethod rpcMethod
-     * @return byte[]
+     * @return ByteBuf
      */
-    byte[] encodeRequestData(Object[] data, RpcMethod rpcMethod);
+    ByteBuf encodeRequestData(Object[] data, RpcMethod rpcMethod);
 
     /**
      * Request data - decoding
@@ -22,21 +27,21 @@ public interface DataCodec {
      * @param rpcMethod rpcMethod
      * @return Object[]
      */
-    Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod);
+    Object[] decodeRequestData(ByteBuf data, RpcMethod rpcMethod);
 
     /**
      * Response data - encoding
      * @param data data
      * @return byte[]
      */
-    byte[] encodeResponseData(Object data);
+    ByteBuf encodeResponseData(Object data);
 
     /**
      * Response data - decoding
      * @param data data
      * @return Object
      */
-    Object decodeResponseData(byte[] data);
+    Object decodeResponseData(ByteBuf data);
 
 
     /**
@@ -53,28 +58,30 @@ public interface DataCodec {
         JSON((byte) 1);
 
         private int code;
-        private AsciiString ascii;
+        private byte[] codeBytes;
+        private ByteBuf codeByteBuf;
 
         Encode(byte code) {
             this.code = code;
-            this.ascii = new AsciiString(new byte[]{code},false);
+            this.codeBytes = new byte[]{code};
+            this.codeByteBuf = RecyclableUtil.newReadOnlyBuffer(codeBytes);
         }
 
         public int getCode() {
             return code;
         }
 
-        public AsciiString getAscii() {
-            return ascii;
+        public ByteBuf getByteBuf() {
+            return RecyclableUtil.newReadOnlyBuffer(codeBytes);
         }
 
-        public static Encode indexOf(AsciiString ascii){
+        public static Encode indexOf(ByteBuf codeByteBuf){
             for(Encode encode : values()){
-                if(encode.ascii.equals(ascii)){
+                if(encode.codeByteBuf.equals(codeByteBuf)){
                     return encode;
                 }
             }
-            return null;
+            throw new IllegalArgumentException("value=" + codeByteBuf.toString(CHARSET_UTF8));
         }
     }
 }

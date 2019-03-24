@@ -14,7 +14,6 @@ import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.AsciiString;
 import io.netty.util.AttributeKey;
 
 import java.lang.reflect.Constructor;
@@ -22,9 +21,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,7 +39,7 @@ public class RpcClient extends AbstractNettyClient{
     /**
      * Request a lock map
      */
-    protected static final AttributeKey<Map<AsciiString,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
+    protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
     /**
      * Generate request id
      */
@@ -317,25 +316,37 @@ public class RpcClient extends AbstractNettyClient{
     }
 
 
-    public static class RpcClientChannelHandler extends AbstractChannelHandler<RpcResponsePacket,Object> {
+    public static class RpcClientChannelHandler extends AbstractChannelHandler<Packet,Object> {
+        public RpcClientChannelHandler() {
+            super(false);
+        }
+
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
             //For 4.0.x version to 4.1.x version adaptation
             ctx.channel().attr(FUTURE_MAP_ATTR).set(intObjectHashMapConstructor != null?
-                    (Map)intObjectHashMapConstructor.newInstance(64) : new HashMap<>(64));
+                    intObjectHashMapConstructor.newInstance(64) : new ConcurrentHashMap<>(64));
             ctx.channel().attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
         }
 
         @Override
-        protected void onMessageReceived(ChannelHandlerContext ctx, RpcResponsePacket rpcResponse) throws Exception {
-            Map<AsciiString,RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
+        protected void onMessageReceived(ChannelHandlerContext ctx, Packet packet) throws Exception {
+            if(packet instanceof RpcResponsePacket) {
+                RpcResponsePacket rpcResponse = (RpcResponsePacket) packet;
+                Map<Integer, RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
 
-            RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
-            //If the fetch does not indicate that the timeout has occurred, it is released
-            if (future == null) {
-                return;
+                RpcFuture future = futureMap.remove(rpcResponse.getRequestIdInt());
+                //If the fetch does not indicate that the timeout has occurred, it is released
+                if (future == null) {
+                    return;
+                }
+
+                //Handed over to the thread that sent the message
+                future.done(rpcResponse);
+            }else {
+                logger.info("client received packet={}",packet);
+                packet.release();
             }
-            future.done(rpcResponse);
         }
 
         @Override
@@ -345,15 +356,14 @@ public class RpcClient extends AbstractNettyClient{
             packet.setAck(Packet.ACK_YES);
             ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
-
-        private static Constructor<?> intObjectHashMapConstructor;
-        static {
-            try {
-                intObjectHashMapConstructor = Class.forName("io.netty.util.collection.IntObjectHashMap").getConstructor(int.class);;
-            } catch (Exception e) {
-                intObjectHashMapConstructor = null;
-            }
-        }
     }
 
+    private static Constructor<Map> intObjectHashMapConstructor;
+    static {
+        try {
+            intObjectHashMapConstructor = (Constructor<Map>) Class.forName("io.netty.util.collection.IntObjectHashMap").getConstructor(int.class);;
+        } catch (Exception e) {
+            intObjectHashMapConstructor = null;
+        }
+    }
 }

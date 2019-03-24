@@ -1,5 +1,6 @@
 package com.github.netty.core.util;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.util.internal.InternalThreadLocalMap;
 import io.netty.util.internal.RecyclableArrayList;
 
@@ -16,9 +17,11 @@ public class RecyclableUtil {
         return (List<T>) finishListeners;
     }
 
-
     public static StringBuilder newStringBuilder() {
         return InternalThreadLocalMap.get().stringBuilder();
     }
 
+    public static ByteBuf newReadOnlyBuffer(byte[] bytes) {
+        return ReadOnlyPooledHeapByteBuf.newInstance(bytes);
+    }
 }

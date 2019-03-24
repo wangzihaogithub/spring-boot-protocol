@@ -1,25 +1,28 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
-import com.github.netty.protocol.nrpc.exception.RpcResponseException;
-import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
+import com.github.netty.core.util.RecyclableUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.util.AsciiString;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.github.netty.core.Packet.ACK_YES;
+import static com.github.netty.core.util.IOUtil.INT_LENGTH;
+import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
 import static com.github.netty.protocol.nrpc.RpcClient.REQUEST_ID_INCR_ATTR;
-import static com.github.netty.core.Packet.*;
-import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
 
 /**
  * RPC client instance
@@ -28,7 +31,7 @@ import static com.github.netty.protocol.nrpc.RpcUtil.NO_SUCH_METHOD;
 public class RpcClientInstance implements InvocationHandler {
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private int timeout;
-    private AsciiString serviceName;
+    private byte[] serviceName;
     private String instanceId = NamespaceUtil.newIdName(getClass());
     /**
      * Data encoder decoder
@@ -38,8 +41,13 @@ public class RpcClientInstance implements InvocationHandler {
      * channelSupplier
      */
     private Supplier<Channel> channelSupplier;
-
     private Map<String,RpcMethod> rpcMethodMap;
+    private FastThreadLocal<ByteBuf> requestIdLocal = new FastThreadLocal<ByteBuf>(){
+        @Override
+        protected ByteBuf initialValue() throws Exception {
+            return Unpooled.wrappedBuffer(new byte[INT_LENGTH]);
+        }
+    };
 
     protected RpcClientInstance(int timeout, String serviceName,
                                 Supplier<Channel> channelSupplier,
@@ -50,7 +58,7 @@ public class RpcClientInstance implements InvocationHandler {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=["+interfaceClass.getSimpleName()+"]");
         }
         this.timeout = timeout;
-        this.serviceName = AsciiString.of(serviceName);
+        this.serviceName = serviceName.getBytes(CHARSET_UTF8);
         this.channelSupplier = channelSupplier;
         this.dataCodec = dataCodec;
     }
@@ -59,25 +67,26 @@ public class RpcClientInstance implements InvocationHandler {
      * New request id
      * @return
      */
-    protected AsciiString newRequestId(Channel channel){
+    protected ByteBuf newRequestId(Channel channel){
+        ByteBuf byteBuf = requestIdLocal.get();
         AtomicInteger incr = channel.attr(REQUEST_ID_INCR_ATTR).get();
-        int id = incr.incrementAndGet();
+        int id = incr.getAndIncrement();
         if(id < 0){
             id = 0;
             incr.set(id);
         }
-        byte[] bytes = new byte[IOUtil.INT_LENGTH];
-        IOUtil.setInt(bytes,0,id);
-        return new AsciiString(bytes,false);
+        byteBuf.setIndex(0,0);
+        byteBuf.writeInt(id);
+        return byteBuf;
     }
 
     /**
      * Increase method
      * @param rpcMethod rpcMethod
-     * @return boolean success
+     * @return RpcMethod old rpcMethod
      */
-    public boolean addMethod(RpcMethod rpcMethod){
-        return rpcMethodMap.put(rpcMethod.getMethodName(),rpcMethod) == null;
+    public RpcMethod addMethod(RpcMethod rpcMethod){
+        return rpcMethodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
     }
 
     /**
@@ -105,27 +114,6 @@ public class RpcClientInstance implements InvocationHandler {
             return this.equals(args[0]);
         }
 
-        RpcFuture future = invoke(methodName,args);
-        RpcResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
-        if(rpcResponse == null){
-            future.cancel();
-            throw new RpcTimeoutException("RequestTimeout : maxTimeout = ["+timeout+"], ["+future+"]", true);
-        }
-
-        //All states above 400 are in error
-        if(rpcResponse.getStatus().getCode() >= RpcResponseStatus.NO_SUCH_METHOD.getCode()){
-            throw new RpcResponseException(rpcResponse.getStatus(),String.valueOf(rpcResponse.getMessage()),true);
-        }
-
-        //If the server is not encoded, return directly
-        if(rpcResponse.getEncode() == DataCodec.Encode.BINARY) {
-            return rpcResponse.getBody();
-        }else {
-            return dataCodec.decodeResponseData(rpcResponse.getBody());
-        }
-    }
-
-    public RpcFuture invoke(String methodName,Object[] args) {
         RpcMethod rpcMethod = rpcMethodMap.get(methodName);
         if(rpcMethod == null){
             return null;
@@ -135,35 +123,40 @@ public class RpcClientInstance implements InvocationHandler {
 
         RpcRequestPacket rpcRequest = new RpcRequestPacket();
         rpcRequest.setRequestId(newRequestId(channel));
-        rpcRequest.setServiceName(serviceName);
-        rpcRequest.setMethodName(AsciiString.of(methodName));
+        rpcRequest.setServiceName(getServiceName());
+        rpcRequest.setMethodName(rpcMethod.getMethodName());
         rpcRequest.setBody(dataCodec.encodeRequestData(args,rpcMethod));
         rpcRequest.setAck(ACK_YES);
-        return new RpcFuture(rpcRequest,channel);
+
+        Future<RpcResponsePacket> future = RpcFuture.newInstance(rpcRequest, channel);
+        RpcResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+        try {
+            //If the server is not encoded, return directly
+            if (rpcResponse.getEncode() == DataCodec.Encode.BINARY) {
+                ByteBuf body = rpcResponse.getBody();
+                return ByteBufUtil.getBytes(body, body.readerIndex(), body.readableBytes(), false);
+            } else {
+                return dataCodec.decodeResponseData(rpcResponse.getBody());
+            }
+        }finally {
+            rpcResponse.release();
+        }
     }
 
     public int getTimeout() {
         return timeout;
     }
 
+    public ByteBuf getServiceName() {
+        return RecyclableUtil.newReadOnlyBuffer(serviceName);
+    }
+
     @Override
     public String toString() {
         return "RpcClientInstance{" +
                 "instanceId='" + instanceId + '\'' +
-                ", serviceName='" + serviceName + '\'' +
+                ", serviceName='" + new String(serviceName) + '\'' +
                 '}';
-    }
-
-    public static String getTimeoutApis() {
-        return String.join(",", RpcFuture.TIMEOUT_API.keySet());
-    }
-
-    public static long getTotalInvokeCount() {
-        return RpcFuture.TOTAL_INVOKE_COUNT.get();
-    }
-
-    public static long getTotalTimeoutCount() {
-        return RpcFuture.TIMEOUT_API.values().stream().reduce(0,Integer::sum);
     }
 
 }

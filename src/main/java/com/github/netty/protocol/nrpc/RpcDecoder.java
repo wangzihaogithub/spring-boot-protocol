@@ -6,25 +6,26 @@ import com.github.netty.core.Packet;
 /**
  *  RPC decoder
  *
- *   Request Packet
- *
  *   ACK flag : (0=Don't need, 1=Need)
  *
- *-+------2B-------+--1B--+----1B----+-----8B-----+----------------dynamic---------------------+-------dynamic------------+
- * | packet length | type | ACK flag |   version  |                Fields                      |          Body            |
- * |      75       |  1   |   1      |   NRPC/201 | 11serviceName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
- *-+---------------+------+----------+------------+--------------------------------------------+--------------------------+
+ *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
+ * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
+ * |      76       |  1   |   1      |   NRPC/201 |     2       | 11serviceName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
+ *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
  */
 public class RpcDecoder extends AbstractProtocolDecoder {
+    private RpcVersion version = RpcVersion.CURRENT_VERSION;
 
     public RpcDecoder() {
-        super(RpcVersion.CURRENT_VERSION.getTextBytes().length);
+        super();
+        setProtocolVersionLength(version.getTextBytes().length);
     }
 
     public RpcDecoder(int maxLength) {
-        super(RpcVersion.CURRENT_VERSION.getTextBytes().length, maxLength);
+        super(maxLength);
+        setProtocolVersionLength(version.getTextBytes().length);
     }
 
     /**
@@ -47,4 +48,7 @@ public class RpcDecoder extends AbstractProtocolDecoder {
         }
     }
 
+    public RpcVersion getVersion() {
+        return version;
+    }
 }

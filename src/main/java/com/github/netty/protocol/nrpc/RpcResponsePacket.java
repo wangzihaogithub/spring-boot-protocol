@@ -1,62 +1,96 @@
 package com.github.netty.protocol.nrpc;
 
-
 import com.github.netty.core.Packet;
-import io.netty.util.AsciiString;
+import com.github.netty.core.util.FixedArrayMap;
+import com.github.netty.core.util.IOUtil;
+import com.github.netty.core.util.RecyclableUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.util.concurrent.FastThreadLocal;
+
+import java.util.Map;
+
+import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
 
 /**
  * Rpc Response
+ * @author wangzihao
  */
 public class RpcResponsePacket extends Packet {
-    private static final AsciiString REQUEST_ID_KEY = AsciiString.of("requestId");;
-    private static final AsciiString MESSAGE_KEY = AsciiString.of("message");;
-    private static final AsciiString STATUS_KEY = AsciiString.of("status");
-    private static final AsciiString ENCODE_KEY = AsciiString.of("encode");;
+    private static final byte[] REQUEST_ID_BYTES = "requestId".getBytes(CHARSET_UTF8);
+    private static final byte[] MESSAGE_BYTES = "message".getBytes(CHARSET_UTF8);
+    private static final byte[] STATUS_BYTES = "status".getBytes(CHARSET_UTF8);
+    private static final byte[] ENCODE_BYTES = "encode".getBytes(CHARSET_UTF8);
+
+    private static final ByteBuf REQUEST_ID_KEY = RecyclableUtil.newReadOnlyBuffer(REQUEST_ID_BYTES);
+    private static final ByteBuf MESSAGE_KEY = RecyclableUtil.newReadOnlyBuffer(MESSAGE_BYTES);
+    private static final ByteBuf STATUS_KEY = RecyclableUtil.newReadOnlyBuffer(STATUS_BYTES);
+    private static final ByteBuf ENCODE_KEY = RecyclableUtil.newReadOnlyBuffer(ENCODE_BYTES);
+
+    private static final FastThreadLocal<Map<ByteBuf,ByteBuf>> FIELD_MAP_THREAD_LOCAL = new FastThreadLocal<Map<ByteBuf,ByteBuf>>(){
+        @Override
+        protected Map<ByteBuf, ByteBuf> initialValue() throws Exception {
+            return new FixedArrayMap<>(Byte.MAX_VALUE * 2);
+        }
+    };
 
     public RpcResponsePacket() {
         super(TYPE_RESPONSE);
+        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
+//        setFieldMap(new FixedArrayMap<>(4));
     }
 
-    public AsciiString getRequestId() {
+    public ByteBuf getRequestId() {
         return getFieldMap().get(REQUEST_ID_KEY);
     }
 
-    public void setRequestId(AsciiString requestId) {
-        getFieldMap().put(REQUEST_ID_KEY,requestId);
+    public int getRequestIdInt() {
+        ByteBuf byteBuf = getRequestId();
+        int readableBytes = byteBuf.readableBytes();
+        switch (readableBytes){
+            case IOUtil.BYTE_LENGTH :{
+                return byteBuf.getByte(0);
+            }
+            case IOUtil.CHAR_LENGTH :{
+                return byteBuf.getChar(0);
+            }
+            case IOUtil.INT_LENGTH :{
+                return byteBuf.getInt(0);
+            }default:{
+                throw new IllegalStateException("error requestId");
+            }
+        }
     }
 
-    public AsciiString getMessage() {
-        return getFieldMap().get(MESSAGE_KEY);
+    public void setRequestId(ByteBuf requestId) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(REQUEST_ID_BYTES),requestId);
     }
 
-    public void setMessage(AsciiString message) {
-        getFieldMap().put(MESSAGE_KEY,message);
+    public void setStatus(RpcResponseStatus status) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(STATUS_BYTES),status.getCodeByteBuf());
+    }
+
+    public void setEncode(DataCodec.Encode encode) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(ENCODE_BYTES),encode.getByteBuf());
+    }
+
+    public void setMessage(ByteBuf message) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(MESSAGE_BYTES),message);
     }
 
     public RpcResponseStatus getStatus() {
         return RpcResponseStatus.indexOf(getFieldMap().get(STATUS_KEY));
     }
 
-    public void setStatus(RpcResponseStatus status) {
-        getFieldMap().put(STATUS_KEY,status.getCodeAscii());
-    }
-
     public DataCodec.Encode getEncode() {
         return DataCodec.Encode.indexOf(getFieldMap().get(ENCODE_KEY));
     }
 
-    public void setEncode(DataCodec.Encode encode) {
-        getFieldMap().put(ENCODE_KEY,encode.getAscii());
+    public ByteBuf getMessage() {
+        return getFieldMap().get(MESSAGE_KEY);
     }
 
-    @Override
-    public String toString() {
-        return "ResponsePacket{" +
-                "requestId=" + getRequestId() +
-                ", status=" + getStatus() +
-                ", message='" + getMessage() + '\'' +
-                ", encode=" + getEncode() +
-                ", bodyLength=" + (getBody() == null ? "null" : getBody().length) +
-                '}';
+    public String getMessageString() {
+        return getMessage().toString(CHARSET_UTF8);
     }
+
 }

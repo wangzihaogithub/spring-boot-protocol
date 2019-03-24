@@ -1,17 +1,21 @@
 package com.github.netty.core;
 
-import io.netty.util.AsciiString;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.util.IllegalReferenceCountException;
+import io.netty.util.ReferenceCounted;
 
-import java.util.Arrays;
-import java.util.Collections;
+import java.nio.charset.Charset;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Packet
  * 2019/3/17/017.
  * @author acer01
  */
-public class Packet {
+public class Packet implements ReferenceCounted {
     public static final byte TYPE_UNKNOWN = 0;
     public static final byte TYPE_REQUEST = 1;
     public static final byte TYPE_RESPONSE = 2;
@@ -21,12 +25,11 @@ public class Packet {
     public static final byte ACK_NO = 0;
     public static final byte ACK_YES = 1;
 
-    public static final byte[] EMPTY_BODY = new byte[0];
-
+    private ByteBuf rawPacket;
     /**
      * Protocol version
      */
-    private byte[] protocolVersion;
+    private ByteBuf protocolVersion;
     /**
      * Packet type
      */
@@ -39,11 +42,11 @@ public class Packet {
     /**
      * Fields
      */
-    private Map<AsciiString, AsciiString> fieldMap = Collections.emptyMap();
+    private Map<ByteBuf, ByteBuf> fieldMap;
     /**
      * Body
      */
-    private byte[] body = EMPTY_BODY;
+    private ByteBuf body = Unpooled.EMPTY_BUFFER;
 
     public Packet() {}
 
@@ -51,11 +54,11 @@ public class Packet {
         this.packetType = packetType;
     }
 
-    public byte[] getProtocolVersion() {
+    public ByteBuf getProtocolVersion() {
         return protocolVersion;
     }
 
-    public void setProtocolVersion(byte[] protocolVersion) {
+    public void setProtocolVersion(ByteBuf protocolVersion) {
         this.protocolVersion = protocolVersion;
     }
 
@@ -75,36 +78,142 @@ public class Packet {
         this.packetType = packetType;
     }
 
-    public byte[] getBody() {
+    public ByteBuf getBody() {
         return body;
     }
 
-    public void setBody(byte[] body) {
+    public void setBody(ByteBuf body) {
         this.body = body;
     }
 
-    public Map<AsciiString, AsciiString> getFieldMap() {
+    public Map<ByteBuf, ByteBuf> getFieldMap() {
         return fieldMap;
     }
 
-    public void setFieldMap(Map<AsciiString, AsciiString> fieldMap) {
+    public void setFieldMap(Map<ByteBuf, ByteBuf> fieldMap) {
         this.fieldMap = fieldMap;
+    }
+
+    public ByteBuf getRawPacket() {
+        return rawPacket;
+    }
+
+    public void setRawPacket(ByteBuf rawPacket) {
+        this.rawPacket = rawPacket;
     }
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("{");
-        sb.append("\"protocolHeader\":")
-                .append(Arrays.toString(protocolVersion));
-        sb.append(",\"packetType\":")
-                .append(packetType);
-        sb.append(",\"ack\":")
-                .append(ack);
-        sb.append(",\"bodyLength\":")
-                .append((getBody() == null ? "null" : getBody().length));
-        sb.append(",\"fieldMap\":")
-                .append(fieldMap);
-        sb.append('}');
+        Charset charset = Charset.defaultCharset();
+        StringBuilder sb = new StringBuilder();
+        sb.append(getClass().getSimpleName());
+        sb.append("{protocolVersion=");
+        sb.append(protocolVersion == null? "null" : protocolVersion.toString(charset));
+        sb.append(", packetType=");
+        sb.append(packetType);
+        sb.append(", ack=");
+        sb.append(ack);
+        sb.append(", bodyLength=");
+        sb.append(body == null ? "null" : body.readableBytes());
+        sb.append(", fieldMap=");
+
+        if(fieldMap == null){
+            sb.append("null");
+        }else {
+            Iterator<Map.Entry<ByteBuf,ByteBuf>> i = fieldMap.entrySet().iterator();
+            if (i.hasNext()) {
+                sb.append('{');
+                for (;;) {
+                    Map.Entry<ByteBuf,ByteBuf> e = i.next();
+                    sb.append(e.getKey().toString(charset));
+                    sb.append('=');
+                    sb.append(e.getValue().toString(charset));
+                    if (! i.hasNext()) {
+                        sb.append('}');
+                        break;
+                    }
+                    sb.append(',').append(' ');
+                }
+            }else {
+                sb.append("{}");
+            }
+            sb.append('}');
+        }
         return sb.toString();
+    }
+
+
+    private AtomicInteger refCnt = new AtomicInteger(1);
+
+    @Override
+    public final int refCnt() {
+        return refCnt.get();
+    }
+
+    @Override
+    public final ReferenceCounted retain() {
+        return retain(1);
+    }
+
+    @Override
+    public final ReferenceCounted retain(int increment) {
+        refCnt.addAndGet(increment);
+        return this;
+    }
+
+    @Override
+    public final ReferenceCounted touch() {
+        return this;
+    }
+
+    @Override
+    public final ReferenceCounted touch(Object hint) {
+        return this;
+    }
+
+    @Override
+    public final boolean release() {
+        return release(1);
+    }
+
+    @Override
+    public final boolean release(int decrement) {
+        int oldRef = refCnt.getAndAdd(-decrement);
+        if (oldRef == decrement) {
+            deallocate();
+            return true;
+        } else if (oldRef < decrement || oldRef - decrement > oldRef) {
+            // Ensure we don't over-release, and avoid underflow.
+            refCnt.getAndAdd(decrement);
+            throw new IllegalReferenceCountException(oldRef, -decrement);
+        }
+        return false;
+    }
+
+    /**
+     * Called once {@link #refCnt()} is equals 0.
+     */
+    protected void deallocate(){
+        if (rawPacket != null && rawPacket.refCnt() > 0) {
+            rawPacket.release();
+        }
+        if (protocolVersion != null && protocolVersion.refCnt() > 0) {
+            protocolVersion.release();
+        }
+        if (fieldMap != null && fieldMap.size() > 0) {
+            for (Map.Entry<ByteBuf, ByteBuf> entry : fieldMap.entrySet()) {
+                ByteBuf key = entry.getKey();
+                if(key.refCnt() > 0) {
+                    key.release();
+                }
+                ByteBuf value = entry.getValue();
+                if(value.refCnt() > 0){
+                    value.release();
+                }
+            }
+        }
+        if (body != null && body.refCnt() > 0) {
+            body.release();
+        }
     }
 }

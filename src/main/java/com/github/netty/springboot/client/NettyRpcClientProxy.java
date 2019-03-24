@@ -6,7 +6,7 @@ import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcClientInstance;
-import com.github.netty.protocol.nrpc.RpcUtil;
+import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.springboot.NettyProperties;
@@ -101,7 +101,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
 
         if(StringUtil.isEmpty(serviceName)) {
-            serviceName = RpcUtil.getServiceName(objectType);
+            serviceName = RpcServerChannelHandler.getServiceName(objectType);
         }
         return serviceName;
     }

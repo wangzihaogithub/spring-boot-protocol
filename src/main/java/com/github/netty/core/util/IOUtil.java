@@ -1,6 +1,7 @@
 package com.github.netty.core.util;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
@@ -240,13 +241,7 @@ public class IOUtil {
         ByteBuf byteBuf = readFileToByteBuf(sourcePath,sourceFileName);
         writerModeToReadMode(byteBuf);
         try {
-            if (byteBuf.hasArray()) {
-                return byteBuf.array();
-            }else {
-                byte[] bytes = new byte[byteBuf.readableBytes()];
-                byteBuf.readBytes(bytes);
-                return bytes;
-            }
+            return ByteBufUtil.getBytes(byteBuf,byteBuf.readerIndex(), byteBuf.readableBytes(),false);
         }finally {
             ReferenceCountUtil.safeRelease(byteBuf);
         }

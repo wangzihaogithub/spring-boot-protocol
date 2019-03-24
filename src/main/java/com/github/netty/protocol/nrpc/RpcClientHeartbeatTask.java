@@ -117,7 +117,7 @@ public class RpcClientHeartbeatTask implements Runnable{
         try {
             byte[] msg = rpcClient.getRpcCommandService().ping();
             if(isLogHeartEvent) {
-                logger.info(rpcClient.getName() + " The heartbeat packets : " + new String(msg));
+                logger.info("{} The heartbeat packets : {}",rpcClient.getName(),new String(msg));
             }
         }catch (RpcConnectException e) {
             reconnect(e.getMessage());

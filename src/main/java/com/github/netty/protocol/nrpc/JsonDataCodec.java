@@ -4,9 +4,11 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.parser.ParserConfig;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.util.TypeUtils;
+import com.github.netty.core.util.RecyclableUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.util.concurrent.FastThreadLocal;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,12 +16,16 @@ import java.util.Map;
  * @author wangzihao
  */
 public class JsonDataCodec implements DataCodec {
-    public static final byte[] EMPTY = new byte[0];
-    private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static SerializerFeature[] SERIALIZER_FEATURES = {
 //            SerializerFeature.WriteClassName
     };
 
+    private FastThreadLocal<Map<String,Object>> parameterMapLocal = new FastThreadLocal<Map<String,Object>>(){
+        @Override
+        protected Map<String,Object> initialValue() throws Exception {
+            return new HashMap<>(32);
+        }
+    };
     private ParserConfig parserConfig;
 
     public JsonDataCodec() {
@@ -39,34 +45,40 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
+    public ByteBuf encodeRequestData(Object[] data,RpcMethod rpcMethod) {
         if(data == null || data.length == 0){
-            return EMPTY;
+            return Unpooled.EMPTY_BUFFER;
         }
 
         String[] parameterNames = rpcMethod.getParameterNames();
-        Map<String,Object> parameterMap = new HashMap<>(8);
-        for (int i=0; i<parameterNames.length; i++) {
-            String name = parameterNames[i];
-            if(name == null){
-                continue;
+        Map<String, Object> parameterMap = parameterMapLocal.get();
+        try {
+            for (int i = 0; i < parameterNames.length; i++) {
+                String name = parameterNames[i];
+                if (name == null) {
+                    continue;
+                }
+                Object value = data[i];
+                parameterMap.put(name, value);
             }
-            Object value = data[i];
-            parameterMap.put(name, value);
+            return RecyclableUtil.newReadOnlyBuffer(JSON.toJSONBytes(parameterMap, SERIALIZER_FEATURES));
+        }finally {
+            parameterMap.clear();
         }
-        return JSON.toJSONBytes(parameterMap,SERIALIZER_FEATURES);
     }
 
     @Override
-    public Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod) {
-        if(data == null || data.length == 0){
+    public Object[] decodeRequestData(ByteBuf data, RpcMethod rpcMethod) {
+        if(data == null || data.readableBytes() == 0){
             return null;
         }
 
         String[] parameterNames = rpcMethod.getParameterNames();
         Object[] parameterValues = new Object[parameterNames.length];
         Class<?>[] parameterTypes = rpcMethod.getMethod().getParameterTypes();
-        Map parameterMap = (Map) JSON.parse(data,0,data.length,UTF8.newDecoder(),JSON.DEFAULT_PARSER_FEATURE);
+
+        String json = data.toString(CHARSET_UTF8);
+        Map parameterMap = (Map) JSON.parse(json,JSON.DEFAULT_PARSER_FEATURE);
 
         for(int i =0; i<parameterNames.length; i++){
             Class<?> type = parameterTypes[i];
@@ -82,19 +94,19 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public byte[] encodeResponseData(Object data) {
+    public ByteBuf encodeResponseData(Object data) {
         if(data == null){
-            return EMPTY;
+            return Unpooled.EMPTY_BUFFER;
         }
-        return JSON.toJSONBytes(data,SERIALIZER_FEATURES);
+        return Unpooled.wrappedBuffer(JSON.toJSONBytes(data,SERIALIZER_FEATURES));
     }
 
     @Override
-    public Object decodeResponseData(byte[] data) {
-        if(data == null || data.length == 0){
+    public Object decodeResponseData(ByteBuf data) {
+        if(data == null || data.readableBytes() == 0){
             return null;
         }
-        return JSON.parse(data);
+        return JSON.parse(data.toString(CHARSET_UTF8));
     }
 
     protected boolean isNeedCast(Object value,Class<?> type){

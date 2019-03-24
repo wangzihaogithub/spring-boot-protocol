@@ -2,51 +2,89 @@ package com.github.netty.protocol.nrpc;
 
 
 import com.github.netty.core.Packet;
-import io.netty.util.AsciiString;
+import com.github.netty.core.util.FixedArrayMap;
+import com.github.netty.core.util.IOUtil;
+import com.github.netty.core.util.RecyclableUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.util.concurrent.FastThreadLocal;
+
+import java.util.Map;
+
+import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
 
 /**
  * Rpc Request
+ * @author wangzihao
  */
 public class RpcRequestPacket extends Packet {
-    private static final AsciiString REQUEST_ID_KEY = AsciiString.of("requestId");;
-    private static final AsciiString SERVICE_NAME_KEY = AsciiString.of("serviceName");
-    private static final AsciiString METHOD_NAME_KEY = AsciiString.of("methodName");;
+    private static final byte[] REQUEST_ID_BYTES = "requestId".getBytes(CHARSET_UTF8);
+    private static final byte[] SERVICE_NAME_BYTES = "serviceName".getBytes(CHARSET_UTF8);
+    private static final byte[] METHOD_NAME_BYTES = "methodName".getBytes(CHARSET_UTF8);
+
+    private static final ByteBuf REQUEST_ID_KEY = RecyclableUtil.newReadOnlyBuffer(REQUEST_ID_BYTES);
+    private static final ByteBuf SERVICE_NAME_KEY = RecyclableUtil.newReadOnlyBuffer(SERVICE_NAME_BYTES);
+    private static final ByteBuf METHOD_NAME_KEY = RecyclableUtil.newReadOnlyBuffer(METHOD_NAME_BYTES);
+    private static final FastThreadLocal<Map<ByteBuf,ByteBuf>> FIELD_MAP_THREAD_LOCAL = new FastThreadLocal<Map<ByteBuf,ByteBuf>>(){
+        @Override
+        protected Map<ByteBuf, ByteBuf> initialValue() throws Exception {
+            return new FixedArrayMap<>(Byte.MAX_VALUE * 2);
+        }
+    };
 
     public RpcRequestPacket() {
         super(TYPE_REQUEST);
+        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
+//        setFieldMap(new FixedArrayMap<>(3));
     }
 
-    public AsciiString getRequestId() {
-        return getFieldMap().get(REQUEST_ID_KEY);
+    public void setRequestId(ByteBuf requestId) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(REQUEST_ID_BYTES),requestId);
     }
 
-    public void setRequestId(AsciiString requestId) {
-        getFieldMap().put(REQUEST_ID_KEY,requestId);
+    public void setServiceName(ByteBuf serviceName) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(SERVICE_NAME_BYTES),serviceName);
     }
 
-    public AsciiString getServiceName() {
+    public void setMethodName(ByteBuf methodName) {
+        getFieldMap().put(RecyclableUtil.newReadOnlyBuffer(METHOD_NAME_BYTES),methodName);
+    }
+
+    public ByteBuf getServiceName() {
         return getFieldMap().get(SERVICE_NAME_KEY);
     }
 
-    public void setServiceName(AsciiString serviceName) {
-        getFieldMap().put(SERVICE_NAME_KEY,serviceName);
+    public ByteBuf getRequestId() {
+        return getFieldMap().get(REQUEST_ID_KEY);
     }
 
-    public AsciiString getMethodName() {
+    public ByteBuf getMethodName() {
         return getFieldMap().get(METHOD_NAME_KEY);
     }
 
-    public void setMethodName(AsciiString methodName) {
-        getFieldMap().put(METHOD_NAME_KEY,methodName);
+    public String getServiceNameString() {
+        return getServiceName().toString(CHARSET_UTF8);
     }
 
-    @Override
-    public String toString() {
-        return "RequestPacket{" +
-                "requestId=" + getRequestId() +
-                ", serviceName='" + getServiceName() + '\'' +
-                ", methodName='" + getMethodName() + '\'' +
-                ", bodyLength=" + (getBody() == null ? "null" : getBody().length) +
-                '}';
+    public String getMethodNameString() {
+        return getMethodName().toString(CHARSET_UTF8);
     }
+
+    public int getRequestIdInt() {
+        ByteBuf byteBuf = getRequestId();
+        int readableBytes = byteBuf.readableBytes();
+        switch (readableBytes){
+            case IOUtil.BYTE_LENGTH :{
+                return byteBuf.getByte(0);
+            }
+            case IOUtil.CHAR_LENGTH :{
+                return byteBuf.getChar(0);
+            }
+            case IOUtil.INT_LENGTH :{
+                return byteBuf.getInt(0);
+            }default:{
+                throw new IllegalStateException("error requestId. byteBuf="+byteBuf);
+            }
+        }
+    }
+
 }

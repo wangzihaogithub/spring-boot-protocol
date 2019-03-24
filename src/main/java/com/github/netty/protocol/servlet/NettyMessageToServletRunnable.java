@@ -36,7 +36,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         HttpRunnable instance = RECYCLER.getInstance();
         instance.httpServletObject = ServletHttpObject.newInstance(
                 servletContext,
-                ByteBufAllocatorX.forceDirectAllocator(context),
+                context,
                 (FullHttpRequest) msg);;
         return instance;
     }

@@ -1,19 +1,22 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.CoreConstants;
+import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
+import com.github.netty.protocol.nrpc.exception.RpcResponseException;
+import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.util.AsciiString;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 
 import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
 
@@ -21,26 +24,54 @@ import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
  * Simple Future
  * @author wangzihao
  */
-public class RpcFuture {
-    private Lock lock;
-    private Condition done;
+public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
+    private static final Recycler<RpcFuture> RECYCLER = new Recycler<>(RpcFuture::new);
+    private Lock lock = new ReentrantLock();
+    private Condition condition = lock.newCondition();
     private RpcRequestPacket request;
-    private RpcResponsePacket response;
+    private RpcResponsePacket result;
     private Channel channel;
-    private AtomicBoolean cancelFlag = new AtomicBoolean();
-    private Consumer<RpcResponsePacket> responseConsumer;
+    private Map<Integer,RpcFuture> futureMap;
 
-    public RpcFuture(RpcRequestPacket request, Channel channel) {
-        this.request = request;
-        this.channel = channel;
+    public static RpcFuture newInstance(RpcRequestPacket request, Channel channel){
+        RpcFuture rpcFuture = RECYCLER.getInstance();
+        rpcFuture.request = request;
+        rpcFuture.channel = channel;
+        rpcFuture.futureMap = channel.attr(FUTURE_MAP_ATTR).get();
+
+        return rpcFuture;
     }
 
-    /**
-     * Get (note: no block the current thread)
-     * @param responseConsumer responseConsumer
-     */
-    public void get(Consumer<RpcResponsePacket> responseConsumer) {
-        this.responseConsumer = responseConsumer;
+    @Override
+    public RpcResponsePacket get() throws InterruptedException, ExecutionException {
+        checkCanUse();
+
+        RpcResponsePacket response;
+        try {
+            ChannelFuture channelFuture = sendToChannel();
+            spin();
+
+            //If the spin gets the response back directly
+            if (result == null) {
+                lock.lock();
+                try {
+                    condition.await();
+                } finally {
+                    lock.unlock();
+                }
+            }
+        }catch (InterruptedException t){
+            throw t;
+        }catch (Throwable t){
+            throw new ExecutionException(t);
+        }finally {
+            response = result;
+            recycle();
+        }
+
+        //If an exception state is returned, an exception is thrown
+        handlerResponseIfNeedThrow(response);
+        return result;
     }
 
     /**
@@ -49,62 +80,75 @@ public class RpcFuture {
      * @param timeUnit timeUnit
      * @return RpcResponse
      */
-    public RpcResponsePacket get(int timeout, TimeUnit timeUnit) {
-        if(response != null){
-            return response;
-        }
-        lock = new ReentrantLock();
-        done = lock.newCondition();
+    @Override
+    public RpcResponsePacket get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException,TimeoutException {
+        checkCanUse();
 
-        channel.attr(FUTURE_MAP_ATTR).get().put(request.getRequestId(), this);
-        channel.writeAndFlush(request).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
+        RpcResponsePacket response;
+        try {
+            ChannelFuture channelFuture = sendToChannel();
+            spin();
 
-        TOTAL_INVOKE_COUNT.incrementAndGet();
-        //Spin, because if it's a local RPC call, it's too fast and there's no need to jam
-        int spinCount = CoreConstants.getRpcLockSpinCount();
-        if (spinCount > 0) {
-            for (int i = 0; response == null && i < spinCount; i++) {
-                Thread.yield();
+            if (result == null && timeout != 0) {
+                lock.lock();
+                try {
+                    if (timeout > 0) {
+                        condition.await(timeout, timeUnit);
+                    } else {
+                        condition.await();
+                    }
+                } finally {
+                    lock.unlock();
+                }
             }
+        }catch (InterruptedException t){
+            throw t;
+        }catch (Throwable t){
+            throw new ExecutionException(t);
+        }finally {
+            response = this.result;
+            recycle();
         }
 
         if (response == null) {
-            try {
-                if (response == null) {
-                    lock.lock();
-                    try {
-                        done.await(timeout, timeUnit);
-                    }finally {
-                        lock.unlock();
-                    }
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            TimeoutException timeoutException = new TimeoutException();
+            RpcTimeoutException rpcTimeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout + "], [" + toString() + "]", false);
+            rpcTimeoutException.setStackTrace(timeoutException.getStackTrace());
+            timeoutException.initCause(rpcTimeoutException);
+            throw timeoutException;
         }
 
-        //If the spin gets the response back directly
-        if (response != null) {
-            TOTAL_SPIN_RESPONSE_COUNT.incrementAndGet();
-            return response;
-        }
-        TIMEOUT_API.put(request.getMethodName(), TIMEOUT_API.getOrDefault(request.getMethodName(), 0) + 1);
-        return null;
+        //If an exception state is returned, an exception is thrown
+        handlerResponseIfNeedThrow(response);
+        return response;
     }
 
     /**
      * cancel
      * @return if the task could not be cancelled, typically because it has already completed normally;
      */
-    public boolean cancel(){
-        if(cancelFlag.compareAndSet(false,true)){
-            Map<AsciiString,RpcFuture> futureMap = channel.attr(FUTURE_MAP_ATTR).get();
-            if(futureMap != null) {
-                futureMap.remove(request.getRequestId());
-            }
-            return true;
-        }
-        return false;
+    @Override
+    public boolean cancel(boolean mayInterruptIfRunning) {
+        throw new UnsupportedOperationException("Unsupported cancel()");
+    }
+
+    @Override
+    public boolean isCancelled() {
+        throw new UnsupportedOperationException("Unsupported isCancelled()");
+    }
+
+    @Override
+    public boolean isDone() {
+        throw new UnsupportedOperationException("Unsupported isDone()");
+    }
+
+    @Override
+    public String toString() {
+        return "RpcFuture{" +
+                "request=" + request +
+                ", response=" + result +
+                ", channel=" + channel +
+                '}';
     }
 
     /**
@@ -112,51 +156,68 @@ public class RpcFuture {
      * @param rpcResponse rpcResponse
      */
     public void done(RpcResponsePacket rpcResponse){
-        if(cancelFlag.get()){
+        checkCanUse();
+
+        this.result = rpcResponse;
+        lock.lock();
+        try {
+            condition.signal();
+        }finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * write to netty channel
+     */
+    private ChannelFuture sendToChannel(){
+        futureMap.put(request.getRequestIdInt(), this);
+        return channel.writeAndFlush(request)
+                .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
+    }
+
+    /**
+     * Spin, because if it's a local RPC call, it's too fast and there's no need to jam
+     */
+    private void spin(){
+        int spinCount = CoreConstants.getRpcLockSpinCount();
+        if (spinCount > 0) {
+            for (int i = 0; result == null && i < spinCount; i++) {
+                Thread.yield();
+            }
+        }
+    }
+
+    /**
+     * If an exception state is returned, an exception is thrown
+     * All response states above 400 are in error
+     */
+    private void handlerResponseIfNeedThrow(RpcResponsePacket response) throws ExecutionException {
+        if(response == null) {
             return;
         }
 
-        this.response = rpcResponse;
-        if(done != null) {
-            lock.lock();
-            try {
-                done.signal();
-            }finally {
-                lock.unlock();
-            }
-        }
-        if(responseConsumer != null){
-            responseConsumer.accept(rpcResponse);
+        RpcResponseStatus status = response.getStatus();
+        if(status.getCode() >= RpcResponseStatus.NO_SUCH_METHOD.getCode()){
+            RpcResponseException rpcResponseException = new RpcResponseException(status,response.getMessageString(),false);
+            ExecutionException exception = new ExecutionException(rpcResponseException);
+            rpcResponseException.setStackTrace(exception.getStackTrace());
+            throw exception;
         }
     }
 
-    public RpcRequestPacket getRequest() {
-        return request;
+    private void checkCanUse(){
+        if(channel == null || request == null){
+            throw new IllegalStateException("It has been recycled and cannot be reused. You need to reconstruct one for use");
+        }
     }
-
-    public RpcResponsePacket getResponse() {
-        return response;
-    }
-
-    /**
-     * Spin success number
-     */
-    public static final AtomicLong TOTAL_SPIN_RESPONSE_COUNT = new AtomicLong();
-    /**
-     * Total number of calls
-     */
-    public static final AtomicLong TOTAL_INVOKE_COUNT = new AtomicLong();
-    /**
-     * Timeout API
-     */
-    public static final Map<AsciiString,Integer> TIMEOUT_API = new ConcurrentHashMap<>();
 
     @Override
-    public String toString() {
-        return "RpcFuture{" +
-                "request=" + request +
-                ", response=" + response +
-                ", channel=" + channel +
-                '}';
+    public void recycle() {
+        this.futureMap = null;
+        this.request = null;
+        this.result = null;
+        this.channel = null;
+        RECYCLER.recycleInstance(this);
     }
 }

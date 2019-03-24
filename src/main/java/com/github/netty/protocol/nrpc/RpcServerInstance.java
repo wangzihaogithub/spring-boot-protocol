@@ -1,6 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
-import io.netty.util.AsciiString;
+import com.github.netty.core.util.ByteBufAllocatorX;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -18,7 +20,7 @@ import static com.github.netty.protocol.nrpc.DataCodec.Encode.JSON;
  */
 public class RpcServerInstance {
     private Object instance;
-    private Map<AsciiString,RpcMethod> rpcMethodMap;
+    private Map<ByteBuf,RpcMethod> rpcMethodMap;
     private DataCodec dataCodec;
 
     /**
@@ -33,7 +35,7 @@ public class RpcServerInstance {
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
 
-        this.rpcMethodMap = RpcMethod.toAsciiMethodMap(rpcMethodMap);
+        this.rpcMethodMap = RpcMethod.toByteBufMethodMap(rpcMethodMap);
         this.instance = instance;
         this.dataCodec = dataCodec;
     }
@@ -44,9 +46,13 @@ public class RpcServerInstance {
 
         RpcMethod rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
         if(rpcMethod == null) {
+            String message = "not found method " + rpcRequest.getMethodNameString();
+            ByteBuf messageByteBuf = ByteBufAllocatorX.POOLED.buffer(message.length());
+            messageByteBuf.writeCharSequence(message,DataCodec.CHARSET_UTF8);
+
             rpcResponse.setEncode(BINARY);
             rpcResponse.setStatus(NO_SUCH_METHOD);
-            rpcResponse.setMessage(AsciiString.of("not found method [" + rpcRequest.getMethodName() + "]"));
+            rpcResponse.setMessage(messageByteBuf);
             rpcResponse.setBody(null);
             return rpcResponse;
         }
@@ -57,20 +63,23 @@ public class RpcServerInstance {
             //Whether to code or not
             if(result instanceof byte[]){
                 rpcResponse.setEncode(BINARY);
-                rpcResponse.setBody((byte[]) result);
+                rpcResponse.setBody(Unpooled.wrappedBuffer((byte[]) result));
             }else {
                 rpcResponse.setEncode(JSON);
                 rpcResponse.setBody(dataCodec.encodeResponseData(result));
             }
             rpcResponse.setStatus(OK);
-            rpcResponse.setMessage(OK.getTextAscii());
+            rpcResponse.setMessage(OK.getTextByteBuf());
             return rpcResponse;
         }catch (Throwable t){
             String message = t.getMessage();
+            message = message == null? t.toString(): t.getMessage();
+            ByteBuf messageByteBuf = ByteBufAllocatorX.POOLED.buffer(message.length());
+            messageByteBuf.writeCharSequence(message, DataCodec.CHARSET_UTF8);
+
             rpcResponse.setEncode(BINARY);
             rpcResponse.setStatus(SERVER_ERROR);
-            rpcResponse.setMessage(AsciiString.of(message == null? t.toString(): message));
-            rpcResponse.setBody(null);
+            rpcResponse.setMessage(messageByteBuf);
             return rpcResponse;
         }
     }

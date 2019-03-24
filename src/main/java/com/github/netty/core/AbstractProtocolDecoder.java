@@ -1,29 +1,35 @@
 package com.github.netty.core;
 
-import com.github.netty.core.util.AsciiStringMap;
+import com.github.netty.core.util.FixedArrayMap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.util.AsciiString;
 import io.netty.util.ReferenceCountUtil;
+
+import java.util.Map;
 
 /**
  *  AbstractProtocolDecoder
  *
  *   ACK flag : (0=Don't need, 1=Need)
  *
- *-+------2B-------+--1B--+----1B----+---versionLength-+-----dynamic-----+-------dynamic------------+
- * | packet length | type | ACK flag |    version      |      Fields     |          Body            |
- * |      45       |  1   |   1      |     my007       | 5mykey7myvalue  | {"age":10,"name":"wang"} |
- *-+---------------+------+----------+-----------------+-----------------+--------------------------+
+ *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
+ * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
+ * |      76       |  1   |   1      |   NRPC/201 |     2       | 11serviceName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
+ *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
  */
 public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecoder {
-    private final int protocolVersionLength;
+    private int protocolVersionLength;
 
-    public AbstractProtocolDecoder(int protocolVersionLength) {
-        this(protocolVersionLength,10 * 1024 * 1024);
+    public AbstractProtocolDecoder() {
+        this(0,10 * 1024 * 1024);
+    }
+
+    public AbstractProtocolDecoder(int maxLength) {
+        this(0,maxLength);
     }
 
     public AbstractProtocolDecoder(int protocolVersionLength, int maxLength) {
@@ -43,54 +49,49 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             return null;
         }
 
-        try {
-            //Packet type
-            Packet packet = newPacket(msg.readUnsignedByte());
+        //Packet type
+        Packet packet = newPacket(msg.readUnsignedByte());
+        packet.setRawPacket(msg);
 
-            //Ack flag
-            packet.setAck(msg.readByte());
+        //Ack flag
+        packet.setAck(msg.readByte());
 
-            //Protocol header
-            packet.setProtocolVersion(new byte[protocolVersionLength]);
-            msg.readBytes(packet.getProtocolVersion());
+        //Protocol header
+        packet.setProtocolVersion(msg.readSlice(protocolVersionLength));
 
-            //Fields
-            int fieldCount = msg.readUnsignedByte();
-            AsciiStringMap fieldMap = new AsciiStringMap(fieldCount);
-            for(int i=0; i<fieldCount; i++){
-                byte[] key = new byte[msg.readUnsignedByte()];
-                msg.readBytes(key);
-
-                byte[] value = new byte[msg.readUnsignedShort()];
-                msg.readBytes(value);
-
-                fieldMap.put(new AsciiString(key,false),new AsciiString(value,false));
-            }
-            packet.setFieldMap(fieldMap);
-
-            //Body
-            int bodyLength = msg.readableBytes();
-            if(bodyLength > 0){
-                packet.setBody(new byte[bodyLength]);
-                msg.readBytes(packet.getBody());
-            }else {
-                packet.setBody(Packet.EMPTY_BODY);
-            }
-            return packet;
-        }finally {
-            if(msg.refCnt() > 0) {
-                ReferenceCountUtil.safeRelease(msg);
-            }
+        //Fields
+        int fieldCount = msg.readUnsignedByte();
+        Map<ByteBuf,ByteBuf> fieldMap = packet.getFieldMap();
+        if(fieldMap == null) {
+            fieldMap = new FixedArrayMap<>(fieldCount);
         }
+        for(int i=0; i<fieldCount; i++){
+            fieldMap.put(
+                    msg.readSlice(msg.readUnsignedByte()),
+                    msg.readSlice(msg.readUnsignedShort()));
+        }
+        packet.setFieldMap(fieldMap);
+
+        //Body
+        int bodyLength = msg.readableBytes();
+        if(bodyLength > 0){
+            packet.setBody(msg.readSlice(bodyLength));
+        }else {
+            packet.setBody(Unpooled.EMPTY_BUFFER);
+        }
+        return packet;
     }
 
     /**
      * new packet
-     * @param packetType
-     * @return
+     * @param packetType packetType
+     * @return Packet
      */
     protected Packet newPacket(int packetType) {
         return new Packet(packetType);
     }
 
+    public void setProtocolVersionLength(int protocolVersionLength) {
+        this.protocolVersionLength = protocolVersionLength;
+    }
 }

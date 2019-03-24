@@ -1,6 +1,9 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.util.AsciiString;
 
 import java.lang.reflect.Method;
@@ -15,10 +18,12 @@ import java.util.function.Function;
 public class RpcMethod {
     private Method method;
     private String[] parameterNames;
+    private byte[] methodName;
 
     public RpcMethod(Method method, String[] parameterNames) {
         this.method = method;
         this.parameterNames = parameterNames;
+        this.methodName = method.getName().getBytes(DataCodec.CHARSET_UTF8);
     }
 
     public Method getMethod() {
@@ -29,8 +34,8 @@ public class RpcMethod {
         return parameterNames;
     }
 
-    public String getMethodName(){
-        return method.getName();
+    public ByteBuf getMethodName(){
+        return RecyclableUtil.newReadOnlyBuffer(methodName);
     }
 
     public static Map<String,RpcMethod> getMethodMap(Class source, Function<Method,String[]> methodToParameterNamesFunction){
@@ -49,11 +54,10 @@ public class RpcMethod {
         return methodMap;
     }
 
-
-    public static Map<AsciiString,RpcMethod> toAsciiMethodMap(Map<String,RpcMethod> methodMap){
-        Map<AsciiString,RpcMethod> asciiMethodMap = new HashMap<>(methodMap.size());
-        for(Map.Entry<String,RpcMethod> entry : methodMap.entrySet()){
-            asciiMethodMap.put(AsciiString.of(entry.getKey()),entry.getValue());
+    public static Map<ByteBuf,RpcMethod> toByteBufMethodMap(Map<String,RpcMethod> methodMap){
+        Map<ByteBuf,RpcMethod> asciiMethodMap = new HashMap<>(methodMap.size());
+        for(RpcMethod rpcMethod : methodMap.values()){
+            asciiMethodMap.put(rpcMethod.getMethodName(),rpcMethod);
         }
         return asciiMethodMap;
     }
@@ -67,7 +71,7 @@ public class RpcMethod {
             }
 
             RpcMethod rpcMethod = new RpcMethod(method,methodToParameterNamesFunction.apply(method));
-            RpcMethod oldMethod = methodMap.put(rpcMethod.getMethodName(),rpcMethod);
+            RpcMethod oldMethod = methodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
             if(oldMethod != null){
                 throw new IllegalStateException("Exposed methods of the same class cannot have the same name, " +
                         "class=["+source.getSimpleName()+"], method=["+method.getName()+"]");
