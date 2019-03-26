@@ -5,7 +5,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.util.ReferenceCountUtil;
 
 import java.util.Map;
 
@@ -40,6 +39,8 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
                 2,
                 true);
         this.protocolVersionLength = protocolVersionLength;
+
+        setCumulator(COMPOSITE_CUMULATOR);
     }
 
     @Override
@@ -49,36 +50,39 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             return null;
         }
 
+        ByteBuf msgCopy = msg.readBytes(msg.readableBytes());
+
         //Packet type
-        Packet packet = newPacket(msg.readUnsignedByte());
-        packet.setRawPacket(msg);
+        Packet packet = newPacket(msgCopy.readUnsignedByte());
+        packet.setRawPacket(msgCopy);
 
         //Ack flag
-        packet.setAck(msg.readByte());
+        packet.setAck(msgCopy.readByte());
 
         //Protocol header
-        packet.setProtocolVersion(msg.readSlice(protocolVersionLength));
+        packet.setProtocolVersion(msgCopy.readSlice(protocolVersionLength));
 
         //Fields
-        int fieldCount = msg.readUnsignedByte();
+        int fieldCount = msgCopy.readUnsignedByte();
         Map<ByteBuf,ByteBuf> fieldMap = packet.getFieldMap();
         if(fieldMap == null) {
             fieldMap = new FixedArrayMap<>(fieldCount);
         }
         for(int i=0; i<fieldCount; i++){
             fieldMap.put(
-                    msg.readSlice(msg.readUnsignedByte()),
-                    msg.readSlice(msg.readUnsignedShort()));
+                    msgCopy.readSlice(msgCopy.readUnsignedByte()),
+                    msgCopy.readSlice(msgCopy.readUnsignedShort()));
         }
         packet.setFieldMap(fieldMap);
 
         //Body
-        int bodyLength = msg.readableBytes();
+        int bodyLength = msgCopy.readableBytes();
         if(bodyLength > 0){
-            packet.setBody(msg.readSlice(bodyLength));
+            packet.setBody(msgCopy.readSlice(bodyLength));
         }else {
             packet.setBody(Unpooled.EMPTY_BUFFER);
         }
+
         return packet;
     }
 

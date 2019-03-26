@@ -52,13 +52,14 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
      */
     private void flush0(ChannelFutureListener listener) throws IOException {
         try {
-            ByteBuf content = lockBuffer();
+            lock();
+            ByteBuf content = getBuffer();
             if (content != null) {
                 this.chunkedInput.setChunkByteBuf(content);
                 setBuffer(null);
             }
         }finally {
-            unlockBuffer();
+            unlock();
         }
 
         if (super.isSendResponseHeader.compareAndSet(false,true)) {

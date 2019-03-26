@@ -13,7 +13,6 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.WriteListener;
@@ -77,7 +76,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         }
 
         try {
-            CompositeByteBufX content = lockBuffer();
+            lock();
+            CompositeByteBufX content = getBuffer();
             if (content == null) {
                 content = newContent();
                 setBuffer(content);
@@ -86,7 +86,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             ioByteBuf.writeBytes(b, off, len);
             content.addComponent(ioByteBuf);
         }finally {
-            unlockBuffer();
+            unlock();
         }
     }
 
@@ -149,14 +149,15 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         flush();
         if (isClosed.compareAndSet(false,true)) {
             try {
-                CompositeByteBufX content = lockBuffer();
+                lock();
+                CompositeByteBufX content = getBuffer();
                 if (content != null) {
                     httpServletObject.getHttpServletResponse()
                             .getNettyResponse()
                             .setContent(content);
                 }
             }finally {
-                unlockBuffer();
+                unlock();
             }
 
             if (isSendResponseHeader.compareAndSet(false,true)) {
@@ -245,10 +246,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Get buffer (with lock)
-     * @return CompositeByteBufX
+     * lock buffer
      */
-    public CompositeByteBufX lockBuffer(){
+    public void lock(){
         if(bufferReadWriterLock == null){
             synchronized (this) {
                 if(bufferReadWriterLock == null) {
@@ -257,20 +257,19 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             }
         }
         bufferReadWriterLock.lock();
-        return buffer;
     }
 
     /**
      * Releases the lock on the buffer
      */
-    public void unlockBuffer(){
+    public void unlock(){
         if(bufferReadWriterLock != null) {
             bufferReadWriterLock.unlock();
         }
     }
 
     /**
-     * Get buffer (without lock)
+     * Get buffer
      * @return CompositeByteBufX
      */
     protected CompositeByteBufX getBuffer() {
@@ -294,16 +293,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         }
 
         try {
-            ByteBuf content = lockBuffer();
-            if (content == null) {
-                return;
-            }
-            if (content.refCnt() > 0) {
-                ReferenceCountUtil.safeRelease(content);
-                setBuffer(null);
+            lock();
+            if(RecyclableUtil.release(getBuffer())) {
+                this.buffer = null;
             }
         }finally {
-            unlockBuffer();
+            unlock();
         }
     }
 

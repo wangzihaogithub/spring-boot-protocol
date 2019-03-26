@@ -21,7 +21,6 @@ import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import com.github.netty.protocol.mqtt.subscriptions.Topic;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.mqtt.*;
-import io.netty.util.ReferenceCountUtil;
 
 import java.net.InetSocketAddress;
 import java.util.*;
@@ -367,7 +366,7 @@ class MqttSession {
 
     public void receivedPubRelQos2(int messageID) {
         final MqttPublishMessage removedMsg = qos2Receiving.remove(messageID);
-        ReferenceCountUtil.release(removedMsg);
+        removedMsg.release();
     }
 
     Optional<InetSocketAddress> remoteAddress() {

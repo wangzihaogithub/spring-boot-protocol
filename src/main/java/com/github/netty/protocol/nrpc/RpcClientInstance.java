@@ -139,7 +139,7 @@ public class RpcClientInstance implements InvocationHandler {
                 return dataCodec.decodeResponseData(rpcResponse.getBody());
             }
         }finally {
-            rpcResponse.release();
+            RecyclableUtil.release(rpcResponse);
         }
     }
 

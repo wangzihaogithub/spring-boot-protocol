@@ -1,9 +1,9 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Wrapper;
 import io.netty.buffer.ByteBuf;
-import io.netty.util.ReferenceCountUtil;
 
 import javax.servlet.ReadListener;
 import java.io.IOException;
@@ -89,8 +89,7 @@ public class ServletInputStream extends javax.servlet.ServletInputStream impleme
     @Override
     public void close() throws IOException {
         if (closed.compareAndSet(false,true)) {
-            if(source != null && source.refCnt() > 0){
-                ReferenceCountUtil.safeRelease(source);
+            if(RecyclableUtil.release(source)){
                 source = null;
             }
         }

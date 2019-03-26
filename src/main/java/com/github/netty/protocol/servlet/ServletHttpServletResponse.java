@@ -173,7 +173,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             }
 
             try {
-                CompositeByteBufX content = oldOut.lockBuffer();
+                oldOut.lock();
+                CompositeByteBufX content = oldOut.getBuffer();
                 if (content != null) {
                     oldOut.setBuffer(null);
                     newOut.setBuffer(content);
@@ -181,7 +182,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
                 newOut.setHttpServletObject(oldOut.getHttpServletObject());
                 outWrapper.wrap(newOut);
             } finally {
-                oldOut.unlockBuffer();
+                oldOut.unlock();
                 oldOut.destroy();
             }
         }

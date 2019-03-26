@@ -2,6 +2,7 @@ package com.github.netty.core;
 
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.RecyclableUtil;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -47,7 +48,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
             }
         } finally {
             if (autoRelease && release) {
-                ReferenceCountUtil.release(msg);
+                RecyclableUtil.release(msg);
             }
         }
     }
@@ -66,7 +67,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
             O imsg = (O) msg;
             onMessageWriter(ctx, imsg,promise);
         }else {
-            super.write(ctx,msg,promise);
+            ctx.write(msg, promise);
         }
     }
 

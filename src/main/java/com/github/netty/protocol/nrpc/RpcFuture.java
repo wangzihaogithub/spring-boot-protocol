@@ -2,12 +2,14 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.CoreConstants;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -25,20 +27,30 @@ import static com.github.netty.protocol.nrpc.RpcClient.FUTURE_MAP_ATTR;
  * @author wangzihao
  */
 public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
-    private static final Recycler<RpcFuture> RECYCLER = new Recycler<>(RpcFuture::new);
+    private static final FastThreadLocal<Recycler<RpcFuture>> RECYCLER_LOCAL = new FastThreadLocal<Recycler<RpcFuture>>(){
+        @Override
+        protected Recycler<RpcFuture> initialValue() throws Exception {
+            return new Recycler<>(RpcFuture::new);
+        }
+    };
+    private Recycler<RpcFuture> recycler;
     private Lock lock = new ReentrantLock();
     private Condition condition = lock.newCondition();
+    private int requestId;
     private RpcRequestPacket request;
     private RpcResponsePacket result;
     private Channel channel;
     private Map<Integer,RpcFuture> futureMap;
 
     public static RpcFuture newInstance(RpcRequestPacket request, Channel channel){
-        RpcFuture rpcFuture = RECYCLER.getInstance();
+        Recycler<RpcFuture> recycler = RECYCLER_LOCAL.get();
+
+        RpcFuture rpcFuture  = recycler.getInstance();
+        rpcFuture.recycler = recycler;
+        rpcFuture.requestId = request.getRequestIdInt();
         rpcFuture.request = request;
         rpcFuture.channel = channel;
         rpcFuture.futureMap = channel.attr(FUTURE_MAP_ATTR).get();
-
         return rpcFuture;
     }
 
@@ -85,6 +97,7 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
         checkCanUse();
 
         RpcResponsePacket response;
+        TimeoutException timeoutException = null;
         try {
             ChannelFuture channelFuture = sendToChannel();
             spin();
@@ -107,14 +120,16 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
             throw new ExecutionException(t);
         }finally {
             response = this.result;
+            if(response == null){
+                timeoutException = new TimeoutException();
+                RpcTimeoutException rpcTimeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout + "], [" + toString() + "]", false);
+                rpcTimeoutException.setStackTrace(timeoutException.getStackTrace());
+                timeoutException.initCause(rpcTimeoutException);
+            }
             recycle();
         }
 
-        if (response == null) {
-            TimeoutException timeoutException = new TimeoutException();
-            RpcTimeoutException rpcTimeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout + "], [" + toString() + "]", false);
-            rpcTimeoutException.setStackTrace(timeoutException.getStackTrace());
-            timeoutException.initCause(rpcTimeoutException);
+        if (timeoutException != null) {
             throw timeoutException;
         }
 
@@ -156,7 +171,10 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
      * @param rpcResponse rpcResponse
      */
     public void done(RpcResponsePacket rpcResponse){
-        checkCanUse();
+        if(channel == null || request == null){
+            RecyclableUtil.release(rpcResponse);
+            return;
+        }
 
         this.result = rpcResponse;
         lock.lock();
@@ -171,7 +189,7 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
      * write to netty channel
      */
     private ChannelFuture sendToChannel(){
-        futureMap.put(request.getRequestIdInt(), this);
+        futureMap.put(requestId, this);
         return channel.writeAndFlush(request)
                 .addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
     }
@@ -183,7 +201,7 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
         int spinCount = CoreConstants.getRpcLockSpinCount();
         if (spinCount > 0) {
             for (int i = 0; result == null && i < spinCount; i++) {
-                Thread.yield();
+//                Thread.yield();
             }
         }
     }
@@ -214,10 +232,12 @@ public class RpcFuture implements Future<RpcResponsePacket>,Recyclable{
 
     @Override
     public void recycle() {
+        this.futureMap.remove(requestId);
+
         this.futureMap = null;
         this.request = null;
         this.result = null;
         this.channel = null;
-        RECYCLER.recycleInstance(this);
+        this.recycler.recycleInstance(this);
     }
 }

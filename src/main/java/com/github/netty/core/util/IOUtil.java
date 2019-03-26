@@ -243,7 +243,7 @@ public class IOUtil {
         try {
             return ByteBufUtil.getBytes(byteBuf,byteBuf.readerIndex(), byteBuf.readableBytes(),false);
         }finally {
-            ReferenceCountUtil.safeRelease(byteBuf);
+            RecyclableUtil.release(byteBuf);
         }
     }
 

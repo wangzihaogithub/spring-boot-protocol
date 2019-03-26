@@ -35,8 +35,8 @@ public class RpcResponsePacket extends Packet {
 
     public RpcResponsePacket() {
         super(TYPE_RESPONSE);
-        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
-//        setFieldMap(new FixedArrayMap<>(4));
+//        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
+        setFieldMap(new FixedArrayMap<>(4));
     }
 
     public ByteBuf getRequestId() {

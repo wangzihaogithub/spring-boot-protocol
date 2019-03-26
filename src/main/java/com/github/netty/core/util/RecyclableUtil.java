@@ -1,6 +1,8 @@
 package com.github.netty.core.util;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.EmptyByteBuf;
+import io.netty.util.ReferenceCounted;
 import io.netty.util.internal.InternalThreadLocalMap;
 import io.netty.util.internal.RecyclableArrayList;
 
@@ -23,5 +25,22 @@ public class RecyclableUtil {
 
     public static ByteBuf newReadOnlyBuffer(byte[] bytes) {
         return ReadOnlyPooledHeapByteBuf.newInstance(bytes);
+    }
+
+
+    public static boolean release(Object obj) {
+        if(obj instanceof EmptyByteBuf){
+            return true;
+        }
+
+        if(obj instanceof ReferenceCounted) {
+            ReferenceCounted counted = (ReferenceCounted)obj;
+            int refCnt = counted.refCnt();
+            if (refCnt > 0) {
+                counted.release(refCnt);
+                return true;
+            }
+        }
+        return false;
     }
 }

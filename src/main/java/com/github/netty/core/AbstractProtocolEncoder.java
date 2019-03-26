@@ -88,7 +88,7 @@ public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEnco
         out.setChar(writerTotalLengthIndex, packetLength);
 
         //retain
-        out.retain();
+//        out.retain();
     }
 
     public void setVersionBytes(byte[] versionBytes) {

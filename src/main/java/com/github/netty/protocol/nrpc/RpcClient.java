@@ -5,6 +5,7 @@ import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.Packet;
 import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
@@ -55,10 +56,6 @@ public class RpcClient extends AbstractNettyClient{
      */
     private State state;
     /**
-     * The thread that creates the client
-     */
-    private Thread thread;
-    /**
      * Automatic reconnect Future
      */
     private ScheduledFuture<?> autoReconnectScheduledFuture;
@@ -75,7 +72,6 @@ public class RpcClient extends AbstractNettyClient{
 
     public RpcClient(String namePre, InetSocketAddress remoteAddress) {
         super(namePre + Thread.currentThread().getName()+"-", remoteAddress);
-        this.thread = Thread.currentThread();
         this.dataCodec = new JsonDataCodec();
     }
 
@@ -293,14 +289,6 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     /**
-     * Gets the thread that created the client
-     * @return Thread
-     */
-    public Thread getThread() {
-        return thread;
-    }
-
-    /**
      * Client connection status
      */
     public enum State{
@@ -324,13 +312,18 @@ public class RpcClient extends AbstractNettyClient{
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
             //For 4.0.x version to 4.1.x version adaptation
-            ctx.channel().attr(FUTURE_MAP_ATTR).set(intObjectHashMapConstructor != null?
-                    intObjectHashMapConstructor.newInstance(64) : new ConcurrentHashMap<>(64));
+            ctx.channel().attr(FUTURE_MAP_ATTR).set(
+                    intObjectHashMapConstructor != null?
+                    intObjectHashMapConstructor.newInstance(64) :
+                    new ConcurrentHashMap<>(64));
             ctx.channel().attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
         }
 
         @Override
         protected void onMessageReceived(ChannelHandlerContext ctx, Packet packet) throws Exception {
+            if(packet.refCnt() <= 0){
+                logger.error("onMessageReceived packet.refCnt() <= 0");
+            }
             if(packet instanceof RpcResponsePacket) {
                 RpcResponsePacket rpcResponse = (RpcResponsePacket) packet;
                 Map<Integer, RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
@@ -345,7 +338,7 @@ public class RpcClient extends AbstractNettyClient{
                 future.done(rpcResponse);
             }else {
                 logger.info("client received packet={}",packet);
-                packet.release();
+                RecyclableUtil.release(packet);
             }
         }
 

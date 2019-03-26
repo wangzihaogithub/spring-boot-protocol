@@ -33,8 +33,8 @@ public class RpcRequestPacket extends Packet {
 
     public RpcRequestPacket() {
         super(TYPE_REQUEST);
-        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
-//        setFieldMap(new FixedArrayMap<>(3));
+//        setFieldMap(FIELD_MAP_THREAD_LOCAL.get());
+        setFieldMap(new FixedArrayMap<>(3));
     }
 
     public void setRequestId(ByteBuf requestId) {

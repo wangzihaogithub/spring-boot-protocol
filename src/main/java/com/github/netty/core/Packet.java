@@ -1,5 +1,6 @@
 package com.github.netty.core;
 
+import com.github.netty.core.util.RecyclableUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.util.IllegalReferenceCountException;
@@ -178,14 +179,16 @@ public class Packet implements ReferenceCounted {
 
     @Override
     public final boolean release(int decrement) {
-        int oldRef = refCnt.getAndAdd(-decrement);
-        if (oldRef == decrement) {
-            deallocate();
-            return true;
-        } else if (oldRef < decrement || oldRef - decrement > oldRef) {
-            // Ensure we don't over-release, and avoid underflow.
-            refCnt.getAndAdd(decrement);
-            throw new IllegalReferenceCountException(oldRef, -decrement);
+        synchronized (this) {
+            int oldRef = refCnt.getAndAdd(-decrement);
+            if (oldRef == decrement) {
+                deallocate();
+                return true;
+            } else if (oldRef < decrement || oldRef - decrement > oldRef) {
+                // Ensure we don't over-release, and avoid underflow.
+                refCnt.getAndAdd(decrement);
+                throw new IllegalReferenceCountException(oldRef, -decrement);
+            }
         }
         return false;
     }
@@ -194,26 +197,14 @@ public class Packet implements ReferenceCounted {
      * Called once {@link #refCnt()} is equals 0.
      */
     protected void deallocate(){
-        if (rawPacket != null && rawPacket.refCnt() > 0) {
-            rawPacket.release();
-        }
-        if (protocolVersion != null && protocolVersion.refCnt() > 0) {
-            protocolVersion.release();
-        }
+        RecyclableUtil.release(rawPacket);
+        RecyclableUtil.release(protocolVersion);
         if (fieldMap != null && fieldMap.size() > 0) {
             for (Map.Entry<ByteBuf, ByteBuf> entry : fieldMap.entrySet()) {
-                ByteBuf key = entry.getKey();
-                if(key.refCnt() > 0) {
-                    key.release();
-                }
-                ByteBuf value = entry.getValue();
-                if(value.refCnt() > 0){
-                    value.release();
-                }
+                RecyclableUtil.release(entry.getKey());
+                RecyclableUtil.release(entry.getValue());
             }
         }
-        if (body != null && body.refCnt() > 0) {
-            body.release();
-        }
+        RecyclableUtil.release(body);
     }
 }

@@ -22,7 +22,6 @@ import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.mqtt.subscriptions.Subscription;
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 import io.netty.handler.codec.mqtt.MqttPublishMessage;
-import io.netty.util.ReferenceCountUtil;
 
 import java.util.HashMap;
 import java.util.List;
@@ -117,7 +116,7 @@ public final class BrokerInterceptor implements Interceptor {
                         handler.onPublish(new InterceptPublishMessage(msg, clientID, username));
                     }
                 } finally {
-                    ReferenceCountUtil.release(msg);
+                    msg.release();
                 }
         });
     }
