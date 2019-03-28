@@ -1,9 +1,11 @@
 package com.github.netty.core;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
+import io.netty.util.AsciiString;
 
 import java.util.Map;
 import java.util.Objects;
@@ -23,7 +25,6 @@ import static com.github.netty.core.util.IOUtil.CHAR_LENGTH;
  *
  * @author wangzihao
  */
-@ChannelHandler.Sharable
 public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEncoder<T> {
     /**
      * Fixed length (note : Not including the total length.)
@@ -54,20 +55,20 @@ public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEnco
         out.writeBytes(versionBytes);
 
         //Fields
-        Map<ByteBuf, ByteBuf> fieldMap = packet.getFieldMap();
+        Map<AsciiString, ByteBuf> fieldMap = packet.getFieldMap();
         int fieldSize = fieldMap == null ? 0 : fieldMap.size();
         //(1 byte Unsigned) Fields size
         out.writeByte(fieldSize);
         if (fieldSize > 0) {
             packetLength += fieldSize * 3;
-            for (Map.Entry<ByteBuf, ByteBuf> entry : fieldMap.entrySet()) {
-                ByteBuf key = entry.getKey();
+            for (Map.Entry<AsciiString, ByteBuf> entry : fieldMap.entrySet()) {
+                AsciiString key = entry.getKey();
                 ByteBuf value = entry.getValue();
 
                 //(key.length byte Unsigned) Fields size
-                packetLength += key.readableBytes();
-                out.writeByte(key.readableBytes());
-                out.writeBytes(key);
+                packetLength += key.length();
+                out.writeByte(key.length());
+                ByteBufUtil.writeAscii(out,key);
 
                 //(value.length byte Unsigned) Fields size
                 packetLength += value.readableBytes();

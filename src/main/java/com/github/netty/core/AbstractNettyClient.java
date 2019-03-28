@@ -3,7 +3,6 @@ package com.github.netty.core;
 import com.github.netty.core.util.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ChannelFactory;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -14,6 +13,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  *  An abstract netty client
@@ -31,8 +32,7 @@ public abstract class AbstractNettyClient implements Runnable{
     private ChannelInitializer<?extends Channel> initializerChannelHandler;
     private InetSocketAddress remoteAddress;
     private boolean enableEpoll;
-    private SocketChannels socketChannels;
-    private int socketChannelCount = 6;
+    private SocketChannel channel;
     private final Object connectLock = new Object();
     private int ioThreadCount = 0;
     private int ioRatio = 100;
@@ -55,10 +55,6 @@ public abstract class AbstractNettyClient implements Runnable{
         this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
         this.name = NamespaceUtil.newIdName(namePre,getClass());
-    }
-
-    public void setSocketChannelCount(int socketChannelCount) {
-        this.socketChannelCount = socketChannelCount <=0? 6: socketChannelCount;
     }
 
     public void setIoRatio(int ioRatio) {
@@ -123,7 +119,8 @@ public abstract class AbstractNettyClient implements Runnable{
                     .remoteAddress(remoteAddress)
                     //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
 //                    .option(ChannelOption.SO_BACKLOG, 1024) // determining the number of connections queued
-
+                    //netty boos的默认内存分配器
+//                    .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE)
                     //禁用Nagle算法，即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
                     .option(ChannelOption.TCP_NODELAY, true)
                     //开启TCP/IP协议实现的心跳机制
@@ -132,9 +129,8 @@ public abstract class AbstractNettyClient implements Runnable{
                     .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
 //                    .option(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
 
-            connect();
+            connect(this::connectAfter);
             this.running = true;
-            startAfter();
         } catch (Throwable throwable) {
             logger.error(throwable.getMessage());
 //            ExceptionUtil.printRootCauseStackTrace(throwable);
@@ -142,61 +138,27 @@ public abstract class AbstractNettyClient implements Runnable{
     }
 
     public boolean isConnect(){
-        if(socketChannels == null){
-            return false;
-        }
+        return getActiveSocketChannelCount() > 0;
+    }
 
-        try {
-            SocketChannel socketChannel = socketChannels.next();
-            if(socketChannel == null){
-                return false;
-            }
-            ChannelFuture future = socketChannel.writeAndFlush(Unpooled.EMPTY_BUFFER).sync();
-            return future.isSuccess();
-        } catch (Exception e) {
-            return false;
+    public ChannelFuture connect(Consumer<ChannelFuture> consumer){
+        synchronized (connectLock) {
+            return bootstrap.connect()
+                    .addListener((ChannelFutureListener) future -> {
+                if(future.isSuccess()){
+                    AbstractNettyClient.this.channel = (SocketChannel) future.channel();
+                }else {
+                    future.channel().close();
+                }
+                if(consumer != null) {
+                    consumer.accept(future);
+                }
+            });
         }
     }
 
-    public boolean connect(){
-        try {
-            synchronized (connectLock) {
-                int connectCount = this.socketChannelCount;
-                SocketChannel[] socketChannels = new SocketChannel[connectCount];
-
-                for (int i = 0; i < connectCount; i++) {
-                    ChannelFuture channelFuture = bootstrap.connect().sync();
-                    if (!channelFuture.isSuccess()) {
-                        for (int j = 0; j < i; j++) {
-                            socketChannels[j].close();
-                        }
-                        return false;
-                    }
-                    socketChannels[i] = (SocketChannel) channelFuture.channel();
-                }
-
-
-                if(this.socketChannels != null) {
-                    this.socketChannels.close();
-                }
-                this.socketChannels = new SocketChannels(socketChannels);
-                return true;
-            }
-        } catch (Exception e) {
-            Throwable root = e.getCause();
-            if(root == null){
-                root = e;
-            }
-            logger.error("Connect fail "+remoteAddress +"  : ["+ root.toString()+"]");
-            return false;
-        }
-    }
-
-    public SocketChannel getSocketChannel() {
-        if(socketChannels == null){
-            return null;
-        }
-        return socketChannels.next();
+    public SocketChannel getChannel() {
+        return channel;
     }
 
     public InetSocketAddress getRemoteAddress() {
@@ -204,28 +166,23 @@ public abstract class AbstractNettyClient implements Runnable{
     }
 
     public void stop() {
-        Throwable cause = null;
-        try {
-            if(socketChannels != null) {
-                socketChannels.close();
-                socketChannels = null;
-            }
-        } catch (Exception e) {
-            cause = e;
+        if(channel != null) {
+            channel.close().addListener((ChannelFutureListener) future -> {
+                AbstractNettyClient.this.bootstrap = null;
+                AbstractNettyClient.this.worker = null;
+                AbstractNettyClient.this.channelFactory = null;
+                AbstractNettyClient.this.initializerChannelHandler = null;
+                AbstractNettyClient.this.running = false;
+                stopAfter(future);
+            });
+            channel = null;
         }
-
-        stopAfter(cause);
-        this.bootstrap = null;
-        this.worker = null;
-        this.channelFactory = null;
-        this.initializerChannelHandler = null;
-        this.running = false;
     }
 
-    protected void stopAfter(Throwable cause){
+    protected void stopAfter(ChannelFuture future){
         //有异常抛出
-        if(cause != null){
-            cause.printStackTrace();
+        if(future.cause() != null){
+            future.cause().printStackTrace();
         }
 
         logger.info(name + " stop [remoteAddress = "+remoteAddress+"]...");
@@ -239,12 +196,12 @@ public abstract class AbstractNettyClient implements Runnable{
         return remoteAddress.getPort();
     }
 
-    protected void startAfter(){
-        logger.info(name + " start [activeSocketConnectCount = "+ getActiveSocketChannelCount()+", remoteAddress = "+remoteAddress+"]...");
+    protected void connectAfter(ChannelFuture future){
+        logger.info(name + " connect [activeSocketConnectCount = "+ getActiveSocketChannelCount()+", remoteAddress = "+remoteAddress+"]...");
     }
 
     public int getActiveSocketChannelCount(){
-        return socketChannels == null? 0 : socketChannels.getSocketChannelCount();
+        return channel != null && channel.isActive()? 1 : 0;
     }
 
     @Override

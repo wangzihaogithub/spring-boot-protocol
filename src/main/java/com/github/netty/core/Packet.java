@@ -3,6 +3,7 @@ package com.github.netty.core;
 import com.github.netty.core.util.RecyclableUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.util.AsciiString;
 import io.netty.util.IllegalReferenceCountException;
 import io.netty.util.ReferenceCounted;
 
@@ -43,7 +44,7 @@ public class Packet implements ReferenceCounted {
     /**
      * Fields
      */
-    private Map<ByteBuf, ByteBuf> fieldMap;
+    private Map<AsciiString, ByteBuf> fieldMap;
     /**
      * Body
      */
@@ -87,11 +88,11 @@ public class Packet implements ReferenceCounted {
         this.body = body;
     }
 
-    public Map<ByteBuf, ByteBuf> getFieldMap() {
+    public Map<AsciiString, ByteBuf> getFieldMap() {
         return fieldMap;
     }
 
-    public void setFieldMap(Map<ByteBuf, ByteBuf> fieldMap) {
+    public void setFieldMap(Map<AsciiString, ByteBuf> fieldMap) {
         this.fieldMap = fieldMap;
     }
 
@@ -101,6 +102,25 @@ public class Packet implements ReferenceCounted {
 
     public void setRawPacket(ByteBuf rawPacket) {
         this.rawPacket = rawPacket;
+    }
+
+    public ByteBuf putField(AsciiString key, ByteBuf value){
+        Map<AsciiString,ByteBuf> fieldMap = getFieldMap();
+        if(fieldMap == null){
+            RecyclableUtil.release(value);
+            throw new NullPointerException("fieldMap is null. put key = "+key);
+        }
+
+        boolean release = true;
+        try {
+            ByteBuf old = fieldMap.put(key,value);
+            release = false;
+            return old;
+        }finally {
+            if(release) {
+                RecyclableUtil.release(value);
+            }
+        }
     }
 
     @Override
@@ -121,12 +141,12 @@ public class Packet implements ReferenceCounted {
         if(fieldMap == null){
             sb.append("null");
         }else {
-            Iterator<Map.Entry<ByteBuf,ByteBuf>> i = fieldMap.entrySet().iterator();
+            Iterator<Map.Entry<AsciiString,ByteBuf>> i = fieldMap.entrySet().iterator();
             if (i.hasNext()) {
                 sb.append('{');
                 for (;;) {
-                    Map.Entry<ByteBuf,ByteBuf> e = i.next();
-                    sb.append(e.getKey().toString(charset));
+                    Map.Entry<AsciiString,ByteBuf> e = i.next();
+                    sb.append(e.getKey());
                     sb.append('=');
                     sb.append(e.getValue().toString(charset));
                     if (! i.hasNext()) {
@@ -200,10 +220,11 @@ public class Packet implements ReferenceCounted {
         RecyclableUtil.release(rawPacket);
         RecyclableUtil.release(protocolVersion);
         if (fieldMap != null && fieldMap.size() > 0) {
-            for (Map.Entry<ByteBuf, ByteBuf> entry : fieldMap.entrySet()) {
-                RecyclableUtil.release(entry.getKey());
+            for (Map.Entry<AsciiString, ByteBuf> entry : fieldMap.entrySet()) {
+//                RecyclableUtil.release(entry.getKey());
                 RecyclableUtil.release(entry.getValue());
             }
+            fieldMap.clear();
         }
         RecyclableUtil.release(body);
     }

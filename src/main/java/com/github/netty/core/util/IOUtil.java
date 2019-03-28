@@ -4,14 +4,14 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.util.AsciiString;
-import io.netty.util.ReferenceCountUtil;
+import sun.misc.Unsafe;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.Charset;
-import java.text.ParseException;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.concurrent.CountDownLatch;
@@ -565,4 +565,19 @@ public class IOUtil {
         ThreadPoolX.getDefaultInstance().shutdown();
     }
 
+
+    public static Unsafe getUnsafe() {
+        return UNSAFE;
+    }
+
+    private static Unsafe UNSAFE;
+    static {
+        try {
+            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            UNSAFE =(Unsafe)f.get(null);
+        } catch (Exception e) {
+            //
+        }
+    }
 }

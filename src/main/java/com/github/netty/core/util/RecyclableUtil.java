@@ -29,6 +29,9 @@ public class RecyclableUtil {
 
 
     public static boolean release(Object obj) {
+        if(obj == null){
+            return false;
+        }
         if(obj instanceof EmptyByteBuf){
             return true;
         }

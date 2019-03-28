@@ -15,7 +15,6 @@ import io.netty.channel.ChannelHandler;
  *
  * @author wangzihao
  */
-@ChannelHandler.Sharable
 public class RpcEncoder extends AbstractProtocolEncoder {
     private RpcVersion version = RpcVersion.CURRENT_VERSION;
 

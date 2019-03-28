@@ -6,6 +6,7 @@ import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
+import io.netty.channel.ChannelFuture;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,10 +36,6 @@ public class RpcClientHeartbeatTask implements Runnable{
      * Reconnection number
      */
     private int reconnectCount;
-    /**
-     * Maximum number of timeout retries
-     */
-    private int maxTimeoutRetryNum = 3;
     /**
      * The number of times it was called
      */
@@ -93,23 +90,24 @@ public class RpcClientHeartbeatTask implements Runnable{
     /**
      * reconnection
      * @param causeMessage Reconnection reason
-     * @return The success of
+     * @return ChannelFuture
      */
-    private boolean reconnect(String causeMessage){
+    private ChannelFuture reconnect(String causeMessage){
         ++reconnectCount;
-        boolean success = rpcClient.connect();
-        logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
-                success? "success! ":"fail",
-                reconnectCount,
-                rpcClient.getActiveSocketChannelCount(),
-                causeMessage);
-        if (success) {
-            reconnectCount = 0;
-            if(reconnectSuccessHandler != null){
-                reconnectSuccessHandler.accept(rpcClient);
+        return rpcClient.connect((future)->{
+            boolean success = future.isSuccess();
+            logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
+                    success? "success! ":"fail",
+                    reconnectCount,
+                    rpcClient.getActiveSocketChannelCount(),
+                    causeMessage);
+            if (success) {
+                reconnectCount = 0;
+                if(reconnectSuccessHandler != null){
+                    reconnectSuccessHandler.accept(rpcClient);
+                }
             }
-        }
-        return success;
+        });
     }
 
     @Override
@@ -119,23 +117,9 @@ public class RpcClientHeartbeatTask implements Runnable{
             if(isLogHeartEvent) {
                 logger.info("{} The heartbeat packets : {}",rpcClient.getName(),new String(msg));
             }
-        }catch (RpcConnectException e) {
+        }catch (RpcConnectException | RpcTimeoutException e) {
             reconnect(e.getMessage());
-
-        }catch (RpcTimeoutException e){
-            //Repeat ping N times. If the ping fails after N times, reconnect
-            for(int i = 0; i< maxTimeoutRetryNum; i++) {
-                try {
-                    byte[] msg = rpcClient.getRpcCommandService().ping();
-                    return;
-                } catch (RpcConnectException e1) {
-                    reconnect(e1.getMessage());
-                    return;
-                }catch (RpcTimeoutException e2){
-                    //
-                }
-            }
-        }catch (Exception e){
+        } catch (Exception e){
             logger.error(e.getMessage(),e);
         }
     }

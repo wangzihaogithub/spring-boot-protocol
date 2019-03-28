@@ -4,23 +4,24 @@ import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.Packet;
-import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
-import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.core.util.ReflectUtil;
-import com.github.netty.core.util.StringUtil;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.service.RpcCommandService;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.AttributeKey;
+import io.netty.util.AsciiString;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -31,26 +32,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.github.netty.core.Packet.ACK_YES;
+import static com.github.netty.core.util.IOUtil.INT_LENGTH;
+import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
+import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+
 /**
  * RPC client
  * @author wangzihao
  *  2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient{
-    /**
-     * Request a lock map
-     */
-    protected static final AttributeKey<Map<Integer,RpcFuture>> FUTURE_MAP_ATTR = AttributeKey.valueOf(Map.class+"#futureMap");
-    /**
-     * Generate request id
-     */
-    protected static final AttributeKey<AtomicInteger> REQUEST_ID_INCR_ATTR = AttributeKey.valueOf(AtomicInteger.class+"#AtomicInteger");
-
-    private RpcEncoder rpcEncoder = new RpcEncoder();
-    private final Map<String,RpcClientInstance> rpcInstanceMap = new WeakHashMap<>();
+    private final Map<String,RpcClientSender> rpcInstanceMap = new WeakHashMap<>();
     private int idleTime = 10;
     private RpcCommandService rpcCommandService;
     private RpcDBService rpcDBService;
+    private AtomicInteger incr = new AtomicInteger();
     /**
      * Connection status
      */
@@ -60,7 +57,8 @@ public class RpcClient extends AbstractNettyClient{
      */
     private ScheduledFuture<?> autoReconnectScheduledFuture;
 
-    private DataCodec dataCodec;
+    protected final DataCodec dataCodec;
+    protected final Map<Integer, RpcFuture<RpcResponsePacket>> futureMap = new ConcurrentHashMap<>(64);
 
     public RpcClient(String remoteHost, int remotePort) {
         this(new InetSocketAddress(remoteHost, remotePort));
@@ -140,7 +138,7 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = newRpcInstance(clazz,timeout,serviceName,methodToParameterNamesFunction);
+        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,serviceName,methodToParameterNamesFunction);
         Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
         return (T) instance;
     }
@@ -153,9 +151,12 @@ public class RpcClient extends AbstractNettyClient{
      * @param  methodToParameterNamesFunction Method to a function with a parameter name
      * @return Interface implementation class
      */
-    public RpcClientInstance newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        RpcClientInstance rpcInstance = new RpcClientInstance(timeout, serviceName,this::getSocketChannel,
-                dataCodec,clazz,methodToParameterNamesFunction);
+    public InvocationHandler newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
+        Map<String, RpcMethod> rpcMethodMap = RpcMethod.getMethodMap(clazz, methodToParameterNamesFunction);
+        if (rpcMethodMap.isEmpty()) {
+            throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
+        }
+        RpcClientSender rpcInstance = new RpcClientSender(timeout, serviceName,rpcMethodMap);
         rpcInstanceMap.put(serviceName,rpcInstance);
         return rpcInstance;
     }
@@ -165,7 +166,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param serviceName serviceName
      * @return RpcClientInstance
      */
-    public RpcClientInstance getRpcInstance(String serviceName) {
+    public InvocationHandler getRpcInstance(String serviceName) {
         return rpcInstanceMap.get(serviceName);
     }
 
@@ -180,17 +181,17 @@ public class RpcClient extends AbstractNettyClient{
             protected void initChannel(Channel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
 
-                pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
-                pipeline.addLast(rpcEncoder);
+//                pipeline.addLast("idleStateHandler", new IdleStateHandler(idleTime, 0, 0));
+                pipeline.addLast(new RpcEncoder());
                 pipeline.addLast(new RpcDecoder());
-                pipeline.addLast(new RpcClientChannelHandler());
+                pipeline.addLast(new RpcClientReceiverChannelHandler());
             }
         };
     }
 
     @Override
-    public SocketChannel getSocketChannel() {
-        SocketChannel socketChannel = super.getSocketChannel();
+    public SocketChannel getChannel() {
+        SocketChannel socketChannel = super.getChannel();
         if(socketChannel == null){
             throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no connect");
         }
@@ -209,7 +210,7 @@ public class RpcClient extends AbstractNettyClient{
             return super.isConnect();
         }
 
-        SocketChannel channel = super.getSocketChannel();
+        SocketChannel channel = super.getChannel();
         if(channel == null || !channel.isActive()){
             return false;
         }
@@ -221,17 +222,6 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     @Override
-    public boolean connect() {
-        boolean success = super.connect();
-        if(success){
-            state = State.UP;
-        }else {
-            state = State.DOWN;
-        }
-        return success;
-    }
-
-    @Override
     public void stop() {
         super.stop();
         if(autoReconnectScheduledFuture != null){
@@ -240,13 +230,18 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     @Override
-    protected void startAfter() {
+    protected void connectAfter(ChannelFuture future) {
+        if(future.isSuccess()){
+            state = State.UP;
+        }else {
+            state = State.DOWN;
+        }
     }
 
     @Override
-    protected void stopAfter(Throwable cause) {
-        if(cause != null){
-            logger.error(cause.getMessage(),cause);
+    protected void stopAfter(ChannelFuture future) {
+        if(future.cause() != null){
+            logger.error(future.cause().getMessage(),future.cause());
         }
     }
 
@@ -288,6 +283,15 @@ public class RpcClient extends AbstractNettyClient{
         return state;
     }
 
+    public int newRequestId(){
+        int id = incr.getAndIncrement();
+        if(id < 0){
+            id = 0;
+            incr.set(id);
+        }
+        return id;
+    }
+
     /**
      * Client connection status
      */
@@ -304,19 +308,9 @@ public class RpcClient extends AbstractNettyClient{
     }
 
 
-    public static class RpcClientChannelHandler extends AbstractChannelHandler<Packet,Object> {
-        public RpcClientChannelHandler() {
+    public class RpcClientReceiverChannelHandler extends AbstractChannelHandler<Packet,Object> {
+        public RpcClientReceiverChannelHandler() {
             super(false);
-        }
-
-        @Override
-        public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-            //For 4.0.x version to 4.1.x version adaptation
-            ctx.channel().attr(FUTURE_MAP_ATTR).set(
-                    intObjectHashMapConstructor != null?
-                    intObjectHashMapConstructor.newInstance(64) :
-                    new ConcurrentHashMap<>(64));
-            ctx.channel().attr(REQUEST_ID_INCR_ATTR).set(new AtomicInteger());
         }
 
         @Override
@@ -326,16 +320,28 @@ public class RpcClient extends AbstractNettyClient{
             }
             if(packet instanceof RpcResponsePacket) {
                 RpcResponsePacket rpcResponse = (RpcResponsePacket) packet;
-                Map<Integer, RpcFuture> futureMap = ctx.channel().attr(FUTURE_MAP_ATTR).get();
 
-                RpcFuture future = futureMap.remove(rpcResponse.getRequestIdInt());
-                //If the fetch does not indicate that the timeout has occurred, it is released
-                if (future == null) {
+                RpcFuture<RpcResponsePacket> future = futureMap.remove(rpcResponse.getRequestIdInt());
+                if (future != null) {
+                    //Handed over to the thread that sent the message
+                    future.done(rpcResponse);
                     return;
                 }
 
-                //Handed over to the thread that sent the message
-                future.done(rpcResponse);
+                ByteBuf byteBuf = rpcResponse.getFieldMap().get(AsciiString.of("time"));
+                long c = (System.currentTimeMillis() - byteBuf.getLong(0));
+
+                try {
+                    logger.error("time out1 {} ,time={}毫秒  ,Id={}. response={}",
+                            c,
+                            System.currentTimeMillis() - byteBuf.getLong(0),
+                            rpcResponse.getRequestIdInt(),
+                            rpcResponse + "");
+                    //If the fetch does not indicate that the timeout has occurred, it is released
+                    RecyclableUtil.release(rpcResponse);
+                }catch (Throwable t){
+                    t.printStackTrace();
+                }
             }else {
                 logger.info("client received packet={}",packet);
                 RecyclableUtil.release(packet);
@@ -351,6 +357,82 @@ public class RpcClient extends AbstractNettyClient{
         }
     }
 
+    public class RpcClientSender implements InvocationHandler {
+        private int timeout;
+        private byte[] serviceName;
+        private Map<String, RpcMethod> rpcMethodMap;
+        private byte[] requestIdBytes = new byte[INT_LENGTH];
+
+        public RpcClientSender(int timeout, String serviceName, Map<String, RpcMethod> rpcMethodMap) {
+            this.rpcMethodMap = rpcMethodMap;
+            this.timeout = timeout;
+            this.serviceName = serviceName.getBytes(CHARSET_UTF8);
+        }
+
+        /**
+         * Make RPC calls
+         *
+         * @param proxy  proxy
+         * @param method method
+         * @param args   args
+         * @return Object
+         * @throws Throwable Throwable
+         */
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            String methodName = method.getName();
+            Class<?>[] parameterTypes = method.getParameterTypes();
+            if (method.getDeclaringClass() == Object.class) {
+                return method.invoke(this, args);
+            }
+            if ("toString".equals(methodName) && parameterTypes.length == 0) {
+                return this.toString();
+            }
+            if ("hashCode".equals(methodName) && parameterTypes.length == 0) {
+                return this.hashCode();
+            }
+            if ("equals".equals(methodName) && parameterTypes.length == 1) {
+                return this.equals(args[0]);
+            }
+
+            RpcMethod rpcMethod = rpcMethodMap.get(methodName);
+            if (rpcMethod == null) {
+                return null;
+            }
+
+            int requestId = newRequestId();
+            IOUtil.setInt(requestIdBytes, 0, requestId);
+
+            RpcRequestPacket rpcRequest = new RpcRequestPacket();
+            rpcRequest.setRequestId(RecyclableUtil.newReadOnlyBuffer(requestIdBytes));
+            rpcRequest.setServiceName(RecyclableUtil.newReadOnlyBuffer(serviceName));
+            rpcRequest.setMethodName(RecyclableUtil.newReadOnlyBuffer(rpcMethod.getMethodName()));
+            rpcRequest.setBody(dataCodec.encodeRequestData(args, rpcMethod));
+            rpcRequest.setAck(ACK_YES);
+            rpcRequest.getFieldMap().put(AsciiString.of("time"), Unpooled.copyLong(System.currentTimeMillis()));
+
+            RpcFuture<RpcResponsePacket> future = RpcFuture.newInstance(rpcRequest);
+            futureMap.put(requestId, future);
+
+            getChannel().writeAndFlush(rpcRequest).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
+            RpcResponsePacket rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+            futureMap.remove(requestId);
+
+            try {
+                ByteBuf body = rpcResponse.getBody();
+                //If the server is not encoded, return directly
+                if (rpcResponse.getEncode() == BINARY) {
+                    return ByteBufUtil.getBytes(body, body.readerIndex(), body.readableBytes(), false);
+                } else {
+                    return dataCodec.decodeResponseData(body);
+                }
+            } finally {
+                future.recycle();
+                RecyclableUtil.release(rpcResponse);
+            }
+        }
+    }
+
     private static Constructor<Map> intObjectHashMapConstructor;
     static {
         try {
@@ -358,5 +440,17 @@ public class RpcClient extends AbstractNettyClient{
         } catch (Exception e) {
             intObjectHashMapConstructor = null;
         }
+    }
+
+    public static String getTimeoutApis() {
+        return String.join(",", RpcFuture.TIMEOUT_API.keySet());
+    }
+
+    public static long getTotalInvokeCount() {
+        return RpcFuture.TOTAL_INVOKE_COUNT.get();
+    }
+
+    public static long getTotalTimeoutCount() {
+        return RpcFuture.TIMEOUT_API.values().stream().reduce(0,Integer::sum);
     }
 }

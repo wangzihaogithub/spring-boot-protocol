@@ -4,6 +4,7 @@ import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.Packet;
 import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
 import io.netty.buffer.ByteBuf;
@@ -11,6 +12,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.AsciiString;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -60,27 +62,46 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
 
     protected void onRequestReceived(ChannelHandlerContext ctx, RpcRequestPacket request){
         RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getServiceName());
-        if(rpcInstance != null) {
+        if(rpcInstance == null) {
             if(request.getAck() == ACK_YES) {
-                ctx.writeAndFlush(rpcInstance.invoke(request))
-                        .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-            }else {
-                rpcInstance.invoke(request);
+                RpcResponsePacket rpcResponse = new RpcResponsePacket();
+
+                String message = "not found service " + request.getServiceNameString();
+                ByteBuf messageByteBuf = ctx.alloc().buffer(message.length());
+                messageByteBuf.writeCharSequence(message,CHARSET_UTF8);
+
+                boolean release = true;
+                try {
+                    rpcResponse.setRequestId(request.getRequestId().copy());
+                    rpcResponse.setEncode(BINARY);
+                    rpcResponse.setStatus(NO_SUCH_SERVICE);
+                    rpcResponse.setMessage(messageByteBuf);
+                    ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                    release = false;
+                }finally {
+                    if(release) {
+                        RecyclableUtil.release(messageByteBuf);
+                        RecyclableUtil.release(rpcResponse);
+                    }
+                }
             }
             return;
         }
 
+        RpcResponsePacket response = rpcInstance.invoke(request);
+        if(response != null){
+            try {
+                response.putField(AsciiString.of("time"),
+                        request.getFieldMap().get(AsciiString.of("time")).copy());
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
         if(request.getAck() == ACK_YES) {
-            String message = "not found service " + request.getServiceNameString();
-            ByteBuf messageByteBuf = ctx.alloc().buffer(message.length());
-            messageByteBuf.writeCharSequence(message,CHARSET_UTF8);
-
-            RpcResponsePacket rpcResponse = new RpcResponsePacket();
-            rpcResponse.setRequestId(request.getRequestId());
-            rpcResponse.setEncode(BINARY);
-            rpcResponse.setStatus(NO_SUCH_SERVICE);
-            rpcResponse.setMessage(messageByteBuf);
-            ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+            ctx.writeAndFlush(response)
+                    .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+        }else {
+            RecyclableUtil.release(response);
         }
     }
 

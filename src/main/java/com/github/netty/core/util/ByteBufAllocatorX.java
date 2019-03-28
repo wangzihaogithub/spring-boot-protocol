@@ -16,102 +16,102 @@ public class ByteBufAllocatorX implements ByteBufAllocator {
 
     @Override
     public ByteBuf buffer() {
-        return ByteBufAllocator.DEFAULT.buffer();
+        return DEFAULT.buffer();
     }
 
     @Override
     public ByteBuf buffer(int initialCapacity) {
-        return ByteBufAllocator.DEFAULT.buffer(initialCapacity);
+        return DEFAULT.buffer(initialCapacity);
     }
 
     @Override
     public ByteBuf buffer(int initialCapacity, int maxCapacity) {
-        return ByteBufAllocator.DEFAULT.buffer(initialCapacity, maxCapacity);
+        return DEFAULT.buffer(initialCapacity, maxCapacity);
     }
 
     @Override
     public ByteBuf ioBuffer() {
-        return ByteBufAllocator.DEFAULT.ioBuffer();
+        return DEFAULT.ioBuffer();
     }
 
     @Override
     public ByteBuf ioBuffer(int initialCapacity) {
-        return ByteBufAllocator.DEFAULT.ioBuffer(initialCapacity);
+        return DEFAULT.ioBuffer(initialCapacity);
     }
 
     @Override
     public ByteBuf ioBuffer(int initialCapacity, int maxCapacity) {
-        return ByteBufAllocator.DEFAULT.ioBuffer(initialCapacity, maxCapacity);
+        return DEFAULT.ioBuffer(initialCapacity, maxCapacity);
     }
 
     @Override
     public ByteBuf heapBuffer() {
-        return ByteBufAllocator.DEFAULT.heapBuffer();
+        return DEFAULT.heapBuffer();
     }
 
     @Override
     public ByteBuf heapBuffer(int initialCapacity) {
-        return ByteBufAllocator.DEFAULT.heapBuffer(initialCapacity);
+        return POOLED.heapBuffer(initialCapacity);
     }
 
     @Override
     public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
-        return ByteBufAllocator.DEFAULT.heapBuffer(initialCapacity, maxCapacity);
+        return DEFAULT.heapBuffer(initialCapacity, maxCapacity);
     }
 
     @Override
     public ByteBuf directBuffer() {
-        return ByteBufAllocator.DEFAULT.directBuffer();
+        return DEFAULT.directBuffer();
     }
 
     @Override
     public ByteBuf directBuffer(int initialCapacity) {
-        return ByteBufAllocator.DEFAULT.directBuffer(initialCapacity);
+        return DEFAULT.directBuffer(initialCapacity);
     }
 
     @Override
     public ByteBuf directBuffer(int initialCapacity, int maxCapacity) {
-        return ByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
+        return DEFAULT.directBuffer(initialCapacity, maxCapacity);
     }
 
     @Override
     public CompositeByteBuf compositeBuffer() {
-        return ByteBufAllocator.DEFAULT.compositeBuffer();
+        return DEFAULT.compositeBuffer();
     }
 
     @Override
     public CompositeByteBuf compositeBuffer(int maxNumComponents) {
-        return ByteBufAllocator.DEFAULT.compositeBuffer(maxNumComponents);
+        return DEFAULT.compositeBuffer(maxNumComponents);
     }
 
     @Override
     public CompositeByteBuf compositeHeapBuffer() {
-        return ByteBufAllocator.DEFAULT.compositeHeapBuffer();
+        return DEFAULT.compositeHeapBuffer();
     }
 
     @Override
     public CompositeByteBuf compositeHeapBuffer(int maxNumComponents) {
-        return ByteBufAllocator.DEFAULT.compositeHeapBuffer(maxNumComponents);
+        return DEFAULT.compositeHeapBuffer(maxNumComponents);
     }
 
     @Override
     public CompositeByteBuf compositeDirectBuffer() {
-        return ByteBufAllocator.DEFAULT.compositeDirectBuffer();
+        return DEFAULT.compositeDirectBuffer();
     }
 
     @Override
     public CompositeByteBuf compositeDirectBuffer(int maxNumComponents) {
-        return ByteBufAllocator.DEFAULT.compositeDirectBuffer(maxNumComponents);
+        return DEFAULT.compositeDirectBuffer(maxNumComponents);
     }
 
     @Override
     public boolean isDirectBufferPooled() {
-        return ByteBufAllocator.DEFAULT.isDirectBufferPooled();
+        return DEFAULT.isDirectBufferPooled();
     }
 
     @Override
     public int calculateNewCapacity(int minNewCapacity, int maxCapacity) {
-        return ByteBufAllocator.DEFAULT.calculateNewCapacity(minNewCapacity, maxCapacity);
+        return DEFAULT.calculateNewCapacity(minNewCapacity, maxCapacity);
     }
 
 }

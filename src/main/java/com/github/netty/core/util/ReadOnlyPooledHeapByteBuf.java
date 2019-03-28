@@ -44,6 +44,16 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     @Override
+    public ByteBuf readSlice(int length) {
+        ByteBuf slice = newInstance(array);
+
+        int readerIndex = readerIndex();
+        slice.readerIndex(readerIndex);
+        readerIndex(readerIndex + length);
+        return slice;
+    }
+
+    @Override
     public boolean isReadOnly() {
         return true;
     }
@@ -196,11 +206,6 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     @Override
     public int setBytes(int index, FileChannel in, long position, int length) {
         throw new ReadOnlyBufferException();
-    }
-
-    @Override
-    public ByteBuf slice(int index, int length) {
-        return Unpooled.unmodifiableBuffer(unwrap().slice(index, length));
     }
 
     @Override

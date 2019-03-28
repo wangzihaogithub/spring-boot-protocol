@@ -31,7 +31,6 @@ import java.util.function.Function;
 public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     public static final int ORDER = HttpServletProtocolsRegister.ORDER + 100;
 
-    private RpcEncoder rpcEncoder = new RpcEncoder();
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
@@ -59,12 +58,12 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
 
     @Override
     public String getProtocolName() {
-        return rpcEncoder.getVersion().getText();
+        return RpcVersion.CURRENT_VERSION.getText();
     }
 
     @Override
     public boolean canSupport(ByteBuf msg) {
-        return rpcEncoder.getVersion().isSupport(msg);
+        return RpcVersion.CURRENT_VERSION.isSupport(msg);
     }
 
     @Override
@@ -72,7 +71,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addLast(new RpcDecoder(messageMaxLength));
-        pipeline.addLast(rpcEncoder);
+        pipeline.addLast(new RpcEncoder());
         pipeline.addLast(rpcServerHandler);
     }
 

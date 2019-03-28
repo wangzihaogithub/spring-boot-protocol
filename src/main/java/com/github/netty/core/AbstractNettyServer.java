@@ -3,6 +3,7 @@ package com.github.netty.core;
 import com.github.netty.core.util.*;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
@@ -119,6 +120,8 @@ public abstract class AbstractNettyServer implements Runnable{
                     .childHandler(initializerChannelHandler)
                     //允许在同一端口上启动同一服务器的多个实例，只要每个实例捆绑一个不同的本地IP地址即可
                     .option(ChannelOption.SO_REUSEADDR, true)
+                    //netty boos的默认内存分配器
+//                    .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE)
                     //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
 //                    .option(ChannelOption.SO_BACKLOG, 1024) // determining the number of connections queued
 
@@ -126,13 +129,15 @@ public abstract class AbstractNettyServer implements Runnable{
                     .childOption(ChannelOption.TCP_NODELAY, true)
                     //开启TCP/IP协议实现的心跳机制
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
-                    //netty的默认内存分配器
+                    //netty的work默认内存分配器
                     .childOption(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
+
+
 //                    .childOption(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
 
             ChannelFuture channelFuture = bootstrap.bind(serverAddress);
 
-            channelFuture.addListener(this::startAfter);
+            channelFuture.addListener((ChannelFutureListener) this::startAfter);
             running = true;
         } catch (Throwable throwable) {
             throwable.printStackTrace();
@@ -173,7 +178,7 @@ public abstract class AbstractNettyServer implements Runnable{
         logger.info(name + " stop [port = "+getPort()+" , cause = "+cause+"]...");
     }
 
-    protected void startAfter(Future<? super Void> future){
+    protected void startAfter(ChannelFuture future){
         //有异常抛出
         Throwable cause = future.cause();
         if(cause != null){

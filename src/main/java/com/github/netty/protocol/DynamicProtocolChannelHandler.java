@@ -65,7 +65,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             if(!protocolsRegister.canSupport(msg)) {
                 continue;
             }
-            logger.info("Channel protocols register by [{}]",protocolsRegister.getProtocolName());
+            logger.info("{} protocols register by [{}]",channel,protocolsRegister.getProtocolName());
 
             if(bytesMetricsChannelHandler != null){
                 channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);

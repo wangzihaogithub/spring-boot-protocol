@@ -36,7 +36,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             RpcClient rpcClient = new RpcClient("Session",address);
             rpcClient.setIoRatio(ioRatio);
             rpcClient.setIoThreadCount(ioThreadCount);
-            rpcClient.setSocketChannelCount(clientChannels);
+//            rpcClient.setSocketChannelCount(clientChannels);
             rpcClient.run();
             if(enablesAutoReconnect) {
                 rpcClient.enableAutoReconnect(rpcClientHeartIntervalSecond, TimeUnit.SECONDS,null,enableRpcHeartLog);

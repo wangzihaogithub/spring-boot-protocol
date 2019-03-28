@@ -34,8 +34,8 @@ public class RpcMethod {
         return parameterNames;
     }
 
-    public ByteBuf getMethodName(){
-        return RecyclableUtil.newReadOnlyBuffer(methodName);
+    public byte[] getMethodName(){
+        return methodName;
     }
 
     public static Map<String,RpcMethod> getMethodMap(Class source, Function<Method,String[]> methodToParameterNamesFunction){
@@ -57,7 +57,7 @@ public class RpcMethod {
     public static Map<ByteBuf,RpcMethod> toByteBufMethodMap(Map<String,RpcMethod> methodMap){
         Map<ByteBuf,RpcMethod> asciiMethodMap = new HashMap<>(methodMap.size());
         for(RpcMethod rpcMethod : methodMap.values()){
-            asciiMethodMap.put(rpcMethod.getMethodName(),rpcMethod);
+            asciiMethodMap.put(RecyclableUtil.newReadOnlyBuffer(rpcMethod.methodName),rpcMethod);
         }
         return asciiMethodMap;
     }
