@@ -1,10 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.util.ByteBufAllocatorX;
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
-import com.github.netty.core.util.RecyclableUtil;
+import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -21,6 +19,12 @@ import static com.github.netty.protocol.nrpc.RpcResponseStatus.*;
  */
 public class RpcServerInstance {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(RpcServerInstance.class);
+    private static final FastThreadLocal<byte[]> REQUEST_ID_BYTES_LOCAL = new FastThreadLocal<byte[]>(){
+        @Override
+        protected byte[] initialValue() throws Exception {
+            return new byte[4];
+        }
+    };
 
     private Object instance;
     private Map<ByteBuf,RpcMethod> rpcMethodMap;
@@ -58,7 +62,7 @@ public class RpcServerInstance {
                 ByteBuf messageByteBuf = ByteBufAllocatorX.POOLED.buffer(message.length());
                 messageByteBuf.writeCharSequence(message, DataCodec.CHARSET_UTF8);
 
-                rpcResponse.setRequestId(rpcRequest.getRequestId().copy());
+                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
                 rpcResponse.setEncode(BINARY);
                 rpcResponse.setStatus(NO_SUCH_METHOD);
                 rpcResponse.setMessage(messageByteBuf);
@@ -87,7 +91,7 @@ public class RpcServerInstance {
                     rpcResponse.setEncode(JSON);
                     rpcResponse.setBody(dataCodec.encodeResponseData(result));
                 }
-                rpcResponse.setRequestId(rpcRequest.getRequestId().copy());
+                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
                 rpcResponse.setStatus(OK);
                 rpcResponse.setMessage(OK.getTextByteBuf());
                 release = false;
@@ -110,7 +114,7 @@ public class RpcServerInstance {
             try {
                 messageByteBuf.writeCharSequence(message, DataCodec.CHARSET_UTF8);
 
-                rpcResponse.setRequestId(rpcRequest.getRequestId().copy());
+                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
                 rpcResponse.setEncode(BINARY);
                 rpcResponse.setStatus(SERVER_ERROR);
                 rpcResponse.setMessage(messageByteBuf);
@@ -128,4 +132,12 @@ public class RpcServerInstance {
     public Object getInstance() {
         return instance;
     }
+
+
+    public static ByteBuf newRequestIdByteBuf(int requestId){
+        byte[] requestIdBytes = REQUEST_ID_BYTES_LOCAL.get();
+        IOUtil.setInt(requestIdBytes,0,requestId);
+        return RecyclableUtil.newReadOnlyBuffer(requestIdBytes);
+    }
+
 }

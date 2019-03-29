@@ -8,6 +8,7 @@ import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.ChannelFuture;
 
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -117,8 +118,12 @@ public class RpcClientHeartbeatTask implements Runnable{
             if(isLogHeartEvent) {
                 logger.info("{} The heartbeat packets : {}",rpcClient.getName(),new String(msg));
             }
-        }catch (RpcConnectException | RpcTimeoutException e) {
-            reconnect(e.getMessage());
+        }catch (UndeclaredThrowableException e) {
+            Throwable cause = e.getCause();
+            if(cause instanceof RpcConnectException
+                    || cause instanceof RpcTimeoutException){
+                reconnect(e.getMessage());
+            }
         } catch (Exception e){
             logger.error(e.getMessage(),e);
         }

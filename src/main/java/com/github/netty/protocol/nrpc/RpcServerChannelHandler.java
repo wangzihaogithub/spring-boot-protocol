@@ -3,10 +3,7 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.Packet;
-import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
-import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.core.util.ReflectUtil;
-import com.github.netty.core.util.StringUtil;
+import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -24,6 +21,7 @@ import static com.github.netty.core.Packet.*;
 import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcResponseStatus.NO_SUCH_SERVICE;
+import static com.github.netty.protocol.nrpc.RpcServerInstance.newRequestIdByteBuf;
 
 /**
  * Server side processor
@@ -66,13 +64,15 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
             if(request.getAck() == ACK_YES) {
                 RpcResponsePacket rpcResponse = new RpcResponsePacket();
 
-                String message = "not found service " + request.getServiceNameString();
-                ByteBuf messageByteBuf = ctx.alloc().buffer(message.length());
-                messageByteBuf.writeCharSequence(message,CHARSET_UTF8);
-
+                ByteBuf messageByteBuf = null;
                 boolean release = true;
                 try {
-                    rpcResponse.setRequestId(request.getRequestId().copy());
+                    String serviceName = request.getServiceNameString();
+                    String message = "not found service " + serviceName;
+                    messageByteBuf = ctx.alloc().buffer(message.length());
+                    messageByteBuf.writeCharSequence(message,CHARSET_UTF8);
+
+                    rpcResponse.setRequestId(newRequestIdByteBuf(request.getRequestIdInt()));
                     rpcResponse.setEncode(BINARY);
                     rpcResponse.setStatus(NO_SUCH_SERVICE);
                     rpcResponse.setMessage(messageByteBuf);
@@ -89,15 +89,15 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
         }
 
         RpcResponsePacket response = rpcInstance.invoke(request);
-        if(response != null){
-            try {
-                response.putField(AsciiString.of("time"),
-                        request.getFieldMap().get(AsciiString.of("time")).copy());
-            }catch (Exception e){
-                e.printStackTrace();
-            }
-        }
         if(request.getAck() == ACK_YES) {
+            if(response != null){
+                try {
+                    ByteBuf time = request.getFieldMap().get(AsciiString.of("time"));
+                    response.putField(AsciiString.of("time"),time.copy());
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
             ctx.writeAndFlush(response)
                     .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }else {
