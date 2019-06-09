@@ -2,7 +2,7 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.StringUtil;
-import com.github.netty.protocol.HttpServletProtocolsRegister;
+import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletErrorPage;
 import com.github.netty.protocol.servlet.SessionCompositeServiceImpl;
@@ -40,11 +40,11 @@ import java.util.Arrays;
  * @author wangzihao
  * 2018/11/12/012
  */
-public class HttpServletProtocolsRegisterSpringAdapter extends HttpServletProtocolsRegister implements BeanPostProcessor {
+public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor {
     private NettyProperties properties;
     private ApplicationX application;
 
-    public HttpServletProtocolsRegisterSpringAdapter(NettyProperties properties, ClassLoader classLoader) {
+    public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader) {
         super(properties.getServerHandlerExecutor(),new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
         this.properties = properties;
         this.application = properties.getApplication();

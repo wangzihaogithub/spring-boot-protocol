@@ -2,7 +2,6 @@ package com.github.netty.core;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.util.AsciiString;
@@ -75,7 +74,6 @@ public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEnco
                 out.writeChar(value.readableBytes());
                 out.writeBytes(value);
             }
-            fieldMap.clear();
         }
 
         //Body

@@ -1,12 +1,14 @@
 package com.github.netty.springboot.server;
 
 import com.github.netty.core.AbstractNettyServer;
-import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.core.ProtocolHandler;
+import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.HostUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
+import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
@@ -24,12 +26,16 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * Container configuration information
      */
     private final NettyProperties properties;
-    private Collection<ProtocolsRegister> protocolsRegisters;
+    private Collection<ProtocolHandler> protocolHandlers;
+    private Collection<ServerListener> serverListeners;
 
-    public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties,Collection<ProtocolsRegister> protocolsRegisters){
+    public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties,
+                          Collection<ProtocolHandler> protocolHandlers,
+                          Collection<ServerListener> serverListeners){
         super(serverAddress);
         this.properties = properties;
-        this.protocolsRegisters = protocolsRegisters;
+        this.protocolHandlers = protocolHandlers;
+        this.serverListeners = serverListeners;
     }
 
     @Override
@@ -37,7 +43,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         try{
             super.setIoRatio(properties.getServerIoRatio());
             super.setIoThreadCount(properties.getServerIoThreads());
-            for(ProtocolsRegister protocolsRegister : protocolsRegisters){
+            for(ServerListener protocolsRegister : serverListeners){
                 protocolsRegister.onServerStart();
             }
             super.run();
@@ -48,7 +54,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
 
     @Override
     public void stop() throws WebServerException {
-        for(ProtocolsRegister protocolsRegister : protocolsRegisters){
+        for(ServerListener protocolsRegister : serverListeners){
             try {
                 protocolsRegister.onServerStop();
             }catch (Throwable t){
@@ -75,7 +81,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
                 getName(),
                 getPort()+"",
                 HostUtil.getPid()+"",
-                protocolsRegisters,
+                protocolHandlers,
                 HostUtil.getOsName()
                 );
     }
@@ -87,15 +93,22 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     protected ChannelHandler newInitializerChannelHandler() {
         //Dynamic protocol processor
-        return new DynamicProtocolChannelHandler(protocolsRegisters,properties.isEnableTcpPackageLog(),properties.getMaxConnections());
+        return new DynamicProtocolChannelHandler(protocolHandlers,properties.isEnableTcpPackageLog(),properties.getMaxConnections());
     }
 
     /**
      * Gets the protocol registry list
-     * @return protocolsRegisters
+     * @return protocolHandlers
      */
-    public Collection<ProtocolsRegister> getProtocolsRegisters(){
-        return protocolsRegisters;
+    public Collection<ProtocolHandler> getProtocolHandlers(){
+        return protocolHandlers;
     }
 
+    /**
+     * Gets the server listener list
+     * @return serverListeners
+     */
+    public Collection<ServerListener> getServerListeners() {
+        return serverListeners;
+    }
 }

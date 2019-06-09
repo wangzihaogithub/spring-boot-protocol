@@ -1,6 +1,6 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.AbstractProtocolsRegister;
+import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.servlet.*;
 import io.netty.buffer.ByteBuf;
@@ -27,7 +27,7 @@ import java.util.concurrent.Executor;
  * @author wangzihao
  *  2018/11/11/011
  */
-public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
+public class HttpServletProtocol extends AbstractProtocol {
     public static final int ORDER = 100;
 
     private final ServletContext servletContext;
@@ -39,7 +39,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 5 * 1024 * 1024;
 
-    public HttpServletProtocolsRegister(Executor executor, ServletContext servletContext){
+    public HttpServletProtocol(Executor executor, ServletContext servletContext){
         this.servletContext = servletContext;
         this.servletHandler = new ServletChannelHandler(servletContext,executor);
     }
@@ -142,7 +142,7 @@ public class HttpServletProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     @Override
-    public void registerTo(Channel ch) throws Exception {
+    public void onSupportPipeline(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
         if (sslContextBuilder != null) {
             if(sslContext == null) {

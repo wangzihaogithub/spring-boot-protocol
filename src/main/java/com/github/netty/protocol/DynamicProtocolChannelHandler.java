@@ -1,7 +1,7 @@
 package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.ProtocolsRegister;
+import com.github.netty.core.ProtocolHandler;
 import com.github.netty.metrics.BytesMetricsChannelHandler;
 import com.github.netty.metrics.MessageMetricsChannelHandler;
 import io.netty.buffer.ByteBuf;
@@ -24,9 +24,9 @@ import java.util.concurrent.Semaphore;
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf,Object> {
     public static final AttributeKey<Boolean> CONNECTION_OVERLOAD_ATTR = AttributeKey.valueOf("connectionOverload");
     /**
-     * Protocol registry list, dynamic protocol will find a suitable protocol to register on the new link
+     * Protocol registry list, dynamic protocol will find a suitable protocol to supportPipeline on the new link
      */
-    private Collection<ProtocolsRegister> protocolsRegisters;
+    private Collection<ProtocolHandler> protocolHandlers;
     /**
      * Communication monitoring (read write/time)
      */
@@ -45,9 +45,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     private Semaphore maxConnectionSemaphore;
     private int maxConnections;
 
-    public DynamicProtocolChannelHandler(Collection<ProtocolsRegister> protocolsRegisters, boolean enableTcpPackageLog,int maxConnections) {
+    public DynamicProtocolChannelHandler(Collection<ProtocolHandler> protocolHandlers, boolean enableTcpPackageLog, int maxConnections) {
         super(false);
-        this.protocolsRegisters = protocolsRegisters;
+        this.protocolHandlers = protocolHandlers;
         if(enableTcpPackageLog) {
             this.loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
             this.messageMetricsChannelHandler = new MessageMetricsChannelHandler();
@@ -61,11 +61,11 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
         Channel channel = ctx.channel();
         channel.pipeline().remove(this);
-        for(ProtocolsRegister protocolsRegister : protocolsRegisters){
-            if(!protocolsRegister.canSupport(msg)) {
+        for(ProtocolHandler protocolHandler : protocolHandlers){
+            if(!protocolHandler.canSupport(msg)) {
                 continue;
             }
-            logger.info("{} protocols register by [{}]",channel,protocolsRegister.getProtocolName());
+            logger.info("{} protocols supportPipeline by [{}]",channel, protocolHandler.getProtocolName());
 
             if(bytesMetricsChannelHandler != null){
                 channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
@@ -77,7 +77,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
                 channel.pipeline().addLast("logger", loggingHandler);
             }
 
-            protocolsRegister.register(channel);
+            protocolHandler.supportPipeline(channel);
             if(channel.isRegistered()) {
                 channel.pipeline().fireChannelRegistered();
             }

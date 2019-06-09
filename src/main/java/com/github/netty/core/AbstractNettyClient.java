@@ -12,16 +12,14 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *  An abstract netty client
  * @author wangzihao
  *  2018/8/18/018
  */
-public abstract class AbstractNettyClient implements Runnable{
-
+public abstract class AbstractNettyClient{
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final String name;
     private Bootstrap bootstrap;
@@ -32,10 +30,9 @@ public abstract class AbstractNettyClient implements Runnable{
     private InetSocketAddress remoteAddress;
     private boolean enableEpoll;
     private SocketChannel channel;
-    private final Object connectLock = new Object();
     private int ioThreadCount = 0;
     private int ioRatio = 100;
-    private boolean running = false;
+    private AtomicBoolean running = new AtomicBoolean(false);
 
     public AbstractNettyClient(String remoteHost,int remotePort) {
         this(new InetSocketAddress(remoteHost,remotePort));
@@ -99,19 +96,15 @@ public abstract class AbstractNettyClient implements Runnable{
         return channelFactory;
     }
 
-    @Override
-    public final void run() {
-        try {
-            if(running){
-                return;
-            }
 
+    public final AbstractNettyClient run() {
+        if(running.compareAndSet(false,true)){
             this.bootstrap = newClientBootstrap();
             this.worker = newWorkerEventLoopGroup();
             this.channelFactory = newClientChannelFactory();
             this.initializerChannelHandler = newInitializerChannelHandler();
 
-            bootstrap
+            this.bootstrap
                     .group(worker)
                     .channelFactory(channelFactory)
                     .handler(initializerChannelHandler)
@@ -126,34 +119,26 @@ public abstract class AbstractNettyClient implements Runnable{
                     .option(ChannelOption.SO_KEEPALIVE, true)
                     //netty的默认内存分配器
                     .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
-//                    .option(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
-
-            connect(this::connectAfter);
-            this.running = true;
-        } catch (Throwable throwable) {
-            logger.error(throwable.getMessage());
-//            ExceptionUtil.printRootCauseStackTrace(throwable);
         }
+
+        return this;
     }
 
     public boolean isConnect(){
         return getActiveSocketChannelCount() > 0;
     }
 
-    public ChannelFuture connect(Consumer<ChannelFuture> consumer){
-        synchronized (connectLock) {
-            return bootstrap.connect()
-                    .addListener((ChannelFutureListener) future -> {
-                if(future.isSuccess()){
-                    AbstractNettyClient.this.channel = (SocketChannel) future.channel();
-                }else {
-                    future.channel().close();
-                }
-                if(consumer != null) {
-                    consumer.accept(future);
-                }
-            });
-        }
+    public ChannelFuture connect(){
+        return bootstrap.connect()
+                .addListener((ChannelFutureListener) future -> {
+            if(future.isSuccess()){
+                AbstractNettyClient.this.channel = (SocketChannel) future.channel();
+            }else {
+                future.channel().close();
+            }
+
+            connectAfter(future);
+        });
     }
 
     public SocketChannel getChannel() {
@@ -164,18 +149,21 @@ public abstract class AbstractNettyClient implements Runnable{
         return remoteAddress;
     }
 
-    public void stop() {
-        if(channel != null) {
-            channel.close().addListener((ChannelFutureListener) future -> {
-                AbstractNettyClient.this.bootstrap = null;
-                AbstractNettyClient.this.worker = null;
-                AbstractNettyClient.this.channelFactory = null;
-                AbstractNettyClient.this.initializerChannelHandler = null;
-                AbstractNettyClient.this.running = false;
-                stopAfter(future);
-            });
-            channel = null;
+    public ChannelFuture stop() {
+        if(channel == null) {
+            throw new IllegalStateException("channel is null");
         }
+
+        return channel.close().addListener((ChannelFutureListener) future -> {
+            AbstractNettyClient.this.bootstrap = null;
+            AbstractNettyClient.this.worker.shutdownGracefully();
+            AbstractNettyClient.this.worker= null;
+            AbstractNettyClient.this.channelFactory = null;
+            AbstractNettyClient.this.initializerChannelHandler = null;
+            AbstractNettyClient.this.running.set(false);
+            AbstractNettyClient.this.channel = null;
+            stopAfter(future);
+        });
     }
 
     protected void stopAfter(ChannelFuture future){
@@ -208,56 +196,6 @@ public abstract class AbstractNettyClient implements Runnable{
         return name + "{" +
                 "activeSocketChannelCount=" + getActiveSocketChannelCount() +
                 ", remoteAddress=" + remoteAddress.getHostName() + ":" + remoteAddress.getPort() + "}";
-    }
-
-    private class SocketChannels {
-        private AtomicInteger idx = new AtomicInteger();
-        private final SocketChannel[] socketChannels;
-        private boolean isPowerOfTwo;
-        private volatile boolean close;
-
-        private SocketChannels(SocketChannel[] socketChannels) {
-            assert socketChannels != null;
-            int count = socketChannels.length;
-            isPowerOfTwo = (count & -count) == count;
-            this.socketChannels = socketChannels;
-        }
-
-        public SocketChannel next() {
-            if(close){
-                return null;
-            }
-            int count = socketChannels.length;
-
-            if(count == 1){
-                return socketChannels[0];
-            }
-
-            if(isPowerOfTwo) {
-                return socketChannels[idx.getAndIncrement() & count - 1];
-            }else {
-                return socketChannels[Math.abs(idx.getAndIncrement() % count)];
-            }
-        }
-
-        public int getSocketChannelCount() {
-            return socketChannels.length;
-        }
-
-        public void close(){
-            synchronized (socketChannels) {
-                close = true;
-                int len = socketChannels.length;
-                for (int i = 0; i < len; i++) {
-                    try {
-                        socketChannels[i].close();
-                    } catch (Throwable t) {
-                        logger.error("SocketChannel close exception : [" + t.toString() + ":" + t.getMessage() + "]");
-                    }
-                }
-                idx = null;
-            }
-        }
     }
 
 }

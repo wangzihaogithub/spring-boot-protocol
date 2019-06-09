@@ -7,6 +7,7 @@ import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.HashMap;
@@ -25,7 +26,6 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public class RpcClientHeartbeatTask implements Runnable{
-
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     private RpcClient rpcClient;
@@ -95,20 +95,22 @@ public class RpcClientHeartbeatTask implements Runnable{
      */
     private ChannelFuture reconnect(String causeMessage){
         ++reconnectCount;
-        return rpcClient.connect((future)->{
-            boolean success = future.isSuccess();
-            logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
-                    success? "success! ":"fail",
-                    reconnectCount,
-                    rpcClient.getActiveSocketChannelCount(),
-                    causeMessage);
-            if (success) {
-                reconnectCount = 0;
-                if(reconnectSuccessHandler != null){
-                    reconnectSuccessHandler.accept(rpcClient);
-                }
-            }
-        });
+        return rpcClient
+                .connect()
+                .addListener((ChannelFutureListener) future -> {
+                    boolean success = future.isSuccess();
+                    logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
+                            success? "success! ":"fail",
+                            reconnectCount,
+                            rpcClient.getActiveSocketChannelCount(),
+                            causeMessage);
+                    if (success) {
+                        reconnectCount = 0;
+                        if(reconnectSuccessHandler != null){
+                            reconnectSuccessHandler.accept(rpcClient);
+                        }
+                    }
+                });
     }
 
     @Override

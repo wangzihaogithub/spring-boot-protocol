@@ -1,8 +1,9 @@
 package com.github.netty.core.util;
 
 import com.github.netty.core.CoreConstants;
+import org.springframework.util.StringUtils;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -26,9 +27,12 @@ public class Recycler<T> {
     /**
      * All recyclers
      */
-    private static final List<Recycler> RECYCLER_LIST = new LinkedList<>();
+    private static final List<Recycler> RECYCLER_LIST = new ArrayList<>();
     public static final AtomicInteger TOTAL_COUNT = new AtomicInteger();
     public static final AtomicInteger HIT_COUNT = new AtomicInteger();
+
+    private StackTraceElement formStack;
+    private Thread formThread;
 
     public Recycler(Supplier<T> supplier) {
         this(CoreConstants.getRecyclerCount(),supplier);
@@ -38,6 +42,8 @@ public class Recycler<T> {
         this.supplier = Objects.requireNonNull(supplier);
         this.queue = new Queue<>();
         RECYCLER_LIST.add(this);
+        this.formThread = Thread.currentThread();
+        this.formStack = formThread.getStackTrace()[3];
 
         for(int i=0; i< instanceCount; i++) {
             recycleInstance(supplier.get());
@@ -75,6 +81,16 @@ public class Recycler<T> {
         queue.push(value);
     }
 
+
+    @Override
+    public String toString() {
+        return "Recycler{" +
+                "size=" + queue.size() +
+                ", formStack=" + StringUtil.simpleClassName(formStack.getClassName()) +
+                ", formThread=" + formThread +
+                '}';
+    }
+
     /**
      * Queue of instances
      * @param <E> type
@@ -82,7 +98,7 @@ public class Recycler<T> {
     private static class Queue<E> extends ConcurrentLinkedDeque<E> {
          @Override
          public void push(E e) {
-             super.push(e);
+             super.addLast(e);
          }
 
          @Override

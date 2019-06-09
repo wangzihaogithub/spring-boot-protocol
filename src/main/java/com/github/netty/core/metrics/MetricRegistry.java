@@ -105,7 +105,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Counter} registered under this name; or create and register 
+     * Return the {@link Counter} registered under this name; or create and supportPipeline
      * a new {@link Counter} if none is registered.
      *
      * @param name the name of the metric
@@ -116,7 +116,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Counter} registered under this name; or create and register
+     * Return the {@link Counter} registered under this name; or create and supportPipeline
      * a new {@link Counter} using the provided MetricSupplier if none is registered.
      *
      * @param name the name of the metric
@@ -137,7 +137,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Histogram} registered under this name; or create and register 
+     * Return the {@link Histogram} registered under this name; or create and supportPipeline
      * a new {@link Histogram} if none is registered.
      *
      * @param name the name of the metric
@@ -148,7 +148,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Histogram} registered under this name; or create and register
+     * Return the {@link Histogram} registered under this name; or create and supportPipeline
      * a new {@link Histogram} using the provided MetricSupplier if none is registered.
      *
      * @param name the name of the metric
@@ -169,7 +169,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Meter} registered under this name; or create and register
+     * Return the {@link Meter} registered under this name; or create and supportPipeline
      * a new {@link Meter} if none is registered.
      *
      * @param name the name of the metric
@@ -180,7 +180,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Meter} registered under this name; or create and register
+     * Return the {@link Meter} registered under this name; or create and supportPipeline
      * a new {@link Meter} using the provided MetricSupplier if none is registered.
      *
      * @param name the name of the metric
@@ -201,7 +201,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link java.util.Timer} registered under this name; or create and register
+     * Return the {@link java.util.Timer} registered under this name; or create and supportPipeline
      * a new {@link java.util.Timer} if none is registered.
      *
      * @param name the name of the metric
@@ -212,7 +212,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link java.util.Timer} registered under this name; or create and register
+     * Return the {@link java.util.Timer} registered under this name; or create and supportPipeline
      * a new {@link java.util.Timer} using the provided MetricSupplier if none is registered.
      *
      * @param name the name of the metric
@@ -233,7 +233,7 @@ public class MetricRegistry implements MetricSet {
     }
 
     /**
-     * Return the {@link Gauge} registered under this name; or create and register
+     * Return the {@link Gauge} registered under this name; or create and supportPipeline
      * a new {@link Gauge} using the provided MetricSupplier if none is registered.
      *
      * @param name the name of the metric

@@ -4,11 +4,11 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
 /**
- * Protocol register
+ * Protocol Handler
  * @author wangzihao
  *  2018/11/11/011
  */
-public interface ProtocolsRegister extends ServerListener {
+public interface ProtocolHandler {
 
     /**
      * Get the protocol name
@@ -24,11 +24,11 @@ public interface ProtocolsRegister extends ServerListener {
     boolean canSupport(ByteBuf msg);
 
     /**
-     * registration protocol
+     * protocol pipeline support
      * @param channel TCP channel
      * @throws Exception Exception
      */
-    void register(Channel channel) throws Exception;
+    void supportPipeline(Channel channel) throws Exception;
 
     /**
      * Priority order

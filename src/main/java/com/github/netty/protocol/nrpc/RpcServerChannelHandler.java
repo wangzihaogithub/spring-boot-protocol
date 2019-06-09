@@ -2,14 +2,14 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.Packet;
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
+import com.github.netty.core.util.RecyclableUtil;
+import com.github.netty.core.util.ReflectUtil;
+import com.github.netty.core.util.StringUtil;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.AsciiString;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -17,11 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.github.netty.core.Packet.*;
-import static com.github.netty.protocol.nrpc.DataCodec.CHARSET_UTF8;
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
-import static com.github.netty.protocol.nrpc.RpcResponseStatus.NO_SUCH_SERVICE;
-import static com.github.netty.protocol.nrpc.RpcServerInstance.newRequestIdByteBuf;
+import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
  * Server side processor
@@ -29,12 +26,12 @@ import static com.github.netty.protocol.nrpc.RpcServerInstance.newRequestIdByteB
  *  2018/9/16/016
  */
 @ChannelHandler.Sharable
-public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Object> {
+public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
     /**
      * Data encoder decoder. (Serialization or Deserialization)
      */
     private DataCodec dataCodec;
-    private final Map<ByteBuf,RpcServerInstance> serviceInstanceMap = new HashMap<>();
+    private final Map<String,RpcServerInstance> serviceInstanceMap = new HashMap<>();
 
     public RpcServerChannelHandler() {
         this(new JsonDataCodec());
@@ -46,41 +43,38 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, Packet packet) throws Exception {
-        if(packet instanceof RpcRequestPacket){
-            onRequestReceived(ctx, (RpcRequestPacket) packet);
-        }else {
-            if (packet.getAck() == ACK_YES) {
-                Packet responsePacket = new Packet(TYPE_PONG);
-                responsePacket.setAck(ACK_NO);
-                ctx.writeAndFlush(responsePacket).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+    protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
+        try {
+            if (packet instanceof RequestPacket) {
+                onRequestReceived(ctx, (RequestPacket) packet);
+            } else {
+                if (packet.getAck() == ACK_YES) {
+                    RpcPacket responsePacket = new RpcPacket(RpcPacket.TYPE_PONG);
+                    responsePacket.setAck(ACK_NO);
+                    ctx.writeAndFlush(responsePacket).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                }
             }
+        }finally {
+            packet.recycle();
         }
     }
 
-    protected void onRequestReceived(ChannelHandlerContext ctx, RpcRequestPacket request){
+    protected void onRequestReceived(ChannelHandlerContext ctx, RequestPacket request){
         RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getServiceName());
         if(rpcInstance == null) {
             if(request.getAck() == ACK_YES) {
-                RpcResponsePacket rpcResponse = new RpcResponsePacket();
+                ResponsePacket rpcResponse = ResponsePacket.newInstance();
 
-                ByteBuf messageByteBuf = null;
                 boolean release = true;
                 try {
-                    String serviceName = request.getServiceNameString();
-                    String message = "not found service " + serviceName;
-                    messageByteBuf = ctx.alloc().buffer(message.length());
-                    messageByteBuf.writeCharSequence(message,CHARSET_UTF8);
-
-                    rpcResponse.setRequestId(newRequestIdByteBuf(request.getRequestIdInt()));
+                    rpcResponse.setRequestId(request.getRequestId());
                     rpcResponse.setEncode(BINARY);
-                    rpcResponse.setStatus(NO_SUCH_SERVICE);
-                    rpcResponse.setMessage(messageByteBuf);
+                    rpcResponse.setStatus(ResponsePacket.NO_SUCH_SERVICE);
+                    rpcResponse.setMessage("not found service " + request.getServiceName());
                     ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                     release = false;
                 }finally {
                     if(release) {
-                        RecyclableUtil.release(messageByteBuf);
                         RecyclableUtil.release(rpcResponse);
                     }
                 }
@@ -88,16 +82,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
             return;
         }
 
-        RpcResponsePacket response = rpcInstance.invoke(request);
+        ResponsePacket response = rpcInstance.invoke(request);
         if(request.getAck() == ACK_YES) {
-            if(response != null){
-                try {
-                    ByteBuf time = request.getFieldMap().get(AsciiString.of("time"));
-                    response.putField(AsciiString.of("time"),time.copy());
-                }catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
             ctx.writeAndFlush(response)
                     .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }else {
@@ -131,9 +117,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<Packet,Objec
     public void addInstance(Object instance,String serviceName,Function<Method,String[]> methodToParameterNamesFunction){
         synchronized (serviceInstanceMap) {
             RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction);
-            RpcServerInstance oldServerInstance = serviceInstanceMap.put(
-                    Unpooled.copiedBuffer(serviceName, CHARSET_UTF8),
-                    rpcServerInstance);
+            RpcServerInstance oldServerInstance = serviceInstanceMap.put(serviceName,rpcServerInstance);
 
             if (oldServerInstance != null) {
                 Object oldInstance = oldServerInstance.getInstance();

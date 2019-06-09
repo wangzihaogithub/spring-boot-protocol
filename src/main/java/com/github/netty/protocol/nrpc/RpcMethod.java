@@ -1,10 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.util.AsciiString;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
@@ -18,12 +14,11 @@ import java.util.function.Function;
 public class RpcMethod {
     private Method method;
     private String[] parameterNames;
-    private byte[] methodName;
+    private String methodName;
 
     public RpcMethod(Method method, String[] parameterNames) {
         this.method = method;
         this.parameterNames = parameterNames;
-        this.methodName = method.getName().getBytes(DataCodec.CHARSET_UTF8);
     }
 
     public Method getMethod() {
@@ -32,10 +27,6 @@ public class RpcMethod {
 
     public String[] getParameterNames() {
         return parameterNames;
-    }
-
-    public byte[] getMethodName(){
-        return methodName;
     }
 
     public static Map<String,RpcMethod> getMethodMap(Class source, Function<Method,String[]> methodToParameterNamesFunction){
@@ -52,14 +43,6 @@ public class RpcMethod {
             }
         }
         return methodMap;
-    }
-
-    public static Map<ByteBuf,RpcMethod> toByteBufMethodMap(Map<String,RpcMethod> methodMap){
-        Map<ByteBuf,RpcMethod> asciiMethodMap = new HashMap<>(methodMap.size());
-        for(RpcMethod rpcMethod : methodMap.values()){
-            asciiMethodMap.put(RecyclableUtil.newReadOnlyBuffer(rpcMethod.methodName),rpcMethod);
-        }
-        return asciiMethodMap;
     }
 
     private static void initMethod(Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod> methodMap){

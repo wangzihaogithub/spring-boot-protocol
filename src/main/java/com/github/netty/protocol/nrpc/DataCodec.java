@@ -19,7 +19,7 @@ public interface DataCodec {
      * @param rpcMethod rpcMethod
      * @return ByteBuf
      */
-    ByteBuf encodeRequestData(Object[] data, RpcMethod rpcMethod);
+    byte[] encodeRequestData(Object[] data, RpcMethod rpcMethod);
 
     /**
      * Request data - decoding
@@ -27,21 +27,21 @@ public interface DataCodec {
      * @param rpcMethod rpcMethod
      * @return Object[]
      */
-    Object[] decodeRequestData(ByteBuf data, RpcMethod rpcMethod);
+    Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod);
 
     /**
      * Response data - encoding
      * @param data data
      * @return byte[]
      */
-    ByteBuf encodeResponseData(Object data);
+    byte[] encodeResponseData(Object data);
 
     /**
      * Response data - decoding
      * @param data data
      * @return Object
      */
-    Object decodeResponseData(ByteBuf data);
+    Object decodeResponseData(byte[] data);
 
 
     /**
@@ -58,30 +58,22 @@ public interface DataCodec {
         JSON((byte) 1);
 
         private int code;
-        private byte[] codeBytes;
-        private ByteBuf codeByteBuf;
 
         Encode(byte code) {
             this.code = code;
-            this.codeBytes = new byte[]{code};
-            this.codeByteBuf = RecyclableUtil.newReadOnlyBuffer(codeBytes);
         }
 
         public int getCode() {
             return code;
         }
 
-        public ByteBuf getByteBuf() {
-            return RecyclableUtil.newReadOnlyBuffer(codeBytes);
-        }
-
-        public static Encode indexOf(ByteBuf codeByteBuf){
+        public static Encode indexOf(int code){
             for(Encode encode : values()){
-                if(encode.codeByteBuf.equals(codeByteBuf)){
+                if(encode.code == code){
                     return encode;
                 }
             }
-            throw new IllegalArgumentException("value=" + codeByteBuf.toString(CHARSET_UTF8));
+            throw new IllegalArgumentException("value=" + code);
         }
     }
 }

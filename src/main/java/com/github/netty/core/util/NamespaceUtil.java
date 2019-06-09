@@ -1,6 +1,7 @@
 package com.github.netty.core.util;
 
 import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -67,8 +68,8 @@ public class NamespaceUtil {
         private final Map<Object,Integer> idMap;
 
         Namespace(){
-            idIncrMap = new ConcurrentHashMap<>(16);
-            idMap = new ConcurrentHashMap<>(16);
+            idIncrMap = new WeakHashMap<>(16);
+            idMap = new WeakHashMap<>(16);
         }
 
         public String newIdName(Object obj,String name){

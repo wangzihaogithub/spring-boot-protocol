@@ -1,6 +1,6 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.AbstractProtocolsRegister;
+import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.rtsp.RtspServerChannelHandler;
 import io.netty.buffer.ByteBuf;
@@ -17,18 +17,18 @@ import io.netty.handler.codec.rtsp.RtspEncoder;
  * @author wangzihao
  *  2018/12/5/005
  */
-public class RtspProtocolsRegister extends AbstractProtocolsRegister {
-    public static final int ORDER = MqttProtocolsRegister.ORDER + 100;
+public class RtspProtocol extends AbstractProtocol {
+    public static final int ORDER = MqttProtocol.ORDER + 100;
     private final int maxInitialLineLength;
     private final int maxHeaderSize;
     private final int maxContentLength;
     private ChannelHandler channelHandler;
 
-    public RtspProtocolsRegister() {
+    public RtspProtocol() {
         this(4096,8192,8192,new RtspServerChannelHandler());
     }
 
-    public RtspProtocolsRegister(int maxInitialLineLength, int maxHeaderSize, int maxContentLength, ChannelHandler channelHandler) {
+    public RtspProtocol(int maxInitialLineLength, int maxHeaderSize, int maxContentLength, ChannelHandler channelHandler) {
         this.maxInitialLineLength = maxInitialLineLength;
         this.maxHeaderSize = maxHeaderSize;
         this.maxContentLength = maxContentLength;
@@ -57,7 +57,7 @@ public class RtspProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     @Override
-    public void registerTo(Channel channel) throws Exception {
+    public void onSupportPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RtspEncoder());
         pipeline.addLast(new RtspDecoder(maxInitialLineLength,maxHeaderSize,maxContentLength,false));

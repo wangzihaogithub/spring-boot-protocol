@@ -1,70 +1,69 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.CoreConstants;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
-import io.netty.util.concurrent.FastThreadLocal;
 
-import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
  * Simple Future
  * @author wangzihao
  */
-public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recyclable{
-    private static final FastThreadLocal<Recycler<RpcFuture<RpcResponsePacket>>> RECYCLER_LOCAL = new FastThreadLocal<Recycler<RpcFuture<RpcResponsePacket>>>(){
-        @Override
-        protected Recycler<RpcFuture<RpcResponsePacket>> initialValue() throws Exception {
-            return new Recycler<>(RpcFuture::new);
-        }
-    };
-    private Recycler<RpcFuture<T>> recycler;
+public class RpcFuture implements Future<ResponsePacket>,Recyclable{
+    private static final Recycler<RpcFuture> RECYCLER = new Recycler<>(RpcFuture::new);
     private final Lock lock = new ReentrantLock();
     private final Condition done = lock.newCondition();
-    private RpcRequestPacket request;
-    private T result;
+    private volatile ResponsePacket response;
 
-    public static RpcFuture<RpcResponsePacket> newInstance(RpcRequestPacket request){
-        Recycler<RpcFuture<RpcResponsePacket>> recycler = RECYCLER_LOCAL.get();
+    public static RpcFuture newInstance(){
+        RpcFuture rpcFuture  = RECYCLER.getInstance();
 
-        RpcFuture<RpcResponsePacket> rpcFuture  = recycler.getInstance();
-        rpcFuture.recycler = recycler;
-        rpcFuture.request = request;
+        ResponsePacket rpcResponsePacket = rpcFuture.response;
+        if(rpcResponsePacket != null){
+            RecyclableUtil.release(rpcResponsePacket);
+            rpcFuture.response = null;
+        }
         return rpcFuture;
     }
 
     @Override
-    public T get() throws InterruptedException, ExecutionException {
-        checkCanUse();
+    public ResponsePacket get() throws InterruptedException, ExecutionException {
+        TOTAL_COUNT.incrementAndGet();
 
-        T response;
         try {
-            spin();
-
-            //If the spin gets the response back directly
-            if (result == null) {
-                done.await();
+            if (!isDone()) {
+                lock.lock();
+                try {
+                    while (!isDone()) {
+                        done.await();
+                        if (isDone()) {
+                            break;
+                        }
+                    }
+                } finally {
+                    lock.unlock();
+                }
             }
         }catch (InterruptedException t){
             throw t;
         }catch (Throwable t){
             throw new ExecutionException(t);
-        }finally {
-            response = result;
-            recycle();
         }
 
         //If an exception state is returned, an exception is thrown
         handlerResponseIfNeedThrow(response);
-        return result;
+        return response;
     }
 
     /**
@@ -74,9 +73,8 @@ public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recycla
      * @return RpcResponse
      */
     @Override
-    public T get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException,TimeoutException {
-        TOTAL_INVOKE_COUNT.incrementAndGet();
-        String methodName = request.getMethodNameString();
+    public ResponsePacket get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException,TimeoutException {
+        TOTAL_COUNT.incrementAndGet();
 
         try {
             if (!isDone()) {
@@ -100,17 +98,17 @@ public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recycla
         }
 
         if(!isDone()){
-            TIMEOUT_API.put(methodName,TIMEOUT_API.getOrDefault(methodName,0) + 1);
-            TimeoutException timeoutException = new TimeoutException();
-            RpcTimeoutException rpcTimeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout + "], [" + toString() + "]", false);
+            String timeoutMessage = "RpcRequestTimeout : maxTimeout = [" + timeout + "], [" + toString() + "]";
+            TimeoutException timeoutException = new TimeoutException(timeoutMessage);
+            RpcTimeoutException rpcTimeoutException = new RpcTimeoutException(timeoutMessage, false);
             rpcTimeoutException.setStackTrace(timeoutException.getStackTrace());
             timeoutException.initCause(rpcTimeoutException);
             throw timeoutException;
         }
 
         //If an exception state is returned, an exception is thrown
-        handlerResponseIfNeedThrow(result);
-        return result;
+        handlerResponseIfNeedThrow(response);
+        return response;
     }
 
     /**
@@ -129,13 +127,17 @@ public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recycla
 
     @Override
     public boolean isDone() {
-        return result != null;
+        return response != null;
+    }
+
+    public ResponsePacket getResult() {
+        return response;
     }
 
     @Override
     public String toString() {
         return "RpcFuture{" +
-                "result=" + result +
+                "response=" + response +
                 '}';
     }
 
@@ -143,13 +145,8 @@ public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recycla
      * Has been completed
      * @param rpcResponse rpcResponse
      */
-    public void done(T rpcResponse){
-        if(request == null){
-            RecyclableUtil.release(rpcResponse);
-            return;
-        }
-
-        this.result = rpcResponse;
+    void done(ResponsePacket rpcResponse){
+        this.response = rpcResponse;
         this.lock.lock();
         try {
             this.done.signal();
@@ -159,59 +156,37 @@ public class RpcFuture<T extends RpcResponsePacket> implements Future<T>,Recycla
     }
 
     /**
-     * Spin, because if it's a local RPC call, it's too fast and there's no need to jam
-     */
-    private void spin(){
-        int spinCount = CoreConstants.getRpcLockSpinCount();
-        if (spinCount > 0) {
-            for (int i = 0; result == null && i < spinCount; i++) {
-//                Thread.yield();
-            }
-        }
-    }
-
-    /**
      * If an exception state is returned, an exception is thrown
      * All response states above 400 are in error
      */
-    private void handlerResponseIfNeedThrow(RpcResponsePacket response) throws ExecutionException {
+    private void handlerResponseIfNeedThrow(ResponsePacket response) throws ExecutionException {
         if(response == null) {
             return;
         }
 
-        RpcResponseStatus status = response.getStatus();
-        if(status.getCode() >= RpcResponseStatus.NO_SUCH_METHOD.getCode()){
-            RpcResponseException rpcResponseException = new RpcResponseException(status,response.getMessageString(),false);
+        Integer status = response.getStatus();
+        if(status == null || status >= ResponsePacket.NO_SUCH_METHOD){
+            RpcResponseException rpcResponseException = new RpcResponseException(status,response.getMessage(),false);
             ExecutionException exception = new ExecutionException(rpcResponseException);
             rpcResponseException.setStackTrace(exception.getStackTrace());
             throw exception;
         }
-        TOTAL_SPIN_RESPONSE_COUNT.incrementAndGet();
-    }
-
-    private void checkCanUse(){
-        if(request == null){
-            throw new IllegalStateException("It has been recycled and cannot be reused. You need to reconstruct one for use");
-        }
+        TOTAL_SUCCESS_COUNT.incrementAndGet();
     }
 
     @Override
     public void recycle() {
-        this.request = null;
-        this.result = null;
-        this.recycler.recycleInstance(this);
+        this.response = null;
+        RECYCLER.recycleInstance(this);
     }
 
     /**
      * Spin success number
      */
-    public static final AtomicLong TOTAL_SPIN_RESPONSE_COUNT = new AtomicLong();
+    public static final AtomicLong TOTAL_SUCCESS_COUNT = new AtomicLong();
     /**
      * Total number of calls
      */
-    public static final AtomicLong TOTAL_INVOKE_COUNT = new AtomicLong();
-    /**
-     * Timeout API
-     */
-    public static final Map<String,Integer> TIMEOUT_API = new ConcurrentHashMap<>();
+    public static final AtomicLong TOTAL_COUNT = new AtomicLong();
+
 }

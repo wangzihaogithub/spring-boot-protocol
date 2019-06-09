@@ -9,6 +9,7 @@ import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 
 import java.net.InetSocketAddress;
@@ -143,18 +144,16 @@ public abstract class AbstractNettyServer implements Runnable{
     }
 
     public void stop() {
-        Throwable cause = null;
-        try {
-            if (boss != null) {
-                boss.shutdownGracefully();
-            }
-            if (worker != null) {
-                worker.shutdownGracefully();
-            }
-        }catch (Throwable e){
-            cause = e;
+        if (boss == null) {
+            return;
         }
-        stopAfter(cause);
+        boss.shutdownGracefully().addListener((future)->{
+            if (worker != null) {
+                worker.shutdownGracefully().addListener((workerFuture->{
+                    stopAfter(workerFuture.cause());
+                }));
+            }
+        });
     }
 
     public String getName() {

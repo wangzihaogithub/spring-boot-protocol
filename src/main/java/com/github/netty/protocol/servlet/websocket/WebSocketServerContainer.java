@@ -131,12 +131,12 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
 
     protected void registerSession(Endpoint endpoint, Session wsSession) {
         if (!wsSession.isOpen()) {
-            // The session was closed during onOpen. No need to register it.
+            // The session was closed during onOpen. No need to supportPipeline it.
             return;
         }
         synchronized (endPointSessionMapLock) {
 //            if (endpointSessionMap.size() == 0) {
-//                BackgroundProcessManager.getInstance().register(this);
+//                BackgroundProcessManager.getInstance().supportPipeline(this);
 //            }
             Set<Session> wsSessions = endpointSessionMap.get(endpoint);
             if (wsSessions == null) {

@@ -9,7 +9,7 @@ import javax.servlet.ServletSecurityElement;
 import java.util.*;
 
 /**
- * The servlet register
+ * The servlet supportPipeline
  * @author wangzihao
  *  2018/7/14/014
  */

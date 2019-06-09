@@ -31,8 +31,8 @@ public class NettyReportRunnable implements Runnable{
     @Override
     public void run() {
         try {
-            String timeoutApis = RpcClient.getTimeoutApis();
-            long spinResponseCount = RpcFuture.TOTAL_SPIN_RESPONSE_COUNT.get();
+//            String timeoutApis = RpcClient.getTimeoutApis();
+            long spinResponseCount = RpcFuture.TOTAL_SUCCESS_COUNT.get();
             long totalCount = RpcClient.getTotalInvokeCount();
             long timeoutCount = RpcClient.getTotalTimeoutCount();
             long successCount = totalCount - timeoutCount;
@@ -66,7 +66,7 @@ public class NettyReportRunnable implements Runnable{
             joiner.add("自旋成功数=" + spinResponseCount);
             joiner.add("自旋成功率=" + formatRate(rateSpinResponseCount,2)+ "%, ");
             joiner.add("调用成功率=" + formatRate(rate,2)+"%, ");
-            joiner.add("超时api="+ timeoutApis);
+//            joiner.add("超时api="+ timeoutApis);
             joiner.add("servlet执行次数="+ servletQueryCount);
             joiner.add("servlet+filter平均时间="+ formatRate(servletAndFilterAvgRuntime,4)+"ms,");
             joiner.add("servlet平均时间="+ formatRate(servletAvgRuntime,4)+"ms, ");

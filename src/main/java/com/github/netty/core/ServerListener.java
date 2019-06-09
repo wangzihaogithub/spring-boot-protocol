@@ -8,4 +8,9 @@ public interface ServerListener {
 
     void onServerStart() throws Exception;
     void onServerStop() throws Exception;
+    /**
+     * Priority order
+     * @return The smaller the value of order, the more likely it is to be executed first
+     */
+    int order();
 }

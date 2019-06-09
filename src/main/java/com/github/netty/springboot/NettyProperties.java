@@ -42,7 +42,7 @@ public class NettyProperties implements Serializable{
     /**
      * RPC客户端-工作线程数   注: (0 = cpu核数 * 2 )
      */
-    private int rpcClientIoThreads = 1;
+    private int rpcClientIoThreads = 0;
 
     /**
      * RPC客户端-IO线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大

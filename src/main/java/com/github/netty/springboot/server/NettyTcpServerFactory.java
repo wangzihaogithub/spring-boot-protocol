@@ -1,7 +1,8 @@
 package com.github.netty.springboot.server;
 
-import com.github.netty.core.ProtocolsRegister;
-import com.github.netty.protocol.HttpServletProtocolsRegister;
+import com.github.netty.core.ProtocolHandler;
+import com.github.netty.core.ServerListener;
+import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
 import com.github.netty.protocol.servlet.ServletRegistration;
@@ -35,15 +36,19 @@ public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
         implements ConfigurableReactiveWebServerFactory,ConfigurableServletWebServerFactory {
     protected NettyProperties properties;
-    private Collection<ProtocolsRegister> protocolsRegisters;
+    private Collection<ProtocolHandler> protocolHandlers;
+    private Collection<ServerListener> serverListeners;
 
     public NettyTcpServerFactory() {
-        this(new NettyProperties(),Collections.emptyList());
+        this(new NettyProperties(),Collections.emptyList(),Collections.emptyList());
     }
 
-    public NettyTcpServerFactory(NettyProperties properties,Collection<ProtocolsRegister> protocolsRegisters) {
+    public NettyTcpServerFactory(NettyProperties properties,
+                                 Collection<ProtocolHandler> protocolHandlers,
+                                 Collection<ServerListener> serverListeners) {
         this.properties = properties;
-        this.protocolsRegisters = Objects.requireNonNull(protocolsRegisters);
+        this.protocolHandlers = Objects.requireNonNull(protocolHandlers);
+        this.serverListeners = Objects.requireNonNull(serverListeners);
     }
 
     /**
@@ -63,7 +68,7 @@ public class NettyTcpServerFactory
 
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress();
-            return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
@@ -96,7 +101,7 @@ public class NettyTcpServerFactory
 
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress();
-            return new NettyTcpServer(serverAddress, properties,protocolsRegisters);
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
@@ -116,16 +121,20 @@ public class NettyTcpServerFactory
     }
 
     public ServletContext getServletContext(){
-        for(ProtocolsRegister protocolsRegister : protocolsRegisters){
-            if(protocolsRegister instanceof HttpServletProtocolsRegister){
-                return ((HttpServletProtocolsRegister) protocolsRegister).getServletContext();
+        for(ProtocolHandler protocolHandler : protocolHandlers){
+            if(protocolHandler instanceof HttpServletProtocol){
+                return ((HttpServletProtocol) protocolHandler).getServletContext();
             }
         }
         return null;
     }
 
-    public Collection<ProtocolsRegister> getProtocolsRegisters() {
-        return protocolsRegisters;
+    public Collection<ProtocolHandler> getProtocolHandlers() {
+        return protocolHandlers;
+    }
+
+    public Collection<ServerListener> getServerListeners() {
+        return serverListeners;
     }
 
     public InetSocketAddress getServerSocketAddress() {

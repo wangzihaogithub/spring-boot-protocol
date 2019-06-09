@@ -33,4 +33,15 @@ public class StringUtil {
         return new String(cs);
     }
 
+    public static String simpleClassName(String className) {
+        if(className == null){
+            return null;
+        }
+        final int lastDotIdx = className.lastIndexOf('.');
+        if (lastDotIdx > -1) {
+            return className.substring(lastDotIdx + 1);
+        }
+        return className;
+    }
+
 }

@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A {@link ThreadFactory} that monitors the number of threads created, running and terminated.
- * It will register the metrics using the given (or auto-generated) name as classifier, e.g:
+ * It will supportPipeline the metrics using the given (or auto-generated) name as classifier, e.g:
  * "your-thread-delegate.created", "your-thread-delegate.running", etc.
  */
 public class InstrumentedThreadFactory implements ThreadFactory {

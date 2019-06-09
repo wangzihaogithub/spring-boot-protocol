@@ -44,6 +44,10 @@ public class RecyclableUtil {
                 return true;
             }
         }
+        if(obj instanceof Recyclable){
+            ((Recyclable) obj).recycle();
+            return true;
+        }
         return false;
     }
 }

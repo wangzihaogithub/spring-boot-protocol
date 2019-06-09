@@ -1,33 +1,20 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.core.util.*;
-import io.netty.buffer.ByteBuf;
-import io.netty.util.concurrent.FastThreadLocal;
-
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.function.Function;
 
-import static com.github.netty.core.Packet.ACK_NO;
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.JSON;
-import static com.github.netty.protocol.nrpc.RpcResponseStatus.*;
+import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.*;
 
 /**
  * RPC server instance
  * @author wangzihao
  */
 public class RpcServerInstance {
-    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(RpcServerInstance.class);
-    private static final FastThreadLocal<byte[]> REQUEST_ID_BYTES_LOCAL = new FastThreadLocal<byte[]>(){
-        @Override
-        protected byte[] initialValue() throws Exception {
-            return new byte[4];
-        }
-    };
-
     private Object instance;
-    private Map<ByteBuf,RpcMethod> rpcMethodMap;
+    private Map<String,RpcMethod> rpcMethodMap;
     private DataCodec dataCodec;
 
     /**
@@ -37,94 +24,46 @@ public class RpcServerInstance {
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
     protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction) {
-        Map<String,RpcMethod> rpcMethodMap = RpcMethod.getMethodMap(instance.getClass(), methodToParameterNamesFunction);
+        this.rpcMethodMap = RpcMethod.getMethodMap(instance.getClass(), methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
-
-        this.rpcMethodMap = RpcMethod.toByteBufMethodMap(rpcMethodMap);
         this.instance = instance;
         this.dataCodec = dataCodec;
     }
 
-    public RpcResponsePacket invoke(RpcRequestPacket rpcRequest){
+    public ResponsePacket invoke(RequestPacket rpcRequest){
+        ResponsePacket rpcResponse = ResponsePacket.newInstance();
+        rpcResponse.setRequestId(rpcRequest.getRequestId());
         RpcMethod rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
-
-        if (rpcMethod == null) {
-            if(rpcRequest.getAck() == ACK_NO) {
-                return null;
-            }
-
-            boolean release = true;
-            RpcResponsePacket rpcResponse = new RpcResponsePacket();
-            try {
-                String message = "not found method " + rpcRequest.getMethodNameString();
-                ByteBuf messageByteBuf = ByteBufAllocatorX.POOLED.buffer(message.length());
-                messageByteBuf.writeCharSequence(message, DataCodec.CHARSET_UTF8);
-
-                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
-                rpcResponse.setEncode(BINARY);
-                rpcResponse.setStatus(NO_SUCH_METHOD);
-                rpcResponse.setMessage(messageByteBuf);
-                release = false;
-                return rpcResponse;
-            }finally {
-                if(release) {
-                    RecyclableUtil.release(rpcResponse);
-                }
-            }
+        if(rpcMethod == null) {
+            rpcResponse.setEncode(DataCodec.Encode.BINARY);
+            rpcResponse.setStatus(NO_SUCH_METHOD);
+            rpcResponse.setMessage("not found method [" + rpcRequest.getMethodName() + "]");
+            rpcResponse.setData(null);
+            return rpcResponse;
         }
 
-
         try {
-            Object[] args = dataCodec.decodeRequestData(rpcRequest.getBody(),rpcMethod);
+            Object[] args = dataCodec.decodeRequestData(rpcRequest.getData(),rpcMethod);
             Object result = rpcMethod.getMethod().invoke(instance, args);
-
-            RpcResponsePacket rpcResponse = new RpcResponsePacket();
-            boolean release = true;
-            try {
-                //Whether to code or not
-                if(result instanceof byte[]){
-                    rpcResponse.setEncode(BINARY);
-                    rpcResponse.setBody(RecyclableUtil.newReadOnlyBuffer((byte[]) result));
-                }else {
-                    rpcResponse.setEncode(JSON);
-                    rpcResponse.setBody(dataCodec.encodeResponseData(result));
-                }
-                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
-                rpcResponse.setStatus(OK);
-                rpcResponse.setMessage(OK.getTextByteBuf());
-                release = false;
-            }finally {
-                if(release) {
-                    RecyclableUtil.release(rpcResponse);
-                }
+            //Whether to code or not
+            if(result instanceof byte[]){
+                rpcResponse.setEncode(DataCodec.Encode.BINARY);
+                rpcResponse.setData((byte[]) result);
+            }else {
+                rpcResponse.setEncode(DataCodec.Encode.JSON);
+                rpcResponse.setData(dataCodec.encodeResponseData(result));
             }
+            rpcResponse.setStatus(OK);
+            rpcResponse.setMessage("ok");
             return rpcResponse;
-
         }catch (Throwable t){
             String message = t.getMessage();
-            if(message == null){
-                message = t.toString();
-            }
-            ByteBuf messageByteBuf = ByteBufAllocatorX.POOLED.buffer(message.length());
-
-            boolean release = true;
-            RpcResponsePacket rpcResponse = new RpcResponsePacket();
-            try {
-                messageByteBuf.writeCharSequence(message, DataCodec.CHARSET_UTF8);
-
-                rpcResponse.setRequestId(newRequestIdByteBuf(rpcRequest.getRequestIdInt()));
-                rpcResponse.setEncode(BINARY);
-                rpcResponse.setStatus(SERVER_ERROR);
-                rpcResponse.setMessage(messageByteBuf);
-                release = false;
-            }finally {
-                if(release) {
-                    RecyclableUtil.release(rpcResponse);
-                    RecyclableUtil.release(messageByteBuf);
-                }
-            }
+            rpcResponse.setEncode(DataCodec.Encode.BINARY);
+            rpcResponse.setStatus(SERVER_ERROR);
+            rpcResponse.setMessage(message == null? t.toString(): message);
+            rpcResponse.setData(null);
             return rpcResponse;
         }
     }
@@ -132,12 +71,4 @@ public class RpcServerInstance {
     public Object getInstance() {
         return instance;
     }
-
-
-    public static ByteBuf newRequestIdByteBuf(int requestId){
-        byte[] requestIdBytes = REQUEST_ID_BYTES_LOCAL.get();
-        IOUtil.setInt(requestIdBytes,0,requestId);
-        return RecyclableUtil.newReadOnlyBuffer(requestIdBytes);
-    }
-
 }

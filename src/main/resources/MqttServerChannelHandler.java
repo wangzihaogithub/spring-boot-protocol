@@ -1,4 +1,4 @@
-//package com.github.netty.register.mqtt;
+//package com.github.netty.supportPipeline.mqtt;
 //
 //import com.github.netty.core.AbstractChannelHandler;
 //import com.github.netty.core.util.NamespaceUtil;

@@ -1,7 +1,7 @@
 package com.github.netty.protocol;
 
 import com.github.netty.annotation.Protocol;
-import com.github.netty.core.AbstractProtocolsRegister;
+import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.nrpc.*;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
@@ -28,8 +28,8 @@ import java.util.function.Function;
  * @author wangzihao
  * 2018/11/25/025
  */
-public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
-    public static final int ORDER = HttpServletProtocolsRegister.ORDER + 100;
+public class NRpcProtocol extends AbstractProtocol {
+    public static final int ORDER = HttpServletProtocol.ORDER + 100;
 
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private ApplicationX application;
@@ -39,7 +39,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
      */
     private int messageMaxLength;
 
-    public NRpcProtocolsRegister(int messageMaxLength,ApplicationX application) {
+    public NRpcProtocol(int messageMaxLength, ApplicationX application) {
         this.messageMaxLength = messageMaxLength;
         this.application = application;
     }
@@ -67,7 +67,7 @@ public class NRpcProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     @Override
-    public void registerTo(Channel channel) throws Exception {
+    public void onSupportPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addLast(new RpcDecoder(messageMaxLength));

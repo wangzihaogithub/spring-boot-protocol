@@ -22,7 +22,7 @@ public class DefaultObjectNameFactory implements ObjectNameFactory {
 			try {
 				return new ObjectName(domain, "name", ObjectName.quote(name));
 			} catch (MalformedObjectNameException e1) {
-				LOGGER.warn("Unable to register {} {}", type, name, e1);
+				LOGGER.warn("Unable to supportPipeline {} {}", type, name, e1);
 				throw new RuntimeException(e1);
 			}
 		}

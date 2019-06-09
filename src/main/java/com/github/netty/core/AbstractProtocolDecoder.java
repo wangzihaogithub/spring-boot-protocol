@@ -1,6 +1,6 @@
 package com.github.netty.core;
 
-import com.github.netty.core.util.FixedArrayMap;
+import com.github.netty.core.util.AsciiStringCachePool;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.RecyclableUtil;
 import io.netty.buffer.ByteBuf;
@@ -12,6 +12,7 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.AsciiString;
 import sun.misc.Unsafe;
 
+import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecoder {
     private int protocolVersionLength;
-
     private static long cumulationOffset;
     private static final Unsafe UNSAFE = IOUtil.getUnsafe();
 
@@ -49,8 +49,13 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
                 2,
                 true);
         this.protocolVersionLength = protocolVersionLength;
-
 //        setCumulator(COMPOSITE_CUMULATOR);
+    }
+
+
+    @Override
+    protected ByteBuf extractFrame(ChannelHandlerContext ctx, ByteBuf buffer, int index, int length) {
+        return buffer.copy(index,length);
     }
 
     @Override
@@ -60,63 +65,46 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             return null;
         }
 
-        ByteBuf msgCopy;
-        if(msg.isDirect()){
-            msgCopy = ctx.alloc().directBuffer(msg.readableBytes());
-        }else {
-            msgCopy = ctx.alloc().heapBuffer(msg.readableBytes());
-        }
         boolean release = true;
+        Packet packet = null;
         try {
-            msg.readBytes(msgCopy);
-            release = false;
-        } finally {
-            RecyclableUtil.release(msg);
-            if (release) {
-                msgCopy.release();
+            //Packet type
+            packet = newPacket(msg.readUnsignedByte());
+
+            if(Packet.isDebugPacket()) {
+                Packet.Debug debug = packet.getDebug();
+                debug.setInstancePacket(msg.toString(Charset.defaultCharset()));
+                debug.setInstanceThread(Thread.currentThread());
             }
-        }
 
-
-//        ByteBuf msgCopy = msg.readBytes();
-//        ByteBuf msgCopy = Unpooled.wrappedBuffer(ByteBufUtil.getBytes(msg));
-//        setCumulation(null);
-
-        release = true;
-
-        //Packet type
-        Packet packet = newPacket(msgCopy.readUnsignedByte());
-        try {
-            packet.setRawPacket(msgCopy);
+            packet.setRawPacket(msg);
 
             //Ack flag
-            packet.setAck(msgCopy.readByte());
+            packet.setAck(msg.readByte());
 
             //Protocol header
-            packet.setProtocolVersion(msgCopy.readSlice(protocolVersionLength));
+            packet.setProtocolVersion(msg.readSlice(protocolVersionLength));
 
             //Fields
-            int fieldCount = msgCopy.readUnsignedByte();
+            int fieldCount = msg.readUnsignedByte();
             Map<AsciiString, ByteBuf> fieldMap = packet.getFieldMap();
             if (fieldMap == null && fieldCount != 0) {
                 fieldMap = new ConcurrentHashMap<>(fieldCount);
                 packet.setFieldMap(fieldMap);
             }
             for (int i = 0; i < fieldCount; i++) {
-                int keyLen = msgCopy.readUnsignedByte();
-                byte[] keyBytes = ByteBufUtil.getBytes(msgCopy, msgCopy.readerIndex(), keyLen, false);
-                msgCopy.skipBytes(keyLen);
-                ByteBuf value = msgCopy.readSlice(msgCopy.readUnsignedShort());
-
-                fieldMap.put(
-                        new AsciiString(keyBytes),
-                        value);
+                int keyLen = msg.readUnsignedByte();
+                AsciiString key = AsciiStringCachePool.newInstance(
+                        ByteBufUtil.getBytes(msg, msg.readerIndex(), keyLen, false));
+                msg.skipBytes(keyLen);
+                ByteBuf value = msg.readSlice(msg.readUnsignedShort());
+                fieldMap.put(key,value);
             }
 
             //Body
-            int bodyLength = msgCopy.readableBytes();
+            int bodyLength = msg.readableBytes();
             if (bodyLength > 0) {
-                packet.setBody(msgCopy.readSlice(bodyLength));
+                packet.setBody(msg.readSlice(bodyLength));
             } else {
                 packet.setBody(Unpooled.EMPTY_BUFFER);
             }
@@ -124,7 +112,7 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             return packet;
         }finally {
             if(release){
-                RecyclableUtil.release(msgCopy);
+                RecyclableUtil.release(msg);
                 RecyclableUtil.release(packet);
             }
         }

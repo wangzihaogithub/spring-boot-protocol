@@ -13,7 +13,10 @@ import java.nio.ReadOnlyBufferException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
+import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * ReadOnlyPooledHeapByteBuf
@@ -23,17 +26,21 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     private byte[] array;
     private ByteBuffer tmpNioBuf;
     private int offset;
+    private int capacity;
     private static final Recycler<ReadOnlyPooledHeapByteBuf> RECYCLER = new Recycler<>(ReadOnlyPooledHeapByteBuf::new);
+    private ByteBuf parent;
 
     private ReadOnlyPooledHeapByteBuf() {
-        super(Integer.MAX_VALUE);
+        super(0);
         this.array = EmptyArrays.EMPTY_BYTES;
         this.offset = 0;
     }
 
-    static ByteBuf newInstance(byte[] bytes) {
+    static ReadOnlyPooledHeapByteBuf newInstance(byte[] bytes) {
         ReadOnlyPooledHeapByteBuf instance = RECYCLER.getInstance();
         instance.setRefCnt(1);
+        instance.maxCapacity(bytes.length);
+        instance.capacity = bytes.length;
         instance.setArray(bytes);
         instance.setIndex(0,bytes.length);
         return instance;
@@ -44,12 +51,18 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     }
 
     @Override
-    public ByteBuf readSlice(int length) {
-        ByteBuf slice = newInstance(array);
-
-        int readerIndex = readerIndex();
-        slice.readerIndex(readerIndex);
-        readerIndex(readerIndex + length);
+    public ByteBuf slice(int index, int length) {
+        checkIndex(index, length);
+        if(maxCapacity() < index+length) {
+            throw new IndexOutOfBoundsException(String.format(
+                    "index: %d, length: %d (expected: range(0, %d))", index, length, maxCapacity()));
+        }
+        ReadOnlyPooledHeapByteBuf slice = newInstance(array);
+        slice.maxCapacity(length);
+        slice.capacity = length;
+        slice.setIndex(0,length);
+        slice.parent = this;
+        slice.offset = offset + index;
         return slice;
     }
 
@@ -210,7 +223,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public ByteBuf duplicate() {
-        return newInstance(array);
+        return copy();
     }
 
     @Override
@@ -225,7 +238,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public int capacity() {
-        return array.length;
+        return capacity;
     }
 
     byte[] allocateArray(int initialCapacity) {
@@ -371,9 +384,17 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public final ByteBuf copy(int index, int length) {
-        checkIndex(index, length);
-        ByteBuf copy = alloc().heapBuffer(length, maxCapacity());
-        copy.writeBytes(array, idx(index), length);
+        return slice(index,length);
+    }
+
+    @Override
+    public ByteBuf copy() {
+        ReadOnlyPooledHeapByteBuf copy = newInstance(array);
+        copy.maxCapacity(maxCapacity());
+        copy.capacity = capacity;
+        copy.setIndex(readerIndex(),writerIndex());
+        copy.parent = this;
+        copy.offset = offset;
         return copy;
     }
 
@@ -434,16 +455,45 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     protected void deallocate() {
         freeArray(array);
         array = EmptyArrays.EMPTY_BYTES;
+        parent = null;
+        offset = 0;
         RECYCLER.recycleInstance(this);
     }
 
 
     public static void main(String[] args) {
+
+        ByteBuf directBuffer = ByteBufAllocatorX.POOLED.directBuffer(30);
+        directBuffer.writeBytes(new byte[]{1,2,3,4,5,6,7,8});
+
+        Set<ByteBuf> set = new HashSet<>();
+        for(int i=0; i< 30; i++) {
+            set.add(directBuffer.copy());
+        }
+
+
+
+        long time = System.currentTimeMillis();
+        ByteBuf byteBuf = Unpooled.copyLong(time);
+
+        long c = byteBuf.getLong(0);
+
+
+
         byte[] requestIdBytes = "requestId".getBytes();
         byte[] requestIdBytesRead = new byte[9];
         ByteBuf byteBuf1 = newInstance(requestIdBytes);
+
+        ByteBuf b1 = byteBuf1.copy();
+        ByteBuf b2 = b1.slice(1,2);
+        ByteBuf b3 = b2.copy();
+        ByteBuf b4 = b3.copy(0,2);
+
+
+
         byteBuf1.readBytes(requestIdBytesRead);
         byteBuf1.release();
+
         System.out.println("requestIdBytesRead = "+ Arrays.toString(requestIdBytesRead));
 
         byte[] helloBytes = "hello".getBytes();
@@ -455,5 +505,8 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         System.out.println("helloBytesRead = "+ Arrays.toString(helloBytesRead));
     }
 
-
+    @Override
+    public String toString() {
+        return super.toString()+"("+toString(Charset.defaultCharset())+")";
+    }
 }

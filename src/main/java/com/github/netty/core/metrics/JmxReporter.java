@@ -535,9 +535,9 @@ public class JmxReporter implements Reporter, Closeable {
                     registerMBean(new JmxGauge(gauge, objectName), objectName);
                 }
             } catch (InstanceAlreadyExistsException e) {
-                LOGGER.debug("Unable to register gauge", e);
+                LOGGER.debug("Unable to supportPipeline gauge", e);
             } catch (JMException e) {
-                LOGGER.warn("Unable to register gauge", e);
+                LOGGER.warn("Unable to supportPipeline gauge", e);
             }
         }
 
@@ -561,9 +561,9 @@ public class JmxReporter implements Reporter, Closeable {
                     registerMBean(new JmxCounter(counter, objectName), objectName);
                 }
             } catch (InstanceAlreadyExistsException e) {
-                LOGGER.debug("Unable to register counter", e);
+                LOGGER.debug("Unable to supportPipeline counter", e);
             } catch (JMException e) {
-                LOGGER.warn("Unable to register counter", e);
+                LOGGER.warn("Unable to supportPipeline counter", e);
             }
         }
 
@@ -587,9 +587,9 @@ public class JmxReporter implements Reporter, Closeable {
                     registerMBean(new JmxHistogram(histogram, objectName), objectName);
                 }
             } catch (InstanceAlreadyExistsException e) {
-                LOGGER.debug("Unable to register histogram", e);
+                LOGGER.debug("Unable to supportPipeline histogram", e);
             } catch (JMException e) {
-                LOGGER.warn("Unable to register histogram", e);
+                LOGGER.warn("Unable to supportPipeline histogram", e);
             }
         }
 
@@ -613,9 +613,9 @@ public class JmxReporter implements Reporter, Closeable {
                     registerMBean(new JmxMeter(meter, objectName, timeUnits.rateFor(name)), objectName);
                 }
             } catch (InstanceAlreadyExistsException e) {
-                LOGGER.debug("Unable to register meter", e);
+                LOGGER.debug("Unable to supportPipeline meter", e);
             } catch (JMException e) {
-                LOGGER.warn("Unable to register meter", e);
+                LOGGER.warn("Unable to supportPipeline meter", e);
             }
         }
 
@@ -639,9 +639,9 @@ public class JmxReporter implements Reporter, Closeable {
                     registerMBean(new JmxTimer(timer, objectName, timeUnits.rateFor(name), timeUnits.durationFor(name)), objectName);
                 }
             } catch (InstanceAlreadyExistsException e) {
-                LOGGER.debug("Unable to register timer", e);
+                LOGGER.debug("Unable to supportPipeline timer", e);
             } catch (JMException e) {
-                LOGGER.warn("Unable to register timer", e);
+                LOGGER.warn("Unable to supportPipeline timer", e);
             }
         }
 

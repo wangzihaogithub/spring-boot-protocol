@@ -1,6 +1,6 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.AbstractProtocolsRegister;
+import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.*;
@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit;
  * @author wangzihao
  *  2018/12/5/005
  */
-public class MqttProtocolsRegister extends AbstractProtocolsRegister {
-    private LoggerX logger = LoggerFactoryX.getLogger(MqttProtocolsRegister.class);
-    public static final int ORDER = NRpcProtocolsRegister.ORDER + 100;
+public class MqttProtocol extends AbstractProtocol {
+    private LoggerX logger = LoggerFactoryX.getLogger(MqttProtocol.class);
+    public static final int ORDER = NRpcProtocol.ORDER + 100;
 
     private int messageMaxLength;
     private int nettyReaderIdleTimeSeconds;
@@ -48,7 +48,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     private MqttDropWizardMetricsChannelHandler mqttDropWizardMetricsChannelHandler;
     private MqttPostOffice mqttPostOffice;
 
-    public MqttProtocolsRegister() {
+    public MqttProtocol() {
         this(8092,10,0);
     }
 
@@ -58,7 +58,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
      * @param nettyReaderIdleTimeSeconds Read idle interval (seconds)
      * @param autoFlushIdleTime Auto refresh buffer interval (s). If greater than 0, it will be on and auto refresh. If less than or equal to 0, it will refresh every time
      */
-    public MqttProtocolsRegister(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
+    public MqttProtocol(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
         this.messageMaxLength = messageMaxLength;
         this.nettyReaderIdleTimeSeconds = nettyReaderIdleTimeSeconds;
         this.autoFlushIdleTime = autoFlushIdleTime;
@@ -85,7 +85,7 @@ public class MqttProtocolsRegister extends AbstractProtocolsRegister {
     }
 
     @Override
-    public void registerTo(Channel channel) throws Exception {
+    public void onSupportPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyReaderIdleTimeSeconds, 0, 0));

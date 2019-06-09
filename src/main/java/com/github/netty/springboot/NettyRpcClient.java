@@ -1,10 +1,13 @@
 package com.github.netty.springboot;
 
+import org.springframework.stereotype.Component;
+
 import java.lang.annotation.*;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 @Documented
+@Component
 public @interface NettyRpcClient {
 
 	/**
