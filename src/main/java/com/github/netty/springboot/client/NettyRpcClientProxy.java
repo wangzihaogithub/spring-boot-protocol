@@ -82,7 +82,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         InvocationHandler handler = rpcClient.getRpcInstance(serviceName);
         if(handler == null){
             List<Class<?extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClasses();
-            handler = rpcClient.newRpcInstance(interfaceClass, properties.getRpcTimeout(),
+            handler = rpcClient.newRpcInstance(interfaceClass, properties.getNrpc().getClientTimeout(),
                     serviceName, new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses));
         }
         return handler.invoke(proxy,method,args);
@@ -128,14 +128,15 @@ public class NettyRpcClientProxy implements InvocationHandler {
             synchronized (CLIENT_MAP){
                 rpcClient = CLIENT_MAP.get(address);
                 if(rpcClient == null) {
+                    NettyProperties.Nrpc nrpc = properties.getNrpc();
                     rpcClient = new RpcClient(address);
-//                    rpcClient.setSocketChannelCount(properties.getRpcClientChannels());
-                    rpcClient.setIoThreadCount(properties.getRpcClientIoThreads());
+                    rpcClient.setIoThreadCount(nrpc.getClientIoThreads());
+                    rpcClient.setIoRatio(nrpc.getClientIoRatio());
                     rpcClient.run();
                     rpcClient.connect().syncUninterruptibly();
-                    if (properties.isEnablesRpcClientAutoReconnect()) {
-                        rpcClient.enableAutoReconnect(properties.getRpcClientHeartIntervalSecond(), TimeUnit.SECONDS,
-                                null, properties.isEnableRpcHeartLog());
+                    if (nrpc.isClientAutoReconnect()) {
+                        rpcClient.enableAutoReconnect(nrpc.getClientHeartInterval(), TimeUnit.SECONDS,
+                                null, nrpc.isClientEnableHeartLog());
                     }
                     CLIENT_MAP.put(address, rpcClient);
                 }
@@ -151,7 +152,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
     public void pingOnceAfterDestroy() throws RpcException {
         InetSocketAddress address = chooseAddress(requestThreadLocal.get());
         RpcClient rpcClient = new RpcClient("Ping-",address);
-        rpcClient.setIoThreadCount(properties.getRpcClientIoThreads());
+        rpcClient.setIoThreadCount(1);
         rpcClient.run();
         rpcClient.connect().syncUninterruptibly();
         byte[] response = rpcClient.getRpcCommandService().ping();

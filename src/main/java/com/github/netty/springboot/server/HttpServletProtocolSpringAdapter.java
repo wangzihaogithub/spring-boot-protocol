@@ -45,7 +45,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private ApplicationX application;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader) {
-        super(properties.getServerHandlerExecutor(),new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
+        super(properties.getHttpServlet().getServerHandlerExecutor(),new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
         this.properties = properties;
         this.application = properties.getApplication();
     }
@@ -97,7 +97,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
-        servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getResponseWriterChunkMaxHeapByteLength());
+        servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
         //Session timeout
         servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));
@@ -130,9 +130,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         //Composite session (default local storage)
         SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
 
-        if(StringUtil.isNotEmpty(properties.getSessionRemoteServerAddress())) {
+        if(StringUtil.isNotEmpty(properties.getHttpServlet().getSessionRemoteServerAddress())) {
             //Enable session remote storage using RPC
-            String remoteSessionServerAddress = properties.getSessionRemoteServerAddress();
+            String remoteSessionServerAddress = properties.getHttpServlet().getSessionRemoteServerAddress();
             InetSocketAddress address;
             if(remoteSessionServerAddress.contains(":")){
                 String[] addressArr = remoteSessionServerAddress.split(":");
@@ -141,12 +141,12 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                 address = new InetSocketAddress(remoteSessionServerAddress,80);
             }
             compositeSessionService.enableRemoteRpcSession(address,
-                    properties.getRpcClientIoRatio(),
-                    properties.getRpcClientIoThreads(),properties.getRpcClientChannels(),
-                    properties.isEnablesRpcClientAutoReconnect(),properties.isEnableRpcHeartLog(),
-                    properties.getRpcClientHeartIntervalSecond());
+                    100,
+                    1,1,
+                    true,properties.getNrpc().isClientEnableHeartLog(),
+                    properties.getNrpc().getClientHeartInterval());
 
-        }else if(properties.isEnablesLocalFileSession()){
+        }else if(properties.getHttpServlet().isEnablesLocalFileSession()){
             //Enable session file storage
             compositeSessionService.enableLocalFileSession(servletContext.getResourceManager());
         }

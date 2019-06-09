@@ -109,13 +109,13 @@ public class NettyTcpServerFactory
 
     @Override
     public File getDocumentRoot() {
-        File dir = properties.getBasedir();
+        File dir = properties.getHttpServlet().getBasedir();
         if(dir == null){
             dir = super.getDocumentRoot();
         }
         if(dir == null){
             //The temporary directory
-            dir = super.createTempDir("nettyx-docbase");
+            dir = super.createTempDir("netty-docbase");
         }
         return dir;
     }

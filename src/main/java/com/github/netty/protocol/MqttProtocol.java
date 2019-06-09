@@ -30,7 +30,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class MqttProtocol extends AbstractProtocol {
     private LoggerX logger = LoggerFactoryX.getLogger(MqttProtocol.class);
-    public static final int ORDER = NRpcProtocol.ORDER + 100;
 
     private int messageMaxLength;
     private int nettyReaderIdleTimeSeconds;
@@ -85,7 +84,7 @@ public class MqttProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onSupportPipeline(Channel channel) throws Exception {
+    public void addPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyReaderIdleTimeSeconds, 0, 0));
@@ -112,7 +111,7 @@ public class MqttProtocol extends AbstractProtocol {
 
     @Override
     public int order() {
-        return ORDER;
+        return 300;
     }
 
     @Override

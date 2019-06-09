@@ -19,7 +19,10 @@ import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -28,8 +31,6 @@ import java.util.concurrent.Executor;
  *  2018/11/11/011
  */
 public class HttpServletProtocol extends AbstractProtocol {
-    public static final int ORDER = 100;
-
     private final ServletContext servletContext;
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
@@ -142,7 +143,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onSupportPipeline(Channel ch) throws Exception {
+    public void addPipeline(Channel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
         if (sslContextBuilder != null) {
             if(sslContext == null) {
@@ -168,7 +169,7 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     @Override
     public int order() {
-        return ORDER;
+        return 100;
     }
 
     @Override

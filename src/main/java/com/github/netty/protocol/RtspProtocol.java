@@ -18,7 +18,6 @@ import io.netty.handler.codec.rtsp.RtspEncoder;
  *  2018/12/5/005
  */
 public class RtspProtocol extends AbstractProtocol {
-    public static final int ORDER = MqttProtocol.ORDER + 100;
     private final int maxInitialLineLength;
     private final int maxHeaderSize;
     private final int maxContentLength;
@@ -57,7 +56,7 @@ public class RtspProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onSupportPipeline(Channel channel) throws Exception {
+    public void addPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RtspEncoder());
         pipeline.addLast(new RtspDecoder(maxInitialLineLength,maxHeaderSize,maxContentLength,false));
@@ -66,7 +65,7 @@ public class RtspProtocol extends AbstractProtocol {
 
     @Override
     public int order() {
-        return ORDER;
+        return 400;
     }
 
     @Override

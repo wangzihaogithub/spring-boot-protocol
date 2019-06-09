@@ -24,11 +24,11 @@ public interface ProtocolHandler {
     boolean canSupport(ByteBuf msg);
 
     /**
-     * protocol pipeline support
+     * add protocol pipeline support
      * @param channel TCP channel
      * @throws Exception Exception
      */
-    void supportPipeline(Channel channel) throws Exception;
+    void addPipeline(Channel channel) throws Exception;
 
     /**
      * Priority order

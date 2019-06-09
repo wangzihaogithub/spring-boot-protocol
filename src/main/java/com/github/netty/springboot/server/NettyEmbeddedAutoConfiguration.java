@@ -56,7 +56,9 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("hRpcProtocolsRegister")
     @ConditionalOnMissingBean(NRpcProtocol.class)
     public NRpcProtocol hRpcProtocolsRegister(){
-        return new HRpcProtocolSpringAdapter(nettyProperties.getRpcServerMessageMaxLength(),nettyProperties.getApplication());
+        HRpcProtocolSpringAdapter adapter = new HRpcProtocolSpringAdapter(nettyProperties.getApplication());
+        adapter.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
+        return adapter;
     }
 
     /**
@@ -69,10 +71,11 @@ public class NettyEmbeddedAutoConfiguration {
     @ConditionalOnMissingBean(HttpServletProtocol.class)
     public HttpServletProtocol httpServletProtocolsRegister(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
         HttpServletProtocolSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolSpringAdapter(nettyProperties,resourceLoader.getClassLoader());
-        httpServletProtocolsRegister.setMaxInitialLineLength(4096);
-        httpServletProtocolsRegister.setMaxHeaderSize(8192);
-        httpServletProtocolsRegister.setMaxContentLength(5 * 1024 * 1024);
-        httpServletProtocolsRegister.setMaxChunkSize(5 * 1024 * 1024);
+        NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
+        httpServletProtocolsRegister.setMaxInitialLineLength(http.getMaxHeaderLineSize());
+        httpServletProtocolsRegister.setMaxHeaderSize(http.getMaxHeaderSize());
+        httpServletProtocolsRegister.setMaxContentLength(http.getMaxContentSize());
+        httpServletProtocolsRegister.setMaxChunkSize(http.getMaxChunkSize());
 
         factory.addBeanPostProcessor(httpServletProtocolsRegister);
         return httpServletProtocolsRegister;

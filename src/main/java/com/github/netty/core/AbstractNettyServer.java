@@ -26,7 +26,7 @@ public abstract class AbstractNettyServer implements Runnable{
     private EventLoopGroup boss;
     private EventLoopGroup worker;
     private InetSocketAddress serverAddress;
-    private boolean enableEpoll;
+    private final boolean enableEpoll;
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private boolean running = false;
@@ -44,6 +44,9 @@ public abstract class AbstractNettyServer implements Runnable{
         this.enableEpoll = Epoll.isAvailable();
         this.serverAddress = address;
         this.name = NamespaceUtil.newIdName(preName,getClass());
+        if(enableEpoll) {
+            logger.info("enable epoll server = {}",this);
+        }
     }
 
     public void setIoRatio(int ioRatio) {

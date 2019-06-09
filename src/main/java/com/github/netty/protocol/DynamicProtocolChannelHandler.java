@@ -65,7 +65,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             if(!protocolHandler.canSupport(msg)) {
                 continue;
             }
-            logger.info("{} protocols supportPipeline by [{}]",channel, protocolHandler.getProtocolName());
+            logger.info("{} protocols support by [{}]",channel, protocolHandler.getProtocolName());
 
             if(bytesMetricsChannelHandler != null){
                 channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
@@ -77,7 +77,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
                 channel.pipeline().addLast("logger", loggingHandler);
             }
 
-            protocolHandler.supportPipeline(channel);
+            protocolHandler.addPipeline(channel);
             if(channel.isRegistered()) {
                 channel.pipeline().fireChannelRegistered();
             }

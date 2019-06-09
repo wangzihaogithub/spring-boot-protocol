@@ -3,7 +3,10 @@ package com.github.netty.protocol;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.ApplicationX;
-import com.github.netty.protocol.nrpc.*;
+import com.github.netty.protocol.nrpc.RpcDecoder;
+import com.github.netty.protocol.nrpc.RpcEncoder;
+import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
+import com.github.netty.protocol.nrpc.RpcVersion;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.buffer.ByteBuf;
@@ -29,18 +32,15 @@ import java.util.function.Function;
  * 2018/11/25/025
  */
 public class NRpcProtocol extends AbstractProtocol {
-    public static final int ORDER = HttpServletProtocol.ORDER + 100;
-
     private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
      * Maximum message length per pass
      */
-    private int messageMaxLength;
+    private int messageMaxLength = 10 * 1024 * 1024;
 
-    public NRpcProtocol(int messageMaxLength, ApplicationX application) {
-        this.messageMaxLength = messageMaxLength;
+    public NRpcProtocol(ApplicationX application) {
         this.application = application;
     }
 
@@ -67,7 +67,7 @@ public class NRpcProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onSupportPipeline(Channel channel) throws Exception {
+    public void addPipeline(Channel channel) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addLast(new RpcDecoder(messageMaxLength));
@@ -77,7 +77,7 @@ public class NRpcProtocol extends AbstractProtocol {
 
     @Override
     public int order() {
-        return ORDER;
+        return 200;
     }
 
     @Override
@@ -118,4 +118,7 @@ public class NRpcProtocol extends AbstractProtocol {
         return messageMaxLength;
     }
 
+    public void setMessageMaxLength(int messageMaxLength) {
+        this.messageMaxLength = messageMaxLength;
+    }
 }

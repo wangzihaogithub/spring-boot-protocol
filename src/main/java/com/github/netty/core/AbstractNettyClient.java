@@ -51,6 +51,9 @@ public abstract class AbstractNettyClient{
         this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
         this.name = NamespaceUtil.newIdName(namePre,getClass());
+        if(enableEpoll) {
+            logger.info("enable epoll client = {}",this);
+        }
     }
 
     public void setIoRatio(int ioRatio) {

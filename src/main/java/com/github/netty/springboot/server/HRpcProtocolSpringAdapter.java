@@ -17,8 +17,8 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class HRpcProtocolSpringAdapter extends NRpcProtocol {
-    public HRpcProtocolSpringAdapter(int messageMaxLength, ApplicationX application) {
-        super(messageMaxLength,application);
+    public HRpcProtocolSpringAdapter(ApplicationX application) {
+        super(application);
     }
 
     @Override
