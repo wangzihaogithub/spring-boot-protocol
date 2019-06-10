@@ -227,6 +227,13 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
         return filterChain.getServletRegistration().getName();
     }
 
+    void clearFilter(){
+        if(filterChain == null){
+            return;
+        }
+        filterChain.getFilterRegistrationList().clear();
+    }
+
     @Override
     public void recycle() {
         path = null;

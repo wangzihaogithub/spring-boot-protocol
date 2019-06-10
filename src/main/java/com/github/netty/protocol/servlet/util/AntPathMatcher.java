@@ -169,14 +169,17 @@ public class AntPathMatcher {
         return (path.indexOf('*') != -1 || path.indexOf('?') != -1);
     }
 
-    
+    public boolean match(String pattern, String path,String allToken) {
+        return doMatch(pattern, path, true, null,allToken);
+    }
+
     public boolean match(String pattern, String path) {
-        return doMatch(pattern, path, true, null);
+        return doMatch(pattern, path, true, null,"**");
     }
 
     
     public boolean matchStart(String pattern, String path) {
-        return doMatch(pattern, path, false, null);
+        return doMatch(pattern, path, false, null,"**");
     }
 
     /**
@@ -187,7 +190,8 @@ public class AntPathMatcher {
      * as far as the given base path goes is sufficient)
      * @return {@code true} if the supplied {@code path} matched, {@code false} if it didn't
      */
-    protected boolean doMatch(String pattern, String path, boolean fullMatch, Map<String, String> uriTemplateVariables) {
+    protected boolean doMatch(String pattern, String path, boolean fullMatch, Map<String, String> uriTemplateVariables,
+                              String allToken) {
         if (path.startsWith(this.pathSeparator) != pattern.startsWith(this.pathSeparator)) {
             return false;
         }
@@ -207,7 +211,7 @@ public class AntPathMatcher {
         // Match all elements up to the first **
         while (pattIdxStart <= pattIdxEnd && pathIdxStart <= pathIdxEnd) {
             String pattDir = pattDirs[pattIdxStart];
-            if ("**".equals(pattDir)) {
+            if (allToken.equals(pattDir)) {
                 break;
             }
             if (!matchStrings(pattDir, pathDirs[pathIdxStart], uriTemplateVariables)) {
@@ -229,7 +233,7 @@ public class AntPathMatcher {
                 return true;
             }
             for (int i = pattIdxStart; i <= pattIdxEnd; i++) {
-                if (!pattDirs[i].equals("**")) {
+                if (!pattDirs[i].equals(allToken)) {
                     return false;
                 }
             }
@@ -239,7 +243,7 @@ public class AntPathMatcher {
             // String not exhausted, but pattern is. Failure.
             return false;
         }
-        else if (!fullMatch && "**".equals(pattDirs[pattIdxStart])) {
+        else if (!fullMatch && allToken.equals(pattDirs[pattIdxStart])) {
             // Path start definitely matches due to "**" part in pattern.
             return true;
         }
@@ -247,7 +251,7 @@ public class AntPathMatcher {
         // up to last '**'
         while (pattIdxStart <= pattIdxEnd && pathIdxStart <= pathIdxEnd) {
             String pattDir = pattDirs[pattIdxEnd];
-            if (pattDir.equals("**")) {
+            if (pattDir.equals(allToken)) {
                 break;
             }
             if (!matchStrings(pattDir, pathDirs[pathIdxEnd], uriTemplateVariables)) {
@@ -259,7 +263,7 @@ public class AntPathMatcher {
         if (pathIdxStart > pathIdxEnd) {
             // String is exhausted
             for (int i = pattIdxStart; i <= pattIdxEnd; i++) {
-                if (!pattDirs[i].equals("**")) {
+                if (!pattDirs[i].equals(allToken)) {
                     return false;
                 }
             }
@@ -269,7 +273,7 @@ public class AntPathMatcher {
         while (pattIdxStart != pattIdxEnd && pathIdxStart <= pathIdxEnd) {
             int patIdxTmp = -1;
             for (int i = pattIdxStart + 1; i <= pattIdxEnd; i++) {
-                if (pattDirs[i].equals("**")) {
+                if (pattDirs[i].equals(allToken)) {
                     patIdxTmp = i;
                     break;
                 }
@@ -307,7 +311,7 @@ public class AntPathMatcher {
         }
 
         for (int i = pattIdxStart; i <= pattIdxEnd; i++) {
-            if (!pattDirs[i].equals("**")) {
+            if (!pattDirs[i].equals(allToken)) {
                 return false;
             }
         }
@@ -495,7 +499,7 @@ public class AntPathMatcher {
     
     public Map<String, String> extractUriTemplateVariables(String pattern, String path) {
         Map<String, String> variables = new LinkedHashMap<String, String>();
-        boolean result = doMatch(pattern, path, true, variables);
+        boolean result = doMatch(pattern, path, true, variables,"**");
         if (!result) {
             throw new IllegalStateException("Pattern \"" + pattern + "\" is not a match for \"" + path + "\"");
         }

@@ -7,6 +7,7 @@ import com.github.netty.protocol.servlet.util.ServletUtil;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -77,6 +78,15 @@ public class ServletErrorPageManager {
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
 
         ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPage.getPath());
+        if (dispatcher == null) {
+            try {
+                httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+        dispatcher.clearFilter();
         try {
             if(throwable != null) {
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE, throwable.getClass());

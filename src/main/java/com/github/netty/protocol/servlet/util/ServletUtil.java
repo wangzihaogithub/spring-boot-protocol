@@ -139,14 +139,14 @@ public class ServletUtil {
      * @param header header
      * @return the decoded {@link Cookie}
      */
-    public static Set<Cookie> decodeCookie(String header) {
+    public static Collection<Cookie> decodeCookie(String header) {
         final int headerLen = header.length();
 
         if (headerLen == 0) {
             return Collections.emptySet();
         }
 
-        Set<Cookie> cookies = new TreeSet<Cookie>();
+        List<Cookie> cookies = new ArrayList<>();
 
         int i = 0;
 

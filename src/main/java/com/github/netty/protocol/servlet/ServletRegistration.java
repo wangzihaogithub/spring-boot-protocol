@@ -7,6 +7,7 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletSecurityElement;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The servlet supportPipeline
@@ -26,6 +27,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private int loadOnStartup = -1;
     private Map<String,String> initParameterMap = new HashMap<>();
     private Set<String> mappingSet = new HashSet<>();
+    private AtomicBoolean initServlet = new AtomicBoolean();
 
     public ServletRegistration(String servletName, Servlet servlet,ServletContext servletContext,UrlMapper<ServletRegistration> urlMapper) {
         this.servletName = servletName;
@@ -77,6 +79,14 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
 
     public int getLoadOnStartup() {
         return loadOnStartup;
+    }
+
+    public boolean isInitServletCas(boolean expect, boolean update) {
+        return initServlet.compareAndSet(expect,update);
+    }
+
+    public boolean isInitServlet() {
+        return initServlet.get();
     }
 
     @Override

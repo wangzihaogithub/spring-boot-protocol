@@ -33,19 +33,18 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private String characterEncoding;
     private Locale locale;
     private boolean commitFlag = false;
-    private final ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(new CloseListener());
+    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
     private long contentLength = -1;
     private final AtomicInteger errorState = new AtomicInteger(0);
 
-
-    protected ServletHttpServletResponse() {
-    }
+    protected ServletHttpServletResponse() {}
 
     public static ServletHttpServletResponse newInstance(ServletHttpObject httpServletObject) {
         Objects.requireNonNull(httpServletObject);
 
         ServletHttpServletResponse instance = RECYCLER.getInstance();
         instance.httpServletObject = httpServletObject;
+        instance.outputStream.wrap(ServletOutputStream.newInstance(httpServletObject));
         return instance;
     }
 
@@ -159,8 +158,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return;
         }
 
-        synchronized (outWrapper) {
-            ServletOutputStream oldOut = outWrapper.unwrap();
+        synchronized (outputStream) {
+            ServletOutputStream oldOut = outputStream.unwrap();
             if(oldOut instanceof ServletOutputChunkedStream){
                 return;
             }
@@ -168,7 +167,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             ServletOutputStream newOut = new ServletOutputChunkedStream();
             newOut.setHttpServletObject(httpServletObject);
             if (oldOut == null) {
-                outWrapper.wrap(newOut);
+                outputStream.wrap(newOut);
                 return;
             }
 
@@ -180,7 +179,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
                     newOut.setBuffer(content);
                 }
                 newOut.setHttpServletObject(oldOut.getHttpServletObject());
-                outWrapper.wrap(newOut);
+                outputStream.wrap(newOut);
             } finally {
                 oldOut.unlock();
                 oldOut.destroy();
@@ -356,14 +355,14 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     //Writer and OutputStream cannot be used together
     @Override
     public ServletOutputStreamWrapper getOutputStream() throws IOException {
-        if(outWrapper.unwrap() == null){
-            synchronized (outWrapper) {
-                if(outWrapper.unwrap() == null) {
-                    outWrapper.wrap(ServletOutputStream.newInstance(httpServletObject));
+        if(outputStream.unwrap() == null){
+            synchronized (outputStream) {
+                if(outputStream.unwrap() == null) {
+                    outputStream.wrap(ServletOutputStream.newInstance(httpServletObject));
                 }
             }
         }
-        return outWrapper;
+        return outputStream;
     }
 
     @Override
@@ -424,7 +423,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         if(commitFlag){
             return true;
         }
-        ServletOutputStream out = outWrapper.unwrap();
+        ServletOutputStream out = outputStream.unwrap();
         return out != null && out.isClosed();
     }
 
@@ -436,10 +435,10 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         checkCommitted();
         nettyResponse.headers().clear();
         nettyResponse.setStatus(NettyHttpResponse.DEFAULT_STATUS);
-        if(outWrapper.unwrap() == null){
+        if(outputStream.unwrap() == null){
             return;
         }
-        outWrapper.resetBuffer();
+        outputStream.resetBuffer();
     }
 
     /**
@@ -456,10 +455,10 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      */
     public void resetBuffer(boolean resetWriterStreamFlags) {
         checkCommitted();
-        if(outWrapper.unwrap() == null){
+        if(outputStream.unwrap() == null){
             return;
         }
-        outWrapper.resetBuffer();
+        outputStream.resetBuffer();
 
         if(resetWriterStreamFlags) {
             writer = null;
@@ -480,7 +479,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void recycle() {
         //1. Close the output stream first; 2.(by calling back CloseListener) recycle the netty response; 3
-        outWrapper.recycle();
+        outputStream.recycle();
     }
 
     public boolean isError() {

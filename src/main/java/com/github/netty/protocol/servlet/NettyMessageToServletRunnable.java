@@ -1,7 +1,6 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.ByteBufAllocatorX;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import io.netty.channel.ChannelHandlerContext;
@@ -62,11 +61,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 }
                 dispatcher.dispatch(httpServletRequest, httpServletResponse);
 
+            }catch (ServletException se){
+                realThrowable = se.getRootCause();
             }catch (Throwable throwable){
                 realThrowable = throwable;
-                if(throwable instanceof ServletException){
-                    realThrowable = ((ServletException) throwable).getRootCause();
-                }
             }finally {
                 long totalTime = System.currentTimeMillis() - beginTime;
                 SERVLET_AND_FILTER_TIME.addAndGet(totalTime);

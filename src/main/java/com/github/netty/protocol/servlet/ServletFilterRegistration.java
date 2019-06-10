@@ -7,6 +7,7 @@ import javax.servlet.Filter;
 import javax.servlet.FilterConfig;
 import javax.servlet.FilterRegistration;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * servlet Filter registration
@@ -24,6 +25,7 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private Map<String,String> initParameterMap = new HashMap<>();
     private Set<String> mappingSet = new HashSet<>();
     private Set<String> servletNameMappingSet = new HashSet<>();
+    private AtomicBoolean initFilter = new AtomicBoolean();
 
     public ServletFilterRegistration(String filterName, Filter servlet,ServletContext servletContext,UrlMapper<ServletFilterRegistration> urlMapper) {
         this.filterName = filterName;
@@ -63,6 +65,14 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
 
     public boolean isAsyncSupported() {
         return asyncSupported;
+    }
+
+    public boolean isInitFilterCas(boolean expect, boolean update) {
+        return initFilter.compareAndSet(expect,update);
+    }
+
+    public boolean isInitFilter() {
+        return initFilter.get();
     }
 
     @Override

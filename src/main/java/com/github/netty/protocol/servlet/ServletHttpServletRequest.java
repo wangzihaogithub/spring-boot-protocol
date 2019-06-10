@@ -68,7 +68,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     private BufferedReader reader;
     private FullHttpRequest nettyRequest;
-    private ServletInputStream inputStream = new ServletInputStream();
+    private ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
     private Map<String,Object> attributeMap = new ConcurrentHashMap<>(16);
     private Map<String,String[]> parameterMap = new HashMap<>(16);
     private Map<String,String[]> unmodifiableParameterMap = Collections.unmodifiableMap(parameterMap);
@@ -275,9 +275,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private void decodeCookie(){
         String value = getHeader(HttpHeaderConstants.COOKIE.toString());
         if (value != null && value.length() > 0) {
-            Set<Cookie> nettyCookieSet = ServletUtil.decodeCookie(value);
+            Collection<Cookie> nettyCookieSet = ServletUtil.decodeCookie(value);
             if(nettyCookieSet != null && nettyCookieSet.size() > 0){
-                this.cookies = nettyCookieSet.toArray(new Cookie[nettyCookieSet.size()]);
+                this.cookies = nettyCookieSet.toArray(new Cookie[0]);
             }
         }
         this.decodeCookieFlag = true;
@@ -296,27 +296,26 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         if (sourceURI.indexOf('\\') > -1) {
             sourceURI = sourceURI.replace('\\', '/');
         }
-        String servletPath = existContextPath? sourceURI.replace(contextPath, "") : sourceURI;
-        if (servletPath.isEmpty() || servletPath.charAt(0)!= '/') {
-            servletPath = "/".concat(servletPath);
+        String tempPath = existContextPath? sourceURI.replace(contextPath, "") : sourceURI;
+        if (tempPath.isEmpty() || tempPath.charAt(0)!= '/') {
+            tempPath = "/".concat(tempPath);
         }
 
         //Parsing the queryString
-        int queryInx = servletPath.indexOf('?');
+        int queryInx = tempPath.indexOf('?');
         if (queryInx > -1) {
-            this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
-            servletPath = servletPath.substring(0, queryInx);
+            this.queryString = tempPath.substring(queryInx + 1, tempPath.length());
+            tempPath = tempPath.substring(0, queryInx);
         }
 
         //Parse the requestURI and ensure that the requestURI prefix is + /
         String requestURI;
         if(existContextPath){
-            requestURI = "/".concat(contextPath).concat(servletPath);
+            requestURI = "/".concat(contextPath).concat(tempPath);
         }else {
-            requestURI = servletPath;
+            requestURI = tempPath;
         }
 
-        this.servletPath = servletPath;
         this.requestURI = requestURI;
         // 1.Plus the pathInfo
         this.pathInfo = null;
@@ -479,8 +478,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      */
     @Override
     public String getServletPath() {
-        if(!decodePathsFlag){
-            decodePaths();
+        if(this.servletPath == null){
+            this.servletPath = getServletContext().getServletPath(getRequestURI());
         }
         return this.servletPath;
     }
@@ -693,7 +692,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     @Override
-    public ServletInputStream getInputStream() throws IOException {
+    public ServletInputStreamWrapper getInputStream() throws IOException {
         if(reader != null){
             throw new IllegalStateException("getReader() has already been called for this request");
         }

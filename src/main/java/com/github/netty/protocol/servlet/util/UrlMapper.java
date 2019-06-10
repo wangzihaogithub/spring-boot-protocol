@@ -96,20 +96,42 @@ public class UrlMapper<T> {
     }
 
     /**
+     * Gets a servlet path
+     * @param absoluteUri An absolute path
+     * @return servlet path
+     */
+    public String getServletPath(String absoluteUri) {
+        int size = elementList.size();
+        for(int i=0; i<size; i++){
+            Element element = elementList.get(i);
+            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
+                return element.pattern
+                        .replace("/*","")
+                        .replace("/**","");
+            }
+        }
+        return absoluteUri;
+    }
+
+    /**
      * Gets a mapping object
      * @param absoluteUri An absolute path
      * @return T object
      */
     public T getMappingObjectByUri(String absoluteUri) {
         int size = elementList.size();
-
+        for(int i=0; i<size; i++){
+            Element element = elementList.get(i);
+            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
+                return element.object;
+            }
+        }
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
             if('/' == element.pattern.charAt(0)
                     || '*' == element.pattern.charAt(0)
                     || "/*".equals(element.pattern)
-                    || "/**".equals(element.pattern)
-                    || antPathMatcher.match(element.pattern,absoluteUri)){
+                    || "/**".equals(element.pattern)){
                 return element.object;
             }
         }
@@ -126,10 +148,10 @@ public class UrlMapper<T> {
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
             if("/*".equals(element.pattern)
-                    ||'/' == element.pattern.charAt(0)
+                    ||(absoluteUri.length() == 1 && '/' == absoluteUri.charAt(0) && '/' == element.pattern.charAt(0))
                     || '*' == element.pattern.charAt(0)
                     || "/**".equals(element.pattern)
-                    || antPathMatcher.match(element.pattern,absoluteUri)){
+                    || antPathMatcher.match(element.pattern,absoluteUri,"*")){
                 list.add(element.object);
             }
         }

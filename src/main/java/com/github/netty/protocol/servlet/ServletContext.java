@@ -117,6 +117,10 @@ public class ServletContext implements javax.servlet.ServletContext {
         return factory;
     }
 
+    public String getServletPath(String absoluteUri) {
+        return servletUrlMapper.getServletPath(absoluteUri);
+    }
+
     public long getUploadMinSize() {
         return uploadMinSize;
     }
@@ -279,6 +283,10 @@ public class ServletContext implements javax.servlet.ServletContext {
         ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
         dispatcher.setPath(path);
         return dispatcher;
+    }
+
+    public ServletRegistration getServletRegistrationByPath(String path){
+        return servletUrlMapper.getMappingObjectByUri(path);
     }
 
     @Override

@@ -32,8 +32,8 @@ public class ServletEventListenerManager {
         }
         try {
             return servletAddedListener.apply(servlet);
-        }catch (Throwable throwable){
-            throwable.printStackTrace();
+        }catch (Exception ex){
+            ex.printStackTrace();
             return servlet;
         }
     }
@@ -45,8 +45,8 @@ public class ServletEventListenerManager {
         for(ServletContextAttributeListener listener : servletContextAttributeListenerList){
             try {
                 listener.attributeAdded(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -58,8 +58,8 @@ public class ServletEventListenerManager {
         for(ServletContextAttributeListener listener : servletContextAttributeListenerList){
             try {
                 listener.attributeRemoved(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -71,8 +71,8 @@ public class ServletEventListenerManager {
         for(ServletContextAttributeListener listener : servletContextAttributeListenerList){
             try {
                 listener.attributeReplaced(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -84,8 +84,8 @@ public class ServletEventListenerManager {
         for(ServletRequestListener listener : servletRequestListenerList){
             try {
                 listener.requestInitialized(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -97,8 +97,8 @@ public class ServletEventListenerManager {
         for(ServletRequestListener listener : servletRequestListenerList){
             try {
                 listener.requestDestroyed(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -110,8 +110,8 @@ public class ServletEventListenerManager {
         for(ServletRequestAttributeListener listener : servletRequestAttributeListenerList){
             try {
                 listener.attributeAdded(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -123,8 +123,8 @@ public class ServletEventListenerManager {
         for(ServletRequestAttributeListener listener : servletRequestAttributeListenerList){
             try {
                 listener.attributeRemoved(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -136,8 +136,8 @@ public class ServletEventListenerManager {
         for(ServletRequestAttributeListener listener : servletRequestAttributeListenerList){
             try {
                 listener.attributeReplaced(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -149,8 +149,8 @@ public class ServletEventListenerManager {
         for(HttpSessionIdListener listener : httpSessionIdListenerList){
             try {
                 listener.sessionIdChanged(event,oldSessionId);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -162,8 +162,8 @@ public class ServletEventListenerManager {
         for(HttpSessionAttributeListener listener : httpSessionAttributeListenerList){
             try {
                 listener.attributeAdded(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -175,8 +175,8 @@ public class ServletEventListenerManager {
         for(HttpSessionAttributeListener listener : httpSessionAttributeListenerList){
             try {
                 listener.attributeRemoved(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -188,8 +188,8 @@ public class ServletEventListenerManager {
         for(HttpSessionAttributeListener listener : httpSessionAttributeListenerList){
             try {
                 listener.attributeReplaced(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -201,8 +201,8 @@ public class ServletEventListenerManager {
         for(HttpSessionListener listener : httpSessionListenerList){
             try {
                 listener.sessionCreated(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -214,8 +214,8 @@ public class ServletEventListenerManager {
         for(HttpSessionListener listener : httpSessionListenerList){
             try {
                 listener.sessionDestroyed(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -227,8 +227,8 @@ public class ServletEventListenerManager {
         for(ServletContextListener listener : servletContextListenerList){
             try {
                 listener.contextInitialized(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }
@@ -240,8 +240,8 @@ public class ServletEventListenerManager {
         for(ServletContextListener listener : servletContextListenerList){
             try {
                 listener.contextDestroyed(event);
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
+            }catch (Exception ex){
+                ex.printStackTrace();
             }
         }
     }

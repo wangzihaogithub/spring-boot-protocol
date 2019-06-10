@@ -58,6 +58,11 @@ public class ServletFilterChain implements FilterChain,Recyclable {
             ServletHttpServletRequest httpServletRequest = ServletUtil.unWrapper(request);
             httpServletRequest.setMultipartConfigElement(servletRegistration.getMultipartConfigElement());
             httpServletRequest.setServletSecurityElement(servletRegistration.getServletSecurityElement());
+
+            //Initialization Servlet
+            if(servletRegistration.isInitServletCas(false,true)){
+                servletRegistration.getServlet().init(servletRegistration.getServletConfig());
+            }
             if(listenerManager.hasServletRequestListener()) {
                 listenerManager.onServletRequestInitialized(new ServletRequestEvent(servletContext,request));
             }

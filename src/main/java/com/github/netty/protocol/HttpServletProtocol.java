@@ -19,9 +19,6 @@ import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -52,8 +49,8 @@ public class HttpServletProtocol extends AbstractProtocol {
             listenerManager.onServletContextInitialized(new ServletContextEvent(servletContext));
         }
 
+        //Servlet will be initialized automatically before use.
         initFilter(servletContext);
-        initServlet(servletContext);
     }
 
     @Override
@@ -69,26 +66,14 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     /**
      * Initialization filter
-     * @param servletContext
+     * @param servletContext servletContext
      */
     protected void initFilter(ServletContext servletContext) throws ServletException {
         Map<String, ServletFilterRegistration> servletFilterRegistrationMap = servletContext.getFilterRegistrations();
         for(ServletFilterRegistration registration : servletFilterRegistrationMap.values()){
-            registration.getFilter().init(registration.getFilterConfig());
-            registration.setInitParameter("_init","true");
-        }
-    }
-
-    /**
-     * Initialize the servlet
-     * @param servletContext
-     */
-    protected void initServlet(ServletContext servletContext) throws ServletException {
-        List<ServletRegistration> servletRegistrations = new ArrayList<>(servletContext.getServletRegistrations().values());
-        servletRegistrations.sort(Comparator.comparingInt(ServletRegistration::getLoadOnStartup));
-        for(ServletRegistration registration : servletRegistrations){
-            registration.getServlet().init(registration.getServletConfig());
-            registration.setInitParameter("_init","true");
+            if(registration.isInitFilterCas(false,true)){
+                registration.getFilter().init(registration.getFilterConfig());
+            }
         }
     }
 
@@ -102,9 +87,12 @@ public class HttpServletProtocol extends AbstractProtocol {
             if(filter == null) {
                 continue;
             }
-            String initFlag = registration.getInitParameter("_init");
-            if("true".equals(initFlag)){
-                filter.destroy();
+            if(registration.isInitFilter()){
+                try {
+                    filter.destroy();
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
             }
         }
     }
@@ -119,9 +107,12 @@ public class HttpServletProtocol extends AbstractProtocol {
             if(servlet == null) {
                 continue;
             }
-            String initFlag = registration.getInitParameter("_init");
-            if("true".equals(initFlag)){
-                servlet.destroy();
+            if(registration.isInitServlet()){
+                try {
+                    servlet.destroy();
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
             }
         }
     }
