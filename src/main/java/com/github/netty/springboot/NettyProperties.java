@@ -318,7 +318,54 @@ public class NettyProperties implements Serializable{
     }
 
     public static class Mqtt{
+        /**
+         * 是否开启MQTT协议
+         */
+        private boolean enabled = false;
+        /**
+         * 消息最大长度(字节)
+         */
+        private int messageMaxLength = 8192;
+        /**
+         * netty读事件空闲时间(秒)
+         */
+        private int nettyReaderIdleTimeSeconds = 10;
+        /**
+         * 刷新缓冲区数据间隔(秒) (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
+         */
+        private int autoFlushIdleTime = 0;
 
+        public int getMessageMaxLength() {
+            return messageMaxLength;
+        }
+
+        public void setMessageMaxLength(int messageMaxLength) {
+            this.messageMaxLength = messageMaxLength;
+        }
+
+        public int getNettyReaderIdleTimeSeconds() {
+            return nettyReaderIdleTimeSeconds;
+        }
+
+        public void setNettyReaderIdleTimeSeconds(int nettyReaderIdleTimeSeconds) {
+            this.nettyReaderIdleTimeSeconds = nettyReaderIdleTimeSeconds;
+        }
+
+        public int getAutoFlushIdleTime() {
+            return autoFlushIdleTime;
+        }
+
+        public void setAutoFlushIdleTime(int autoFlushIdleTime) {
+            this.autoFlushIdleTime = autoFlushIdleTime;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
     }
 
     public static class Rtsp{
