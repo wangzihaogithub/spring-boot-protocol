@@ -26,7 +26,6 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     private InetSocketAddress address;
     private int ioRatio;
     private int ioThreadCount;
-    private int clientChannels;
     private boolean enablesAutoReconnect;
     private boolean enableRpcHeartLog;
     private int rpcClientHeartIntervalSecond;
@@ -46,16 +45,15 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     };
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address) {
-        this(address,100,0,1,true,false,20);
+        this(address,100,0,true,false,20);
     }
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address,
-                                       int rpcClientIoRatio, int rpcClientIoThreads, int clientChannels,
+                                       int rpcClientIoRatio, int rpcClientIoThreads,
                                        boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond) {
         this.address = address;
         this.ioRatio = rpcClientIoRatio;
         this.ioThreadCount = rpcClientIoThreads;
-        this.clientChannels = clientChannels;
         this.enablesAutoReconnect = enablesAutoReconnect;
         this.enableRpcHeartLog = enableRpcHeartLog;
         this.rpcClientHeartIntervalSecond = rpcClientHeartIntervalSecond;

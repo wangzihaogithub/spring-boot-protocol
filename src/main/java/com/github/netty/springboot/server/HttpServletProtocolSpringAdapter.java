@@ -142,7 +142,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             }
             compositeSessionService.enableRemoteRpcSession(address,
                     100,
-                    1,1,
+                    1,
                     true,properties.getNrpc().isClientEnableHeartLog(),
                     properties.getNrpc().getClientHeartInterval());
 

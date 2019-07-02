@@ -31,7 +31,7 @@ public class AnnotationMethodToParameterNamesFunction implements Function<Method
                     continue;
                 }
                 Object memberValues = ReflectUtil.getFieldValue(Proxy.getInvocationHandler(annotation),"memberValues");
-                if(memberValues == null || !(memberValues instanceof Map)) {
+                if(!(memberValues instanceof Map)) {
                     continue;
                 }
                 Map memberValuesMap = (Map) memberValues;
@@ -50,6 +50,6 @@ public class AnnotationMethodToParameterNamesFunction implements Function<Method
                 parameterNames.add(null);
             }
         }
-        return parameterNames.toArray(new String[parameterNames.size()]);
+        return parameterNames.toArray(new String[0]);
     }
 }

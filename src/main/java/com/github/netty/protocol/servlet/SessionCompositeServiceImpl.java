@@ -31,11 +31,11 @@ public class SessionCompositeServiceImpl implements SessionService {
         this.sessionService = new SessionRemoteRpcServiceImpl(address);
     }
 
-    public void enableRemoteRpcSession(InetSocketAddress address,int rpcClientIoRatio, int rpcClientIoThreads, int clientChannels,
+    public void enableRemoteRpcSession(InetSocketAddress address,int rpcClientIoRatio, int rpcClientIoThreads,
                                        boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond){
         removeSessionService();
         this.sessionService = new SessionRemoteRpcServiceImpl(address,
-                rpcClientIoRatio,rpcClientIoThreads,clientChannels,enablesAutoReconnect,
+                rpcClientIoRatio,rpcClientIoThreads,enablesAutoReconnect,
                 enableRpcHeartLog,rpcClientHeartIntervalSecond);
     }
 
