@@ -2,6 +2,7 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
+import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.protocol.servlet.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -51,6 +52,12 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         //Servlet will be initialized automatically before use.
         initFilter(servletContext);
+
+        LoggerFactoryX.getLogger(HttpServletProtocol.class).info(
+                "Netty servlet on port: {}, with context path '{}'",
+                servletContext.getServerAddress().getPort(),
+                servletContext.getContextPath()
+                );
     }
 
     @Override

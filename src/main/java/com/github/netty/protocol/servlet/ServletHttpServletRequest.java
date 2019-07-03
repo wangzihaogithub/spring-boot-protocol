@@ -297,6 +297,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             sourceURI = sourceURI.replace('\\', '/');
         }
         String tempPath = existContextPath? sourceURI.replace(contextPath, "") : sourceURI;
+        if(tempPath.length() > 0 && tempPath.charAt(0) == '/'){
+            tempPath = tempPath.substring(1);
+        }
         if (tempPath.isEmpty() || tempPath.charAt(0)!= '/') {
             tempPath = "/".concat(tempPath);
         }
@@ -304,14 +307,18 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         //Parsing the queryString
         int queryInx = tempPath.indexOf('?');
         if (queryInx > -1) {
-            this.queryString = tempPath.substring(queryInx + 1, tempPath.length());
+            this.queryString = tempPath.substring(queryInx + 1);
             tempPath = tempPath.substring(0, queryInx);
         }
 
         //Parse the requestURI and ensure that the requestURI prefix is + /
         String requestURI;
         if(existContextPath){
-            requestURI = "/".concat(contextPath).concat(tempPath);
+            if(contextPath.charAt(0) != '/') {
+                requestURI = "/".concat(contextPath).concat(tempPath);
+            }else {
+                requestURI = contextPath.concat(tempPath);
+            }
         }else {
             requestURI = tempPath;
         }
@@ -479,7 +486,12 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public String getServletPath() {
         if(this.servletPath == null){
-            this.servletPath = getServletContext().getServletPath(getRequestURI());
+            String servletPath = getServletContext().getServletPath(getRequestURI());
+            String contextPath = getServletContext().getContextPath();
+            if(contextPath.length() > 0){
+                servletPath = servletPath.replace(contextPath,"");
+            }
+            this.servletPath = servletPath;
         }
         return this.servletPath;
     }
