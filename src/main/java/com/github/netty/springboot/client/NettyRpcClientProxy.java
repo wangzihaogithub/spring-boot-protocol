@@ -27,20 +27,13 @@ import java.util.concurrent.TimeUnit;
  * @author wangzihao
  */
 public class NettyRpcClientProxy implements InvocationHandler {
+    private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new HashMap<>(5);
+
     private String serviceId;
     private String serviceName;
     private Class<?> interfaceClass;
     private NettyProperties properties;
     private NettyRpcLoadBalanced loadBalanced;
-    private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new HashMap<>(5);
-    private static final FastThreadLocal<Map<InetSocketAddress,RpcClient>> CLIENT_MAP_LOCAL = new FastThreadLocal<Map<InetSocketAddress,RpcClient>>(){
-        @Override
-        protected Map<InetSocketAddress,RpcClient> initialValue() throws Exception {
-            return new HashMap<>(5);
-        }
-    };
-
-
     private FastThreadLocal<DefaultNettyRpcRequest> requestThreadLocal = new FastThreadLocal<DefaultNettyRpcRequest>(){
         @Override
         protected DefaultNettyRpcRequest initialValue() throws Exception {
@@ -95,8 +88,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
     }
 
     protected String getServiceName(Class objectType){
+        String serviceName = RpcServerChannelHandler.getServiceName(objectType);
+        if(StringUtil.isNotEmpty(serviceName)) {
+            return serviceName;
+        }
+
         RequestMapping requestMapping = ReflectUtil.findAnnotation(objectType,RequestMapping.class);
-        String serviceName = null;
         if(requestMapping != null) {
             //获取服务名
             serviceName = requestMapping.name();
@@ -109,10 +106,6 @@ public class NettyRpcClientProxy implements InvocationHandler {
                 serviceName = paths[0];
             }
         }
-
-        if(StringUtil.isEmpty(serviceName)) {
-            serviceName = RpcServerChannelHandler.getServiceName(objectType);
-        }
         return serviceName;
     }
 
@@ -121,8 +114,6 @@ public class NettyRpcClientProxy implements InvocationHandler {
      * @return
      */
     private RpcClient getClient(InetSocketAddress address){
-//        Map<InetSocketAddress,RpcClient> CLIENT_MAP = CLIENT_MAP_LOCAL.get();
-
         RpcClient rpcClient = CLIENT_MAP.get(address);
         if(rpcClient == null) {
             synchronized (CLIENT_MAP){
