@@ -124,7 +124,11 @@ public class RpcClientHeartbeatTask implements Runnable{
             Throwable cause = e.getCause();
             if(cause instanceof RpcConnectException
                     || cause instanceof RpcTimeoutException){
-                reconnect(e.getMessage());
+                try {
+                    reconnect(e.getMessage()).sync();
+                } catch (InterruptedException ex) {
+                    //
+                }
             }
         } catch (Exception e){
             logger.error(e.getMessage(),e);
