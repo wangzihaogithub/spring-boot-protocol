@@ -1,7 +1,6 @@
 package com.github.netty.springboot.client;
 
 import com.github.netty.springboot.EnableNettyRpcClients;
-import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
@@ -11,8 +10,6 @@ import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionReaderUtils;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
