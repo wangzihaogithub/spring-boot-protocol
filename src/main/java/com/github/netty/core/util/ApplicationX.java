@@ -149,20 +149,6 @@ public class ApplicationX {
         return (T) getApplicationContext().get(name);
     }
 
-    public <T>Collection<T> findBeanForType(Class<T> clazz){
-        Collection<T> list = new LinkedHashSet<T>();
-        for(Map.Entry<Object,Object> entry : getApplicationContext().entrySet()){
-            Object key = entry.getKey();
-            Object value = entry.getValue();
-            Class cclazz = key instanceof Class? (Class)key : value.getClass();
-
-            if(clazz.isAssignableFrom(cclazz)) {
-                list.add((T) value);
-            }
-        }
-        return list;
-    }
-
     public <T>Collection<T> getBeanForAnnotation(Class<? extends Annotation> annotationType){
         Collection<T> list = new LinkedHashSet<T>();
         for(Map.Entry<Object,Object> entry : getApplicationContext().entrySet()){
@@ -178,7 +164,7 @@ public class ApplicationX {
         return list;
     }
 
-    public <T>Collection<T> getBeanForImpl(Class<T> clazz){
+    public <T>Collection<T> getBeanForType(Class<T> clazz){
         Collection<T> list = new LinkedHashSet<T>();
         for(Map.Entry<Object,Object> entry : getApplicationContext().entrySet()){
             Object key = entry.getKey();
@@ -531,7 +517,7 @@ public class ApplicationX {
                 return getBean(type);
             }
 
-            Collection implList = getBeanForImpl(type);
+            Collection implList = getBeanForType(type);
             for(Object impl : implList){
                 //防止 自身要注入自身 已经实现的接口 从而发生死循环调用
                 if(impl != target) {
