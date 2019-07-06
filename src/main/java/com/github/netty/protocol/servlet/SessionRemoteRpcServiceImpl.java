@@ -22,7 +22,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     private static final String SESSION_GROUP = "/session";
 
     private String name = NamespaceUtil.newIdName(getClass());
-    private static final byte[] EMPTY = new byte[0];
+    private static final byte[] EMPTY = {};
     private InetSocketAddress address;
     private int ioRatio;
     private int ioThreadCount;

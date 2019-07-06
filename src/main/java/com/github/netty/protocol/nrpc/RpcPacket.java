@@ -3,6 +3,8 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 
+import java.util.StringJoiner;
+
 /**
  * 2019/3/17/017.
  *
@@ -48,6 +50,19 @@ public class RpcPacket implements Recyclable {
     public void setData(byte[] data) {
         this.data = data;
     }
+
+    @Override
+    public String toString() {
+        StringJoiner joiner = new StringJoiner(",","{","}")
+                .add("\"class\":\""+getClass().getSimpleName()+"\"")
+                .add("\"ack\":"+ack)
+                .add("\"packetType\":"+packetType)
+                .add("\"data\":"+ (data ==null?"null":"\""+new String(data).replace("\"", "\\\\\"") +"\""));
+        toStringAppend(joiner);
+        return joiner.toString();
+    }
+
+    protected void toStringAppend(StringJoiner joiner) {}
 
     @Override
     public void recycle() {
@@ -101,13 +116,11 @@ public class RpcPacket implements Recyclable {
         }
 
         @Override
-        public String toString() {
-            return "RpcRequest{" +
-                    "requestId=" + requestId +
-                    ", serviceName='" + serviceName + '\'' +
-                    ", methodName='" + methodName + '\'' +
-                    ", dataLength=" + (getData() == null ? "null" : getData().length) +
-                    '}';
+        public void toStringAppend(StringJoiner joiner) {
+            joiner.add("\"requestId\":"+requestId);
+            joiner.add("\"serviceName\":\""+serviceName+"\"");
+            joiner.add("\"methodName\":\""+methodName+"\"");
+            joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
         }
     }
 
@@ -176,16 +189,17 @@ public class RpcPacket implements Recyclable {
             this.setData(null);
             RECYCLER.recycleInstance(this);
         }
-
         @Override
-        public String toString() {
-            return "RpcResponse{" +
-                    "requestId=" + requestId +
-                    ", status=" + status +
-                    ", message='" + message + '\'' +
-                    ", encode=" + encode +
-                    ", dataLength=" + (getData() == null ? "null" : getData().length) +
-                    '}';
+        public void toStringAppend(StringJoiner joiner) {
+            joiner.add("\"requestId\":"+requestId);
+            joiner.add("\"status\":"+status);
+            if(message == null){
+                joiner.add("\"message\":null");
+            }else {
+                joiner.add("\"message\":\"" + message.replace("\"", "\\\\\"") + "\"");
+            }
+            joiner.add("\"encode\":\""+encode+"\"");
+            joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
         }
     }
 

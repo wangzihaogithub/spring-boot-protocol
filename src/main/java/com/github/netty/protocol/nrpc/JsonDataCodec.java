@@ -14,7 +14,7 @@ import java.util.Map;
  * @author wangzihao
  */
 public class JsonDataCodec implements DataCodec {
-    private static final byte[] EMPTY = new byte[0];
+    private static final byte[] EMPTY = {};
     private static SerializerFeature[] SERIALIZER_FEATURES = {
 //            SerializerFeature.WriteClassName
     };

@@ -105,7 +105,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
             if(StringUtil.isEmpty(serviceName) && paths.length > 0){
                 serviceName = paths[0];
             }
+            if(StringUtil.isNotEmpty(serviceName)) {
+                return serviceName;
+            }
         }
+
+        serviceName = RpcServerChannelHandler.generateServiceName(objectType);
         return serviceName;
     }
 

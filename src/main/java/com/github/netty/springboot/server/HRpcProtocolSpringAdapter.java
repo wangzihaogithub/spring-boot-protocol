@@ -46,7 +46,7 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
         if(ReflectUtil.hasParameterAnnotation(serviceImpl.getClass(),parameterAnnotationClasses)){
             return new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses);
         }else {
-            return new AsmMethodToParameterNamesFunction();
+            return new ClassFileMethodToParameterNamesFunction();
         }
     }
 

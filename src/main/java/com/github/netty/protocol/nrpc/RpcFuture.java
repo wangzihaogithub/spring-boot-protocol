@@ -166,10 +166,7 @@ public class RpcFuture implements Future<ResponsePacket>,Recyclable{
 
         Integer status = response.getStatus();
         if(status == null || status >= ResponsePacket.NO_SUCH_METHOD){
-            RpcResponseException rpcResponseException = new RpcResponseException(status,response.getMessage(),false);
-            ExecutionException exception = new ExecutionException(rpcResponseException);
-            rpcResponseException.setStackTrace(exception.getStackTrace());
-            throw exception;
+            throw new ExecutionException("error rpc response. status="+status+",response="+response,new RpcResponseException(status,response.getMessage(),true));
         }
         TOTAL_SUCCESS_COUNT.incrementAndGet();
     }

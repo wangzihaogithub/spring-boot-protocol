@@ -2,11 +2,10 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.util.AsmMethodToParameterNamesFunction;
+import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -105,7 +104,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @param serviceName serviceName
      */
     public void addInstance(Object instance,String serviceName){
-        addInstance(instance,serviceName,new AsmMethodToParameterNamesFunction());
+        addInstance(instance,serviceName,new ClassFileMethodToParameterNamesFunction());
     }
 
     /**
@@ -115,6 +114,9 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
     public void addInstance(Object instance,String serviceName,Function<Method,String[]> methodToParameterNamesFunction){
+        if(serviceName == null || serviceName.isEmpty()){
+            serviceName = generateServiceName(instance.getClass());
+        }
         synchronized (serviceInstanceMap) {
             RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction);
             RpcServerInstance oldServerInstance = serviceInstanceMap.put(serviceName,rpcServerInstance);
@@ -157,21 +159,27 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @return serviceName
      */
     public static String getServiceName(Class instanceClass){
-        String serviceName = "";
+        String serviceName = null;
         Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(instanceClass, Protocol.RpcService.class);
         if (rpcInterfaceAnn != null) {
             serviceName = rpcInterfaceAnn.value();
         }
-
-        if(serviceName.isEmpty()){
-            Class[] classes = ReflectUtil.getInterfaces(instanceClass);
-            if(classes.length > 0){
-                serviceName = '/'+ StringUtil.firstLowerCase(classes[0].getSimpleName());
-            }else {
-                serviceName =  '/'+ StringUtil.firstLowerCase(instanceClass.getSimpleName());
-            }
-        }
         return serviceName;
     }
 
+    /**
+     * Generate a service name
+     * @param instanceClass instanceClass
+     * @return serviceName
+     */
+    public static String generateServiceName(Class instanceClass){
+        String serviceName;
+        Class[] classes = ReflectUtil.getInterfaces(instanceClass);
+        if(classes.length > 0){
+            serviceName = '/'+ StringUtil.firstLowerCase(classes[0].getSimpleName());
+        }else {
+            serviceName =  '/'+ StringUtil.firstLowerCase(instanceClass.getSimpleName());
+        }
+        return serviceName;
+    }
 }

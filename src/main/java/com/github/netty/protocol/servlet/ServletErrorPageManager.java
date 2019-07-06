@@ -74,9 +74,11 @@ public class ServletErrorPageManager {
             return;
         }
 
+        if(throwable != null) {
+            logger.error(throwable.getMessage(), throwable);
+        }
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
-
         ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPage.getPath());
         if (dispatcher == null) {
             try {

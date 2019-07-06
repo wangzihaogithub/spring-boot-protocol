@@ -331,7 +331,7 @@ public class RpcClient extends AbstractNettyClient{
                     future.done(rpcResponse);
                 }
             }else {
-                logger.info("client received packet={}",String.valueOf(packet));
+                logger.trace("client received packet={}",String.valueOf(packet));
                 packet.recycle();
             }
         }

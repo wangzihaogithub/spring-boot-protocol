@@ -57,11 +57,14 @@ public class ParameterNameDiscoverer {
         return null;
     }
 
+
     /**
      * Inspects the target class. Exceptions will be logged and a maker map returned
      * to indicate the lack of debug information.
+     * @param clazz clazz
+     * @return parameter name mapping
      */
-    private Map<Member, String[]> inspectClass(Class<?> clazz) {
+    public Map<Member, String[]> inspectClass(Class<?> clazz) {
         InputStream is = clazz.getResourceAsStream(ReflectUtil.getClassFileName(clazz));
         if (is == null) {
             // We couldn't load the class file, which is not fatal as it
@@ -409,5 +412,11 @@ public class ParameterNameDiscoverer {
             return false;
         }
         return true;
+    }
+
+    public static void main(String[] args) {
+        ParameterNameDiscoverer parameterNameDiscoverer = new ParameterNameDiscoverer();
+        Map<java.lang.reflect.Member, String[]> memberMap = parameterNameDiscoverer.inspectClass(ClassFileMethodToParameterNamesFunction.class);
+        System.out.println("memberMap = " + memberMap);
     }
 }

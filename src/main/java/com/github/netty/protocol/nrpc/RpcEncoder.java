@@ -8,9 +8,7 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
-import static com.github.netty.core.util.IOUtil.CHAR_LENGTH;
-import static com.github.netty.core.util.IOUtil.INT_LENGTH;
+import static com.github.netty.core.util.IOUtil.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
@@ -18,14 +16,14 @@ import static com.github.netty.protocol.nrpc.RpcPacket.*;
  *
  *
  *   Request Packet (note:  1 = request type)
- *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----2B------+-------length-------------+
+ *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----4B------+-------length-------------+
  * | header/version | type | ACK   | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
  * |   NRPC/010     |  1   | 1    |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
  *-+----------------+------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
  *
  *
  *   Response Packet (note: 2 = response type)
- *-+------8B--------+--1B--+--1B--+------2B------+-----4B-----+---1B---+--------1B------+--length--+---1B---+-----2B------+----------length----------+
+ *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+---2B---+--------1B------+--length--+---1B---+-----4B------+----------length----------+
  * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
  * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
  *-+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
@@ -42,14 +40,14 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
     public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
     /**
      * Fixed request length (note : Not including the total length.)
-     * (Request ID)4B + (service length)1B + (method length)1B + (data length)2B
+     * (Request ID)4B + (service length)1B + (method length)1B + (data length)4B
      */
-    private static final int FIXED_REQUEST_LENGTH = INT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + CHAR_LENGTH;
+    private static final int FIXED_REQUEST_LENGTH = INT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + INT_LENGTH;
     /**
      * Fixed response length (note : Not including the total length.)
-     * (Request ID)4B + (status)1B + (message length)1B + (encode)1B + (data length)2B
+     * (Request ID)4B + (status)2B + (message length)1B + (encode)1B + (data length)4B
      */
-    private static final int FIXED_RESPONSE_LENGTH = INT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + BYTE_LENGTH + CHAR_LENGTH;
+    private static final int FIXED_RESPONSE_LENGTH = INT_LENGTH + SHORT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + INT_LENGTH;
 
     public RpcEncoder() {}
 
@@ -76,12 +74,12 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
                     //(1 byte Unsigned) RPC packet ack
                     out.writeByte(packet.getAck());
 
-                    //(2 byte Unsigned) data length
+                    //(4 byte Unsigned) data length
                     byte[] data = packet.getData();
                     int writeTotalLength = data == null ? 0 : data.length;
 
-                    //(2 byte Unsigned) total length
-                    out.writeChar(writeTotalLength);
+                    //(4 byte Unsigned) total length
+                    out.writeInt(writeTotalLength);
                     if (writeTotalLength > 0) {
                         out.writeBytes(data);
                     }
@@ -105,9 +103,9 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         //(1 byte Unsigned) RPC packet ack
         out.writeByte(packet.getAck());
 
-        //(2 byte Unsigned) total length
+        //(4 byte Unsigned) total length
         int writerTotalLengthIndex = out.writerIndex();
-        out.writerIndex(writerTotalLengthIndex + CHAR_LENGTH);
+        out.writerIndex(writerTotalLengthIndex + INT_LENGTH);
 
         //(4 byte) Request ID
         out.writeInt(packet.getRequestId());
@@ -128,9 +126,9 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.setByte(out.writerIndex() - writeCurrentLength - BYTE_LENGTH,writeCurrentLength);
         writeTotalLength += writeCurrentLength;
 
-        //(2 byte Unsigned) data length
+        //(4 byte Unsigned) data length
         byte[] data = packet.getData();
-        out.writeChar(data.length);
+        out.writeInt(data.length);
         if(data.length > 0){
             //(length byte)  data
             out.writeBytes(data);
@@ -138,7 +136,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         }
 
         //set total length Unsigned
-        out.setChar(writerTotalLengthIndex,writeTotalLength);
+        out.setInt(writerTotalLengthIndex,writeTotalLength);
     }
 
     protected void encodePacket(ResponsePacket packet,ByteBuf out){
@@ -154,15 +152,15 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         //(1 byte Unsigned) RPC packet ack
         out.writeByte(packet.getAck());
 
-        //(2 byte Unsigned) total length
+        //(4 byte Unsigned) total length
         int writerTotalLengthIndex = out.writerIndex();
-        out.writerIndex(writerTotalLengthIndex + CHAR_LENGTH);
+        out.writerIndex(writerTotalLengthIndex + INT_LENGTH);
 
         //(4 byte) Request ID
         out.writeInt(packet.getRequestId());
 
-        //(1 byte Unsigned) Response status
-        out.writeByte(packet.getStatus());
+        //(2 byte Unsigned) Response status
+        out.writeShort(packet.getStatus());
 
         //(1 byte Unsigned) Whether the data has been encoded
         out.writeByte(packet.getEncode().getCode());
@@ -175,10 +173,10 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.setByte(out.writerIndex() - writeCurrentLength - BYTE_LENGTH,writeCurrentLength);
         writeTotalLength += writeCurrentLength;
 
-        //(2 byte Unsigned) data length
+        //(4 byte Unsigned) data length
         byte[] data = packet.getData();
         writeCurrentLength = data == null? 0: data.length;
-        out.writeChar(writeCurrentLength);
+        out.writeInt(writeCurrentLength);
         if(writeCurrentLength > 0) {
             out.writeBytes(data);
             //(length byte)  data
@@ -186,7 +184,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         }
 
         //set total length
-        out.setChar(writerTotalLengthIndex,writeTotalLength);
+        out.setInt(writerTotalLengthIndex,writeTotalLength);
     }
 
 }
