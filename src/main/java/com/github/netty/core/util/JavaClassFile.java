@@ -8,12 +8,38 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * java类文件
+ *
+ * ClassFile {
+ *     u4             magic;
+ *     u2             minor_version;
+ *     u2             major_version;
+ *     u2             constant_pool_count;
+ *     cp_info        constant_pool[constant_pool_count-1];
+ *     u2             access_flags;
+ *     u2             this_class;
+ *     u2             super_class;
+ *     u2             interfaces_count;
+ *     u2             interfaces[interfaces_count];
+ *     u2             fields_count;
+ *     field_info     fields[fields_count];
+ *     u2             methods_count;
+ *     method_info    methods[methods_count];
+ *     u2             attributes_count;
+ *     attribute_info attributes[attributes_count];
+ * }
+ *
+ * class文件结构.官方文档 https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html
+ * @author acer01
+ */
 public class JavaClassFile {
     private static final Attribute.CodeException[] EMPTY_CODE_EXCEPTIONS = {};
     private static final Attribute.LineNumber[] EMPTY_LINE_NUMBER_TABLE = {};
     private static final Attribute.LocalVariable[] EMPTY_LOCAL_VARIABLE_TABLE = {};
     private static final Attribute.InnerClass[] EMPTY_INNER_CLASSES = {};
     private static final Attribute.StackMapEntry[] EMPTY_STACK_MAP_ENTRY = {};
+    private static final Attribute.StackMapFrame[] EMPTY_STACK_MAP_FRAME = {};
     private static final Attribute.StackMapEntry.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
 
@@ -149,12 +175,13 @@ public class JavaClassFile {
                 .add("\"majorVersion\":\""+majorVersion+"\"")
                 .add("\"accessFlags\":\""+Modifier.toString(accessFlags)+"\"")
                 .add("\"thisClassIndex\":"+ thisClassIndex)
-                .add("\"className\":\""+ getThisClassName()+"\"")
+                .add("\"thisClassName\":\""+ getThisClassName()+"\"")
                 .add("\"superClassIndex\":"+ superClassIndex)
                 .add("\"superClassName\":\""+ getSuperClassName()+"\"")
                 .add("\"interfaces\":"+toJsonArray(getInterfaceNames()))
                 .add("\"fields\":"+ toJsonArray(getFields()))
                 .add("\"methods\":"+toJsonArray(getMethods()))
+                .add("\"attributes\":"+toJsonArray(attributes))
                 .add("\"constantPool\":"+toJsonArray(constantPool.constants))
                 .add("\"constantPoolDataLength\":"+
                         Arrays.stream(constantPool.constants)
@@ -199,7 +226,7 @@ public class JavaClassFile {
             return Arrays.toString((long[]) array);
         }
         if(array instanceof double[]){
-            return Arrays.toString((long[]) array);
+            return Arrays.toString((double[]) array);
         }
         return array.toString();
     }
@@ -331,14 +358,24 @@ public class JavaClassFile {
         }
 
         public String getClassName(int index) {
-            int theindex = ((ConstantClassInfo)getConstantInfo(index)).nameIndex;
-            return getUtf8(theindex);
+            return ((ConstantClassInfo)getConstantInfo(index)).value();
         }
 
         public String getUtf8(int stringIndex) {
-            return((ConstantUtf8Info)getConstantInfo(stringIndex)).value;
+            return((ConstantUtf8Info)getConstantInfo(stringIndex)).value();
         }
-
+        public int getInteger(int index) {
+            return((ConstantIntegerInfo)getConstantInfo(index)).value();
+        }
+        public double getDouble(int index) {
+            return((ConstantDoubleInfo)getConstantInfo(index)).value();
+        }
+        public int getFloat(int index) {
+            return((ConstantFloatInfo)getConstantInfo(index)).value();
+        }
+        public long getLong(int index) {
+            return((ConstantLongInfo)getConstantInfo(index)).value();
+        }
         public interface ConstantInfo {
             int CONSTANT_UTF8 = 1;
             int CONSTANT_INTEGER = 3;
@@ -391,13 +428,23 @@ public class JavaClassFile {
         }
 
         public class ConstantDoubleInfo implements ConstantInfo {
-            private long value;
+            private byte[] value;
             public ConstantDoubleInfo (ClassReader reader) {
-                value = reader.readUint64();
+                value = reader.readInt8s(8);
             }
-            public long value() {
-                return value;
+
+            public double value() {
+                long data = ((long) value[0] & 0xff) << 56 |
+                            ((long) value[1] & 0xff) << 48 |
+                            ((long) value[2] & 0xff) << 40 |
+                            ((long) value[3] & 0xff) << 32 |
+                            ((long) value[4] & 0xff) << 24 |
+                            ((long) value[5] & 0xff) << 16 |
+                            ((long) value[6] & 0xff) <<  8 |
+                            (long) value[7] & 0xff;
+                return Double.longBitsToDouble(data);
             }
+
             @Override
             public String name() {
                 return "Double";
@@ -411,7 +458,7 @@ public class JavaClassFile {
                 return new StringJoiner(",","{","}")
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"value\":"+value)
+                        .add("\"value\":"+toJsonArray(value))
                         .toString();
             }
         }
@@ -470,13 +517,23 @@ public class JavaClassFile {
         }
 
         public class ConstantLongInfo implements ConstantInfo {
-            private long value;
+            private byte[] value;
             public ConstantLongInfo (ClassReader reader) {
-                value = reader.readUint64();
+                value = reader.readInt8s(8);
             }
+
             public long value() {
-                return value;
+                long data = ((long) value[0] & 0xff) << 56 |
+                        ((long) value[1] & 0xff) << 48 |
+                        ((long) value[2] & 0xff) << 40 |
+                        ((long) value[3] & 0xff) << 32 |
+                        ((long) value[4] & 0xff) << 24 |
+                        ((long) value[5] & 0xff) << 16 |
+                        ((long) value[6] & 0xff) <<  8 |
+                        (long) value[7] & 0xff;
+                return data;
             }
+
             @Override
             public String name() {
                 return "Long";
@@ -490,7 +547,7 @@ public class JavaClassFile {
                 return new StringJoiner(",","{","}")
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"value\":"+value)
+                        .add("\"value\":"+toJsonArray(value))
                         .toString();
             }
         }
@@ -1753,13 +1810,26 @@ public class JavaClassFile {
         }
     }
 
-    public class Attribute extends HashMap<String,Object>{
+    public class Attribute extends LinkedHashMap<String,Object>{
 
         public Attribute(int attrNameIndex, int length, ClassReader reader) {
             String attrName = constantPool.getUtf8(attrNameIndex);
             put("attrNameIndex",attrNameIndex);
             put("attrName",attrName);
             put("length",length);
+
+            try {
+                reader.mark();
+                decode(attrName, length, reader);
+            }catch (Exception e){
+                put("decodeAttributeException",e.getMessage());
+                reader.reset();
+                byte[] decodeAttributeExceptionBytes = reader.readInt8s(length);
+                put("decodeAttributeExceptionBytes",decodeAttributeExceptionBytes);
+            }
+        }
+
+        private void decode(String attrName, int length, ClassReader reader){
             switch (attrName){
                 case "ConstantValue" :{
                     int constantValueIndex = reader.readUint16();
@@ -1775,7 +1845,8 @@ public class JavaClassFile {
                     put("maxStack",reader.readUint16());
                     put("maxLocals",reader.readUint16());
                     int codeLength = reader.readInt32();
-                    put("code",reader.readInt8s(codeLength));
+                    short[] opcodes = reader.readUInt8s(codeLength);
+                    put("opcodes",new Opcodes(opcodes));
 
                     int codeExceptionsLength = reader.readUint16();
                     CodeException[] codeExceptions;
@@ -1899,15 +1970,36 @@ public class JavaClassFile {
                     put("map",stackMaps);
                     break;
                 }
+                case "StackMapTable" :{
+                    int numberOfEntries = reader.readUint16();
+                    StackMapFrame[] entries;
+                    if(numberOfEntries == 0){
+                        entries = EMPTY_STACK_MAP_FRAME;
+                    }else {
+                        entries = new StackMapFrame[numberOfEntries];
+                        for(int i=0; i<numberOfEntries; i++){
+                            entries[i] = new StackMapFrame(reader.readInt8());
+                        }
+                    }
+                    put("entries",entries);
+                    break;
+                }
+                case "RuntimeVisibleAnnotations" :{
+                    int numberOfAnnotations = reader.readUint16();
+                    Annotation[] annotations = new Annotation[numberOfAnnotations];
+                    for(int i=0; i< numberOfAnnotations; i++){
+                        annotations[i] = new Annotation(reader);
+                    }
+                    put("annotations",annotations);
+                    break;
+                }
                 default:{
                     byte[] unkownBytes = reader.readInt8s(length);
                     put("unkownBytes",unkownBytes);
-//                    System.out.println("unkownBytes");
                     break;
                 }
             }
         }
-
         public int length() {
             return (int) get("length");
         }
@@ -1946,9 +2038,9 @@ public class JavaClassFile {
         @Override
         public String toString() {
             StringJoiner joiner = new StringJoiner(",","{","}");
-            Iterator<Entry<String,Object>> i = entrySet().iterator();
+            Iterator<Map.Entry<String,Object>> i = entrySet().iterator();
             while (i.hasNext()) {
-                Entry<String,Object> e = i.next();
+                Map.Entry<String,Object> e = i.next();
                 String key = e.getKey();
                 Object value = e.getValue();
                 if(value instanceof Number){
@@ -2028,7 +2120,7 @@ public class JavaClassFile {
                         .add("\"nameIndex\":" + nameIndex)
                         .add("\"signatureIndex\":" + signatureIndex)
                         .add("\"startPc\":" + startPc)
-                        .add("\"length\":" + startPc)
+                        .add("\"length\":" + length)
                         .add("\"index\":" + index)
                         .toString();
             }
@@ -2167,6 +2259,268 @@ public class JavaClassFile {
                 }
             }
         }
+
+        public class StackMapFrame{
+            private short frameTypeIndex;
+            public StackMapFrame(short frameTypeIndex) {
+                this.frameTypeIndex = frameTypeIndex;
+            }
+            public short getFrameTypeIndex() {
+                return frameTypeIndex;
+            }
+            @Override
+            public String toString() {
+                return new StringJoiner(",", "{", "}")
+                        .add("\"frameTypeIndex\":" + frameTypeIndex)
+                        .add("\"frameType\":" + constantPool.getConstantInfo(frameTypeIndex))
+                        .toString();
+            }
+        }
+
+        public class Annotation{
+            private int typeIndex;
+            private ElementValue[] elementValues;
+            public Annotation(ClassReader reader) {
+                this.typeIndex = reader.readUint16();;
+                this.elementValues = new ElementValue[reader.readUint16()];
+                for(int i = 0; i< elementValues.length; i++){
+                    int valueIndex = reader.readUint16();
+                    char tag = (char) reader.readInt8();
+                    this.elementValues[i] = newElementValue(tag,reader);
+                    this.elementValues[i].valueIndex = valueIndex;
+                }
+            }
+
+            public Annotation.ElementValue newElementValue(char tag,ClassReader reader){
+                Annotation.ElementValue newElementValue;
+                switch (tag) {
+                    case 'e': {
+                        Annotation.EnumElementValue elementValue = new Annotation.EnumElementValue();
+                        elementValue.typeNameIndex = reader.readUint16();
+                        elementValue.constNameIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case '@':{
+                        Annotation.AnnotationElementValue elementValue = new Annotation.AnnotationElementValue();
+                        elementValue.annotationValue = new Annotation(reader);
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'c': {
+                        Annotation.ClassElementValue elementValue = new Annotation.ClassElementValue();
+                        elementValue.classInfoIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case '[': {
+                        Annotation.ArrayElementValue elementValue = new Annotation.ArrayElementValue();
+                        ElementValue[] elementValues = new ElementValue[reader.readUint16()];
+                        for(int i=0; i<elementValues.length; i++){
+                            char elementTag = (char) reader.readInt8();
+                            elementValues[i] = newElementValue(elementTag,reader);
+                        }
+                        elementValue.arrayValue = elementValues;
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'B':{
+                        Annotation.ByteElementValue elementValue = new Annotation.ByteElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'C':{
+                        Annotation.CharElementValue elementValue = new Annotation.CharElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'D':{
+                        Annotation.DoubleElementValue elementValue = new Annotation.DoubleElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'F':{
+                        Annotation.FloatElementValue elementValue = new Annotation.FloatElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'I':{
+                        Annotation.IntElementValue elementValue = new Annotation.IntElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'J':{
+                        Annotation.LongElementValue elementValue = new Annotation.LongElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'S':{
+                        Annotation.ShortElementValue elementValue = new Annotation.ShortElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 'Z':{
+                        Annotation.BooleanElementValue elementValue = new Annotation.BooleanElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    case 's':{
+                        Annotation.StringElementValue elementValue = new Annotation.StringElementValue();
+                        elementValue.constValueIndex = reader.readUint16();
+                        newElementValue = elementValue;
+                        break;
+                    }
+                    default:{
+                        throw new IllegalStateException("a unkown annotation tag. tag = '"+tag+"'");
+                    }
+                }
+                newElementValue.tag = tag;
+                return newElementValue;
+            }
+
+            @Override
+            public String toString() {
+                return new StringJoiner(",", "{", "}")
+                        .add("\"typeIndex\":" + typeIndex)
+                        .add("\"type\":\"" + constantPool.getUtf8(typeIndex) + "\"")
+                        .add("\"elementValues\":" + toJsonArray(elementValues))
+                        .toString();
+            }
+
+            public class ElementValue{
+                protected int valueIndex;
+                protected char tag;
+
+                @Override
+                public String toString() {
+                    StringJoiner joiner = new StringJoiner(",", "{", "}")
+                            .add("\"tag\":\"" + tag+"\"")
+                            .add("\"type\":\"" + getClass().getSimpleName()+"\"");
+                    if(valueIndex != 0) {
+                        joiner.add("\"valueIndex\":" + valueIndex);
+                        joiner.add("\"value\":\"" + constantPool.getUtf8(valueIndex) + "\"");
+                    }
+                    toStringAppend(joiner);
+                    return joiner.toString();
+                }
+
+                public void toStringAppend(StringJoiner joiner){}
+            }
+            public class ClassElementValue extends ElementValue{
+                private int classInfoIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"classInfoIndex\":" + classInfoIndex)
+                            .add("\"classInfo\":\"" + constantPool.getUtf8(classInfoIndex)+"\"");
+                }
+            }
+            public class StringElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":\"" + constantPool.getUtf8(constValueIndex)+"\"");
+                }
+            }
+            public class ByteElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getInteger(constValueIndex));
+                }
+            }
+            public class CharElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getInteger(constValueIndex));
+                }
+            }
+            public class DoubleElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getDouble(constValueIndex));
+                }
+            }
+            public class FloatElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getFloat(constValueIndex));
+                }
+            }
+            public class IntElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getInteger(constValueIndex));
+                }
+            }
+            public class LongElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getLong(constValueIndex));
+                }
+            }
+            public class ShortElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getInteger(constValueIndex));
+                }
+            }
+            public class BooleanElementValue extends ElementValue{
+                private int constValueIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constValueIndex\":" + constValueIndex)
+                            .add("\"constValue\":" + constantPool.getInteger(constValueIndex));
+                }
+            }
+            public class ArrayElementValue extends ElementValue{
+                private ElementValue[] arrayValue;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"arrayValue\":" + toJsonArray(arrayValue))
+                            .add("\"length\":" + arrayValue.length);
+                }
+            }
+            public class AnnotationElementValue extends ElementValue{
+                private Annotation annotationValue;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"annotationValue\":" + annotationValue);
+                }
+            }
+            public class EnumElementValue extends ElementValue{
+                private int constNameIndex;
+                private int typeNameIndex;
+                @Override
+                public void toStringAppend(StringJoiner joiner) {
+                    joiner.add("\"constNameIndex\":" + constNameIndex)
+                            .add("\"constName\":\"" + constantPool.getUtf8(constNameIndex)+"\"")
+                            .add("\"typeNameIndex\":" + typeNameIndex)
+                            .add("\"typeName\":\"" + constantPool.getUtf8(typeNameIndex)+"\"");
+                }
+            }
+        }
     }
 
     public static class ClassReader implements Closeable{
@@ -2176,6 +2530,8 @@ public class JavaClassFile {
         private int index;
         /** 文件大小 */
         private int length;
+        /** 标记下标,用于回滚 */
+        private int markIndex;
 
         public ClassReader(String path, String fileName) throws FileNotFoundException,IOException {
             this(new FileInputStream(new File(path + File.separator + fileName)));
@@ -2200,12 +2556,20 @@ public class JavaClassFile {
             this.length = codes.length;
         }
 
+        public void mark() {
+            this.markIndex = index;
+        }
+
+        public void reset() {
+            this.index = this.markIndex;
+        }
+
         /**
          * 读取8位-无符号
          * @return 8位-无符号
          */
-        public int readUint8(){
-            return readInt8() & 0x0FF;
+        public short readUint8(){
+            return (short) (readInt8() & 0x0FF);
         }
 
         /**
@@ -2292,6 +2656,19 @@ public class JavaClassFile {
             return values;
         }
 
+        /**
+         * 读取8位-无符号-数组
+         * @param length 长度
+         * @return 8位-无符号-数组
+         */
+        public short[] readUInt8s(int length){
+            short[] values = new short[length];
+            for(int i=0; i<length; i++){
+                values[i] = readUint8();
+            }
+            return values;
+        }
+
         @Override
         public void close(){
             this.codes = null;
@@ -2299,36 +2676,39 @@ public class JavaClassFile {
 
         @Override
         public String toString() {
-            return "file="+length+"b,file="+(length/1024) + "kb";
+            return new StringJoiner(",","{","}")
+                .add("\"file\":\""+length+"b, "+(length/1024)+"kb\"")
+                .add("\"readIndex\":"+index)
+                .toString();
         }
     }
 
-    public interface Opcodes {
+    public static class Opcodes {
 
         // Possible values for the type operand of the NEWARRAY instruction.
         // See https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-6.html#jvms-6.5.newarray.
 
-        int T_BOOLEAN = 4;
-        int T_CHAR = 5;
-        int T_FLOAT = 6;
-        int T_DOUBLE = 7;
-        int T_BYTE = 8;
-        int T_SHORT = 9;
-        int T_INT = 10;
-        int T_LONG = 11;
+        public static final int T_BOOLEAN = 4;
+        public static final int  T_CHAR = 5;
+        public static final int T_FLOAT = 6;
+        public static final int  T_DOUBLE = 7;
+        public static final int  T_BYTE = 8;
+        public static final int  T_SHORT = 9;
+        public static final int  T_INT = 10;
+        public static final int  T_LONG = 11;
 
         // Possible values for the reference_kind field of CONSTANT_MethodHandle_info structures.
         // See https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-4.html#jvms-4.4.8.
 
-        int H_GETFIELD = 1;
-        int H_GETSTATIC = 2;
-        int H_PUTFIELD = 3;
-        int H_PUTSTATIC = 4;
-        int H_INVOKEVIRTUAL = 5;
-        int H_INVOKESTATIC = 6;
-        int H_INVOKESPECIAL = 7;
-        int H_NEWINVOKESPECIAL = 8;
-        int H_INVOKEINTERFACE = 9;
+        public static final int  H_GETFIELD = 1;
+        public static final int  H_GETSTATIC = 2;
+        public static final int  H_PUTFIELD = 3;
+        public static final int  H_PUTSTATIC = 4;
+        public static final int  H_INVOKEVIRTUAL = 5;
+        public static final int  H_INVOKESTATIC = 6;
+        public static final int  H_INVOKESPECIAL = 7;
+        public static final int  H_NEWINVOKESPECIAL = 8;
+        public static final int  H_INVOKEINTERFACE = 9;
 
 
         /** An expanded frame.
@@ -2339,207 +2719,365 @@ public class JavaClassFile {
          * format (this option adds a decompression/compression step in ClassReader and ClassWriter which
          * degrades performance quite a lot).
          */
-        int F_NEW = -1;
+        public static final int  F_NEW = -1;
 
         /** A compressed frame with complete frame data. */
-        int F_FULL = 0;
+        public static final int  F_FULL = 0;
 
         /**
          * A compressed frame where locals are the same as the locals in the previous frame, except that
          * additional 1-3 locals are defined, and with an empty stack.
          */
-        int F_APPEND = 1;
+        public static final int  F_APPEND = 1;
 
         /**
          * A compressed frame where locals are the same as the locals in the previous frame, except that
          * the last 1-3 locals are absent and with an empty stack.
          */
-        int F_CHOP = 2;
+        public static final int  F_CHOP = 2;
 
         /**
          * A compressed frame with exactly the same locals as the previous frame and with an empty stack.
          */
-        int F_SAME = 3;
+        public static final int  F_SAME = 3;
 
         /**
          * A compressed frame with exactly the same locals as the previous frame and with a single value
          * on the stack.
          */
-        int F_SAME1 = 4;
+        public static final int  F_SAME1 = 4;
 
         // Standard stack map frame element types, .
 
-        byte ITEM_TOP = 0;
-        byte ITEM_INTEGER = 1;
-        byte ITEM_FLOAT = 2;
-        byte ITEM_DOUBLE = 3;
-        byte ITEM_LONG = 4;
-        byte ITEM_NULL = 5;
-        byte ITEM_UNINITIALIZED_THIS = 6;
-        byte ITEM_OBJECT = 7;
-        byte ITEM_UNINITIALIZED = 8;
+        public static final byte ITEM_TOP = 0;
+        public static final byte ITEM_INTEGER = 1;
+        public static final byte ITEM_FLOAT = 2;
+        public static final byte ITEM_DOUBLE = 3;
+        public static final byte ITEM_LONG = 4;
+        public static final byte ITEM_NULL = 5;
+        public static final byte ITEM_UNINITIALIZED_THIS = 6;
+        public static final byte ITEM_OBJECT = 7;
+        public static final byte ITEM_UNINITIALIZED = 8;
 
         // The JVM opcode values (with the MethodVisitor method name used to visit them in comment, and
         // where '-' means 'same method name as on the previous line').
         // See https://docs.oracle.com/javase/specs/jvms/se9/html/jvms-6.html.
 
-        int NOP = 0; // visitInsn
-        int ACONST_NULL = 1; // -
-        int ICONST_M1 = 2; // -
-        int ICONST_0 = 3; // -
-        int ICONST_1 = 4; // -
-        int ICONST_2 = 5; // -
-        int ICONST_3 = 6; // -
-        int ICONST_4 = 7; // -
-        int ICONST_5 = 8; // -
-        int LCONST_0 = 9; // -
-        int LCONST_1 = 10; // -
-        int FCONST_0 = 11; // -
-        int FCONST_1 = 12; // -
-        int FCONST_2 = 13; // -
-        int DCONST_0 = 14; // -
-        int DCONST_1 = 15; // -
-        int BIPUSH = 16; // visitIntInsn
-        int SIPUSH = 17; // -
-        int LDC = 18; // visitLdcInsn
-        int ILOAD = 21; // visitVarInsn
-        int LLOAD = 22; // -
-        int FLOAD = 23; // -
-        int DLOAD = 24; // -
-        int ALOAD = 25; // -
-        int IALOAD = 46; // visitInsn
-        int LALOAD = 47; // -
-        int FALOAD = 48; // -
-        int DALOAD = 49; // -
-        int AALOAD = 50; // -
-        int BALOAD = 51; // -
-        int CALOAD = 52; // -
-        int SALOAD = 53; // -
-        int ISTORE = 54; // visitVarInsn
-        int LSTORE = 55; // -
-        int FSTORE = 56; // -
-        int DSTORE = 57; // -
-        int ASTORE = 58; // -
-        int IASTORE = 79; // visitInsn
-        int LASTORE = 80; // -
-        int FASTORE = 81; // -
-        int DASTORE = 82; // -
-        int AASTORE = 83; // -
-        int BASTORE = 84; // -
-        int CASTORE = 85; // -
-        int SASTORE = 86; // -
-        int POP = 87; // -
-        int POP2 = 88; // -
-        int DUP = 89; // -
-        int DUP_X1 = 90; // -
-        int DUP_X2 = 91; // -
-        int DUP2 = 92; // -
-        int DUP2_X1 = 93; // -
-        int DUP2_X2 = 94; // -
-        int SWAP = 95; // -
-        int IADD = 96; // -
-        int LADD = 97; // -
-        int FADD = 98; // -
-        int DADD = 99; // -
-        int ISUB = 100; // -
-        int LSUB = 101; // -
-        int FSUB = 102; // -
-        int DSUB = 103; // -
-        int IMUL = 104; // -
-        int LMUL = 105; // -
-        int FMUL = 106; // -
-        int DMUL = 107; // -
-        int IDIV = 108; // -
-        int LDIV = 109; // -
-        int FDIV = 110; // -
-        int DDIV = 111; // -
-        int IREM = 112; // -
-        int LREM = 113; // -
-        int FREM = 114; // -
-        int DREM = 115; // -
-        int INEG = 116; // -
-        int LNEG = 117; // -
-        int FNEG = 118; // -
-        int DNEG = 119; // -
-        int ISHL = 120; // -
-        int LSHL = 121; // -
-        int ISHR = 122; // -
-        int LSHR = 123; // -
-        int IUSHR = 124; // -
-        int LUSHR = 125; // -
-        int IAND = 126; // -
-        int LAND = 127; // -
-        int IOR = 128; // -
-        int LOR = 129; // -
-        int IXOR = 130; // -
-        int LXOR = 131; // -
-        int IINC = 132; // visitIincInsn
-        int I2L = 133; // visitInsn
-        int I2F = 134; // -
-        int I2D = 135; // -
-        int L2I = 136; // -
-        int L2F = 137; // -
-        int L2D = 138; // -
-        int F2I = 139; // -
-        int F2L = 140; // -
-        int F2D = 141; // -
-        int D2I = 142; // -
-        int D2L = 143; // -
-        int D2F = 144; // -
-        int I2B = 145; // -
-        int I2C = 146; // -
-        int I2S = 147; // -
-        int LCMP = 148; // -
-        int FCMPL = 149; // -
-        int FCMPG = 150; // -
-        int DCMPL = 151; // -
-        int DCMPG = 152; // -
-        int IFEQ = 153; // visitJumpInsn
-        int IFNE = 154; // -
-        int IFLT = 155; // -
-        int IFGE = 156; // -
-        int IFGT = 157; // -
-        int IFLE = 158; // -
-        int IF_ICMPEQ = 159; // -
-        int IF_ICMPNE = 160; // -
-        int IF_ICMPLT = 161; // -
-        int IF_ICMPGE = 162; // -
-        int IF_ICMPGT = 163; // -
-        int IF_ICMPLE = 164; // -
-        int IF_ACMPEQ = 165; // -
-        int IF_ACMPNE = 166; // -
-        int GOTO = 167; // -
-        int JSR = 168; // -
-        int RET = 169; // visitVarInsn
-        int TABLESWITCH = 170; // visiTableSwitchInsn
-        int LOOKUPSWITCH = 171; // visitLookupSwitch
-        int IRETURN = 172; // visitInsn
-        int LRETURN = 173; // -
-        int FRETURN = 174; // -
-        int DRETURN = 175; // -
-        int ARETURN = 176; // -
-        int RETURN = 177; // -
-        int GETSTATIC = 178; // visitFieldInsn
-        int PUTSTATIC = 179; // -
-        int GETFIELD = 180; // -
-        int PUTFIELD = 181; // -
-        int INVOKEVIRTUAL = 182; // visitMethodInsn
-        int INVOKESPECIAL = 183; // -
-        int INVOKESTATIC = 184; // -
-        int INVOKEINTERFACE = 185; // -
-        int INVOKEDYNAMIC = 186; // visitInvokeDynamicInsn
-        int NEW = 187; // visitTypeInsn
-        int NEWARRAY = 188; // visitIntInsn
-        int ANEWARRAY = 189; // visitTypeInsn
-        int ARRAYLENGTH = 190; // visitInsn
-        int ATHROW = 191; // -
-        int CHECKCAST = 192; // visitTypeInsn
-        int INSTANCEOF = 193; // -
-        int MONITORENTER = 194; // visitInsn
-        int MONITOREXIT = 195; // -
-        int MULTIANEWARRAY = 197; // visitMultiANewArrayInsn
-        int IFNULL = 198; // visitJumpInsn
-        int IFNONNULL = 199; // -
+        /** Java VM opcodes.
+         */
+        public static final short NOP              = 0;
+        public static final short ACONST_NULL      = 1;
+        public static final short ICONST_M1        = 2;
+        public static final short ICONST_0         = 3;
+        public static final short ICONST_1         = 4;
+        public static final short ICONST_2         = 5;
+        public static final short ICONST_3         = 6;
+        public static final short ICONST_4         = 7;
+        public static final short ICONST_5         = 8;
+        public static final short LCONST_0         = 9;
+        public static final short LCONST_1         = 10;
+        public static final short FCONST_0         = 11;
+        public static final short FCONST_1         = 12;
+        public static final short FCONST_2         = 13;
+        public static final short DCONST_0         = 14;
+        public static final short DCONST_1         = 15;
+        public static final short BIPUSH           = 16;
+        public static final short SIPUSH           = 17;
+        public static final short LDC              = 18;
+        public static final short LDC_W            = 19;
+        public static final short LDC2_W           = 20;
+        public static final short ILOAD            = 21;
+        public static final short LLOAD            = 22;
+        public static final short FLOAD            = 23;
+        public static final short DLOAD            = 24;
+        public static final short ALOAD            = 25;
+        public static final short ILOAD_0          = 26;
+        public static final short ILOAD_1          = 27;
+        public static final short ILOAD_2          = 28;
+        public static final short ILOAD_3          = 29;
+        public static final short LLOAD_0          = 30;
+        public static final short LLOAD_1          = 31;
+        public static final short LLOAD_2          = 32;
+        public static final short LLOAD_3          = 33;
+        public static final short FLOAD_0          = 34;
+        public static final short FLOAD_1          = 35;
+        public static final short FLOAD_2          = 36;
+        public static final short FLOAD_3          = 37;
+        public static final short DLOAD_0          = 38;
+        public static final short DLOAD_1          = 39;
+        public static final short DLOAD_2          = 40;
+        public static final short DLOAD_3          = 41;
+        public static final short ALOAD_0          = 42;
+        public static final short ALOAD_1          = 43;
+        public static final short ALOAD_2          = 44;
+        public static final short ALOAD_3          = 45;
+        public static final short IALOAD           = 46;
+        public static final short LALOAD           = 47;
+        public static final short FALOAD           = 48;
+        public static final short DALOAD           = 49;
+        public static final short AALOAD           = 50;
+        public static final short BALOAD           = 51;
+        public static final short CALOAD           = 52;
+        public static final short SALOAD           = 53;
+        public static final short ISTORE           = 54;
+        public static final short LSTORE           = 55;
+        public static final short FSTORE           = 56;
+        public static final short DSTORE           = 57;
+        public static final short ASTORE           = 58;
+        public static final short ISTORE_0         = 59;
+        public static final short ISTORE_1         = 60;
+        public static final short ISTORE_2         = 61;
+        public static final short ISTORE_3         = 62;
+        public static final short LSTORE_0         = 63;
+        public static final short LSTORE_1         = 64;
+        public static final short LSTORE_2         = 65;
+        public static final short LSTORE_3         = 66;
+        public static final short FSTORE_0         = 67;
+        public static final short FSTORE_1         = 68;
+        public static final short FSTORE_2         = 69;
+        public static final short FSTORE_3         = 70;
+        public static final short DSTORE_0         = 71;
+        public static final short DSTORE_1         = 72;
+        public static final short DSTORE_2         = 73;
+        public static final short DSTORE_3         = 74;
+        public static final short ASTORE_0         = 75;
+        public static final short ASTORE_1         = 76;
+        public static final short ASTORE_2         = 77;
+        public static final short ASTORE_3         = 78;
+        public static final short IASTORE          = 79;
+        public static final short LASTORE          = 80;
+        public static final short FASTORE          = 81;
+        public static final short DASTORE          = 82;
+        public static final short AASTORE          = 83;
+        public static final short BASTORE          = 84;
+        public static final short CASTORE          = 85;
+        public static final short SASTORE          = 86;
+        public static final short POP              = 87;
+        public static final short POP2             = 88;
+        public static final short DUP              = 89;
+        public static final short DUP_X1           = 90;
+        public static final short DUP_X2           = 91;
+        public static final short DUP2             = 92;
+        public static final short DUP2_X1          = 93;
+        public static final short DUP2_X2          = 94;
+        public static final short SWAP             = 95;
+        public static final short IADD             = 96;
+        public static final short LADD             = 97;
+        public static final short FADD             = 98;
+        public static final short DADD             = 99;
+        public static final short ISUB             = 100;
+        public static final short LSUB             = 101;
+        public static final short FSUB             = 102;
+        public static final short DSUB             = 103;
+        public static final short IMUL             = 104;
+        public static final short LMUL             = 105;
+        public static final short FMUL             = 106;
+        public static final short DMUL             = 107;
+        public static final short IDIV             = 108;
+        public static final short LDIV             = 109;
+        public static final short FDIV             = 110;
+        public static final short DDIV             = 111;
+        public static final short IREM             = 112;
+        public static final short LREM             = 113;
+        public static final short FREM             = 114;
+        public static final short DREM             = 115;
+        public static final short INEG             = 116;
+        public static final short LNEG             = 117;
+        public static final short FNEG             = 118;
+        public static final short DNEG             = 119;
+        public static final short ISHL             = 120;
+        public static final short LSHL             = 121;
+        public static final short ISHR             = 122;
+        public static final short LSHR             = 123;
+        public static final short IUSHR            = 124;
+        public static final short LUSHR            = 125;
+        public static final short IAND             = 126;
+        public static final short LAND             = 127;
+        public static final short IOR              = 128;
+        public static final short LOR              = 129;
+        public static final short IXOR             = 130;
+        public static final short LXOR             = 131;
+        public static final short IINC             = 132;
+        public static final short I2L              = 133;
+        public static final short I2F              = 134;
+        public static final short I2D              = 135;
+        public static final short L2I              = 136;
+        public static final short L2F              = 137;
+        public static final short L2D              = 138;
+        public static final short F2I              = 139;
+        public static final short F2L              = 140;
+        public static final short F2D              = 141;
+        public static final short D2I              = 142;
+        public static final short D2L              = 143;
+        public static final short D2F              = 144;
+        public static final short I2B              = 145;
+        public static final short INT2BYTE         = 145; // Old notion
+        public static final short I2C              = 146;
+        public static final short INT2CHAR         = 146; // Old notion
+        public static final short I2S              = 147;
+        public static final short INT2SHORT        = 147; // Old notion
+        public static final short LCMP             = 148;
+        public static final short FCMPL            = 149;
+        public static final short FCMPG            = 150;
+        public static final short DCMPL            = 151;
+        public static final short DCMPG            = 152;
+        public static final short IFEQ             = 153;
+        public static final short IFNE             = 154;
+        public static final short IFLT             = 155;
+        public static final short IFGE             = 156;
+        public static final short IFGT             = 157;
+        public static final short IFLE             = 158;
+        public static final short IF_ICMPEQ        = 159;
+        public static final short IF_ICMPNE        = 160;
+        public static final short IF_ICMPLT        = 161;
+        public static final short IF_ICMPGE        = 162;
+        public static final short IF_ICMPGT        = 163;
+        public static final short IF_ICMPLE        = 164;
+        public static final short IF_ACMPEQ        = 165;
+        public static final short IF_ACMPNE        = 166;
+        public static final short GOTO             = 167;
+        public static final short JSR              = 168;
+        public static final short RET              = 169;
+        public static final short TABLESWITCH      = 170;
+        public static final short LOOKUPSWITCH     = 171;
+        public static final short IRETURN          = 172;
+        public static final short LRETURN          = 173;
+        public static final short FRETURN          = 174;
+        public static final short DRETURN          = 175;
+        public static final short ARETURN          = 176;
+        public static final short RETURN           = 177;
+        public static final short GETSTATIC        = 178;
+        public static final short PUTSTATIC        = 179;
+        public static final short GETFIELD         = 180;
+        public static final short PUTFIELD         = 181;
+        public static final short INVOKEVIRTUAL    = 182;
+        public static final short INVOKESPECIAL    = 183;
+        public static final short INVOKENONVIRTUAL = 183; // Old name in JDK 1.0
+        public static final short INVOKESTATIC     = 184;
+        public static final short INVOKEINTERFACE  = 185;
+        public static final short NEW              = 187;
+        public static final short NEWARRAY         = 188;
+        public static final short ANEWARRAY        = 189;
+        public static final short ARRAYLENGTH      = 190;
+        public static final short ATHROW           = 191;
+        public static final short CHECKCAST        = 192;
+        public static final short INSTANCEOF       = 193;
+        public static final short MONITORENTER     = 194;
+        public static final short MONITOREXIT      = 195;
+        public static final short WIDE             = 196;
+        public static final short MULTIANEWARRAY   = 197;
+        public static final short IFNULL           = 198;
+        public static final short IFNONNULL        = 199;
+        public static final short GOTO_W           = 200;
+        public static final short JSR_W            = 201;
+
+        /**
+         * Non-legal opcodes, may be used by JVM internally.
+         */
+        public static final short BREAKPOINT                = 202;
+        public static final short LDC_QUICK                 = 203;
+        public static final short LDC_W_QUICK               = 204;
+        public static final short LDC2_W_QUICK              = 205;
+        public static final short GETFIELD_QUICK            = 206;
+        public static final short PUTFIELD_QUICK            = 207;
+        public static final short GETFIELD2_QUICK           = 208;
+        public static final short PUTFIELD2_QUICK           = 209;
+        public static final short GETSTATIC_QUICK           = 210;
+        public static final short PUTSTATIC_QUICK           = 211;
+        public static final short GETSTATIC2_QUICK          = 212;
+        public static final short PUTSTATIC2_QUICK          = 213;
+        public static final short INVOKEVIRTUAL_QUICK       = 214;
+        public static final short INVOKENONVIRTUAL_QUICK    = 215;
+        public static final short INVOKESUPER_QUICK         = 216;
+        public static final short INVOKESTATIC_QUICK        = 217;
+        public static final short INVOKEINTERFACE_QUICK     = 218;
+        public static final short INVOKEVIRTUALOBJECT_QUICK = 219;
+        public static final short NEW_QUICK                 = 221;
+        public static final short ANEWARRAY_QUICK           = 222;
+        public static final short MULTIANEWARRAY_QUICK      = 223;
+        public static final short CHECKCAST_QUICK           = 224;
+        public static final short INSTANCEOF_QUICK          = 225;
+        public static final short INVOKEVIRTUAL_QUICK_W     = 226;
+        public static final short GETFIELD_QUICK_W          = 227;
+        public static final short PUTFIELD_QUICK_W          = 228;
+        public static final short IMPDEP1                   = 254;
+        public static final short IMPDEP2                   = 255;
+
+
+        public static final String ILLEGAL_OPCODE = "<illegal opcode>";
+        public static final String ILLEGAL_TYPE   = "<illegal type>";
+
+        /**
+         * Names of opcodes.
+         */
+        public static final String[] OPCODE_NAMES = {
+                "nop", "aconst_null", "iconst_m1", "iconst_0", "iconst_1",
+                "iconst_2", "iconst_3", "iconst_4", "iconst_5", "lconst_0",
+                "lconst_1", "fconst_0", "fconst_1", "fconst_2", "dconst_0",
+                "dconst_1", "bipush", "sipush", "ldc", "ldc_w", "ldc2_w", "iload",
+                "lload", "fload", "dload", "aload", "iload_0", "iload_1", "iload_2",
+                "iload_3", "lload_0", "lload_1", "lload_2", "lload_3", "fload_0",
+                "fload_1", "fload_2", "fload_3", "dload_0", "dload_1", "dload_2",
+                "dload_3", "aload_0", "aload_1", "aload_2", "aload_3", "iaload",
+                "laload", "faload", "daload", "aaload", "baload", "caload", "saload",
+                "istore", "lstore", "fstore", "dstore", "astore", "istore_0",
+                "istore_1", "istore_2", "istore_3", "lstore_0", "lstore_1",
+                "lstore_2", "lstore_3", "fstore_0", "fstore_1", "fstore_2",
+                "fstore_3", "dstore_0", "dstore_1", "dstore_2", "dstore_3",
+                "astore_0", "astore_1", "astore_2", "astore_3", "iastore", "lastore",
+                "fastore", "dastore", "aastore", "bastore", "castore", "sastore",
+                "pop", "pop2", "dup", "dup_x1", "dup_x2", "dup2", "dup2_x1",
+                "dup2_x2", "swap", "iadd", "ladd", "fadd", "dadd", "isub", "lsub",
+                "fsub", "dsub", "imul", "lmul", "fmul", "dmul", "idiv", "ldiv",
+                "fdiv", "ddiv", "irem", "lrem", "frem", "drem", "ineg", "lneg",
+                "fneg", "dneg", "ishl", "lshl", "ishr", "lshr", "iushr", "lushr",
+                "iand", "land", "ior", "lor", "ixor", "lxor", "iinc", "i2l", "i2f",
+                "i2d", "l2i", "l2f", "l2d", "f2i", "f2l", "f2d", "d2i", "d2l", "d2f",
+                "i2b", "i2c", "i2s", "lcmp", "fcmpl", "fcmpg",
+                "dcmpl", "dcmpg", "ifeq", "ifne", "iflt", "ifge", "ifgt", "ifle",
+                "if_icmpeq", "if_icmpne", "if_icmplt", "if_icmpge", "if_icmpgt",
+                "if_icmple", "if_acmpeq", "if_acmpne", "goto", "jsr", "ret",
+                "tableswitch", "lookupswitch", "ireturn", "lreturn", "freturn",
+                "dreturn", "areturn", "return", "getstatic", "putstatic", "getfield",
+                "putfield", "invokevirtual", "invokespecial", "invokestatic",
+                "invokeinterface", ILLEGAL_OPCODE, "new", "newarray", "anewarray",
+                "arraylength", "athrow", "checkcast", "instanceof", "monitorenter",
+                "monitorexit", "wide", "multianewarray", "ifnull", "ifnonnull",
+                "goto_w", "jsr_w", "breakpoint", ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE, ILLEGAL_OPCODE,
+                ILLEGAL_OPCODE, "impdep1", "impdep2"
+        };
+
+        private short[] opcodes;
+        public Opcodes(short[] opcodes) {
+            this.opcodes = opcodes;
+        }
+
+        public short[] getOpcodes() {
+            return opcodes;
+        }
+
+        @Override
+        public String toString(){
+            StringJoiner joiner = new StringJoiner(",","[","]");
+            for(int i=0; i<opcodes.length; i++){
+                int opcode = opcodes[i];
+                String name = OPCODE_NAMES[opcode];
+                joiner.add("{\"opcode\":"+opcode+",\"name\":\""+name+"\"}");
+            }
+            return joiner.toString();
+        }
     }
 
 
