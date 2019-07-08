@@ -34,13 +34,14 @@ import java.util.*;
  * @author acer01
  */
 public class JavaClassFile {
+    private static final Attribute[] EMPTY_ATTRIBUTES = {};
     private static final Attribute.CodeException[] EMPTY_CODE_EXCEPTIONS = {};
     private static final Attribute.LineNumber[] EMPTY_LINE_NUMBER_TABLE = {};
     private static final Attribute.LocalVariable[] EMPTY_LOCAL_VARIABLE_TABLE = {};
     private static final Attribute.InnerClass[] EMPTY_INNER_CLASSES = {};
     private static final Attribute.StackMapEntry[] EMPTY_STACK_MAP_ENTRY = {};
     private static final Attribute.StackMapFrame[] EMPTY_STACK_MAP_FRAME = {};
-    private static final Attribute.StackMapEntry.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
+    private static final Attribute.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
 
     private long minorVersion;
@@ -103,10 +104,12 @@ public class JavaClassFile {
         Member[] members = new Member[memberCount];
         for (int i =0; i<members.length; i++) {
             members[i] = new Member();
-            members[i].constantPool = constantPool;
             members[i].accessFlags = reader.readUint16();
             members[i].nameIndex = reader.readUint16();
             members[i].descriptorIndex = reader.readUint16();
+            members[i].name = constantPool.getUtf8(members[i].nameIndex);
+            members[i].descriptorName = constantPool.getUtf8(members[i].descriptorIndex);
+
             members[i].attributes = readAttributes(reader);
         }
         return members;
@@ -114,6 +117,9 @@ public class JavaClassFile {
 
     private Attribute[] readAttributes(ClassReader reader)  {
         int attributesCount = reader.readUint16();
+        if(attributesCount == 0){
+            return EMPTY_ATTRIBUTES;
+        }
         Attribute[] attributes = new Attribute[attributesCount];
         for(int i = 0; i<attributes.length;i++) {
             int attrNameIndex = reader.readUint16();
@@ -171,24 +177,29 @@ public class JavaClassFile {
 
     @Override
     public String toString() {
-        return new StringJoiner(",","{","}")
-                .add("\"majorVersion\":\""+majorVersion+"\"")
-                .add("\"accessFlags\":\""+Modifier.toString(accessFlags)+"\"")
-                .add("\"thisClassIndex\":"+ thisClassIndex)
-                .add("\"thisClassName\":\""+ getThisClassName()+"\"")
-                .add("\"superClassIndex\":"+ superClassIndex)
-                .add("\"superClassName\":\""+ getSuperClassName()+"\"")
-                .add("\"interfaces\":"+toJsonArray(getInterfaceNames()))
-                .add("\"fields\":"+ toJsonArray(getFields()))
-                .add("\"methods\":"+toJsonArray(getMethods()))
-                .add("\"attributes\":"+toJsonArray(attributes))
-                .add("\"constantPool\":"+toJsonArray(constantPool.constants))
-                .add("\"constantPoolDataLength\":"+
-                        Arrays.stream(constantPool.constants)
-                        .filter(Objects::nonNull)
-                        .mapToInt(ConstantPool.ConstantInfo::length)
-                        .sum())
-                .toString();
+        try {
+            return new StringJoiner(",", "{", "}")
+                    .add("\"majorVersion\":\"" + majorVersion + "\"")
+                    .add("\"accessFlags\":\"" + Modifier.toString(accessFlags) + "\"")
+                    .add("\"thisClassIndex\":" + thisClassIndex)
+                    .add("\"thisClassName\":\"" + getThisClassName() + "\"")
+                    .add("\"superClassIndex\":" + superClassIndex)
+                    .add("\"superClassName\":\"" + getSuperClassName() + "\"")
+                    .add("\"interfaces\":" + toJsonArray(getInterfaceNames()))
+                    .add("\"fields\":" + toJsonArray(getFields()))
+                    .add("\"methods\":" + toJsonArray(getMethods()))
+                    .add("\"attributes\":" + toJsonArray(attributes))
+                    .add("\"constantPool\":" + toJsonArray(constantPool.constants))
+                    .add("\"constantPoolDataLength\":" +
+                            Arrays.stream(constantPool.constants)
+                                    .filter(Objects::nonNull)
+                                    .mapToInt(ConstantPool.ConstantInfo::length)
+                                    .sum())
+                    .toString();
+        }catch (Exception e){
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public static String toJsonArray(Object array) {
@@ -346,6 +357,9 @@ public class JavaClassFile {
         }
 
         public ConstantInfo getConstantInfo(int index)  {
+            if(index >= constants.length){
+                throw new ArrayIndexOutOfBoundsException(index);
+            }
             ConstantInfo cpInfo = constants[index];
             if(cpInfo == null){
                 System.out.println("Bad constant pool index: "+ index);
@@ -857,12 +871,11 @@ public class JavaClassFile {
     }
 
     public static class Member {
-        public static final Attribute.LocalVariable[] EMPTY_LOCAL_VARIABLE = new Attribute.LocalVariable[0];
-
-        private ConstantPool constantPool;
         private int accessFlags;
         private int nameIndex;
         private int descriptorIndex;
+        private String name;
+        private String descriptorName;
         private Attribute[] attributes;
         private Class<?>[] javaArgumentTypes;
         private Type[] argumentTypes;
@@ -918,11 +931,11 @@ public class JavaClassFile {
         }
 
         public String name() {
-            return constantPool.getUtf8(nameIndex);
+            return name;
         }
 
         public String descriptorName() {
-            return constantPool.getUtf8(descriptorIndex);
+            return descriptorName;
         }
 
         public Attribute.LocalVariable[] localVariableTable(){
@@ -937,7 +950,7 @@ public class JavaClassFile {
                             return codeAttributeInfo.localVariableTable();
                         }
                     }
-                    return EMPTY_LOCAL_VARIABLE;
+                    return EMPTY_LOCAL_VARIABLE_TABLE;
                 }
             }
             return null;
@@ -1811,7 +1824,6 @@ public class JavaClassFile {
     }
 
     public class Attribute extends LinkedHashMap<String,Object>{
-
         public Attribute(int attrNameIndex, int length, ClassReader reader) {
             String attrName = constantPool.getUtf8(attrNameIndex);
             put("attrNameIndex",attrNameIndex);
@@ -1955,16 +1967,14 @@ public class JavaClassFile {
                         stackMaps = EMPTY_STACK_MAP_ENTRY;
                     }else {
                         stackMaps = new StackMapEntry[stackMapsLength];
-                    }
-                    for(int i=0; i<stackMaps.length; i++){
-                        int byteCodeOffset = reader.readInt16();
-                        int typesOfLocalsSize = reader.readUint16();
-                        stackMaps[i] = new StackMapEntry(byteCodeOffset,typesOfLocalsSize);
-                        for (StackMapEntry.StackMapType mapType : stackMaps[i].typesOfLocals) {
-                            mapType.type = reader.readInt8();
-                            if (mapType.type == Opcodes.ITEM_OBJECT || mapType.type == Opcodes.ITEM_UNINITIALIZED) {
-                                mapType.index = reader.readInt16();
+                        for(int i=0; i<stackMaps.length; i++){
+                            int byteCodeOffset = reader.readInt16();
+                            int typesOfLocalsSize = reader.readUint16();
+                            StackMapEntry stackMapEntry = new StackMapEntry(byteCodeOffset,typesOfLocalsSize);
+                            for (int j=0; j<stackMapEntry.typesOfLocals.length; j++) {
+                                stackMapEntry.typesOfLocals[j] = new StackMapType(reader);
                             }
+                            stackMaps[i] = stackMapEntry;
                         }
                     }
                     put("map",stackMaps);
@@ -1978,7 +1988,7 @@ public class JavaClassFile {
                     }else {
                         entries = new StackMapFrame[numberOfEntries];
                         for(int i=0; i<numberOfEntries; i++){
-                            entries[i] = new StackMapFrame(reader.readInt8());
+                            entries[i] = new StackMapFrame(reader);
                         }
                     }
                     put("entries",entries);
@@ -2167,21 +2177,34 @@ public class JavaClassFile {
             }
 
             public String innerName() {
-                return constantPool.getUtf8(innerNameIndex);
+                if(innerNameIndex == 0){
+                    return null;
+                }else {
+                    return constantPool.getUtf8(innerNameIndex);
+                }
             }
             public String innerClassName() {
                 return constantPool.getClassName(innerClassIndex);
             }
             public String outerClassName() {
-                return constantPool.getClassName(outerClassIndex);
+                if(outerClassIndex == 0){
+                    return null;
+                }else {
+                    return constantPool.getClassName(outerClassIndex);
+                }
             }
             @Override
             public String toString() {
+                String innerName = innerName();
+                String toStringInnerName = innerName == null? "null":"\"" + innerName+"\"";
+                String outerClassName = outerClassName();
+                String toStringOuterClassName = outerClassName == null? "null":"\"" + outerClassName+"\"";
+
                 return new StringJoiner(",", "{", "}")
                         .add("\"innerAccessFlags\":\"" + Modifier.toString(innerAccessFlags)+"\"")
-                        .add("\"innerName\":\"" + innerName()+"\"")
+                        .add("\"innerName\":" +toStringInnerName)
                         .add("\"innerClassName\":\"" + innerClassName()+"\"")
-                        .add("\"outerClassName\":\"" + outerClassName()+"\"")
+                        .add("\"outerClassName\":" + toStringOuterClassName)
                         .add("\"innerNameIndex\":" + innerNameIndex)
                         .add("\"innerClassIndex\":" + innerClassIndex)
                         .add("\"outerClassIndex\":" + outerClassIndex)
@@ -2197,10 +2220,7 @@ public class JavaClassFile {
                 if(typesOfLocalsSize == 0){
                     this.typesOfLocals = EMPTY_STACK_MAP_TYPE;
                 }else {
-                    this.typesOfLocals = new StackMapEntry.StackMapType[typesOfLocalsSize];
-                    for (int i = 0; i < typesOfLocals.length; i++) {
-                        typesOfLocals[i] = new StackMapType();
-                    }
+                    this.typesOfLocals = new StackMapType[typesOfLocalsSize];
                 }
             }
 
@@ -2211,69 +2231,147 @@ public class JavaClassFile {
                         .add("\"typesOfLocals\":\"" + toJsonArray(typesOfLocals))
                         .toString();
             }
-
-            public class StackMapType{
-                private byte type;
-                private int index = -1;
-                public String getTypeName() {
-                    switch (type){
-                        case Opcodes.ITEM_TOP:{
-                            return "top";
-                        }
-                        case Opcodes.ITEM_INTEGER:{
-                            return "integer";
-                        }
-                        case Opcodes.ITEM_FLOAT:{
-                            return "float";
-                        }
-                        case Opcodes.ITEM_DOUBLE:{
-                            return "double";
-                        }
-                        case Opcodes.ITEM_LONG:{
-                            return "long";
-                        }
-                        case Opcodes.ITEM_NULL:{
-                            return "null";
-                        }
-                        case Opcodes.ITEM_UNINITIALIZED_THIS:{
-                            return "uninitializedThis";
-                        }
-                        case Opcodes.ITEM_OBJECT:{
-                            return "object";
-                        }
-                        case Opcodes.ITEM_UNINITIALIZED:{
-                            return "uninitialized";
-                        }default:{
-                            return "unkown";
-                        }
-                    }
-                }
-
-                @Override
-                public String toString() {
-                    return new StringJoiner(",", "{", "}")
-                            .add("\"type\":\"" + type)
-                            .add("\"typeName\":\"" + getTypeName()+"\"")
-                            .add("\"index\":" + index)
-                            .toString();
-                }
-            }
         }
 
-        public class StackMapFrame{
-            private short frameTypeIndex;
-            public StackMapFrame(short frameTypeIndex) {
-                this.frameTypeIndex = frameTypeIndex;
+        public class StackMapType{
+            private byte type;
+            private int objectVariableIndex = -1;
+            private int offset = -1;
+
+            public StackMapType(ClassReader reader) {
+                type = reader.readInt8();
+                if (type == Opcodes.ITEM_OBJECT) {
+                    objectVariableIndex = reader.readInt16();
+                }else if(type == Opcodes.ITEM_UNINITIALIZED){
+                    offset = reader.readInt16();
+                }
             }
-            public short getFrameTypeIndex() {
-                return frameTypeIndex;
+
+            public String getTypeName() {
+                switch (type){
+                    case Opcodes.ITEM_TOP:{
+                        return "top";
+                    }
+                    case Opcodes.ITEM_INTEGER:{
+                        return "integer";
+                    }
+                    case Opcodes.ITEM_FLOAT:{
+                        return "float";
+                    }
+                    case Opcodes.ITEM_DOUBLE:{
+                        return "double";
+                    }
+                    case Opcodes.ITEM_LONG:{
+                        return "long";
+                    }
+                    case Opcodes.ITEM_NULL:{
+                        return "null";
+                    }
+                    case Opcodes.ITEM_UNINITIALIZED_THIS:{
+                        return "uninitializedThis";
+                    }
+                    case Opcodes.ITEM_OBJECT:{
+                        return "object";
+                    }
+                    case Opcodes.ITEM_UNINITIALIZED:{
+                        return "uninitialized";
+                    }default:{
+                        return "unkown";
+                    }
+                }
+            }
+
+            @Override
+            public String toString() {
+                StringJoiner joiner = new StringJoiner(",", "{", "}")
+                        .add("\"type\":" + type)
+                        .add("\"typeName\":\"" + getTypeName()+"\"");
+                if(type == Opcodes.ITEM_OBJECT){
+                    joiner.add("\"objectVariableIndex\":" + objectVariableIndex);
+                    joiner.add("\"objectVariable\":\"" + constantPool.getClassName(objectVariableIndex)+"\"");
+                }
+                if(type == Opcodes.ITEM_UNINITIALIZED){
+                    joiner.add("\"offset\":" + offset);
+                }
+                return joiner.toString();
+            }
+        }
+        public class StackMapFrame{
+            private short frameType;
+            private String frameTypeName;
+            private Integer offsetDelta;
+            private StackMapType[] stacks;
+            private StackMapType[] locals;
+            public StackMapFrame(ClassReader reader) {
+                frameType= reader.readUint8();
+                if (frameType >= 0 && frameType <= 63){
+                    frameTypeName = "same";
+                }else if (frameType >= 64 && frameType <= 127){
+                    frameTypeName = "same_locals_1_stack_item_frame";
+                    stacks = new StackMapType[]{new StackMapType(reader)};
+                }else if (frameType == 247){
+                    frameTypeName = "same_locals_1_stack_item_frame_extended";
+                    offsetDelta = reader.readUint16();
+                    stacks = new StackMapType[]{new StackMapType(reader)};
+                }else if (frameType >= 248 && frameType <= 250){
+                    frameTypeName = "chop_frame";
+                    offsetDelta = reader.readUint16();
+                }else if (frameType == 251){
+                    frameTypeName = "same_frame_extended";
+                    offsetDelta = reader.readUint16();
+                }else if (frameType >= 252 && frameType <=254){
+                    frameTypeName = "append_frame";
+                    offsetDelta = reader.readUint16();
+
+                    locals = new StackMapType[frameType - 251];
+                    for(int i=0; i<locals.length; i++){
+                        locals[i] = new StackMapType(reader);
+                    }
+                }else if (frameType == 255){
+                    frameTypeName = "full_frame";
+                    offsetDelta = reader.readUint16();
+
+                    locals = new StackMapType[reader.readUint16()];
+                    for(int i=0; i<locals.length; i++){
+                        locals[i] = new StackMapType(reader);
+                    }
+
+                    stacks = new StackMapType[reader.readUint16()];
+                    for(int i=0; i<stacks.length; i++){
+                        stacks[i] = new StackMapType(reader);
+                    }
+                }
+            }
+            public short getFrameType() {
+                return frameType;
+            }
+            public String getFrameTypeName() {
+                return frameTypeName;
+            }
+            public Integer getOffsetDelta() {
+                return offsetDelta;
+            }
+            public StackMapType[] getStacks() {
+                return stacks;
+            }
+            public StackMapType[] getLocals() {
+                return locals;
             }
             @Override
             public String toString() {
-                return new StringJoiner(",", "{", "}")
-                        .add("\"frameTypeIndex\":" + frameTypeIndex)
-                        .add("\"frameType\":" + constantPool.getConstantInfo(frameTypeIndex))
-                        .toString();
+                StringJoiner joiner = new StringJoiner(",", "{", "}")
+                        .add("\"frameType\":" + frameType)
+                        .add("\"frameTypeName\":\""+ frameTypeName+"\"");
+                if(offsetDelta != null){
+                    joiner.add("\"offsetDelta\":" + offsetDelta);
+                }
+                if(stacks != null) {
+                    joiner.add("\"stacks\":" + toJsonArray(stacks));
+                }
+                if(locals != null) {
+                    joiner.add("\"locals\":" + toJsonArray(locals));
+                }
+                return joiner.toString();
             }
         }
 
@@ -3088,7 +3186,7 @@ public class JavaClassFile {
         for(File file : new File(path).listFiles()){
             String fileName = file.getName();
             if(fileName.endsWith(".class")){
-                JavaClassFile javaClassFile = new JavaClassFile(path,fileName);
+                JavaClassFile javaClassFile = new JavaClassFile(path, fileName);
                 javaClassMap.put(fileName, javaClassFile);
             }
         }
