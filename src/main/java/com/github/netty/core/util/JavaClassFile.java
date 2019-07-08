@@ -109,7 +109,6 @@ public class JavaClassFile {
             members[i].descriptorIndex = reader.readUint16();
             members[i].name = constantPool.getUtf8(members[i].nameIndex);
             members[i].descriptorName = constantPool.getUtf8(members[i].descriptorIndex);
-
             members[i].attributes = readAttributes(reader);
         }
         return members;
@@ -119,19 +118,18 @@ public class JavaClassFile {
         int attributesCount = reader.readUint16();
         if(attributesCount == 0){
             return EMPTY_ATTRIBUTES;
+        }else {
+            Attribute[] attributes = new Attribute[attributesCount];
+            for (int i = 0; i < attributes.length; i++) {
+                int attrNameIndex = reader.readUint16();
+                attributes[i] = new Attribute(attrNameIndex, reader.readInt32(), reader);
+            }
+            return attributes;
         }
-        Attribute[] attributes = new Attribute[attributesCount];
-        for(int i = 0; i<attributes.length;i++) {
-            int attrNameIndex = reader.readUint16();
-            attributes[i] =  new Attribute(attrNameIndex,reader.readInt32(),reader);
-        }
-        return attributes;
     }
-
     public JavaVersion getMajorVersion() {
         return majorVersion;
     }
-
     public Attribute[] getAttributes() {
         return attributes;
     }
@@ -180,6 +178,7 @@ public class JavaClassFile {
         try {
             return new StringJoiner(",", "{", "}")
                     .add("\"majorVersion\":\"" + majorVersion + "\"")
+                    .add("\"minorVersion\":" + minorVersion)
                     .add("\"accessFlags\":\"" + Modifier.toString(accessFlags) + "\"")
                     .add("\"thisClassIndex\":" + thisClassIndex)
                     .add("\"thisClassName\":\"" + getThisClassName() + "\"")
@@ -206,7 +205,6 @@ public class JavaClassFile {
         if (array == null) {
             return "null";
         }
-
         if(array instanceof Object[]){
             StringJoiner joiner = new StringJoiner(",", "[", "]");
             for(Object e : (Object[]) array){
@@ -486,7 +484,7 @@ public class JavaClassFile {
         public class ConstantIntegerInfo implements ConstantInfo {
             private int value;
             private int index;
-            public ConstantIntegerInfo (int index,ClassReader reader) {
+            public ConstantIntegerInfo(int index,ClassReader reader) {
                 this.index = index;
                 this.value = reader.readInt32();
             }
@@ -632,7 +630,6 @@ public class JavaClassFile {
             public int length() {
                 return 2;
             }
-
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
@@ -663,7 +660,6 @@ public class JavaClassFile {
             public int length() {
                 return 0;
             }
-
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
@@ -682,11 +678,9 @@ public class JavaClassFile {
                 classIndex = reader.readUint16();
                 nameAndTypeIndex = reader.readUint16();
             }
-
             public String className() {
                 return getClassName(classIndex);
             }
-
             public ConstantNameAndTypeInfo nameAndType() {
                 return getNameAndType(nameAndTypeIndex);
             }
@@ -809,7 +803,6 @@ public class JavaClassFile {
             public int length() {
                 return 2;
             }
-
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
@@ -839,7 +832,6 @@ public class JavaClassFile {
             public int length() {
                 return 6;
             }
-
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
@@ -861,7 +853,6 @@ public class JavaClassFile {
                 bootstrapMethodAttrIndex = reader.readUint16();
                 nameAndTypeIndex = reader.readUint16();
             }
-
             public ConstantNameAndTypeInfo nameAndType() {
                 return getNameAndType(nameAndTypeIndex);
             }
@@ -873,7 +864,6 @@ public class JavaClassFile {
             public int length() {
                 return 8;
             }
-
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
