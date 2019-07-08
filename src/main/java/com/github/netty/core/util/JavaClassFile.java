@@ -286,7 +286,7 @@ public class JavaClassFile {
             constants = new ConstantInfo[constantPoolCount];
             // The constant_pool table is indexed from 1 to constant_pool_count - 1.
             for (int i = 1; i < constantPoolCount; i++) {
-                ConstantInfo constantInfo = readConstantInfo(reader);
+                ConstantInfo constantInfo = readConstantInfo(i,reader);
                 constants[i] = constantInfo;
                 // http://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.4.5
                 // All 8-byte constants take up two entries in the constant_pool table of the class file.
@@ -300,56 +300,56 @@ public class JavaClassFile {
             }
         }
 
-        private ConstantInfo readConstantInfo(ClassReader reader){
+        private ConstantInfo readConstantInfo(int index,ClassReader reader){
             int tag = reader.readUint8();
             ConstantInfo constantInfo;
             switch (tag) {
                 case ConstantInfo.CONSTANT_INTEGER:
-                    constantInfo = new ConstantIntegerInfo(reader);
+                    constantInfo = new ConstantIntegerInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_FLOAT:
-                    constantInfo = new ConstantFloatInfo(reader);
+                    constantInfo = new ConstantFloatInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_LONG:
-                    constantInfo = new ConstantLongInfo(reader);
+                    constantInfo = new ConstantLongInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_DOUBLE:
-                    constantInfo = new ConstantDoubleInfo(reader);
+                    constantInfo = new ConstantDoubleInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_UTF8:
-                    constantInfo = new ConstantUtf8Info(reader);
+                    constantInfo = new ConstantUtf8Info(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_STRING:
-                    constantInfo = new ConstantStringInfo(reader);
+                    constantInfo = new ConstantStringInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_CLASS:
-                    constantInfo = new ConstantClassInfo(reader);
+                    constantInfo = new ConstantClassInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_FIELD_REF:
-                    constantInfo = new ConstantFieldRefInfo(new ConstantMemberRefInfo(reader));
+                    constantInfo = new ConstantFieldRefInfo(index,new ConstantMemberRefInfo(reader));
                     break;
                 case ConstantInfo.CONSTANT_METHOD_REF:
-                    constantInfo = new ConstantMethodRefInfo(new ConstantMemberRefInfo(reader));
+                    constantInfo = new ConstantMethodRefInfo(index,new ConstantMemberRefInfo(reader));
                     break;
                 case ConstantInfo.CONSTANT_INTERFACE_METHOD_REF:
-                    constantInfo = new ConstantInterfaceMethodRefInfo(new ConstantMemberRefInfo(reader));
+                    constantInfo = new ConstantInterfaceMethodRefInfo(index,new ConstantMemberRefInfo(reader));
                     break;
                 case ConstantInfo.CONSTANT_NAME_AND_TYPE:
-                    constantInfo = new ConstantNameAndTypeInfo(reader);
+                    constantInfo = new ConstantNameAndTypeInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_METHOD_HANDLE:
-                    constantInfo = new ConstantMethodHandleInfo(reader);
+                    constantInfo = new ConstantMethodHandleInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_INVOKE_DYNAMIC:
-                    constantInfo = new ConstantInvokeDynamicInfo(reader);
+                    constantInfo = new ConstantInvokeDynamicInfo(index,reader);
                     break;
                 case ConstantInfo.CONSTANT_METHOD_TYPE:
-                    constantInfo = new ConstantMethodTypeInfo(reader);
+                    constantInfo = new ConstantMethodTypeInfo(index,reader);
                     break;
                 default: {
                     //用户可以自定义解析器
                     System.out.println("Unkown constant pool tag: " + tag);
-                    constantInfo = new ConstantUnkownInfo(tag);
+                    constantInfo = new ConstantUnkownInfo(index,tag);
                     break;
                 }
             }
@@ -412,7 +412,9 @@ public class JavaClassFile {
 
         public class ConstantStringInfo implements ConstantInfo {
             private int stringIndex;
-            public ConstantStringInfo(ClassReader reader) {
+            private int index;
+            public ConstantStringInfo(int index,ClassReader reader) {
+                this.index = index;
                 this.stringIndex = reader.readUint16();
             }
             public String value() {
@@ -434,6 +436,7 @@ public class JavaClassFile {
                 String replaceValue = value().replace("\"", "\\\\\"");
 
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"stringIndex\":"+stringIndex)
                         .add("\"value\":\""+replaceValue+"\"")
@@ -443,7 +446,9 @@ public class JavaClassFile {
 
         public class ConstantDoubleInfo implements ConstantInfo {
             private byte[] value;
-            public ConstantDoubleInfo (ClassReader reader) {
+            private int index;
+            public ConstantDoubleInfo(int index,ClassReader reader) {
+                this.index = index;
                 value = reader.readInt8s(8);
             }
 
@@ -470,6 +475,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"value\":"+toJsonArray(value))
@@ -479,8 +485,10 @@ public class JavaClassFile {
 
         public class ConstantIntegerInfo implements ConstantInfo {
             private int value;
-            public ConstantIntegerInfo (ClassReader reader) {
-                value = reader.readInt32();
+            private int index;
+            public ConstantIntegerInfo (int index,ClassReader reader) {
+                this.index = index;
+                this.value = reader.readInt32();
             }
             @Override
             public String name() {
@@ -496,6 +504,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"value\":"+value)
@@ -506,7 +515,9 @@ public class JavaClassFile {
 
         public class ConstantFloatInfo implements ConstantInfo {
             private int value;
-            public ConstantFloatInfo (ClassReader reader) {
+            private int index;
+            public ConstantFloatInfo(int index,ClassReader reader) {
+                this.index = index;
                 value = reader.readInt32();
             }
             public int value() {
@@ -523,6 +534,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"value\":"+value)
@@ -532,7 +544,9 @@ public class JavaClassFile {
 
         public class ConstantLongInfo implements ConstantInfo {
             private byte[] value;
-            public ConstantLongInfo (ClassReader reader) {
+            private int index;
+            public ConstantLongInfo(int index,ClassReader reader) {
+                this.index = index;
                 value = reader.readInt8s(8);
             }
 
@@ -559,6 +573,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"value\":"+toJsonArray(value))
@@ -569,7 +584,9 @@ public class JavaClassFile {
         public class ConstantUtf8Info implements ConstantInfo {
             private String value;
             private int length;
-            public ConstantUtf8Info (ClassReader reader) {
+            private int index;
+            public ConstantUtf8Info(int index,ClassReader reader) {
+                this.index = index;
                 length = reader.readUint16();
                 byte[] bytes = reader.readInt8s(length);
                 value = new String(bytes, StandardCharsets.UTF_8);
@@ -589,6 +606,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"value\":\""+value+"\"")
@@ -598,7 +616,9 @@ public class JavaClassFile {
 
         public class ConstantClassInfo implements ConstantInfo {
             private int nameIndex;
-            public ConstantClassInfo(ClassReader reader) {
+            private int index;
+            public ConstantClassInfo(int index,ClassReader reader) {
+                this.index = index;
                 this.nameIndex = reader.readUint16();;
             }
             public String value() {
@@ -616,6 +636,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"nameIndex\":"+nameIndex)
@@ -626,7 +647,9 @@ public class JavaClassFile {
 
         public class ConstantFieldRefInfo implements ConstantInfo {
             private ConstantMemberRefInfo memberRefInfo;
-            public ConstantFieldRefInfo(ConstantMemberRefInfo memberRefInfo) {
+            private int index;
+            public ConstantFieldRefInfo(int index,ConstantMemberRefInfo memberRefInfo) {
+                this.index = index;
                 this.memberRefInfo = memberRefInfo;
             }
             public ConstantMemberRefInfo value() {
@@ -644,6 +667,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"memberRef\":"+ memberRefInfo)
@@ -689,7 +713,9 @@ public class JavaClassFile {
 
         public class ConstantMethodRefInfo implements ConstantInfo {
             private ConstantMemberRefInfo memberRefInfo;
-            public ConstantMethodRefInfo(ConstantMemberRefInfo memberRefInfo) {
+            private int index;
+            public ConstantMethodRefInfo(int index,ConstantMemberRefInfo memberRefInfo) {
+                this.index = index;
                 this.memberRefInfo = memberRefInfo;
             }
             @Override
@@ -703,6 +729,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"memberRef\":"+ memberRefInfo)
@@ -712,7 +739,9 @@ public class JavaClassFile {
 
         public class ConstantInterfaceMethodRefInfo implements ConstantInfo {
             private ConstantMemberRefInfo memberRefInfo;
-            public ConstantInterfaceMethodRefInfo(ConstantMemberRefInfo memberRefInfo) {
+            private int index;
+            public ConstantInterfaceMethodRefInfo(int index,ConstantMemberRefInfo memberRefInfo) {
+                this.index = index;
                 this.memberRefInfo = memberRefInfo;
             }
             @Override
@@ -726,6 +755,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"memberRef\":"+ memberRefInfo)
@@ -736,8 +766,10 @@ public class JavaClassFile {
         public class ConstantNameAndTypeInfo implements ConstantInfo {
             private int nameIndex;
             private int descriptorIndex;
-            public ConstantNameAndTypeInfo (ClassReader reader) {
+            private int index;
+            public ConstantNameAndTypeInfo (int index,ClassReader reader) {
                 nameIndex = reader.readUint16();
+                this.index = index;
                 descriptorIndex = reader.readUint16();
             }
             @Override
@@ -751,19 +783,22 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"nameIndex\":"+nameIndex)
-                        .add("\"descriptorIndex\":"+descriptorIndex)
                         .add("\"name\":\""+getUtf8(nameIndex)+"\"")
                         .add("\"descriptor\":\""+getUtf8(descriptorIndex)+"\"")
+                        .add("\"nameIndex\":"+nameIndex)
+                        .add("\"descriptorIndex\":"+descriptorIndex)
                         .toString();
             }
         }
 
         public class ConstantMethodTypeInfo implements ConstantInfo {
             private int descriptorIndex;
-            public ConstantMethodTypeInfo (ClassReader reader) {
+            private int index;
+            public ConstantMethodTypeInfo (int index,ClassReader reader) {
+                this.index = index;
                 descriptorIndex = reader.readUint16();
             }
             @Override
@@ -778,6 +813,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"descriptorIndex\":"+descriptorIndex)
@@ -789,7 +825,9 @@ public class JavaClassFile {
         public class ConstantMethodHandleInfo implements ConstantInfo {
             private int referenceKind;
             private int referenceIndex;
-            public ConstantMethodHandleInfo (ClassReader reader) {
+            private int index;
+            public ConstantMethodHandleInfo (int index,ClassReader reader) {
+                this.index = index;
                 referenceKind = reader.readUint8();
                 referenceIndex = reader.readUint16();
             }
@@ -805,6 +843,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"referenceKind\":"+referenceKind)
@@ -816,7 +855,9 @@ public class JavaClassFile {
         public class ConstantInvokeDynamicInfo implements ConstantInfo {
             private int bootstrapMethodAttrIndex;
             private int nameAndTypeIndex;
-            public ConstantInvokeDynamicInfo (ClassReader reader) {
+            private int index;
+            public ConstantInvokeDynamicInfo (int index,ClassReader reader) {
+                this.index = index;
                 bootstrapMethodAttrIndex = reader.readUint16();
                 nameAndTypeIndex = reader.readUint16();
             }
@@ -836,6 +877,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"bootstrapMethodAttrIndex\":"+bootstrapMethodAttrIndex)
@@ -847,8 +889,9 @@ public class JavaClassFile {
 
         public class ConstantUnkownInfo implements ConstantInfo {
             private int tag;
-
-            public ConstantUnkownInfo(int tag) {
+            private int index;
+            public ConstantUnkownInfo(int index,int tag) {
+                this.index = index;
                 this.tag = tag;
             }
             @Override
@@ -862,6 +905,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",","{","}")
+                        .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"tag\":"+tag)
@@ -2125,13 +2169,13 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",", "{", "}")
+                        .add("\"index\":" + index)
                         .add("\"name\":\"" + name()+"\"")
                         .add("\"signatureName\":\"" + signatureName()+"\"")
-                        .add("\"nameIndex\":" + nameIndex)
-                        .add("\"signatureIndex\":" + signatureIndex)
                         .add("\"startPc\":" + startPc)
                         .add("\"length\":" + length)
-                        .add("\"index\":" + index)
+                        .add("\"nameIndex\":" + nameIndex)
+                        .add("\"signatureIndex\":" + signatureIndex)
                         .toString();
             }
 
@@ -3172,7 +3216,7 @@ public class JavaClassFile {
             for(int i=0; i<opcodes.length; i++){
                 int opcode = opcodes[i];
                 String name = OPCODE_NAMES[opcode];
-                joiner.add("{\"opcode\":"+opcode+",\"name\":\""+name+"\"}");
+                joiner.add("{\"index\":"+i+",\"opcode\":"+opcode+",\"name\":\""+name+"\"}");
             }
             return joiner.toString();
         }
