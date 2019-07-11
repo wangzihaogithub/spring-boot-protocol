@@ -175,39 +175,34 @@ public class JavaClassFile {
 
     @Override
     public String toString() {
-        try {
-            return new StringJoiner(",", "{", "}")
-                    .add("\"majorVersion\":\"" + majorVersion + "\"")
-                    .add("\"minorVersion\":" + minorVersion)
-                    .add("\"accessFlags\":\"" + Modifier.toString(accessFlags) + "\"")
-                    .add("\"thisClassIndex\":" + thisClassIndex)
-                    .add("\"thisClassName\":\"" + getThisClassName() + "\"")
-                    .add("\"superClassIndex\":" + superClassIndex)
-                    .add("\"superClassName\":\"" + getSuperClassName() + "\"")
-                    .add("\"interfaces\":" + toJsonArray(getInterfaceNames()))
-                    .add("\"fields\":" + toJsonArray(getFields()))
-                    .add("\"methods\":" + toJsonArray(getMethods()))
-                    .add("\"attributes\":" + toJsonArray(attributes))
-                    .add("\"constantPool\":" + toJsonArray(constantPool.constants))
-                    .add("\"constantPoolDataLength\":" +
-                            Arrays.stream(constantPool.constants)
-                                    .filter(Objects::nonNull)
-                                    .mapToInt(ConstantPool.ConstantInfo::length)
-                                    .sum())
-                    .toString();
-        }catch (Exception e){
-            e.printStackTrace();
-            return null;
-        }
+        return new StringJoiner(",", "{", "}")
+                .add("\"majorVersion\":\"" + majorVersion + "\"")
+                .add("\"minorVersion\":" + minorVersion)
+                .add("\"accessFlags\":\"" + Modifier.toString(accessFlags) + "\"")
+                .add("\"thisClassIndex\":" + thisClassIndex)
+                .add("\"thisClassName\":\"" + getThisClassName() + "\"")
+                .add("\"superClassIndex\":" + superClassIndex)
+                .add("\"superClassName\":\"" + getSuperClassName() + "\"")
+                .add("\"interfaces\":" + toJsonArray(getInterfaceNames()))
+                .add("\"fields\":" + toJsonArray(getFields()))
+                .add("\"methods\":" + toJsonArray(getMethods()))
+                .add("\"attributes\":" + toJsonArray(attributes))
+                .add("\"constantPool\":" + toJsonArray(constantPool.constants))
+                .add("\"constantPoolDataLength\":" +
+                        Arrays.stream(constantPool.constants)
+                                .filter(Objects::nonNull)
+                                .mapToInt(ConstantPool.ConstantInfo::length)
+                                .sum())
+                .toString();
     }
 
     public static String toJsonArray(Object array) {
         if (array == null) {
             return "null";
         }
-        if(array instanceof Object[]){
+        if (array instanceof Object[]) {
             StringJoiner joiner = new StringJoiner(",", "[", "]");
-            for(Object e : (Object[]) array){
+            for (Object e : (Object[]) array) {
                 if (e instanceof Number) {
                     joiner.add(e.toString());
                 } else if (e == null) {
@@ -222,19 +217,19 @@ public class JavaClassFile {
             }
             return joiner.toString();
         }
-        if(array instanceof byte[]){
+        if (array instanceof byte[]) {
             return Arrays.toString((byte[]) array);
         }
-        if(array instanceof int[]){
+        if (array instanceof int[]) {
             return Arrays.toString((int[]) array);
         }
-        if(array instanceof short[]){
+        if (array instanceof short[]) {
             return Arrays.toString((short[]) array);
         }
-        if(array instanceof long[]){
+        if (array instanceof long[]) {
             return Arrays.toString((long[]) array);
         }
-        if(array instanceof double[]){
+        if (array instanceof double[]) {
             return Arrays.toString((double[]) array);
         }
         return array.toString();
@@ -368,13 +363,23 @@ public class JavaClassFile {
         public ConstantNameAndTypeInfo getNameAndType(int index) {
             return (ConstantNameAndTypeInfo) getConstantInfo(index);
         }
-
         public String getClassName(int index) {
-            return ((ConstantClassInfo)getConstantInfo(index)).value();
+            return getUtf8(((ConstantClassInfo)getConstantInfo(index)).nameIndex);
         }
-
         public String getUtf8(int stringIndex) {
             return((ConstantUtf8Info)getConstantInfo(stringIndex)).value();
+        }
+        public String getClassNameForToString(int index) {
+            if(index == 0){
+                return null;
+            }
+            return getUtf8ForToString(((ConstantClassInfo)getConstantInfo(index)).nameIndex);
+        }
+        public String getUtf8ForToString(int stringIndex) {
+            if(stringIndex == 0){
+                return null;
+            }
+            return ((ConstantUtf8Info) getConstantInfo(stringIndex)).valueToString();
         }
         public int getInteger(int index) {
             return((ConstantIntegerInfo)getConstantInfo(index)).value();
@@ -431,13 +436,11 @@ public class JavaClassFile {
 
             @Override
             public String toString() {
-                String replaceValue = value().replace("\"", "\\\\\"");
-
                 return new StringJoiner(",","{","}")
                         .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"stringIndex\":"+stringIndex)
-                        .add("\"value\":\""+replaceValue+"\"")
+                        .add("\"value\":\""+ getUtf8ForToString(stringIndex)+"\"")
                         .toString();
             }
         }
@@ -581,6 +584,7 @@ public class JavaClassFile {
 
         public class ConstantUtf8Info implements ConstantInfo {
             private String value;
+            private String valueToString;
             private int length;
             private int index;
             public ConstantUtf8Info(int index,ClassReader reader) {
@@ -591,6 +595,17 @@ public class JavaClassFile {
             }
             public String value() {
                 return value;
+            }
+            private String valueToString() {
+                if(valueToString == null) {
+                    valueToString = value.replace("\"", "\\\"")
+                            .replace(":", "\\:")
+                            .replace("{", "\\{")
+                            .replace("}", "\\}")
+                            .replace("[", "\\[")
+                            .replace("]", "\\]");
+                }
+                return valueToString;
             }
             @Override
             public String name() {
@@ -607,7 +622,7 @@ public class JavaClassFile {
                         .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"value\":\""+value+"\"")
+                        .add("\"value\":\""+valueToString()+"\"")
                         .toString();
             }
         }
@@ -637,7 +652,7 @@ public class JavaClassFile {
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"nameIndex\":"+nameIndex)
-                        .add("\"name\":\""+getUtf8(nameIndex)+"\"")
+                        .add("\"name\":\""+ getUtf8ForToString(nameIndex)+"\"")
                         .toString();
             }
         }
@@ -780,8 +795,8 @@ public class JavaClassFile {
                         .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"name\":\""+getUtf8(nameIndex)+"\"")
-                        .add("\"descriptor\":\""+getUtf8(descriptorIndex)+"\"")
+                        .add("\"name\":\""+ getUtf8ForToString(nameIndex)+"\"")
+                        .add("\"descriptor\":\""+ getUtf8ForToString(descriptorIndex)+"\"")
                         .add("\"nameIndex\":"+nameIndex)
                         .add("\"descriptorIndex\":"+descriptorIndex)
                         .toString();
@@ -810,7 +825,7 @@ public class JavaClassFile {
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
                         .add("\"descriptorIndex\":"+descriptorIndex)
-                        .add("\"descriptor\":\""+getUtf8(descriptorIndex)+"\"")
+                        .add("\"descriptor\":\""+ getUtf8ForToString(descriptorIndex)+"\"")
                         .toString();
             }
         }
@@ -2160,8 +2175,8 @@ public class JavaClassFile {
             public String toString() {
                 return new StringJoiner(",", "{", "}")
                         .add("\"index\":" + index)
-                        .add("\"name\":\"" + name()+"\"")
-                        .add("\"signatureName\":\"" + signatureName()+"\"")
+                        .add("\"name\":\"" + constantPool.getUtf8ForToString(nameIndex)+"\"")
+                        .add("\"signatureName\":\"" + constantPool.getUtf8ForToString(signatureIndex)+"\"")
                         .add("\"startPc\":" + startPc)
                         .add("\"length\":" + length)
                         .add("\"nameIndex\":" + nameIndex)
@@ -2229,9 +2244,9 @@ public class JavaClassFile {
             }
             @Override
             public String toString() {
-                String innerName = innerName();
+                String innerName = constantPool.getUtf8ForToString(innerNameIndex);
                 String toStringInnerName = innerName == null? "null":"\"" + innerName+"\"";
-                String outerClassName = outerClassName();
+                String outerClassName = constantPool.getClassNameForToString(outerClassIndex);
                 String toStringOuterClassName = outerClassName == null? "null":"\"" + outerClassName+"\"";
 
                 return new StringJoiner(",", "{", "}")
@@ -2322,7 +2337,7 @@ public class JavaClassFile {
                         .add("\"typeName\":\"" + getTypeName()+"\"");
                 if(type == Opcodes.ITEM_OBJECT){
                     joiner.add("\"objectVariableIndex\":" + objectVariableIndex);
-                    joiner.add("\"objectVariable\":\"" + constantPool.getClassName(objectVariableIndex)+"\"");
+                    joiner.add("\"objectVariable\":\"" + constantPool.getClassNameForToString(objectVariableIndex)+"\"");
                 }
                 if(type == Opcodes.ITEM_UNINITIALIZED){
                     joiner.add("\"offset\":" + offset);
@@ -2522,7 +2537,7 @@ public class JavaClassFile {
             public String toString() {
                 return new StringJoiner(",", "{", "}")
                         .add("\"typeIndex\":" + typeIndex)
-                        .add("\"type\":\"" + constantPool.getUtf8(typeIndex) + "\"")
+                        .add("\"type\":\"" + constantPool.getUtf8ForToString(typeIndex) + "\"")
                         .add("\"elementValues\":" + toJsonArray(elementValues))
                         .toString();
             }
@@ -2538,7 +2553,7 @@ public class JavaClassFile {
                             .add("\"type\":\"" + getClass().getSimpleName()+"\"");
                     if(valueIndex != 0) {
                         joiner.add("\"valueIndex\":" + valueIndex);
-                        joiner.add("\"value\":\"" + constantPool.getUtf8(valueIndex) + "\"");
+                        joiner.add("\"value\":\"" + constantPool.getUtf8ForToString(valueIndex) + "\"");
                     }
                     toStringAppend(joiner);
                     return joiner.toString();
@@ -2551,7 +2566,7 @@ public class JavaClassFile {
                 @Override
                 public void toStringAppend(StringJoiner joiner) {
                     joiner.add("\"classInfoIndex\":" + classInfoIndex)
-                            .add("\"classInfo\":\"" + constantPool.getUtf8(classInfoIndex)+"\"");
+                            .add("\"classInfo\":\"" + constantPool.getUtf8ForToString(classInfoIndex)+"\"");
                 }
             }
             public class StringElementValue extends ElementValue{
@@ -2559,7 +2574,7 @@ public class JavaClassFile {
                 @Override
                 public void toStringAppend(StringJoiner joiner) {
                     joiner.add("\"constValueIndex\":" + constValueIndex)
-                            .add("\"constValue\":\"" + constantPool.getUtf8(constValueIndex)+"\"");
+                            .add("\"constValue\":\"" + constantPool.getUtf8ForToString(constValueIndex)+"\"");
                 }
             }
             public class ByteElementValue extends ElementValue{
@@ -2647,9 +2662,9 @@ public class JavaClassFile {
                 @Override
                 public void toStringAppend(StringJoiner joiner) {
                     joiner.add("\"constNameIndex\":" + constNameIndex)
-                            .add("\"constName\":\"" + constantPool.getUtf8(constNameIndex)+"\"")
+                            .add("\"constName\":\"" + constantPool.getUtf8ForToString(constNameIndex)+"\"")
                             .add("\"typeNameIndex\":" + typeNameIndex)
-                            .add("\"typeName\":\"" + constantPool.getUtf8(typeNameIndex)+"\"");
+                            .add("\"typeName\":\"" + constantPool.getUtf8ForToString(typeNameIndex)+"\"");
                 }
             }
         }
