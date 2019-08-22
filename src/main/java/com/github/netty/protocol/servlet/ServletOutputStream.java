@@ -10,6 +10,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.DefaultHttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.LastHttpContent;
@@ -357,7 +358,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             channel.writeAndFlush(nettyResponse, promise);
         }else {
             channel.write(nettyResponse,channel.voidPromise());
-            channel.write(content,channel.voidPromise());
+            channel.write(new DefaultHttpContent(content),channel.voidPromise());
             channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);
         }
     }

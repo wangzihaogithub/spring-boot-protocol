@@ -4,23 +4,24 @@ import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.protocol.servlet.*;
+import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.HttpConstants;
-import io.netty.handler.codec.http.HttpObjectAggregator;
-import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.handler.stream.ChunkedWriteHandler;
 
 import javax.net.ssl.SSLEngine;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Executor;
 
 /**
@@ -37,6 +38,12 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int maxInitialLineLength = 4096;
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 5 * 1024 * 1024;
+    private boolean enableContentCompression = false;
+    private int contentSizeThreshold = 8102;
+    private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
+            "text/css", "text/javascript", "application/javascript", "application/json",
+            "application/xml"};
+    private String[] compressionExcludedUserAgents = {};
 
     public HttpServletProtocol(Executor executor, ServletContext servletContext){
         this.servletContext = servletContext;
@@ -155,11 +162,44 @@ public class HttpServletProtocol extends AbstractProtocol {
         pipeline.addLast("HttpCodec", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
 
         //HTTP request aggregation, set the maximum message value to 5M
-        pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength));
+        pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength,false));
+
+        //Block transfer
+        if(enableContentCompression && pipeline.context(ChunkedWriteHandler.class) == null) {
+            pipeline.addAfter("HttpCodec", "ChunkedWrite",new ChunkedWriteHandler());
+        }
 
         //The content of compression
-//                    pipeline.addLast("ContentCompressor", new HttpContentCompressor());
-//                pipeline.addLast("ContentDecompressor", new HttpContentDecompressor());
+        if(enableContentCompression) {
+            pipeline.addLast("ContentCompressor", new HttpContentCompressor(6,15, 8, contentSizeThreshold){
+                @Override
+                protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
+                    if(compressionExcludedUserAgents.length > 0) {
+                        List<String> values = response.headers().getAll(HttpHeaderConstants.USER_AGENT);
+                        for (String excludedUserAgent : compressionExcludedUserAgents) {
+                            for(String value : values){
+                                if(value.contains(excludedUserAgent)){
+                                    return null;
+                                }
+                            }
+                        }
+                    }
+
+                    if(compressionMimeTypes.length > 0) {
+                        List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
+                        for (String mimeType : compressionMimeTypes) {
+                            for(String value : values){
+                                if(value.contains(mimeType)){
+                                    return super.beginEncode(response, acceptEncoding);
+                                }
+                            }
+                        }
+                    }
+                    return null;
+                }
+            });
+            pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
+        }
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);
@@ -205,5 +245,29 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public void setMaxChunkSize(int maxChunkSize) {
         this.maxChunkSize = maxChunkSize;
+    }
+
+    public void setCompressionMimeTypes(String[] compressionMimeTypes) {
+        if(compressionMimeTypes == null){
+            this.compressionMimeTypes = new String[0];
+        }else {
+            this.compressionMimeTypes = compressionMimeTypes;
+        }
+    }
+
+    public void setEnableContentCompression(boolean enableContentCompression) {
+        this.enableContentCompression = enableContentCompression;
+    }
+
+    public void setContentSizeThreshold(int contentSizeThreshold) {
+        this.contentSizeThreshold = contentSizeThreshold;
+    }
+
+    public void setCompressionExcludedUserAgents(String[] compressionExcludedUserAgents) {
+        if(compressionExcludedUserAgents == null){
+            this.compressionExcludedUserAgents = new String[0];
+        }else {
+            this.compressionExcludedUserAgents = compressionExcludedUserAgents;
+        }
     }
 }

@@ -29,7 +29,6 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import javax.annotation.Resource;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.security.KeyStore;
@@ -90,9 +89,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
         ServletContext servletContext = getServletContext();
-        InetAddress address = configurableWebServer.getAddress() == null? InetAddress.getLoopbackAddress():configurableWebServer.getAddress();
+        InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
         //Server port
-        servletContext.setServerAddress(new InetSocketAddress(address,configurableWebServer.getPort()));
+        servletContext.setServerAddress(address);
         servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
@@ -104,6 +103,11 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         for (MimeMappings.Mapping mapping :configurableWebServer.getMimeMappings()) {
             servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
         }
+
+        super.setEnableContentCompression(configurableWebServer.getCompression().getEnabled());
+        super.setContentSizeThreshold((int) configurableWebServer.getCompression().getMinResponseSize().toBytes());
+        super.setCompressionMimeTypes(configurableWebServer.getCompression().getMimeTypes().clone());
+        super.setCompressionExcludedUserAgents(configurableWebServer.getCompression().getExcludedUserAgents());
 
         //Error page
         for(ErrorPage errorPage : configurableWebServer.getErrorPages()) {

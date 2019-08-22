@@ -9,6 +9,7 @@ import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.springboot.NettyProperties;
+import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.FastThreadLocal;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,6 +41,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
             return new DefaultNettyRpcRequest();
         }
     };
+    private int timeout = 1000;
 
     NettyRpcClientProxy(String serviceId, String serviceName, Class interfaceClass, NettyProperties properties, NettyRpcLoadBalanced loadBalanced) {
         this.serviceId = serviceId;
@@ -75,10 +77,20 @@ public class NettyRpcClientProxy implements InvocationHandler {
         InvocationHandler handler = rpcClient.getRpcInstance(serviceName);
         if(handler == null){
             List<Class<?extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClasses();
-            handler = rpcClient.newRpcInstance(interfaceClass, properties.getNrpc().getClientTimeout(),
+            handler = rpcClient.newRpcInstance(interfaceClass, timeout,
                     serviceName, new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses));
         }
         return handler.invoke(proxy,method,args);
+    }
+
+    public int getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(int timeout) {
+        if(timeout > 0) {
+            this.timeout = timeout;
+        }
     }
 
     protected List<Class<?extends Annotation>> getParameterAnnotationClasses(){
@@ -129,12 +141,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
                     rpcClient.setIoThreadCount(nrpc.getClientIoThreads());
                     rpcClient.setIoRatio(nrpc.getClientIoRatio());
                     rpcClient.run();
-                    rpcClient.connect().syncUninterruptibly();
                     if (nrpc.isClientAutoReconnect()) {
                         rpcClient.enableAutoReconnect(nrpc.getClientHeartInterval(), TimeUnit.SECONDS,
                                 null, nrpc.isClientEnableHeartLog());
                     }
                     CLIENT_MAP.put(address, rpcClient);
+                    rpcClient.connect().ifPresent(ChannelFuture::syncUninterruptibly);
                 }
             }
         }
@@ -150,10 +162,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
         RpcClient rpcClient = new RpcClient("Ping-",address);
         rpcClient.setIoThreadCount(1);
         rpcClient.run();
-        rpcClient.connect().syncUninterruptibly();
-        byte[] response = rpcClient.getRpcCommandService().ping();
-        rpcClient.stop();
-        requestThreadLocal.remove();
+        rpcClient.connect().ifPresent(future->{
+            future.syncUninterruptibly();
+            byte[] response = rpcClient.getRpcCommandService().ping();
+            rpcClient.stop();
+            requestThreadLocal.remove();
+        });
     }
 
     private InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){

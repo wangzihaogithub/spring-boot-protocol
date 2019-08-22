@@ -30,7 +30,7 @@ public class MqttIdleTimeoutChannelHandler extends AbstractChannelHandler {
 
     @Override
     protected void onReaderIdle(ChannelHandlerContext ctx) {
-        logger.info("Firing channel inactive event. MqttClientId = {}.", MqttUtil.clientID(ctx.channel()));
+        logger.trace("Firing channel inactive event. MqttClientId = {}.", MqttUtil.clientID(ctx.channel()));
         // fire a close that then fire channelInactive to trigger publish of Will
         ctx.close().addListener(CLOSE_ON_FAILURE);
     }

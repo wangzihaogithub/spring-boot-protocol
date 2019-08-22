@@ -12,6 +12,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.net.InetSocketAddress;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -30,6 +31,7 @@ public abstract class AbstractNettyClient{
     private InetSocketAddress remoteAddress;
     private boolean enableEpoll;
     private SocketChannel channel;
+    private AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private AtomicBoolean running = new AtomicBoolean(false);
@@ -131,17 +133,20 @@ public abstract class AbstractNettyClient{
         return getActiveSocketChannelCount() > 0;
     }
 
-    public ChannelFuture connect(){
-        return bootstrap.connect()
-                .addListener((ChannelFutureListener) future -> {
-            if(future.isSuccess()){
-                AbstractNettyClient.this.channel = (SocketChannel) future.channel();
-            }else {
-                future.channel().close();
-            }
-
-            connectAfter(future);
-        });
+    public Optional<ChannelFuture> connect(){
+        if(connectIngFlag.compareAndSet(false,true)) {
+            return Optional.of(bootstrap.connect()
+                    .addListener((ChannelFutureListener) future -> {
+                        connectIngFlag.set(false);
+                        if (future.isSuccess()) {
+                            AbstractNettyClient.this.channel = (SocketChannel) future.channel();
+                        } else {
+                            future.channel().close();
+                        }
+                        connectAfter(future);
+                    }));
+        }
+        return Optional.empty();
     }
 
     public SocketChannel getChannel() {

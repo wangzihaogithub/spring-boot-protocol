@@ -19,6 +19,7 @@ import org.springframework.http.server.reactive.ServletHttpHandlerAdapter;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
@@ -67,7 +68,7 @@ public class NettyTcpServerFactory
             }
 
             //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress();
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
             return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
@@ -100,7 +101,7 @@ public class NettyTcpServerFactory
             }
 
             //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress();
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
             return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
@@ -137,8 +138,14 @@ public class NettyTcpServerFactory
         return serverListeners;
     }
 
-    public InetSocketAddress getServerSocketAddress() {
-        InetAddress address = getAddress();
-        return new InetSocketAddress(address == null? InetAddress.getLoopbackAddress():address,getPort());
+    public static InetSocketAddress getServerSocketAddress(InetAddress address,int port) {
+        if(address == null) {
+            try {
+                address = InetAddress.getByName("0.0.0.0");
+            } catch (UnknownHostException e) {
+                address = InetAddress.getLoopbackAddress();
+            }
+        }
+        return new InetSocketAddress(address,port);
     }
 }

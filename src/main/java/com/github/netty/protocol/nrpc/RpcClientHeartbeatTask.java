@@ -5,6 +5,7 @@ import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
+import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -12,6 +13,7 @@ import io.netty.channel.ChannelFutureListener;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledFuture;
@@ -91,26 +93,27 @@ public class RpcClientHeartbeatTask implements Runnable{
     /**
      * reconnection
      * @param causeMessage Reconnection reason
-     * @return ChannelFuture
      */
-    private ChannelFuture reconnect(String causeMessage){
+    private void reconnect(String causeMessage) throws InterruptedException {
         ++reconnectCount;
-        return rpcClient
-                .connect()
-                .addListener((ChannelFutureListener) future -> {
-                    boolean success = future.isSuccess();
-                    logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
-                            success? "success! ":"fail",
-                            reconnectCount,
-                            rpcClient.getActiveSocketChannelCount(),
-                            causeMessage);
-                    if (success) {
-                        reconnectCount = 0;
-                        if(reconnectSuccessHandler != null){
-                            reconnectSuccessHandler.accept(rpcClient);
-                        }
+        Optional<ChannelFuture> optional = rpcClient
+                .connect();
+        if(optional.isPresent()){
+            optional.get().addListener((ChannelFutureListener) future -> {
+                boolean success = future.isSuccess();
+                logger.info("Rpc reconnect={}, failCount={}, currentChannelCount={}, info={}",
+                        success? "success! ":"fail",
+                        reconnectCount,
+                        rpcClient.getActiveSocketChannelCount(),
+                        causeMessage);
+                if (success) {
+                    reconnectCount = 0;
+                    if(reconnectSuccessHandler != null){
+                        reconnectSuccessHandler.accept(rpcClient);
                     }
-                });
+                }
+            }).sync();
+        }
     }
 
     @Override
@@ -125,12 +128,14 @@ public class RpcClientHeartbeatTask implements Runnable{
             if(cause instanceof RpcConnectException
                     || cause instanceof RpcTimeoutException){
                 try {
-                    reconnect(e.getMessage()).sync();
+                    reconnect(e.getMessage());
                 } catch (InterruptedException ex) {
-                    //
+                    throw new RuntimeException(ex.getMessage(),ex);
                 }
+            }else if(cause instanceof InterruptedException){
+                throw new RuntimeException(cause.getMessage(),cause);
             }
-        } catch (Exception e){
+        } catch (RpcException e){
             logger.error(e.getMessage(),e);
         }
     }

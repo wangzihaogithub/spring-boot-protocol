@@ -237,11 +237,6 @@ public class NettyProperties implements Serializable{
         private int clientIoRatio = 100;
 
         /**
-         * RPC客户端-RPC同步调用超时时间
-         */
-        private int clientTimeout = 1000;
-
-        /**
          * RPC客户端-是否RPC开启心跳日志
          */
         private boolean clientEnableHeartLog = false;
@@ -274,14 +269,6 @@ public class NettyProperties implements Serializable{
 
         public void setClientIoRatio(int clientIoRatio) {
             this.clientIoRatio = clientIoRatio;
-        }
-
-        public int getClientTimeout() {
-            return clientTimeout;
-        }
-
-        public void setClientTimeout(int clientTimeout) {
-            this.clientTimeout = clientTimeout;
         }
 
         public boolean isClientEnableHeartLog() {

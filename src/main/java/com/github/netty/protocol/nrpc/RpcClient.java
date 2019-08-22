@@ -200,9 +200,11 @@ public class RpcClient extends AbstractNettyClient{
     public SocketChannel getChannel() {
         SocketChannel socketChannel = super.getChannel();
         if(socketChannel == null){
+            connect();
             throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no connect");
         }
         if(!socketChannel.isActive()){
+            connect();
             throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no active");
         }
         if(!socketChannel.isWritable()){
@@ -331,7 +333,7 @@ public class RpcClient extends AbstractNettyClient{
                     future.done(rpcResponse);
                 }
             }else {
-                logger.trace("client received packet={}",String.valueOf(packet));
+                logger.debug("client received packet={}",String.valueOf(packet));
                 packet.recycle();
             }
         }
