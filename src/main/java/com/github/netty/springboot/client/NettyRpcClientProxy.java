@@ -7,7 +7,6 @@ import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
-import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.FastThreadLocal;
@@ -151,23 +150,6 @@ public class NettyRpcClientProxy implements InvocationHandler {
             }
         }
         return rpcClient;
-    }
-
-    /**
-     * Ping creates a new client and destroys it
-     * @throws RpcException RpcException
-     */
-    public void pingOnceAfterDestroy() throws RpcException {
-        InetSocketAddress address = chooseAddress(requestThreadLocal.get());
-        RpcClient rpcClient = new RpcClient("Ping-",address);
-        rpcClient.setIoThreadCount(1);
-        rpcClient.run();
-        rpcClient.connect().ifPresent(future->{
-            future.syncUninterruptibly();
-            byte[] response = rpcClient.getRpcCommandService().ping();
-            rpcClient.stop();
-            requestThreadLocal.remove();
-        });
     }
 
     private InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){
