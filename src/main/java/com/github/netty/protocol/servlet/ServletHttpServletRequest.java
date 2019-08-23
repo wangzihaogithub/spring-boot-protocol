@@ -1043,7 +1043,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             try {
                 decodeBody(true);
             } catch (CodecException e) {
-                Throwable cause = e.getCause();
+                Throwable cause = getCause(e);
                 if(cause instanceof IOException){
                     setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
                     setAttribute(RequestDispatcher.ERROR_EXCEPTION,cause);
@@ -1080,6 +1080,19 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             }
         }
         return fileUploadList;
+    }
+
+    private Throwable getCause(Throwable throwable){
+        if(throwable.getCause() == null){
+            return null;
+        }
+        while (true){
+            Throwable cause = throwable;
+            throwable = throwable.getCause();
+            if(throwable == null){
+                return cause;
+            }
+        }
     }
 
     @Override

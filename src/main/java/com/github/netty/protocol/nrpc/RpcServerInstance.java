@@ -60,7 +60,7 @@ public class RpcServerInstance {
             return rpcResponse;
         }catch (Throwable t){
             String message = getMessage(t);
-            Throwable cause = t.getCause();
+            Throwable cause = getCause(t);
             if(cause != null){
                 message = message + ". cause=" + getMessage(cause);
             }
@@ -69,6 +69,19 @@ public class RpcServerInstance {
             rpcResponse.setMessage(message);
             rpcResponse.setData(null);
             return rpcResponse;
+        }
+    }
+
+    private Throwable getCause(Throwable throwable){
+        if(throwable.getCause() == null){
+            return null;
+        }
+        while (true){
+            Throwable cause = throwable;
+            throwable = throwable.getCause();
+            if(throwable == null){
+                return cause;
+            }
         }
     }
 
