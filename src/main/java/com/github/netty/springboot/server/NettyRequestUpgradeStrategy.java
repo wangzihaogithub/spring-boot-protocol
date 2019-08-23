@@ -39,15 +39,15 @@ import java.util.Map;
  * Websocket version number: the version number of draft 8 to draft 12 is 8, and the version number of draft 13 and later is the same as the draft number
  * @author wangzihao
  */
-public class HttpServletWebsocketUpgradeStrategy extends AbstractStandardUpgradeStrategy {
+public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     private int maxFramePayloadLength;
 
-    public HttpServletWebsocketUpgradeStrategy() {
+    public NettyRequestUpgradeStrategy() {
         this(64 * 1024);
     }
 
-    public HttpServletWebsocketUpgradeStrategy(int maxFramePayloadLength) {
+    public NettyRequestUpgradeStrategy(int maxFramePayloadLength) {
         this.maxFramePayloadLength = maxFramePayloadLength;
     }
 
