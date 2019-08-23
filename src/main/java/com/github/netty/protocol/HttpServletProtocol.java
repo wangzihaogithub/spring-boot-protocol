@@ -198,8 +198,8 @@ public class HttpServletProtocol extends AbstractProtocol {
                     return null;
                 }
             });
-            pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
         }
+        pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);
