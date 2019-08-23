@@ -28,11 +28,11 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     private List<WebSocketServerExtensionHandshaker> extensionHandshakers =
             Arrays.asList(new PerMessageDeflateServerExtensionHandshaker(),new DeflateFrameServerExtensionHandshaker());
 
-    WebSocketServerHandshaker13Extension(String webSocketURL, String subprotocols, boolean allowExtensions, int maxFramePayloadLength) {
+    public WebSocketServerHandshaker13Extension(String webSocketURL, String subprotocols, boolean allowExtensions, int maxFramePayloadLength) {
         super(webSocketURL, subprotocols, allowExtensions, maxFramePayloadLength);
     }
 
-    WebSocketServerHandshaker13Extension(String webSocketURL, String subprotocols, boolean allowExtensions, int maxFramePayloadLength, boolean allowMaskMismatch) {
+    public WebSocketServerHandshaker13Extension(String webSocketURL, String subprotocols, boolean allowExtensions, int maxFramePayloadLength, boolean allowMaskMismatch) {
         super(webSocketURL, subprotocols, allowExtensions, maxFramePayloadLength, allowMaskMismatch);
     }
 

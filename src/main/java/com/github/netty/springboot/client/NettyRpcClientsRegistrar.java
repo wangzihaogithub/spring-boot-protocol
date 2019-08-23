@@ -99,7 +99,7 @@ public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
         String serviceId = resolve((String) nettyRpcClientAttributes.get("serviceId"));
         int timeout = (int)nettyRpcClientAttributes.get("timeout");
 
-        beanDefinition.setLazyInit(lazyAttributes == null && Boolean.TRUE.equals(lazyAttributes.get("value")));
+        beanDefinition.setLazyInit(lazyAttributes == null || Boolean.TRUE.equals(lazyAttributes.get("value")));
         beanDefinition.setPrimary((Boolean)nettyRpcClientAttributes.get("primary"));
         ((AbstractBeanDefinition)beanDefinition).setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
         ((AbstractBeanDefinition)beanDefinition).setInstanceSupplier(newInstanceSupplier(beanClass,serviceId,timeout));

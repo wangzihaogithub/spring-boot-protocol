@@ -1,10 +1,14 @@
-package com.github.netty.protocol.servlet.websocket;
+package com.github.netty.springboot.server;
 
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.core.util.Wrapper;
 import com.github.netty.protocol.servlet.ServletChannelHandler;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.websocket.WebSocketMessageToRunnable;
+import com.github.netty.protocol.servlet.websocket.WebSocketServerContainer;
+import com.github.netty.protocol.servlet.websocket.WebSocketServerHandshaker13Extension;
+import com.github.netty.protocol.servlet.websocket.WebSocketSession;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -35,15 +39,15 @@ import java.util.Map;
  * Websocket version number: the version number of draft 8 to draft 12 is 8, and the version number of draft 13 and later is the same as the draft number
  * @author wangzihao
  */
-public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
+public class HttpServletWebsocketUpgradeStrategy extends AbstractStandardUpgradeStrategy {
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     private int maxFramePayloadLength;
 
-    public NettyRequestUpgradeStrategy() {
+    public HttpServletWebsocketUpgradeStrategy() {
         this(64 * 1024);
     }
 
-    public NettyRequestUpgradeStrategy(int maxFramePayloadLength) {
+    public HttpServletWebsocketUpgradeStrategy(int maxFramePayloadLength) {
         this.maxFramePayloadLength = maxFramePayloadLength;
     }
 

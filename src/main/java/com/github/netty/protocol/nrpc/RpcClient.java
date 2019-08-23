@@ -351,14 +351,8 @@ public class RpcClient extends AbstractNettyClient{
         private int timeout;
         private String serviceName;
         private Map<String, RpcMethod> rpcMethodMap;
-        private FastThreadLocal<byte[]> requestIdBytesLocal = new FastThreadLocal<byte[]>(){
-            @Override
-            protected byte[] initialValue() throws Exception {
-                return new byte[INT_LENGTH];
-            }
-        };
 
-        public Sender(int timeout, String serviceName, Map<String, RpcMethod> rpcMethodMap) {
+        Sender(int timeout, String serviceName, Map<String, RpcMethod> rpcMethodMap) {
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
             this.serviceName = serviceName;

@@ -133,31 +133,37 @@ public class WebSocketSession implements Session {
 
     @Override
     public Set<MessageHandler> getMessageHandlers() {
+        checkState();
         return messageHandlers;
     }
 
     @Override
     public void removeMessageHandler(MessageHandler listener) {
+        checkState();
         messageHandlers.remove(listener);
     }
 
     @Override
     public String getProtocolVersion() {
+        checkState();
         return webSocketServerHandshaker.version().toHttpHeaderValue();
     }
 
     @Override
     public String getNegotiatedSubprotocol() {
+        checkState();
         return String.join(",",webSocketServerHandshaker.subprotocols());
     }
 
     @Override
     public List<Extension> getNegotiatedExtensions() {
+        checkState();
         return negotiatedExtensions;
     }
 
     @Override
     public boolean isSecure() {
+        checkState();
         return "wss".equalsIgnoreCase(requestUri.getScheme());
     }
 
@@ -168,36 +174,43 @@ public class WebSocketSession implements Session {
 
     @Override
     public long getMaxIdleTimeout() {
+        checkState();
         return maxIdleTimeout;
     }
 
     @Override
     public void setMaxIdleTimeout(long timeout) {
+        checkState();
         this.maxIdleTimeout = timeout;
     }
 
     @Override
     public void setMaxBinaryMessageBufferSize(int max) {
+        checkState();
         this.maxBinaryMessageBufferSize = max;
     }
 
     @Override
     public int getMaxBinaryMessageBufferSize() {
+        checkState();
         return maxBinaryMessageBufferSize;
     }
 
     @Override
     public void setMaxTextMessageBufferSize(int max) {
+        checkState();
         this.maxTextMessageBufferSize = max;
     }
 
     @Override
     public int getMaxTextMessageBufferSize() {
+        checkState();
         return maxTextMessageBufferSize;
     }
 
     @Override
     public RemoteEndpoint.Async getAsyncRemote() {
+        checkState();
         if(asyncRemoteEndpoint == null){
             synchronized (this){
                 if(asyncRemoteEndpoint == null){
@@ -210,6 +223,7 @@ public class WebSocketSession implements Session {
 
     @Override
     public RemoteEndpoint.Basic getBasicRemote() {
+        checkState();
         if(basicRemoteEndpoint == null){
             synchronized (this){
                 if(basicRemoteEndpoint == null){
@@ -247,31 +261,37 @@ public class WebSocketSession implements Session {
 
     @Override
     public URI getRequestURI() {
+        checkState();
         return requestUri;
     }
 
     @Override
     public Map<String, List<String>> getRequestParameterMap() {
+        checkState();
         return requestParameterMap;
     }
 
     @Override
     public String getQueryString() {
+        checkState();
         return queryString;
     }
 
     @Override
     public Map<String, String> getPathParameters() {
+        checkState();
         return pathParameters;
     }
 
     @Override
     public Map<String, Object> getUserProperties() {
+        checkState();
         return userProperties;
     }
 
     @Override
     public Principal getUserPrincipal() {
+        checkState();
         return userPrincipal;
     }
 
@@ -282,6 +302,7 @@ public class WebSocketSession implements Session {
 
     @Override
     public void addMessageHandler(MessageHandler handler) throws IllegalStateException {
+        checkState();
         messageHandlers.add(handler);
     }
 

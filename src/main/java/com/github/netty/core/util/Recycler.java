@@ -1,7 +1,6 @@
 package com.github.netty.core.util;
 
 import com.github.netty.core.CoreConstants;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
