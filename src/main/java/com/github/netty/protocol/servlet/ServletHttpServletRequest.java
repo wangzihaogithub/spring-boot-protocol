@@ -551,7 +551,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public ServletHttpSession getSession(boolean create) {
-        ServletHttpSession httpSession = httpServletObject.getSession();
+        ServletHttpSession httpSession = httpServletObject.getHttpSession();
         if (httpSession != null && httpSession.isValid()) {
             return httpSession;
         }
@@ -582,7 +582,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         httpSession.wrap(session);
         httpSession.access();
         httpSession.setNewSessionFlag(newSessionFlag);
-        httpServletObject.setSession(httpSession);
+        httpServletObject.setHttpSession(httpSession);
         return httpSession;
     }
 

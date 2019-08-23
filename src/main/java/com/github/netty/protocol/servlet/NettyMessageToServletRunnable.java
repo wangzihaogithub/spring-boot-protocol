@@ -46,6 +46,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     public static class HttpRunnable implements Runnable,Recyclable {
         private ServletHttpObject httpServletObject;
 
+        public ServletHttpObject getHttpServletObject() {
+            return httpServletObject;
+        }
+
+        public void setHttpServletObject(ServletHttpObject httpServletObject) {
+            this.httpServletObject = httpServletObject;
+        }
+
         @Override
         public void run() {
             ServletHttpServletRequest httpServletRequest = httpServletObject.getHttpServletRequest();

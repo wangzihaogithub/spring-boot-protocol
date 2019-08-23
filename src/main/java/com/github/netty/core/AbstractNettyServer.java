@@ -152,9 +152,7 @@ public abstract class AbstractNettyServer implements Runnable{
         }
         boss.shutdownGracefully().addListener((future)->{
             if (worker != null) {
-                worker.shutdownGracefully().addListener((workerFuture->{
-                    stopAfter(workerFuture.cause());
-                }));
+                worker.shutdownGracefully().addListener(this::stopAfter);
             }
         });
     }
@@ -170,12 +168,13 @@ public abstract class AbstractNettyServer implements Runnable{
         return serverAddress.getPort();
     }
 
-    protected void stopAfter(Throwable cause){
+    protected void stopAfter(Future future){
         //有异常抛出
+        Throwable cause = future.cause();
         if(cause != null){
             cause.printStackTrace();
         }
-        logger.info(name + " stop [port = "+getPort()+" , cause = "+cause+"]...");
+        logger.info("{} stop [port = {} , cause = {}]...",getName(),getPort(),cause);
     }
 
     protected void startAfter(ChannelFuture future){

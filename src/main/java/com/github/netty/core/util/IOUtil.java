@@ -269,17 +269,19 @@ public class IOUtil {
     }
 
     public static String readInput(InputStream inputStream,String encode){
+        StringBuilder sb = RecyclableUtil.newStringBuilder();
         try {
-            StringBuilder sb = RecyclableUtil.newStringBuilder();
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, encode));
             String line;
             while ((line = reader.readLine()) != null) {
                 sb.append(line);
             }
-            return sb.toString();
+            String value = sb.toString();
+            return value;
         }catch (Exception e){
             return null;
         }finally {
+            sb.setLength(0);
             if(inputStream != null){
                 try {
                     inputStream.close();

@@ -8,6 +8,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
 
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Servlet processor (portal to the server)
@@ -16,11 +17,11 @@ import java.util.concurrent.Executor;
  */
 @ChannelHandler.Sharable
 public class ServletChannelHandler extends AbstractChannelHandler<Object,Object> {
-    private Executor dispatcherExecutor;
+    private Supplier<Executor> dispatcherExecutor;
     private NettyMessageToServletRunnable httpMessageToServletRunnable;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
 
-    public ServletChannelHandler(ServletContext servletContext, Executor dispatcherExecutor) {
+    public ServletChannelHandler(ServletContext servletContext, Supplier<Executor> dispatcherExecutor) {
         super(false);
         this.httpMessageToServletRunnable = new NettyMessageToServletRunnable(servletContext);
         this.dispatcherExecutor = dispatcherExecutor;
@@ -35,11 +36,23 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
         }
 
         Runnable task = messageToRunnable.newRunnable(context,msg);
-        if(dispatcherExecutor != null){
-            dispatcherExecutor.execute(task);
+        Executor executor = getExecutor();
+        if(executor != null) {
+            executor.execute(task);
         }else {
             task.run();
         }
+    }
+
+    private Executor getExecutor(){
+        if(dispatcherExecutor != null){
+            try {
+                return dispatcherExecutor.get();
+            }catch (Exception e){
+                logger.warn("get dispatcherExecutor failure.  msg = {}",e.getMessage(),e);
+            }
+        }
+        return null;
     }
 
     @Override
@@ -59,7 +72,7 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
      * @param ctx ctx
      */
     protected void saveAndClearSession(ChannelHandlerContext ctx){
-        ServletHttpSession httpSession = ServletHttpObject.getSession(ctx);
+        ServletHttpSession httpSession = ServletHttpObject.getHttpSession(ctx);
         if(httpSession != null) {
             if (httpSession.isValid()) {
                 httpSession.save();

@@ -23,6 +23,7 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * HttpServlet protocol registry
@@ -45,7 +46,7 @@ public class HttpServletProtocol extends AbstractProtocol {
             "application/xml"};
     private String[] compressionExcludedUserAgents = {};
 
-    public HttpServletProtocol(Executor executor, ServletContext servletContext){
+    public HttpServletProtocol(Supplier<Executor> executor, ServletContext servletContext){
         this.servletContext = servletContext;
         this.servletHandler = new ServletChannelHandler(servletContext,executor);
     }
@@ -172,14 +173,25 @@ public class HttpServletProtocol extends AbstractProtocol {
         //The content of compression
         if(enableContentCompression) {
             pipeline.addLast("ContentCompressor", new HttpContentCompressor(6,15, 8, contentSizeThreshold){
+                private ChannelHandlerContext ctx;
+
+                @Override
+                public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+                    this.ctx = ctx;
+                    super.handlerAdded(ctx);
+                }
+
                 @Override
                 protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
                     if(compressionExcludedUserAgents.length > 0) {
-                        List<String> values = response.headers().getAll(HttpHeaderConstants.USER_AGENT);
-                        for (String excludedUserAgent : compressionExcludedUserAgents) {
-                            for(String value : values){
-                                if(value.contains(excludedUserAgent)){
-                                    return null;
+                        ServletHttpObject httpObject = ServletHttpObject.getHttpObject(ctx);
+                        if(httpObject != null) {
+                            List<String> values = httpObject.getHttpServletRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
+                            for (String excludedUserAgent : compressionExcludedUserAgents) {
+                                for (String value : values) {
+                                    if (value.contains(excludedUserAgent)) {
+                                        return null;
+                                    }
                                 }
                             }
                         }

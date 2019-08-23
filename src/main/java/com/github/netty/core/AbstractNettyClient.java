@@ -180,7 +180,7 @@ public abstract class AbstractNettyClient{
             future.cause().printStackTrace();
         }
 
-        logger.info(name + " stop [remoteAddress = "+remoteAddress+"]...");
+        logger.info("{} stop [remoteAddress = {}]...",getName(),getRemoteAddress());
     }
 
     public String getName() {
@@ -192,7 +192,8 @@ public abstract class AbstractNettyClient{
     }
 
     protected void connectAfter(ChannelFuture future){
-        logger.info(name + " connect [activeSocketConnectCount = "+ getActiveSocketChannelCount()+", remoteAddress = "+remoteAddress+"]...");
+        logger.info("{} connect [activeSocketConnectCount = {}, remoteAddress = {}]...",
+                getName(),getActiveSocketChannelCount(),getRemoteAddress());
     }
 
     public int getActiveSocketChannelCount(){

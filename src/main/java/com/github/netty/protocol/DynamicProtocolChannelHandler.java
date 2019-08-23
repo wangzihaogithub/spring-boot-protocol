@@ -45,11 +45,11 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     private Semaphore maxConnectionSemaphore;
     private int maxConnections;
 
-    public DynamicProtocolChannelHandler(Collection<ProtocolHandler> protocolHandlers, boolean enableTcpPackageLog, int maxConnections) {
+    public DynamicProtocolChannelHandler(Collection<ProtocolHandler> protocolHandlers, boolean enableTcpPackageLog, LogLevel logLevel,int maxConnections) {
         super(false);
         this.protocolHandlers = protocolHandlers;
         if(enableTcpPackageLog) {
-            this.loggingHandler = new LoggingHandler(getClass(), LogLevel.INFO);
+            this.loggingHandler = new LoggingHandler(getClass(), logLevel);
             this.messageMetricsChannelHandler = new MessageMetricsChannelHandler();
             this.bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
         }
@@ -65,7 +65,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             if(!protocolHandler.canSupport(msg)) {
                 continue;
             }
-            logger.debug("{} protocols support by [{}]",channel, protocolHandler.getProtocolName());
+            logger.debug("{} protocol bind to [{}]",channel, protocolHandler.getProtocolName());
 
             if(bytesMetricsChannelHandler != null){
                 channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
@@ -88,7 +88,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             return;
         }
 
-        logger.warn("Received no support protocols. message=[{}]",msg.toString(StandardCharsets.UTF_8));
+        logger.warn("Received no support protocol. message=[{}]",msg.toString(StandardCharsets.UTF_8));
         if(msg.refCnt() > 0) {
             msg.release();
         }

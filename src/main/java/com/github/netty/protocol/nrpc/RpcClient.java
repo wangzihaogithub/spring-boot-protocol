@@ -14,7 +14,6 @@ import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
-import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
@@ -31,7 +30,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static com.github.netty.core.util.IOUtil.INT_LENGTH;
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 

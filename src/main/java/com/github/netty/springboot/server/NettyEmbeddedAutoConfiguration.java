@@ -19,6 +19,8 @@ import org.springframework.core.io.ResourceLoader;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.TreeSet;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * The netty container is automatically configured
@@ -72,7 +74,13 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("httpServletProtocol")
     @ConditionalOnMissingBean(HttpServletProtocol.class)
     public HttpServletProtocol httpServletProtocol(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
-        HttpServletProtocolSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolSpringAdapter(nettyProperties,resourceLoader.getClassLoader());
+        Class<? extends Executor> serverHandlerExecutorClass = nettyProperties.getHttpServlet().getServerHandlerExecutor();
+        Supplier<Executor> serverHandlerExecutor = null;
+        if(serverHandlerExecutorClass != null){
+            serverHandlerExecutor = () -> factory.getBean(serverHandlerExecutorClass);
+        }
+
+        HttpServletProtocolSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolSpringAdapter(nettyProperties,serverHandlerExecutor,resourceLoader.getClassLoader());
         NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
         httpServletProtocolsRegister.setMaxInitialLineLength(http.getMaxHeaderLineSize());
         httpServletProtocolsRegister.setMaxHeaderSize(http.getMaxHeaderSize());

@@ -33,6 +33,8 @@ import java.net.InetSocketAddress;
 import java.net.URL;
 import java.security.KeyStore;
 import java.util.Arrays;
+import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * HttpServlet protocol registry (spring adapter)
@@ -43,8 +45,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private NettyProperties properties;
     private ApplicationX application;
 
-    public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader) {
-        super(properties.getHttpServlet().getServerHandlerExecutor(),new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
+    public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
+        super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
         this.properties = properties;
         this.application = properties.getApplication();
     }

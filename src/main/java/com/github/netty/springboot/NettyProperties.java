@@ -1,6 +1,7 @@
 package com.github.netty.springboot;
 
 import com.github.netty.core.util.ApplicationX;
+import io.netty.handler.logging.LogLevel;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.io.File;
@@ -24,6 +25,12 @@ public class NettyProperties implements Serializable{
      * 服务端 - 是否tcp数据包日志
      */
     private boolean enableTcpPackageLog = false;
+
+    /**
+     * 服务端 - tcp数据包日志等级(需要先开启tcp数据包日志)
+     */
+    private io.netty.handler.logging.LogLevel tcpPackageLogLevel = io.netty.handler.logging.LogLevel.DEBUG;
+
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
@@ -59,6 +66,14 @@ public class NettyProperties implements Serializable{
 
     public ApplicationX getApplication() {
         return application;
+    }
+
+    public LogLevel getTcpPackageLogLevel() {
+        return tcpPackageLogLevel;
+    }
+
+    public void setTcpPackageLogLevel(LogLevel tcpPackageLogLevel) {
+        this.tcpPackageLogLevel = tcpPackageLogLevel;
     }
 
     public int getServerIoThreads() {
@@ -129,7 +144,7 @@ public class NettyProperties implements Serializable{
         /**
          * 服务端 - servlet线程执行器
          */
-        private Executor serverHandlerExecutor = null;
+        private Class<?extends Executor> serverHandlerExecutor = null;
 
         /**
          * session存储 - 是否开启本地文件存储
@@ -183,11 +198,11 @@ public class NettyProperties implements Serializable{
             this.maxChunkSize = maxChunkSize;
         }
 
-        public Executor getServerHandlerExecutor() {
+        public Class<?extends Executor> getServerHandlerExecutor() {
             return serverHandlerExecutor;
         }
 
-        public void setServerHandlerExecutor(Executor serverHandlerExecutor) {
+        public void setServerHandlerExecutor(Class<?extends Executor> serverHandlerExecutor) {
             this.serverHandlerExecutor = serverHandlerExecutor;
         }
 

@@ -19,6 +19,7 @@ import java.net.SocketAddress;
 public class ServletHttpObject implements Recyclable{
     private static final Recycler<ServletHttpObject> RECYCLER = new Recycler<>(ServletHttpObject::new);
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
+    private static final AttributeKey<ServletHttpObject> CHANNEL_ATTR_KEY_OBJECT = AttributeKey.valueOf(ServletHttpObject.class + "#ServletHttpObject");
 
     private ServletHttpServletRequest httpServletRequest;
     private ServletHttpServletResponse httpServletResponse;
@@ -31,6 +32,7 @@ public class ServletHttpObject implements Recyclable{
 
     public static ServletHttpObject newInstance(ServletContext servletContext, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
         ServletHttpObject instance = RECYCLER.getInstance();
+        setHttpObject(context,instance);
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(fullHttpRequest);
@@ -42,27 +44,13 @@ public class ServletHttpObject implements Recyclable{
         return instance;
     }
 
-    public ServletHttpSession getSession(){
-        return getSession(channelHandlerContext);
-    }
-
-    public void setSession(ServletHttpSession httpSession){
-        setSession(channelHandlerContext,httpSession);
-    }
-
     /**
      * Get httpSession from the properties bound in the pipe
      * @param channelHandlerContext channelHandlerContext
      * @return ServletHttpSession
      */
-    public static ServletHttpSession getSession(ChannelHandlerContext channelHandlerContext){
-        if(channelHandlerContext != null && channelHandlerContext.channel() != null) {
-            Attribute<ServletHttpSession> attribute = channelHandlerContext.channel().attr(CHANNEL_ATTR_KEY_SESSION);
-            if(attribute != null){
-                return attribute.get();
-            }
-        }
-        return null;
+    public static ServletHttpSession getHttpSession(ChannelHandlerContext channelHandlerContext){
+        return getAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_SESSION);
     }
 
     /**
@@ -70,10 +58,8 @@ public class ServletHttpObject implements Recyclable{
      * @param channelHandlerContext channelHandlerContext
      * @param httpSession httpSession
      */
-    public static void setSession(ChannelHandlerContext channelHandlerContext, ServletHttpSession httpSession){
-        if(isChannelActive(channelHandlerContext)) {
-            channelHandlerContext.channel().attr(CHANNEL_ATTR_KEY_SESSION).set(httpSession);
-        }
+    public static void setHttpSession(ChannelHandlerContext channelHandlerContext, ServletHttpSession httpSession){
+        setAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_SESSION,httpSession);
     }
 
     /**
@@ -86,6 +72,22 @@ public class ServletHttpObject implements Recyclable{
             return true;
         }
         return false;
+    }
+
+    public static ServletHttpObject getHttpObject(ChannelHandlerContext channelHandlerContext){
+        return getAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_OBJECT);
+    }
+
+    public static void setHttpObject(ChannelHandlerContext channelHandlerContext, ServletHttpObject httpObject){
+        setAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_OBJECT,httpObject);
+    }
+
+    public ServletHttpSession getHttpSession(){
+        return getHttpSession(channelHandlerContext);
+    }
+
+    public void setHttpSession(ServletHttpSession httpSession){
+        setHttpSession(channelHandlerContext,httpSession);
     }
 
     public boolean isHttpKeepAlive() {
@@ -134,6 +136,22 @@ public class ServletHttpObject implements Recyclable{
         return null;
     }
 
+    public static <T> T getAttribute(ChannelHandlerContext channelHandlerContext,AttributeKey<T> key){
+        if(channelHandlerContext != null && channelHandlerContext.channel() != null) {
+            Attribute<T> attribute = channelHandlerContext.channel().attr(key);
+            if(attribute != null){
+                return attribute.get();
+            }
+        }
+        return null;
+    }
+
+    public static <T> void setAttribute(ChannelHandlerContext context, AttributeKey<T> key,T value){
+        if(isChannelActive(context)) {
+            context.channel().attr(key).set(value);
+        }
+    }
+
     /**
      * Recycle servlet object
      */
@@ -146,6 +164,9 @@ public class ServletHttpObject implements Recyclable{
             ((Recyclable) channelHandlerContext).recycle();
         }
 
+        if(channelHandlerContext != null) {
+            setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_OBJECT, null);
+        }
         httpServletResponse = null;
         httpServletRequest = null;
         channelHandlerContext = null;

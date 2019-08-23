@@ -16,19 +16,19 @@ import java.util.Set;
  * WebSocketMessageToRunnable
  * @author wangzihao
  */
-public class WebSocketMessageToRunnable implements MessageToRunnable {
-    private static final Recycler<WebsocketTask> RECYCLER = new Recycler<>(WebsocketTask::new);
+public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
+    private static final Recycler<WebsocketRunnable> RECYCLER = new Recycler<>(WebsocketRunnable::new);
 
     private MessageToRunnable parent;
 
-    public WebSocketMessageToRunnable(MessageToRunnable parent) {
+    public NettyMessageToWebSocketRunnable(MessageToRunnable parent) {
         this.parent = parent;
     }
 
     @Override
     public Runnable newRunnable(ChannelHandlerContext channelHandlerContext, Object msg) {
         if(msg instanceof WebSocketFrame) {
-            WebsocketTask task = RECYCLER.getInstance();
+            WebsocketRunnable task = RECYCLER.getInstance();
             task.context = channelHandlerContext;
             task.frame = (WebSocketFrame) msg;
             return task;
@@ -42,14 +42,30 @@ public class WebSocketMessageToRunnable implements MessageToRunnable {
     /**
      * Websocket task
      */
-    public static class WebsocketTask implements Runnable,Recyclable {
+    public static class WebsocketRunnable implements Runnable,Recyclable {
         private ChannelHandlerContext context;
         private WebSocketFrame frame;
+
+        public WebSocketSession getWebSocketSession(){
+            return WebSocketSession.getSession(context.channel());
+        }
+
+        public WebSocketFrame getFrame() {
+            return frame;
+        }
+
+        public void setFrame(WebSocketFrame frame) {
+            this.frame = frame;
+        }
+
+        public ChannelHandlerContext getContext() {
+            return context;
+        }
 
         @Override
         public void run() {
             try {
-                WebSocketSession wsSession = WebSocketSession.getSession(context.channel());
+                WebSocketSession wsSession = getWebSocketSession();
                 if (wsSession == null) {
                     return;
                 }
@@ -78,7 +94,7 @@ public class WebSocketMessageToRunnable implements MessageToRunnable {
                     onWebsocketMessage(wsSession, frame, ((TextWebSocketFrame) frame).text());
                 }
             }finally {
-                WebsocketTask.this.recycle();
+                WebsocketRunnable.this.recycle();
             }
         }
 

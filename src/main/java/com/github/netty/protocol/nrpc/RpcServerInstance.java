@@ -59,13 +59,22 @@ public class RpcServerInstance {
             rpcResponse.setMessage("ok");
             return rpcResponse;
         }catch (Throwable t){
-            String message = t.getMessage();
+            String message = getMessage(t);
+            Throwable cause = t.getCause();
+            if(cause != null){
+                message = message + ". cause=" + getMessage(cause);
+            }
             rpcResponse.setEncode(DataCodec.Encode.BINARY);
             rpcResponse.setStatus(SERVER_ERROR);
-            rpcResponse.setMessage(message == null? t.toString(): message);
+            rpcResponse.setMessage(message);
             rpcResponse.setData(null);
             return rpcResponse;
         }
+    }
+
+    private String getMessage(Throwable t){
+        String message = t.getMessage();
+        return message == null? t.toString(): message;
     }
 
     public Object getInstance() {
