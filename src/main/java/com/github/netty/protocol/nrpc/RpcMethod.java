@@ -14,7 +14,6 @@ import java.util.function.Function;
 public class RpcMethod {
     private Method method;
     private String[] parameterNames;
-    private String methodName;
 
     public RpcMethod(Method method, String[] parameterNames) {
         this.method = method;
