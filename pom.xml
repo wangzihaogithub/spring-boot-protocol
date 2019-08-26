@@ -292,13 +292,22 @@
     </build>
 
     <distributionManagement>
+<!--        <snapshotRepository>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
+<!--        <repository>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+<!--        </repository>-->
+
         <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <id>ig</id>
+            <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty/</url>
         </snapshotRepository>
         <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+            <id>ig</id>
+            <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty</url>
         </repository>
     </distributionManagement>
 
@@ -383,13 +392,21 @@
                 </plugins>
             </build>
             <distributionManagement>
+<!--                <snapshotRepository>-->
+<!--                    <id>ossrh</id>-->
+<!--                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--                </snapshotRepository>-->
+<!--                <repository>-->
+<!--                    <id>ossrh</id>-->
+<!--                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+<!--                </repository>-->
                 <snapshotRepository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+                    <id>ig</id>
+                    <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty/</url>
                 </snapshotRepository>
                 <repository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                    <id>ig</id>
+                    <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty</url>
                 </repository>
             </distributionManagement>
         </profile>
