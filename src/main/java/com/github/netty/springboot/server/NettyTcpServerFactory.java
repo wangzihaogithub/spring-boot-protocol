@@ -19,7 +19,6 @@ import org.springframework.http.server.reactive.ServletHttpHandlerAdapter;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Objects;
@@ -139,13 +138,6 @@ public class NettyTcpServerFactory
     }
 
     public static InetSocketAddress getServerSocketAddress(InetAddress address,int port) {
-        if(address == null) {
-            try {
-                address = InetAddress.getByName("0.0.0.0");
-            } catch (UnknownHostException e) {
-                address = InetAddress.getLoopbackAddress();
-            }
-        }
         return new InetSocketAddress(address,port);
     }
 }
