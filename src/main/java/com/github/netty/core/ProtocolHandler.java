@@ -8,7 +8,7 @@ import io.netty.channel.Channel;
  * @author wangzihao
  *  2018/11/11/011
  */
-public interface ProtocolHandler {
+public interface ProtocolHandler extends Ordered{
 
     /**
      * Get the protocol name
@@ -31,9 +31,12 @@ public interface ProtocolHandler {
     void addPipeline(Channel channel) throws Exception;
 
     /**
-     * Priority order
+     * default Priority order 0
      * @return The smaller the value of order, the more likely it is to be executed first
      */
-    int order();
+    @Override
+    default int getOrder(){
+        return 0;
+    }
 
 }

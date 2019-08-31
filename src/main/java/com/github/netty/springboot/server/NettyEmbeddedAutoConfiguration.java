@@ -1,5 +1,6 @@
 package com.github.netty.springboot.server;
 
+import com.github.netty.core.Ordered;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.protocol.HttpServletProtocol;
@@ -45,8 +46,8 @@ public class NettyEmbeddedAutoConfiguration {
                                                        Collection<ServerListener> serverListeners){
         NettyTcpServerFactory tcpServerFactory = new NettyTcpServerFactory(
                 nettyProperties,
-                new TreeSet<>(Comparator.comparingInt(ProtocolHandler::order)),
-                new TreeSet<>(Comparator.comparingInt(ServerListener::order))
+                new TreeSet<>(Comparator.comparingInt(Ordered::getOrder)),
+                new TreeSet<>(Comparator.comparingInt(Ordered::getOrder))
                 );
         tcpServerFactory.getProtocolHandlers().addAll(protocolHandlers);
         tcpServerFactory.getServerListeners().addAll(serverListeners);

@@ -218,7 +218,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     @Override
-    public int order() {
+    public int getOrder() {
         return 100;
     }
 

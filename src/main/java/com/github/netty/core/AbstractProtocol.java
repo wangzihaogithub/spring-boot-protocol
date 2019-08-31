@@ -10,4 +10,9 @@ public abstract class AbstractProtocol implements ProtocolHandler,ServerListener
     public String toString() {
         return getProtocolName();
     }
+
+    @Override
+    public int getOrder() {
+        return 0;
+    }
 }
