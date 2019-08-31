@@ -35,7 +35,7 @@ import java.util.function.Supplier;
 /**
  * @author wangzihao
  */
-public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
+public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar,
         ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware, BeanFactoryAware {
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
@@ -45,7 +45,7 @@ public class NettyRpcClientsRegistrar implements ImportBeanDefinitionRegistrar,
     private String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
     private String lazyCanonicalName = Lazy.class.getCanonicalName();
 
-    public NettyRpcClientsRegistrar() {}
+    public NettyRpcClientBeanDefinitionRegistrar() {}
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
