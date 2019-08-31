@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Servlet output stream (segmented)
  * @author wangzihao
  */
-@sun.misc.Contended
 public class ServletOutputChunkedStream extends ServletOutputStream {
     private ByteChunkedInput chunkedInput = new ByteChunkedInput();
 

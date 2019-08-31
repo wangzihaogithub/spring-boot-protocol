@@ -13,7 +13,6 @@ import java.nio.charset.Charset;
  * @author wangzihao
  *  2018/7/15/015
  */
-@sun.misc.Contended
 public class ServletHttpAsyncResponse extends HttpServletResponseWrapper {
     private ServletHttpObject httpServletObject;
     private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);;

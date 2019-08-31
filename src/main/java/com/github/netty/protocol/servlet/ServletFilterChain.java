@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicLong;
  * The servlet filter chain
  * @author wangzihao
  */
-@sun.misc.Contended
 public class ServletFilterChain implements FilterChain,Recyclable {
 
     /**

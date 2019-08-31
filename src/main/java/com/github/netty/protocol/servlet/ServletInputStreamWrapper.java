@@ -15,7 +15,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author wangzihao
  *  2018/7/15/015
  */
-@sun.misc.Contended
 public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream implements Wrapper<ByteBuf>, Recyclable {
     private AtomicBoolean closed = new AtomicBoolean(false); //Whether the input stream has been closed to ensure thread safety
     private ByteBuf source;

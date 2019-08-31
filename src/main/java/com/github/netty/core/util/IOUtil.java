@@ -4,10 +4,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.util.AsciiString;
-import sun.misc.Unsafe;
 
 import java.io.*;
-import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -568,18 +566,18 @@ public class IOUtil {
     }
 
 
-    public static Unsafe getUnsafe() {
-        return UNSAFE;
-    }
-
-    private static Unsafe UNSAFE;
-    static {
-        try {
-            Field f = Unsafe.class.getDeclaredField("theUnsafe");
-            f.setAccessible(true);
-            UNSAFE =(Unsafe)f.get(null);
-        } catch (Exception e) {
-            //
-        }
-    }
+//    public static Unsafe getUnsafe() {
+//        return UNSAFE;
+//    }
+//
+//    private static Unsafe UNSAFE;
+//    static {
+//        try {
+//            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+//            f.setAccessible(true);
+//            UNSAFE =(Unsafe)f.get(null);
+//        } catch (Exception e) {
+//            //
+//        }
+//    }
 }

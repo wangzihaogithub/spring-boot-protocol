@@ -17,7 +17,6 @@ import java.util.*;
  * @author wangzihao
  *  2018/7/15/015
  */
-@sun.misc.Contended
 public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
 
     private String pathInfo = null;

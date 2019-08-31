@@ -34,7 +34,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * Servlet OutputStream
  * @author wangzihao
  */
-@sun.misc.Contended
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable  {
     private static final FastThreadLocal<DateFormat> DATE_FORMAT_GMT_LOCAL = new FastThreadLocal<DateFormat>() {
         private TimeZone timeZone = TimeZone.getTimeZone("GMT");

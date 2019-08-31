@@ -31,7 +31,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author wangzihao
  *  2018/7/15/015
  */
-@sun.misc.Contended
 public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();

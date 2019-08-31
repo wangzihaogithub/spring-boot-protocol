@@ -12,7 +12,6 @@ import java.util.Locale;
  * @author wangzihao
  *  2018/7/15/015
  */
-@sun.misc.Contended
 public class ServletHttpIncludeResponse extends HttpServletResponseWrapper {
     public ServletHttpIncludeResponse(HttpServletResponse response) {
         super(response);

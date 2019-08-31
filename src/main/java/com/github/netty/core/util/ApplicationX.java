@@ -1,7 +1,5 @@
 package com.github.netty.core.util;
 
-import sun.misc.Unsafe;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -202,17 +200,17 @@ public class ApplicationX {
     
     private <T> T newInstanceByUnsafe(Class<T> clazz){
         Object obj = null;
-        try {
-            obj = clazz.newInstance();
-        } catch (Throwable e) {
-            try {
-                if(UNSAFE != null) {
-                    obj = UNSAFE.allocateInstance(clazz);
-                }
-            } catch (InstantiationException e1) {
-                //
-            }
-        }
+//        try {
+//            obj = clazz.newInstance();
+//        } catch (Throwable e) {
+//            try {
+//                if(UNSAFE != null) {
+//                    obj = UNSAFE.allocateInstance(clazz);
+//                }
+//            } catch (InstantiationException e1) {
+//                //
+//            }
+//        }
         return (T) obj;
     }
 
@@ -233,16 +231,16 @@ public class ApplicationX {
         return false;
     }
 
-    private static Unsafe UNSAFE;
-    static {
-        try {
-            Field f = Unsafe.class.getDeclaredField("theUnsafe");
-            f.setAccessible(true);
-            UNSAFE =(Unsafe)f.get(null);
-        } catch (Exception e) {
-            //
-        }
-    }
+//    private static Unsafe UNSAFE;
+//    static {
+//        try {
+//            Field f = Unsafe.class.getDeclaredField("theUnsafe");
+//            f.setAccessible(true);
+//            UNSAFE =(Unsafe)f.get(null);
+//        } catch (Exception e) {
+//            //
+//        }
+//    }
 
     @Override
     public String toString() {

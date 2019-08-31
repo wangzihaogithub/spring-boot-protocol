@@ -1,16 +1,13 @@
 package com.github.netty.core;
 
 import com.github.netty.core.util.AsciiStringCachePool;
-import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.RecyclableUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.AsciiString;
-import sun.misc.Unsafe;
 
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -30,8 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecoder {
     private int protocolVersionLength;
-    private static long cumulationOffset;
-    private static final Unsafe UNSAFE = IOUtil.getUnsafe();
+//    private static long cumulationOffset;
+//    private static final Unsafe UNSAFE = IOUtil.getUnsafe();
 
     public AbstractProtocolDecoder() {
         this(0,10 * 1024 * 1024);
@@ -131,18 +128,18 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
         this.protocolVersionLength = protocolVersionLength;
     }
 
-    public void setCumulation(ByteBuf cumulation) {
-        UNSAFE.putObject(this,cumulationOffset,cumulation);
-    }
+//    public void setCumulation(ByteBuf cumulation) {
+//        UNSAFE.putObject(this,cumulationOffset,cumulation);
+//    }
 
 
-    static {
-        try {
-            cumulationOffset = UNSAFE.objectFieldOffset
-                    (ByteToMessageDecoder.class.getDeclaredField("cumulation"));
-        } catch (Exception ex) {
-            throw new Error(ex);
-        }
-    }
+//    static {
+//        try {
+//            cumulationOffset = UNSAFE.objectFieldOffset
+//                    (ByteToMessageDecoder.class.getDeclaredField("cumulation"));
+//        } catch (Exception ex) {
+//            throw new Error(ex);
+//        }
+//    }
 
 }

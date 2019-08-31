@@ -11,7 +11,6 @@ import java.io.IOException;
  * Servlets output streams (wrapper classes) that control access to the flow
  * @author wangzihao
  */
-@sun.misc.Contended
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream
         implements Wrapper<ServletOutputStream>,Recyclable{
     /**
