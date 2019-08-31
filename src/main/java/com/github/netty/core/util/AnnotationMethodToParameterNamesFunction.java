@@ -3,7 +3,6 @@ package com.github.netty.core.util;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
-import java.lang.reflect.Proxy;
 import java.util.*;
 import java.util.function.Function;
 
@@ -24,17 +23,7 @@ public class AnnotationMethodToParameterNamesFunction implements Function<Method
             boolean notFound = true;
             for(Class<?extends Annotation> annClass : parameterAnnotationClasses) {
                 Annotation annotation = parameter.getAnnotation(annClass);
-                if(annotation == null){
-                    continue;
-                }
-                if(!Proxy.isProxyClass(annotation.getClass())) {
-                    continue;
-                }
-                Object memberValues = ReflectUtil.getFieldValue(Proxy.getInvocationHandler(annotation),"memberValues");
-                if(!(memberValues instanceof Map)) {
-                    continue;
-                }
-                Map memberValuesMap = (Map) memberValues;
+                Map memberValuesMap = ReflectUtil.getAnnotationValueMap(annotation);
                 Object value = memberValuesMap.get("value");
                 if(value == null) {
                     value = memberValuesMap.get("name");

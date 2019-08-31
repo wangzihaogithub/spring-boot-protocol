@@ -254,6 +254,30 @@ public class ReflectUtil {
 		return null;
 	}
 
+	public static Map<String,Object> getAnnotationValueMap(Annotation annotation) {
+		if(annotation == null){
+			return Collections.emptyMap();
+		}
+		Method[] declaredMethods = annotation.annotationType().getDeclaredMethods();
+		Map<String,Object> map = new HashMap<>(declaredMethods.length);
+		for (Method method : declaredMethods) {
+			if(method.getParameterCount() != 0 || method.getReturnType() == void.class){
+				continue;
+			}
+			boolean isAccessible = method.isAccessible();
+			try {
+				method.setAccessible(true);
+				Object value = method.invoke(annotation);
+				map.put(method.getName(),value);
+			} catch (IllegalAccessException | InvocationTargetException e) {
+				//skip
+			}finally {
+				method.setAccessible(isAccessible);
+			}
+		}
+		return map;
+	}
+
 	/**
 	 * Read the object property values directly, ignoring the private/protected modifier, without going through the getter function.
 	 * @param obj obj
