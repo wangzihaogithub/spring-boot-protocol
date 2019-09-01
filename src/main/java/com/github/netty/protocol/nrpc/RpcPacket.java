@@ -75,7 +75,7 @@ public class RpcPacket implements Recyclable {
     public static class RequestPacket extends RpcPacket {
         private static final Recycler<RequestPacket> RECYCLER = new Recycler<>(RequestPacket::new);
         private int requestId;
-        private String serviceName;
+        private String requestMappingName;
         private String methodName;
 
         public static RequestPacket newInstance() {
@@ -94,12 +94,12 @@ public class RpcPacket implements Recyclable {
             this.requestId = requestId;
         }
 
-        public String getServiceName() {
-            return serviceName;
+        public String getRequestMappingName() {
+            return requestMappingName;
         }
 
-        public void setServiceName(String serviceName) {
-            this.serviceName = serviceName;
+        public void setRequestMappingName(String requestMappingName) {
+            this.requestMappingName = requestMappingName;
         }
 
         public String getMethodName() {
@@ -118,7 +118,7 @@ public class RpcPacket implements Recyclable {
         @Override
         public void toStringAppend(StringJoiner joiner) {
             joiner.add("\"requestId\":"+requestId);
-            joiner.add("\"serviceName\":\""+serviceName+"\"");
+            joiner.add("\"requestMappingName\":\""+requestMappingName+"\"");
             joiner.add("\"methodName\":\""+methodName+"\"");
             joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
         }

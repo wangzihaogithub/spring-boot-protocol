@@ -31,9 +31,9 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
 
             RequestMapping requestMapping = getRequestMapping(serviceImpl);
             if(requestMapping != null){
-                String serviceName = getServiceName(requestMapping);
+                String requestMappingName = getRequestMappingName(requestMapping);
                 Function<Method,String[]> methodToParameterNamesFunction = getMethodToParameterNamesFunction(serviceImpl);
-                super.addInstance(serviceImpl, serviceName, methodToParameterNamesFunction);
+                super.addInstance(serviceImpl, requestMappingName, methodToParameterNamesFunction);
             }else {
                 super.addInstance(serviceImpl);
             }
@@ -50,21 +50,21 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
         }
     }
 
-    protected String getServiceName(RequestMapping requestMapping){
+    protected String getRequestMappingName(RequestMapping requestMapping){
         //Get the service name
-        String serviceName = requestMapping.name();
+        String requestMappingName = requestMapping.name();
         String[] values = requestMapping.value();
         String[] paths = requestMapping.path();
-        if(StringUtil.isEmpty(serviceName) && values.length > 0){
-            serviceName = values[0];
+        if(StringUtil.isEmpty(requestMappingName) && values.length > 0){
+            requestMappingName = values[0];
         }
-        if(StringUtil.isEmpty(serviceName) && paths.length > 0){
-            serviceName = paths[0];
+        if(StringUtil.isEmpty(requestMappingName) && paths.length > 0){
+            requestMappingName = paths[0];
         }
-        if(StringUtil.isEmpty(serviceName)) {
-            throw new IllegalArgumentException("RequestMapping serviceName isEmpty!");
+        if(StringUtil.isEmpty(requestMappingName)) {
+            throw new IllegalArgumentException("RequestMapping isEmpty!");
         }
-        return serviceName;
+        return requestMappingName;
     }
 
     protected List<Class<?extends Annotation>> getParameterAnnotationClasses(){

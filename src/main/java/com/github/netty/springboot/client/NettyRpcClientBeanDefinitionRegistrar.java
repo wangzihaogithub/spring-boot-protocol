@@ -96,24 +96,24 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
             throw new BeanCreationException("NettyRpcClientsRegistrar failure! notfound class",e);
         }
 
-        String serviceId = resolve((String) nettyRpcClientAttributes.get("serviceId"));
-        int timeout = (int)nettyRpcClientAttributes.get("timeout");
-
+        String serviceName = resolve((String) nettyRpcClientAttributes.get("serviceImplName"));
         beanDefinition.setLazyInit(lazyAttributes == null || Boolean.TRUE.equals(lazyAttributes.get("value")));
-        beanDefinition.setPrimary((Boolean)nettyRpcClientAttributes.get("primary"));
         ((AbstractBeanDefinition)beanDefinition).setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
-        ((AbstractBeanDefinition)beanDefinition).setInstanceSupplier(newInstanceSupplier(beanClass,serviceId,timeout));
+        ((AbstractBeanDefinition)beanDefinition).setInstanceSupplier(newInstanceSupplier(beanClass,serviceName,(int)nettyRpcClientAttributes.get("timeout")));
 
         String beanName = generateBeanName(beanDefinition.getBeanClassName());
         registry.registerBeanDefinition(beanName,beanDefinition);
     }
 
-    public <T> Supplier<T> newInstanceSupplier(Class<T> beanClass, String serviceId,int timeout) {
+    public <T> Supplier<T> newInstanceSupplier(Class<T> beanClass, String serviceName,int timeout) {
         return ()->{
             NettyProperties nettyConfig = beanFactory.getBean(NettyProperties.class);
-            NettyRpcLoadBalanced loadBalanced = beanFactory.getBean(NettyRpcLoadBalanced.class);
+            Supplier<NettyRpcLoadBalanced> loadBalancedSupplier = ()->
+                    beanFactory.getBean(NettyRpcLoadBalanced.class);
 
-            NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceId,null,beanClass,nettyConfig,loadBalanced);
+            NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceName,null,
+                    beanClass,nettyConfig,
+                    loadBalancedSupplier);
             nettyRpcClientProxy.setTimeout(timeout);
             Object instance = Proxy.newProxyInstance(classLoader,new Class[]{beanClass},nettyRpcClientProxy);
             return (T) instance;

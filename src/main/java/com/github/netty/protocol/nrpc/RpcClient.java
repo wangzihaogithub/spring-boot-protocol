@@ -108,42 +108,42 @@ public class RpcClient extends AbstractNettyClient{
      */
     public <T>T newInstance(Class<T> clazz){
         int timeout = Protocol.RpcService.DEFAULT_TIME_OUT;
-        String serviceName = "";
+        String requestMappingName = "";
 
         Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(clazz, Protocol.RpcService.class);
         if (rpcInterfaceAnn != null) {
             timeout = rpcInterfaceAnn.timeout();
-            serviceName = rpcInterfaceAnn.value();
+            requestMappingName = rpcInterfaceAnn.value();
         }
-        if(serviceName.isEmpty()){
-            serviceName = "/"+StringUtil.firstLowerCase(clazz.getSimpleName());
+        if(requestMappingName.isEmpty()){
+            requestMappingName = "/"+StringUtil.firstLowerCase(clazz.getSimpleName());
         }
-        return newInstance(clazz,timeout,serviceName);
+        return newInstance(clazz,timeout,requestMappingName);
     }
 
     /**
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz,int timeout,String serviceName){
-        return newInstance(clazz,timeout,serviceName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(Protocol.RpcParam.class)));
+    public <T>T newInstance(Class<T> clazz,int timeout,String requestMappingName){
+        return newInstance(clazz,timeout,requestMappingName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(Protocol.RpcParam.class)));
     }
 
     /**
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
-        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,serviceName,methodToParameterNamesFunction);
+    public <T>T newInstance(Class<T> clazz, int timeout, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction){
+        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,requestMappingName,methodToParameterNamesFunction);
         Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
         return (T) instance;
     }
@@ -152,27 +152,27 @@ public class RpcClient extends AbstractNettyClient{
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      * @param  methodToParameterNamesFunction Method to a function with a parameter name
      * @return Interface implementation class
      */
-    public InvocationHandler newRpcInstance(Class clazz, int timeout, String serviceName, Function<Method,String[]> methodToParameterNamesFunction){
+    public InvocationHandler newRpcInstance(Class clazz, int timeout, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction){
         Map<String, RpcMethod> rpcMethodMap = RpcMethod.getMethodMap(clazz, methodToParameterNamesFunction);
         if (rpcMethodMap.isEmpty()) {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
         }
-        Sender rpcInstance = new Sender(timeout, serviceName,rpcMethodMap);
-        rpcInstanceMap.put(serviceName,rpcInstance);
+        Sender rpcInstance = new Sender(timeout, requestMappingName,rpcMethodMap);
+        rpcInstanceMap.put(requestMappingName,rpcInstance);
         return rpcInstance;
     }
 
     /**
      * Gets the implementation class
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      * @return RpcClientInstance
      */
-    public InvocationHandler getRpcInstance(String serviceName) {
-        return rpcInstanceMap.get(serviceName);
+    public InvocationHandler getRpcInstance(String requestMappingName) {
+        return rpcInstanceMap.get(requestMappingName);
     }
 
     /**
@@ -347,13 +347,13 @@ public class RpcClient extends AbstractNettyClient{
 
     public class Sender implements InvocationHandler {
         private int timeout;
-        private String serviceName;
+        private String requestMappingName;
         private Map<String, RpcMethod> rpcMethodMap;
 
-        Sender(int timeout, String serviceName, Map<String, RpcMethod> rpcMethodMap) {
+        Sender(int timeout, String requestMappingName, Map<String, RpcMethod> rpcMethodMap) {
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
-            this.serviceName = serviceName;
+            this.requestMappingName = requestMappingName;
         }
 
         /**
@@ -391,7 +391,7 @@ public class RpcClient extends AbstractNettyClient{
 
             RequestPacket rpcRequest = RequestPacket.newInstance();
             rpcRequest.setRequestId(requestId);
-            rpcRequest.setServiceName(serviceName);
+            rpcRequest.setRequestMappingName(requestMappingName);
             rpcRequest.setMethodName(rpcMethod.getMethod().getName());
             rpcRequest.setData(dataCodec.encodeRequestData(args, rpcMethod));
             rpcRequest.setAck(ACK_YES);

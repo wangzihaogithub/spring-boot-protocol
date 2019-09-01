@@ -59,7 +59,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
     }
 
     protected void onRequestReceived(ChannelHandlerContext ctx, RequestPacket request){
-        RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getServiceName());
+        RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getRequestMappingName());
         if(rpcInstance == null) {
             if(request.getAck() == ACK_YES) {
                 ResponsePacket rpcResponse = ResponsePacket.newInstance();
@@ -69,7 +69,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
                     rpcResponse.setRequestId(request.getRequestId());
                     rpcResponse.setEncode(BINARY);
                     rpcResponse.setStatus(ResponsePacket.NO_SUCH_SERVICE);
-                    rpcResponse.setMessage("not found service " + request.getServiceName());
+                    rpcResponse.setMessage("not found service " + request.getRequestMappingName());
                     ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                     release = false;
                 }finally {
@@ -95,31 +95,31 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @param instance The implementation class
      */
     public void addInstance(Object instance){
-        addInstance(instance,getServiceName(instance.getClass()));
+        addInstance(instance,getRequestMappingName(instance.getClass()));
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      */
-    public void addInstance(Object instance,String serviceName){
-        addInstance(instance,serviceName,new ClassFileMethodToParameterNamesFunction());
+    public void addInstance(Object instance,String requestMappingName){
+        addInstance(instance,requestMappingName,new ClassFileMethodToParameterNamesFunction());
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
-    public void addInstance(Object instance,String serviceName,Function<Method,String[]> methodToParameterNamesFunction){
-        if(serviceName == null || serviceName.isEmpty()){
-            serviceName = generateServiceName(instance.getClass());
+    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
+        if(requestMappingName == null || requestMappingName.isEmpty()){
+            requestMappingName = generateRequestMappingName(instance.getClass());
         }
         synchronized (serviceInstanceMap) {
             RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction);
-            RpcServerInstance oldServerInstance = serviceInstanceMap.put(serviceName,rpcServerInstance);
+            RpcServerInstance oldServerInstance = serviceInstanceMap.put(requestMappingName,rpcServerInstance);
 
             if (oldServerInstance != null) {
                 Object oldInstance = oldServerInstance.getInstance();
@@ -130,7 +130,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         }
 
         logger.info("addInstance({}, {}, {})",
-                serviceName,
+                requestMappingName,
                 instance.getClass().getSimpleName(),
                 methodToParameterNamesFunction.getClass().getSimpleName());
     }
@@ -156,30 +156,30 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
     /**
      * Get the service name
      * @param instanceClass instanceClass
-     * @return serviceName
+     * @return requestMappingName
      */
-    public static String getServiceName(Class instanceClass){
-        String serviceName = null;
+    public static String getRequestMappingName(Class instanceClass){
+        String requestMappingName = null;
         Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(instanceClass, Protocol.RpcService.class);
         if (rpcInterfaceAnn != null) {
-            serviceName = rpcInterfaceAnn.value();
+            requestMappingName = rpcInterfaceAnn.value();
         }
-        return serviceName;
+        return requestMappingName;
     }
 
     /**
      * Generate a service name
      * @param instanceClass instanceClass
-     * @return serviceName
+     * @return requestMappingName
      */
-    public static String generateServiceName(Class instanceClass){
-        String serviceName;
+    public static String generateRequestMappingName(Class instanceClass){
+        String requestMappingName;
         Class[] classes = ReflectUtil.getInterfaces(instanceClass);
         if(classes.length > 0){
-            serviceName = '/'+ StringUtil.firstLowerCase(classes[0].getSimpleName());
+            requestMappingName = '/'+ StringUtil.firstLowerCase(classes[0].getSimpleName());
         }else {
-            serviceName =  '/'+ StringUtil.firstLowerCase(instanceClass.getSimpleName());
+            requestMappingName =  '/'+ StringUtil.firstLowerCase(instanceClass.getSimpleName());
         }
-        return serviceName;
+        return requestMappingName;
     }
 }

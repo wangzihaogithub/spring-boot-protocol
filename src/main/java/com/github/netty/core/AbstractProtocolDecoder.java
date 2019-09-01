@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
- * |      76       |  1   |   1      |   NRPC/201 |     2       | 11serviceName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
+ * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
  *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao

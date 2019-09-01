@@ -25,7 +25,7 @@ import java.util.function.Function;
  *
  *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
- * |      76       |  1   |   1      |   NRPC/201 |     2       | 11serviceName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
+ * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
  *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
@@ -48,8 +48,8 @@ public class NRpcProtocol extends AbstractProtocol {
         rpcServerHandler.addInstance(instance);
     }
 
-    public void addInstance(Object instance,String serviceName,Function<Method,String[]> methodToParameterNamesFunction){
-        rpcServerHandler.addInstance(instance,serviceName,methodToParameterNamesFunction);
+    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
+        rpcServerHandler.addInstance(instance,requestMappingName,methodToParameterNamesFunction);
     }
 
     public boolean existInstance(Object instance){

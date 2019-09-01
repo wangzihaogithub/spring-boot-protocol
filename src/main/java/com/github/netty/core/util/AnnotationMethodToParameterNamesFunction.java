@@ -23,6 +23,9 @@ public class AnnotationMethodToParameterNamesFunction implements Function<Method
             boolean notFound = true;
             for(Class<?extends Annotation> annClass : parameterAnnotationClasses) {
                 Annotation annotation = parameter.getAnnotation(annClass);
+                if(annotation == null){
+                    continue;
+                }
                 Map memberValuesMap = ReflectUtil.getAnnotationValueMap(annotation);
                 Object value = memberValuesMap.get("value");
                 if(value == null) {

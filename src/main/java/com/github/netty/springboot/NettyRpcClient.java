@@ -1,6 +1,5 @@
 package com.github.netty.springboot;
 
-import org.springframework.core.annotation.AliasFor;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.*;
@@ -10,28 +9,19 @@ import java.lang.annotation.*;
 @Documented
 @Component
 public @interface NettyRpcClient {
-
-	/**
-	 * The serviceId is the same as serviceId
-	 * @return value
-	 */
-    @AliasFor("serviceId")
-	String value() default "";
     /**
-     * The service ID is the same as value
-     * @return serviceId
+     * The serviceName is the same as serviceName
+     * example value "service-provider"
+     * @return serviceName
      */
-    @AliasFor("value")
-    String serviceId() default "";
+    String serviceImplName();
 
 //    Class<?> fallback() default void.class;
-    boolean primary() default true;
-//    String qualifier() default "";
 
     /**
      * Timeout time (milliseconds)
      * @return timeout
      */
-    int timeout() default 1000;
+    int timeout() default 2000;
 
 }

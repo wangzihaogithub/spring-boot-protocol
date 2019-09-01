@@ -112,7 +112,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
 
         //(length byte) service name
         out.writerIndex(out.writerIndex() + BYTE_LENGTH);
-        writeCurrentLength = out.writeCharSequence(packet.getServiceName(), RPC_CHARSET);
+        writeCurrentLength = out.writeCharSequence(packet.getRequestMappingName(), RPC_CHARSET);
 
         //(1 byte Unsigned) service length
         out.setByte(out.writerIndex() - writeCurrentLength - BYTE_LENGTH,writeCurrentLength);

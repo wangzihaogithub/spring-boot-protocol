@@ -37,13 +37,13 @@ message: "ok"
 encode: 1
 
 2018-08-26 00:36:19.878 ERROR 6688 --- [rkerGroup@1-4-2] c.g.n.s.impl.RemoteSessionServiceImpl    : 超时的请求 : requestId: 63604
-serviceName: "/_inner/db"
+requestMappingName: "/_inner/db"
 methodName: "get"
 data: "[\"dc177356b505447cbf3338537a90f27a\"]"
 
 2018-08-26 00:36:19.878 ERROR 6688 --- [rkerGroup@1-4-2] c.g.n.s.impl.RemoteSessionServiceImpl    : 2 get requestTimeout : maxTimeout is [10000]
 2018-08-26 00:36:19.880 ERROR 6688 --- [rkerGroup@1-4-1] c.g.n.s.impl.RemoteSessionServiceImpl    : 超时的请求 : requestId: 63605
-serviceName: "/_inner/db"
+requestMappingName: "/_inner/db"
 methodName: "get"
 data: "[\"d7cc6c7a8f7f4c9792c56ee8b472ec6d\"]"
 猜测4 : 思路 : 1.如果客户端不发送请求, 服务端是不可能响应的

@@ -48,10 +48,10 @@ public class RpcServer extends AbstractNettyServer{
     /**
      * Increase the instance
      * @param instance The implementation class
-     * @param serviceName serviceName
+     * @param requestMappingName requestMappingName
      */
-    public void addInstance(Object instance,String serviceName){
-        rpcServerHandler.addInstance(instance,serviceName);
+    public void addInstance(Object instance,String requestMappingName){
+        rpcServerHandler.addInstance(instance,requestMappingName);
     }
 
     /**

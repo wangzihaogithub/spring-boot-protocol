@@ -20,15 +20,15 @@ public interface NettyRpcRequest {
      */
     Object[] getArgs();
     /**
-     * It is obtained from the serviceId field annotated by the NettyRpcClient
+     * It is obtained from the serviceName field annotated by the NettyRpcClient
      * @return The service id
      */
-    String getServiceId();
+    String getServiceName();
     /**
      * The RequestMapping annotation is retrieved from the value field of the RequestMapping annotation. If the RequestMapping annotation is not typed, the default is a lowercase method name
-     * @return serviceName
+     * @return requestMappingName
      */
-    String getServiceName();
+    String getRequestMappingName();
     /**
      * Yml configuration file
      * @return NettyProperties
