@@ -155,6 +155,8 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public void setContextPath(String contextPath) {
         this.contextPath = contextPath;
+        this.filterUrlMapper.setRootPath(contextPath);
+        this.servletUrlMapper.setRootPath(contextPath);
     }
 
     public ServletEventListenerManager getServletEventListenerManager() {

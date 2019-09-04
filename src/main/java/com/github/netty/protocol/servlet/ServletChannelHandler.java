@@ -56,33 +56,9 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        saveAndClearSession(ctx);
-    }
-
-    @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.error(cause.toString());
-        saveAndClearSession(ctx);
         ctx.channel().close();
-    }
-
-    /**
-     * Save and clear the session
-     * @param ctx ctx
-     */
-    protected void saveAndClearSession(ChannelHandlerContext ctx){
-        ServletHttpSession httpSession = ServletHttpObject.getHttpSession(ctx);
-        if(httpSession != null) {
-            if (httpSession.isValid()) {
-                httpSession.save();
-                logger.info("saveHttpSession : sessionId="+httpSession.getId());
-            } else if (httpSession.getId() != null) {
-                httpSession.remove();
-                logger.info("removeHttpSession : sessionId="+httpSession.getId());
-            }
-            httpSession.clear();
-        }
     }
 
     /**

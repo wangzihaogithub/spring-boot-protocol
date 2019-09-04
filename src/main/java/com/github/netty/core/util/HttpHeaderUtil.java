@@ -16,7 +16,7 @@ public class HttpHeaderUtil {
         if(contentType == null){
             return false;
         }
-        return "application/x-www-form-urlencoded".equalsIgnoreCase(contentType);
+        return contentType.contains("application/x-www-form-urlencoded");
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.github.netty.protocol.servlet.util;
 
+import com.github.netty.core.util.LinkedMultiValueMap;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
@@ -47,13 +48,22 @@ public class ServletUtil {
         return null;
     }
 
-    public static void decodeByUrl(Map<String,String[]> parameterMap, String uri, Charset charset){
-        Map<String, List<String>> parameterListMap = decodeParams(uri, findPathEndIndex(uri), charset, 10000);
-        for(Map.Entry<String,List<String>> entry : parameterListMap.entrySet()){
-            List<String> value = entry.getValue();
-            parameterMap.put(entry.getKey(), value.toArray(new String[value.size()]));
-        }
+    public static void decodeByUrl(LinkedMultiValueMap<String,String> parameterMap, String uri, Charset charset){
+        decodeParams(parameterMap,uri, findPathEndIndex(uri), charset, 10000);
     }
+
+	public static void decodeByUrl(Map<String,String[]> sourceParameterMap, String uri, Charset charset){
+		LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>();
+		decodeByUrl(parameterMap,uri, charset);
+		for (Map.Entry<String, List<String>> entry : parameterMap.entrySet()) {
+			String[] values = sourceParameterMap.get(entry.getKey());
+			List<String> newValueList = entry.getValue();
+			if(values != null) {
+				Collections.addAll(newValueList, values);
+			}
+			sourceParameterMap.put(entry.getKey(),newValueList.toArray(new String[0]));
+		}
+	}
 
     public static String decodeCharacterEncoding(String contentType) {
         if (contentType == null) {
@@ -313,15 +323,14 @@ public class ServletUtil {
         return len;
     }
 
-    private static Map<String, List<String>> decodeParams(String s, int from, Charset charset, int paramsLimit) {
+    private static void decodeParams(LinkedMultiValueMap<String,String> parameterMap,String s, int from, Charset charset, int paramsLimit) {
         int len = s.length();
         if (from >= len) {
-            return Collections.emptyMap();
+            return;
         }
         if (s.charAt(from) == '?') {
             from++;
         }
-        Map<String, List<String>> params = new LinkedHashMap<String, List<String>>();
         int nameStart = from;
         int valueStart = -1;
         int i;
@@ -337,10 +346,10 @@ public class ServletUtil {
                     break;
                 case '&':
                 case ';':
-                    if (addParam(s, nameStart, valueStart, i, params, charset)) {
+                    if (addParam(s, nameStart, valueStart, i, parameterMap, charset)) {
                         paramsLimit--;
                         if (paramsLimit == 0) {
-                            return params;
+                            return;
                         }
                     }
                     nameStart = i + 1;
@@ -351,12 +360,11 @@ public class ServletUtil {
                     // continue
             }
         }
-        addParam(s, nameStart, valueStart, i, params, charset);
-        return params;
+        addParam(s, nameStart, valueStart, i, parameterMap, charset);
     }
 
     private static boolean addParam(String s, int nameStart, int valueStart, int valueEnd,
-                                    Map<String, List<String>> params, Charset charset) {
+                                    LinkedMultiValueMap<String,String> parameterMap, Charset charset) {
         if (nameStart >= valueEnd) {
             return false;
         }
@@ -365,12 +373,7 @@ public class ServletUtil {
         }
         String name = decodeComponent(s, nameStart, valueStart - 1, charset);
         String value = decodeComponent(s, valueStart, valueEnd, charset);
-        List<String> values = params.get(name);
-        if (values == null) {
-            values = new ArrayList<String>(1);  // Often there's only 1 value.
-            params.put(name, values);
-        }
-        values.add(value);
+	    parameterMap.add(name,value);
         return true;
     }
 

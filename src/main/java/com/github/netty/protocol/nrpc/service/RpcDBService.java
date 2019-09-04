@@ -74,4 +74,13 @@ public interface RpcDBService {
     void removeBatch2(@Protocol.RpcParam("keys") List<String> keys, @Protocol.RpcParam("group") String group);
     void removeBatch(@Protocol.RpcParam("keys") List<String> keys);
 
+	/**
+	 * Set the max number for this group
+	 * @param maxSize the group maxSize
+	 * @param group group
+	 */
+    void setMaxSize2(@Protocol.RpcParam("maxSize")Integer maxSize,@Protocol.RpcParam("group") String group);
+	void setMaxSize(@Protocol.RpcParam("maxSize")Integer maxSize);
+
+
 }

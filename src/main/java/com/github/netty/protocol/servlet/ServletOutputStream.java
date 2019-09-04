@@ -419,8 +419,10 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         // Cookies processing
         //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
         List<Cookie> cookies = servletResponse.getCookies();
-        ServletHttpSession httpSession = servletRequest.getSession(true);
-        if (httpSession.isNew() && !httpSession.getId().equals(servletRequest.getRequestedSessionId())) {
+        ServletHttpSession httpSession = servletRequest.getSession(false);
+        if (httpSession != null && httpSession.isNew()
+//		        && !httpSession.getId().equals(servletRequest.getRequestedSessionId())
+        ) {
             String sessionCookieName = sessionCookieConfig.getName();
             if(sessionCookieName == null || sessionCookieName.isEmpty()){
                 sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;

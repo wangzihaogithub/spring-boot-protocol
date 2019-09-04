@@ -1,5 +1,7 @@
 package com.github.netty.protocol.nrpc.service;
 
+import com.github.netty.core.util.ExpiryLRUMap;
+
 import java.util.*;
 
 /**
@@ -7,7 +9,7 @@ import java.util.*;
  * @author wangzihao
  */
 public class RpcDBServiceImpl implements RpcDBService {
-    private final Map<String,ExpiryMap<String,byte[]>> memExpiryGroupMap = new HashMap<>(16);
+    private final Map<String, RpcDBExpiryLRUMap<String,byte[]>> memExpiryGroupMap = new HashMap<>(16);
     private static final String SHARING_GROUP = "/sharing";
 
     @Override
@@ -61,7 +63,8 @@ public class RpcDBServiceImpl implements RpcDBService {
 
     @Override
     public void changeKey3(String oldKey, String newKey, String group) {
-        getMemExpiryMap(group).changeKey(oldKey,newKey);
+	     RpcDBExpiryLRUMap<String, byte[]> memExpiryMap = getMemExpiryMap(group);
+	    memExpiryMap.putNode(newKey,memExpiryMap.removeNode(oldKey));
     }
 
     @Override
@@ -79,13 +82,23 @@ public class RpcDBServiceImpl implements RpcDBService {
         removeBatch2(keys,SHARING_GROUP);
     }
 
-    @Override
+	@Override
+	public void setMaxSize2(Integer maxSize,String group) {
+		getMemExpiryMap(group).setMaxSize(maxSize);
+	}
+
+	@Override
+	public void setMaxSize(Integer maxSize) {
+		setMaxSize2(maxSize,SHARING_GROUP);
+	}
+
+	@Override
     public void removeBatch2(List<String> keys, String group) {
         if(keys == null || keys.isEmpty()){
             return;
         }
 
-        ExpiryMap<String, byte[]> map = getMemExpiryMap(group);
+	    RpcDBExpiryLRUMap<String, byte[]> map = getMemExpiryMap(group);
         if(keys instanceof RandomAccess) {
             int size = keys.size();
             for (int i=0; i<size; i++){
@@ -99,13 +112,13 @@ public class RpcDBServiceImpl implements RpcDBService {
         }
     }
 
-    private ExpiryMap<String, byte[]> getMemExpiryMap(String group) {
-        ExpiryMap<String,byte[]> memExpiryMap = memExpiryGroupMap.get(group);
+    private RpcDBExpiryLRUMap<String, byte[]> getMemExpiryMap(String group) {
+	    RpcDBExpiryLRUMap<String,byte[]> memExpiryMap = memExpiryGroupMap.get(group);
         if(memExpiryMap == null){
             synchronized (memExpiryGroupMap) {
                 memExpiryMap = memExpiryGroupMap.get(group);
                 if(memExpiryMap == null) {
-                    memExpiryMap = new ExpiryMap<>(-1);
+                    memExpiryMap = new RpcDBExpiryLRUMap<>(-1);
                     memExpiryGroupMap.put(group, memExpiryMap);
                 }
             }
@@ -113,186 +126,18 @@ public class RpcDBServiceImpl implements RpcDBService {
         return memExpiryMap;
     }
 
-    /**
-     * timed expiration Map will automatically expire and be deleted
-     * common scenario: localCache
-     */
-    public class ExpiryMap <K, V> extends HashMap<K, V> {
-        private final Object lock;
-        private Map<K, Long> expiryMap;
-        private long defaultExpiryTime;
+    private static class RpcDBExpiryLRUMap<K,V> extends ExpiryLRUMap<K,V>{
+	    private int maxSize = -1;
+	    RpcDBExpiryLRUMap(long defaultExpiryTime) {
+		    super(defaultExpiryTime);
+	    }
+	    @Override
+	    protected boolean removeEldestEntry(Entry<K, Node<V>> eldest) {
+		    return size() > maxSize;
+	    }
 
-        public ExpiryMap(long defaultExpiryTime){
-            this(16, defaultExpiryTime);
-        }
-
-        public ExpiryMap(int initialCapacity, long defaultExpiryTime){
-            super(initialCapacity);
-            this.defaultExpiryTime = defaultExpiryTime < 0 ? -1 : defaultExpiryTime;
-            this.expiryMap = new HashMap<K,Long>(initialCapacity);
-            this.lock = new Object();
-        }
-
-        @Override
-        public V put(K key, V value) {
-            return put(key,value,defaultExpiryTime);
-        }
-
-        /**
-         * @param key key
-         * @param value value
-         * @param expiryTime The key value pair is valid in milliseconds
-         * @return old value
-         */
-        public V put(K key, V value, long expiryTime) {
-            expiryMap.put(key, System.currentTimeMillis() + expiryTime);
-            return super.put(key, value);
-        }
-
-        public void changeKey(K oldKey, K newKey) {
-            Long expiry = expiryMap.remove(oldKey);
-            //如果已经过期
-            if(expiry == null || expiry - System.currentTimeMillis() <= 0){
-                return;
-            }
-            put(newKey,super.remove(oldKey),expiry);
-        }
-
-        @Override
-        public boolean containsKey(Object key) {
-            return !checkExpiry( key) && super.containsKey(key);
-        }
-
-        @Override
-        public int size() {
-            checkExpiry();
-            return super.size();
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return size() == 0;
-        }
-
-        @Override
-        public boolean containsValue(Object value) {
-            Iterator<Entry<K, V>> iterator = super.entrySet().iterator();
-            while (iterator.hasNext()) {
-                Entry<K, V> entry = iterator.next();
-                K key = entry.getKey();
-                V cValue = entry.getValue();
-                if (cValue != value || !value.equals(cValue)) {
-                    continue;
-                }
-
-                if (!checkExpiry(key, false)) {
-                    return true;
-                }
-
-                remove(iterator, key);
-                return false;
-            }
-
-            return false;
-        }
-
-        private void remove(Iterator<Entry<K,V>> it, K key){
-            expiryMap.remove(key);
-            it.remove();
-        }
-
-        @Override
-        public V remove(Object key) {
-            expiryMap.remove(key);
-            V v = super.remove(key);
-            return v;
-        }
-
-        @Override
-        public V get(Object key) {
-            if (key == null) {
-                return null;
-            }
-            if(checkExpiry(key)) {
-                return null;
-            }
-            return super.get(key);
-        }
-
-        @Override
-        public void putAll(Map<? extends K, ? extends V> m) {
-            for (Entry<? extends K, ? extends V> e : m.entrySet()) {
-                expiryMap.put(e.getKey(), System.currentTimeMillis() + defaultExpiryTime);
-            }
-            super.putAll(m);
-        }
-
-        @Override
-        public Collection<V> values() {
-            checkExpiry();
-            return super.values();
-        }
-
-        @Override
-        public Set<K> keySet() {
-            checkExpiry();
-            return super.keySet();
-        }
-
-        @Override
-        public Set<Entry<K,V>> entrySet() {
-            synchronized (lock) {
-                Set<Entry<K, V>> set = super.entrySet();
-                Iterator<Entry<K, V>> iterator = set.iterator();
-                while (iterator.hasNext()) {
-                    Entry<K, V> entry = iterator.next();
-                    K key = entry.getKey();
-                    if (checkExpiry(key, false)) {
-                        remove(iterator, key);
-                    }
-                }
-                return set;
-            }
-        }
-
-        public Long getExpiry(K key) {
-            return expiryMap.get(key);
-        }
-
-        private void checkExpiry(){
-            entrySet();
-        }
-
-        /**
-         *
-         * @Description: Is late
-         * @param key True overdue
-         * @param isRemoveSuper true Super delete
-         * @return
-         */
-        private boolean checkExpiry(Object key, boolean isRemoveSuper){
-            Long expiryTime = expiryMap.get(key);
-            if(expiryTime == null) {
-                return true;
-            }
-
-            long currentTime = System.currentTimeMillis();
-            boolean disable = currentTime > expiryTime;
-
-//        System.out.println( key + " expiryTime"+expiryTime);
-//        System.out.println( key + " currentTime"+currentTime);
-
-            if(disable){
-                if(isRemoveSuper) {
-                    remove(key);
-                }
-            }
-            return disable;
-        }
-
-        private boolean checkExpiry(Object key){
-            return checkExpiry(key,true);
-        }
+	    public void setMaxSize(int maxSize) {
+		    this.maxSize = maxSize;
+	    }
     }
-
 }

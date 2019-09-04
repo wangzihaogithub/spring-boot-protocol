@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
-    private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
     private static final String RFC1123_DATE = "EEE, dd MMM yyyy HH:mm:ss zzz";
     private static final SimpleDateFormat[] FORMATS_TEMPLATE = {
@@ -42,7 +41,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
     private static final Map<String,ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
-
+	private SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
     private ServletHttpObject httpServletObject;
     private ServletAsyncContext asyncContext;
 
@@ -63,14 +62,55 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private boolean decodeParameterByUrlFlag = false;
     private InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
-    private boolean usingInputStream = false;
+    private boolean usingInputStreamFlag = false;
 
     private BufferedReader reader;
     private FullHttpRequest nettyRequest;
     private ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
     private Map<String,Object> attributeMap = new ConcurrentHashMap<>(16);
-    private Map<String,String[]> parameterMap = new HashMap<>(16);
-    private Map<String,String[]> unmodifiableParameterMap = Collections.unmodifiableMap(parameterMap);
+    private LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
+    private Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
+	    @Override
+	    public Set<Entry<String, String[]>> entrySet() {
+	    	if(isEmpty()){
+	    		return Collections.emptySet();
+		    }
+		    HashSet<Entry<String, String[]>> result = new HashSet<>(6);
+		    Set<Entry<String, List<String>>> entries = parameterMap.entrySet();
+		    for (Entry<String,List<String>> entry : entries) {
+			    List<String> value = entry.getValue();
+			    String[] valueArr = value != null? value.toArray(new String[value.size()]): null;
+			    result.add(new AbstractMap.SimpleImmutableEntry<>(entry.getKey(),valueArr));
+		    }
+		    return result;
+	    }
+
+	    @Override
+	    public String[] get(Object key) {
+		    List<String> value = parameterMap.get(key);
+		    if(value == null){
+		    	return null;
+		    }else {
+			    return value.toArray(new String[value.size()]);
+		    }
+	    }
+
+	    @Override
+	    public boolean containsKey(Object key) {
+		    return parameterMap.containsKey(key);
+	    }
+
+	    @Override
+	    public boolean containsValue(Object value) {
+		    return parameterMap.containsValue(value);
+	    }
+
+	    @Override
+	    public int size() {
+		    return parameterMap.size();
+	    }
+    };
+
     private List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
@@ -223,7 +263,16 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
          * There are three types of HttpDataType
          * Attribute, FileUpload, InternalAttribute
          */
-        while (postRequestDecoder.hasNext()) {
+	    this.postRequestDecoder = postRequestDecoder;
+        while (true) {
+        	try {
+		        if (!postRequestDecoder.hasNext()) {
+		        	return;
+		        }
+	        }catch (HttpPostRequestDecoder.EndOfDataDecoderException e){
+        		return;
+	        }
+
             InterfaceHttpData interfaceData = postRequestDecoder.next();
             switch (interfaceData.getHttpDataType()) {
                 case Attribute: {
@@ -236,7 +285,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                         e.printStackTrace();
                         value = "";
                     }
-                    parameterMap.put(name, new String[]{value});
+                    parameterMap.add(name, value);
 
                     if(bodyPartFlag) {
                         ServletTextPart part = new ServletTextPart(data,resourceManager);
@@ -251,12 +300,10 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                     break;
                 }
                 default: {
-
                     break;
                 }
             }
         }
-        this.postRequestDecoder = postRequestDecoder;
     }
 
     /**
@@ -287,42 +334,21 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      */
     private void decodePaths(){
         // TODO: 10-16/0016 Add pathInfo, web. XML configuration /* or /a/*
-        ServletContext servletContext = getServletContext();
-        String contextPath = servletContext.getContextPath();
-        boolean existContextPath = contextPath != null && contextPath.length() > 0;
-
-        String sourceURI = nettyRequest.uri();
-        if (sourceURI.indexOf('\\') > -1) {
-            sourceURI = sourceURI.replace('\\', '/');
-        }
-        String tempPath = existContextPath? sourceURI.replace(contextPath, "") : sourceURI;
-        if(tempPath.length() > 0 && tempPath.charAt(0) == '/'){
-            tempPath = tempPath.substring(1);
-        }
-        if (tempPath.isEmpty() || tempPath.charAt(0)!= '/') {
-            tempPath = "/".concat(tempPath);
-        }
-
-        //Parsing the queryString
-        int queryInx = tempPath.indexOf('?');
+        String requestURI = nettyRequest.uri();
+        String queryString;
+        int queryInx = requestURI.indexOf('?');
         if (queryInx > -1) {
-            this.queryString = tempPath.substring(queryInx + 1);
-            tempPath = tempPath.substring(0, queryInx);
-        }
-
-        //Parse the requestURI and ensure that the requestURI prefix is + /
-        String requestURI;
-        if(existContextPath){
-            if(contextPath.charAt(0) != '/') {
-                requestURI = "/".concat(contextPath).concat(tempPath);
-            }else {
-                requestURI = contextPath.concat(tempPath);
-            }
+            queryString = requestURI.substring(queryInx + 1);
+            requestURI = requestURI.substring(0, queryInx);
         }else {
-            requestURI = tempPath;
+        	queryString = null;
         }
+	    if(requestURI.length() > 1 && requestURI.charAt(0) == '/' && requestURI.charAt(1) == '/'){
+		    requestURI = requestURI.substring(1);
+	    }
 
         this.requestURI = requestURI;
+        this.queryString = queryString;
         // 1.Plus the pathInfo
         this.pathInfo = null;
         this.decodePathsFlag = true;
@@ -333,7 +359,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
      * @return
      */
     private String newSessionId(){
-        return String.valueOf(SNOWFLAKE_ID_WORKER.nextId());
+        return String.valueOf(snowflakeIdWorker.nextId());
     }
 
     @Override
@@ -488,7 +514,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             String servletPath = getServletContext().getServletPath(getRequestURI());
             String contextPath = getServletContext().getContextPath();
             if(contextPath.length() > 0){
-                servletPath = servletPath.replace(contextPath,"");
+                servletPath = servletPath.replaceFirst(contextPath,"");
             }
             this.servletPath = servletPath;
         }
@@ -550,21 +576,19 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public ServletHttpSession getSession(boolean create) {
+	    String sessionId = getRequestedSessionId();
         ServletHttpSession httpSession = httpServletObject.getHttpSession();
-        if (httpSession != null && httpSession.isValid()) {
+        if (httpSession != null && httpSession.isValid() && httpSession.getId().equals(sessionId)) {
             return httpSession;
         }
-
-        if (!create) {
+	    ServletContext servletContext = getServletContext();
+	    SessionService sessionService = servletContext.getSessionService();
+	    Session session = sessionService.getSession(sessionId);
+        if (session == null && !create) {
             return null;
         }
 
-        String sessionId = getRequestedSessionId();
-        ServletContext servletContext = getServletContext();
-        SessionService sessionService = servletContext.getSessionService();
-        Session session = sessionService.getSession(sessionId);
         boolean newSessionFlag = session == null;
-
         if (newSessionFlag) {
             long currTime = System.currentTimeMillis();
             session = new Session(sessionId);
@@ -707,7 +731,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         if(reader != null){
             throw new IllegalStateException("getReader() has already been called for this request");
         }
-        usingInputStream = true;
+        usingInputStreamFlag = true;
         return inputStream;
     }
 
@@ -785,7 +809,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public BufferedReader getReader() throws IOException {
-        if(usingInputStream){
+        if(usingInputStreamFlag){
             throw new IllegalStateException("getInputStream() has already been called for this request");
         }
         if(reader == null){
@@ -1119,6 +1143,15 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public void recycle() {
+	    ServletHttpSession httpSession = httpServletObject.getHttpSession();
+	    if(httpSession != null) {
+		    if (httpSession.isValid()) {
+			    httpSession.save();
+		    } else{
+			    httpSession.remove();
+		    }
+		    httpSession.clear();
+	    }
         this.inputStream.recycle();
         this.nettyRequest = null;
         if(this.postRequestDecoder != null) {
@@ -1130,7 +1163,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.remoteSchemeFlag = false;
         this.decodeCookieFlag = false;
         this.decodePathsFlag = false;
-        this.usingInputStream = false;
+        this.usingInputStreamFlag = false;
         this.reader = null;
         this.sessionIdSource = null;
         this.protocol = null;

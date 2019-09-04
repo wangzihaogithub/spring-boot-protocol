@@ -64,11 +64,19 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
     }
 
     public void save(){
+	    if(id == null){
+		    return;
+	    }
         getServletContext().getSessionService().saveSession(unwrap());
+	    getServletContext().log("saveHttpSession : sessionId="+id);
     }
 
     public void remove(){
+    	if(id == null){
+    		return;
+	    }
         getServletContext().getSessionService().removeSession(getId());
+	    getServletContext().log("removeHttpSession : sessionId="+id);
     }
 
     @Override

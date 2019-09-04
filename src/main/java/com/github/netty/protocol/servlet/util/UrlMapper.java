@@ -1,9 +1,6 @@
 package com.github.netty.protocol.servlet.util;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Url mapping
@@ -47,7 +44,7 @@ import java.util.Objects;
  * Created on 2017-08-25 11:32.
  */
 public class UrlMapper<T> {
-
+	private String rootPath;
     private final boolean singlePattern;
     private List<Element> elementList = new ArrayList<>();
     private AntPathMatcher antPathMatcher = new AntPathMatcher();
@@ -56,7 +53,16 @@ public class UrlMapper<T> {
         this.singlePattern = singlePattern;
     }
 
-    /**
+	public void setRootPath(String rootPath) {
+		this.rootPath = rootPath;
+		List<Element> elementList = new ArrayList<>();
+		for(Element element : this.elementList){
+			elementList.add(new Element(element.originalPattern,element.object,element.objectName));
+		}
+		this.elementList = elementList;
+	}
+
+	/**
      * Add mapping
      * @param urlPattern  urlPattern
      * @param object     object
@@ -67,12 +73,13 @@ public class UrlMapper<T> {
         Objects.requireNonNull(urlPattern);
         Objects.requireNonNull(object);
         Objects.requireNonNull(objectName);
+	    List<Element> elementList = this.elementList;
 
         for (Element element : elementList) {
             if(singlePattern && element.objectName.equals(objectName)) {
                 throw new IllegalArgumentException("The [" + objectName + "] mapping exist!");
             }
-            if(element.pattern.equals(urlPattern)) {
+            if(element.originalPattern.equals(urlPattern)) {
                 element.objectName = objectName;
                 element.object = object;
                 return;
@@ -101,13 +108,12 @@ public class UrlMapper<T> {
      * @return servlet path
      */
     public String getServletPath(String absoluteUri) {
+	    List<Element> elementList = this.elementList;
         int size = elementList.size();
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
             if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
-                return element.pattern
-                        .replace("/*","")
-                        .replace("/**","");
+                return element.servletPath;
             }
         }
         return absoluteUri;
@@ -119,6 +125,7 @@ public class UrlMapper<T> {
      * @return T object
      */
     public T getMappingObjectByUri(String absoluteUri) {
+	    List<Element> elementList = this.elementList;
         int size = elementList.size();
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
@@ -128,13 +135,22 @@ public class UrlMapper<T> {
         }
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
+	        if("default".equals(element.objectName)){
+		        continue;
+	        }
             if('/' == element.pattern.charAt(0)
                     || '*' == element.pattern.charAt(0)
                     || "/*".equals(element.pattern)
                     || "/**".equals(element.pattern)){
-                return element.object;
+            	return element.object;
             }
         }
+	    for(int i=0; i<size; i++){
+		    Element element = elementList.get(i);
+		    if("default".equals(element.objectName)){
+			    return element.object;
+		    }
+	    }
         return null;
     }
 
@@ -144,8 +160,8 @@ public class UrlMapper<T> {
      * @param absoluteUri An absolute path
      */
     public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
-        int size = elementList.size();
-        for(int i=0; i<size; i++){
+	    List<Element> elementList = this.elementList;
+        for(int i=0,size = elementList.size(); i<size; i++){
             Element element = elementList.get(i);
             if("/*".equals(element.pattern)
                     ||(absoluteUri.length() == 1 && '/' == absoluteUri.charAt(0) && '/' == element.pattern.charAt(0))
@@ -159,13 +175,27 @@ public class UrlMapper<T> {
 
     private class Element {
         String pattern;
+	    String originalPattern;
         T object;
         String objectName;
-        
-        Element(String pattern, T object, String objectName) {
-            this.pattern = pattern;
+        String servletPath;
+        Element(String originalPattern, T object, String objectName) {
+        	if(rootPath != null){
+                this.pattern = rootPath.concat(originalPattern);
+	        }else {
+        		this.pattern = originalPattern;
+	        }
+            this.originalPattern = originalPattern;
             this.object = object;
             this.objectName = objectName;
+	        StringJoiner joiner = new StringJoiner("/");
+            for(String path : pattern.split("/")){
+            	if(path.contains("*")){
+            		continue;
+	            }
+            	joiner.add(path);
+            }
+            this.servletPath = joiner.toString();
         }
     }
 
