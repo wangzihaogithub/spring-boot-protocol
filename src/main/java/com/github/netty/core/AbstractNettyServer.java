@@ -5,6 +5,7 @@ import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollChannelOption;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -122,6 +123,8 @@ public abstract class AbstractNettyServer implements Runnable{
                     .childHandler(initializerChannelHandler)
                     //允许在同一端口上启动同一服务器的多个实例，只要每个实例捆绑一个不同的本地IP地址即可
                     .option(ChannelOption.SO_REUSEADDR, true)
+		            //允许使用同一个端口, 内核实现的负载均衡. 需要 Linux kernel >= 3.9
+		            .option(EpollChannelOption.SO_REUSEPORT, true)
                     //netty boos的默认内存分配器
 //                    .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE)
                     //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
