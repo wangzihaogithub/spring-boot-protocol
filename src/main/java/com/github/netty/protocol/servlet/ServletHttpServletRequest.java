@@ -115,6 +115,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
+    private ServletRequestDispatcher dispatcher;
 
     protected ServletHttpServletRequest() {}
 
@@ -126,19 +127,23 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         return instance;
     }
 
-    public void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
+    void setDispatcher(ServletRequestDispatcher dispatcher) {
+        this.dispatcher = dispatcher;
+    }
+
+    void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
         this.multipartConfigElement = multipartConfigElement;
     }
 
-    public void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
+    void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
         this.servletSecurityElement = servletSecurityElement;
     }
 
-    public boolean isAsync(){
+    boolean isAsync(){
         return asyncContext != null && asyncContext.isStarted();
     }
 
-    public void setAsyncSupportedFlag(Boolean asyncSupportedFlag) {
+    void setAsyncSupportedFlag(Boolean asyncSupportedFlag) {
         this.asyncSupportedFlag = asyncSupportedFlag;
     }
 
@@ -322,7 +327,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         String value = getHeader(HttpHeaderConstants.COOKIE.toString());
         if (value != null && value.length() > 0) {
             Collection<Cookie> nettyCookieSet = ServletUtil.decodeCookie(value);
-            if(nettyCookieSet != null && nettyCookieSet.size() > 0){
+            if(nettyCookieSet.size() > 0){
                 this.cookies = nettyCookieSet.toArray(new Cookie[0]);
             }
         }
@@ -791,7 +796,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         if(inetSocketAddress != null) {
             return inetSocketAddress.getAddress().getHostAddress();
         }
-        return httpServletObject.getLocalAddress().getHostName();
+        return null;
     }
 
     @Override
@@ -1164,6 +1169,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.decodeCookieFlag = false;
         this.decodePathsFlag = false;
         this.usingInputStreamFlag = false;
+        this.dispatcher = null;
         this.reader = null;
         this.sessionIdSource = null;
         this.protocol = null;

@@ -274,7 +274,8 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        ServletRegistration servletRegistration = servletUrlMapper.getMappingObjectByUri(path);
+        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
+        ServletRegistration servletRegistration = element.getObject();
         if(servletRegistration == null){
             return null;
         }
@@ -283,12 +284,9 @@ public class ServletContext implements javax.servlet.ServletContext {
         filterUrlMapper.addMappingObjectsByUri(path,filterChain.getFilterRegistrationList());
 
         ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
+        dispatcher.setMapperElement(element);
         dispatcher.setPath(path);
         return dispatcher;
-    }
-
-    public ServletRegistration getServletRegistrationByPath(String path){
-        return servletUrlMapper.getMappingObjectByUri(path);
     }
 
     @Override

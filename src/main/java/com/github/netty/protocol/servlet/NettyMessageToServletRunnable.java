@@ -62,11 +62,12 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
 
             long beginTime = System.currentTimeMillis();
             try {
-                ServletRequestDispatcher dispatcher = httpServletRequest.getRequestDispatcher(httpServletRequest.getRequestURI());
+                ServletRequestDispatcher dispatcher = httpServletObject.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {
                     httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
                     return;
                 }
+                httpServletRequest.setDispatcher(dispatcher);
                 dispatcher.dispatch(httpServletRequest, httpServletResponse);
 
             }catch (ServletException se){

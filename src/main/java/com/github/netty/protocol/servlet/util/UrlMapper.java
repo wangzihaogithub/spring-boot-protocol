@@ -46,7 +46,7 @@ import java.util.*;
 public class UrlMapper<T> {
 	private String rootPath;
     private final boolean singlePattern;
-    private List<Element> elementList = new ArrayList<>();
+    private List<Element<T>> elementList = new ArrayList<>();
     private AntPathMatcher antPathMatcher = new AntPathMatcher();
 
     public UrlMapper(boolean singlePattern) {
@@ -55,9 +55,9 @@ public class UrlMapper<T> {
 
 	public void setRootPath(String rootPath) {
 		this.rootPath = rootPath;
-		List<Element> elementList = new ArrayList<>();
-		for(Element element : this.elementList){
-			elementList.add(new Element(element.originalPattern,element.object,element.objectName));
+		List<Element<T>> elementList = new ArrayList<>();
+		for(Element<T> element : this.elementList){
+			elementList.add(new Element<>(rootPath,element.originalPattern,element.object,element.objectName));
 		}
 		this.elementList = elementList;
 	}
@@ -73,7 +73,7 @@ public class UrlMapper<T> {
         Objects.requireNonNull(urlPattern);
         Objects.requireNonNull(object);
         Objects.requireNonNull(objectName);
-	    List<Element> elementList = this.elementList;
+	    List<Element<T>> elementList = this.elementList;
 
         for (Element element : elementList) {
             if(singlePattern && element.objectName.equals(objectName)) {
@@ -85,7 +85,7 @@ public class UrlMapper<T> {
                 return;
             }
         }
-        elementList.add(new Element(urlPattern,object,objectName));
+        elementList.add(new Element<>(rootPath,urlPattern,object,objectName));
     }
 
     /**
@@ -93,9 +93,9 @@ public class UrlMapper<T> {
      * @param objectName objectName
      */
     public void removeMapping(String objectName) {
-        Iterator<Element> it = elementList.iterator();
+        Iterator<Element<T>> it = elementList.iterator();
         while (it.hasNext()){
-            Element element = it.next();
+            Element<T> element = it.next();
             if(element.objectName.equals(objectName)){
                 it.remove();
             }
@@ -108,7 +108,7 @@ public class UrlMapper<T> {
      * @return servlet path
      */
     public String getServletPath(String absoluteUri) {
-	    List<Element> elementList = this.elementList;
+	    List<Element<T>> elementList = this.elementList;
         int size = elementList.size();
         for(int i=0; i<size; i++){
             Element element = elementList.get(i);
@@ -124,17 +124,17 @@ public class UrlMapper<T> {
      * @param absoluteUri An absolute path
      * @return T object
      */
-    public T getMappingObjectByUri(String absoluteUri) {
-	    List<Element> elementList = this.elementList;
+    public Element<T> getMappingObjectByUri(String absoluteUri) {
+	    List<Element<T>> elementList = this.elementList;
         int size = elementList.size();
         for(int i=0; i<size; i++){
-            Element element = elementList.get(i);
+            Element<T> element = elementList.get(i);
             if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
-                return element.object;
+                return element;
             }
         }
         for(int i=0; i<size; i++){
-            Element element = elementList.get(i);
+            Element<T> element = elementList.get(i);
 	        if("default".equals(element.objectName)){
 		        continue;
 	        }
@@ -142,13 +142,13 @@ public class UrlMapper<T> {
                     || '*' == element.pattern.charAt(0)
                     || "/*".equals(element.pattern)
                     || "/**".equals(element.pattern)){
-            	return element.object;
+            	return element;
             }
         }
 	    for(int i=0; i<size; i++){
-		    Element element = elementList.get(i);
+		    Element<T> element = elementList.get(i);
 		    if("default".equals(element.objectName)){
-			    return element.object;
+			    return element;
 		    }
 	    }
         return null;
@@ -160,9 +160,9 @@ public class UrlMapper<T> {
      * @param absoluteUri An absolute path
      */
     public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
-	    List<Element> elementList = this.elementList;
+	    List<Element<T>> elementList = this.elementList;
         for(int i=0,size = elementList.size(); i<size; i++){
-            Element element = elementList.get(i);
+            Element<T> element = elementList.get(i);
             if("/*".equals(element.pattern)
                     ||(absoluteUri.length() == 1 && '/' == absoluteUri.charAt(0) && '/' == element.pattern.charAt(0))
                     || '*' == element.pattern.charAt(0)
@@ -173,29 +173,53 @@ public class UrlMapper<T> {
         }
     }
 
-    private class Element {
+    public static class Element<T> {
         String pattern;
 	    String originalPattern;
         T object;
         String objectName;
         String servletPath;
-        Element(String originalPattern, T object, String objectName) {
+        String rootPath;
+        boolean wildcardPatternFlag;
+        Element(String rootPath,String originalPattern, T object, String objectName) {
         	if(rootPath != null){
                 this.pattern = rootPath.concat(originalPattern);
 	        }else {
         		this.pattern = originalPattern;
 	        }
+        	this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
             this.objectName = objectName;
 	        StringJoiner joiner = new StringJoiner("/");
-            for(String path : pattern.split("/")){
+            String[] pattens = pattern.split("/");
+            for(int i=0; i<pattens.length; i++){
+                String path = pattens[i];
             	if(path.contains("*")){
-            		continue;
+                    wildcardPatternFlag = true;
+                    if(i == pattens.length - 1) {
+                        continue;
+                    }
 	            }
             	joiner.add(path);
             }
             this.servletPath = joiner.toString();
+        }
+
+        public boolean isWildcardPatternFlag() {
+            return wildcardPatternFlag;
+        }
+
+        public T getObject() {
+            return object;
+        }
+
+        public String getPattern() {
+            return pattern;
+        }
+
+        public String getServletPath() {
+            return servletPath;
         }
     }
 

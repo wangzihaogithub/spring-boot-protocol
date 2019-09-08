@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.util.UrlMapper;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -23,6 +24,10 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
      * Scheduling servlet name (mutually exclusive with path field)
      */
     private String name;
+    /**
+     * Match mapping
+     */
+    UrlMapper.Element<ServletRegistration> mapperElement;
     /**
      * The filter chain
      */
@@ -216,15 +221,23 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
         this.path = path;
     }
 
+    public String getPath() {
+        return path;
+    }
+
     public void setName(String name) {
         this.name = name;
     }
 
     public String getName() {
         if(filterChain == null){
-            return null;
+            return name;
         }
         return filterChain.getServletRegistration().getName();
+    }
+
+    void setMapperElement(UrlMapper.Element<ServletRegistration> mapperElement) {
+        this.mapperElement = mapperElement;
     }
 
     void clearFilter(){
@@ -238,6 +251,7 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
     public void recycle() {
         path = null;
         name = null;
+        mapperElement = null;
         filterChain = null;
         RECYCLER.recycleInstance(this);
     }
