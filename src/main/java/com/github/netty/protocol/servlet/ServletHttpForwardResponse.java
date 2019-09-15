@@ -14,13 +14,13 @@ import java.nio.charset.Charset;
  *  2018/7/15/015
  */
 public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
-    private ServletHttpObject httpServletObject;
+    private ServletHttpExchange servletHttpExchange;
     private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);
     private PrintWriter writer;
 
     public ServletHttpForwardResponse(ServletHttpServletResponse response,ServletOutputStream outputStream) {
         super(response);
-        this.httpServletObject = response.getHttpServletObject();
+        this.servletHttpExchange = response.getServletHttpExchange();
         this.outWrapper.wrap(outputStream);
     }
 
@@ -74,7 +74,7 @@ public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
             if(MediaType.isHtmlType(getContentType())){
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
             }else {
-                characterEncoding = httpServletObject.getServletContext().getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.getServletContext().getResponseCharacterEncoding();
             }
             setCharacterEncoding(characterEncoding);
         }

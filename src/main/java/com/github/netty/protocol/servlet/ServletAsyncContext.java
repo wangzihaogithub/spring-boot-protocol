@@ -45,14 +45,14 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     private long timeout;
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
     private ServletContext servletContext;
-    private ServletHttpObject httpServletObject;
+    private ServletHttpExchange servletHttpExchange;
     private Throwable throwable;
     private HttpServletRequest httpServletRequest;
     private HttpServletResponse httpServletResponse;
     private ExecutorService executorService;
 
-    public ServletAsyncContext(ServletHttpObject httpServletObject, ServletContext servletContext, ExecutorService executorService, ServletRequest httpServletRequest, ServletResponse httpServletResponse) {
-        this.httpServletObject = Objects.requireNonNull(httpServletObject);
+    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, ExecutorService executorService, ServletRequest httpServletRequest, ServletResponse httpServletResponse) {
+        this.servletHttpExchange = Objects.requireNonNull(servletHttpExchange);
         this.servletContext = Objects.requireNonNull(servletContext);
         this.executorService = Objects.requireNonNull(executorService);
         this.httpServletRequest = (HttpServletRequest)Objects.requireNonNull(httpServletRequest);
@@ -146,7 +146,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     public void recycle(){
         //If not, recycle
         if(recycleFlag.compareAndSet(false,true)){
-            httpServletObject.recycle();
+            servletHttpExchange.recycle();
         }
     }
 

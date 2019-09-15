@@ -62,11 +62,11 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }
 
         if (super.isSendResponseHeader.compareAndSet(false,true)) {
-            NettyHttpResponse nettyResponse = getHttpServletObject().getHttpServletResponse().getNettyResponse();
+            NettyHttpResponse nettyResponse = getServletHttpExchange().getResponse().getNettyResponse();
             LastHttpContent lastHttpContent = nettyResponse.enableTransferEncodingChunked();
             chunkedInput.setLastHttpContent(lastHttpContent);
 
-            ChannelPipeline pipeline = getHttpServletObject().getChannelHandlerContext().channel().pipeline();
+            ChannelPipeline pipeline = getServletHttpExchange().getChannelHandlerContext().channel().pipeline();
             if(pipeline.context(ChunkedWriteHandler.class) == null) {
                 ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
                 if(httpContext == null){
@@ -79,7 +79,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }
 
             super.sendResponse(future -> {
-                ChannelHandlerContext channel = getHttpServletObject().getChannelHandlerContext();
+                ChannelHandlerContext channel = getServletHttpExchange().getChannelHandlerContext();
                 ChannelPromise promise;
                 if(listener == null){
                     promise = channel.voidPromise();
@@ -92,7 +92,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             return;
         }
 
-        getHttpServletObject().getChannelHandlerContext().flush();
+        getServletHttpExchange().getChannelHandlerContext().flush();
         if(listener != null){
             try{
                 listener.operationComplete(null);

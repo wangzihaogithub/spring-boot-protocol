@@ -33,7 +33,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         }
 
         HttpRunnable instance = RECYCLER.getInstance();
-        instance.httpServletObject = ServletHttpObject.newInstance(
+        instance.servletHttpExchange = ServletHttpExchange.newInstance(
                 servletContext,
                 context,
                 (FullHttpRequest) msg);;
@@ -44,25 +44,25 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
      * http task
      */
     public static class HttpRunnable implements Runnable,Recyclable {
-        private ServletHttpObject httpServletObject;
+        private ServletHttpExchange servletHttpExchange;
 
-        public ServletHttpObject getHttpServletObject() {
-            return httpServletObject;
+        public ServletHttpExchange getServletHttpExchange() {
+            return servletHttpExchange;
         }
 
-        public void setHttpServletObject(ServletHttpObject httpServletObject) {
-            this.httpServletObject = httpServletObject;
+        public void setServletHttpExchange(ServletHttpExchange servletHttpExchange) {
+            this.servletHttpExchange = servletHttpExchange;
         }
 
         @Override
         public void run() {
-            ServletHttpServletRequest httpServletRequest = httpServletObject.getHttpServletRequest();
-            ServletHttpServletResponse httpServletResponse = httpServletObject.getHttpServletResponse();
+            ServletHttpServletRequest httpServletRequest = servletHttpExchange.getRequest();
+            ServletHttpServletResponse httpServletResponse = servletHttpExchange.getResponse();
             Throwable realThrowable = null;
 
             long beginTime = System.currentTimeMillis();
             try {
-                ServletRequestDispatcher dispatcher = httpServletObject.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
+                ServletRequestDispatcher dispatcher = servletHttpExchange.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {
                     httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
                     return;
@@ -85,7 +85,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     realThrowable = (Throwable) httpServletRequest.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
                 }
                 ServletErrorPage errorPage = null;
-                ServletErrorPageManager errorPageManager = httpServletObject.getServletContext().getErrorPageManager();
+                ServletErrorPageManager errorPageManager = servletHttpExchange.getServletContext().getErrorPageManager();
                 if(realThrowable != null){
                     errorPage = errorPageManager.find(realThrowable);
                     if(errorPage == null) {
@@ -118,14 +118,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     ServletAsyncContext asyncContext = httpServletRequest.getAsyncContext();
                     //If the asynchronous execution completes, recycle
                     if(asyncContext.isComplete()){
-                        httpServletObject.recycle();
+                        servletHttpExchange.recycle();
                     }else {
                         //Marks the end of execution for the main thread
                         httpServletRequest.getAsyncContext().markIoThreadOverFlag();
                     }
                 }else {
                     //Not asynchronous direct collection
-                    httpServletObject.recycle();
+                    servletHttpExchange.recycle();
                 }
 
                 recycle();
@@ -135,7 +135,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
 
         @Override
         public void recycle() {
-            httpServletObject = null;
+            servletHttpExchange = null;
             RECYCLER.recycleInstance(HttpRunnable.this);
         }
     }

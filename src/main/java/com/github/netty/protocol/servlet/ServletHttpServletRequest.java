@@ -42,7 +42,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     };
     private static final Map<String,ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
 	private SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
-    private ServletHttpObject httpServletObject;
+    private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
 
     private String protocol;
@@ -119,9 +119,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     protected ServletHttpServletRequest() {}
 
-    public static ServletHttpServletRequest newInstance(ServletHttpObject httpServletObject, FullHttpRequest fullHttpRequest) {
+    public static ServletHttpServletRequest newInstance(ServletHttpExchange servletHttpExchange, FullHttpRequest fullHttpRequest) {
         ServletHttpServletRequest instance = RECYCLER.getInstance();
-        instance.httpServletObject = httpServletObject;
+        instance.servletHttpExchange = servletHttpExchange;
         instance.nettyRequest = fullHttpRequest;
         instance.inputStream.wrap(fullHttpRequest.content());
         return instance;
@@ -147,8 +147,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.asyncSupportedFlag = asyncSupportedFlag;
     }
 
-    public ServletHttpObject getHttpServletObject() {
-        return httpServletObject;
+    public ServletHttpExchange getServletHttpExchange() {
+        return servletHttpExchange;
     }
 
     public FullHttpRequest getNettyRequest() {
@@ -582,7 +582,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public ServletHttpSession getSession(boolean create) {
 	    String sessionId = getRequestedSessionId();
-        ServletHttpSession httpSession = httpServletObject.getHttpSession();
+        ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
         if (httpSession != null && httpSession.isValid() && httpSession.getId().equals(sessionId)) {
             return httpSession;
         }
@@ -610,7 +610,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         httpSession.wrap(session);
         httpSession.access();
         httpSession.setNewSessionFlag(newSessionFlag);
-        httpServletObject.setHttpSession(httpSession);
+        servletHttpExchange.setHttpSession(httpSession);
         return httpSession;
     }
 
@@ -792,7 +792,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public String getServerName() {
-        InetSocketAddress inetSocketAddress = httpServletObject.getLocalAddress();
+        InetSocketAddress inetSocketAddress = servletHttpExchange.getLocalAddress();
         if(inetSocketAddress != null) {
             return inetSocketAddress.getAddress().getHostAddress();
         }
@@ -809,7 +809,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                 return HttpConstants.HTTP_PORT;
             }
         }
-        return httpServletObject.getServletServerAddress().getPort();
+        return servletHttpExchange.getServerAddress().getPort();
     }
 
     @Override
@@ -833,7 +833,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public String getRemoteAddr() {
-        InetSocketAddress inetSocketAddress = httpServletObject.getRemoteAddress();
+        InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
         if(inetSocketAddress == null){
             return null;
         }
@@ -846,7 +846,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public String getRemoteHost() {
-        InetSocketAddress inetSocketAddress = httpServletObject.getRemoteAddress();
+        InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
         if(inetSocketAddress == null){
             return null;
         }
@@ -855,7 +855,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public int getRemotePort() {
-        InetSocketAddress inetSocketAddress = httpServletObject.getRemoteAddress();
+        InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
         if(inetSocketAddress == null){
             return 0;
         }
@@ -959,12 +959,12 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public ServletContext getServletContext() {
-        return httpServletObject.getServletContext();
+        return servletHttpExchange.getServletContext();
     }
 
     @Override
     public ServletAsyncContext startAsync() throws IllegalStateException {
-        return startAsync(this,httpServletObject.getHttpServletResponse());
+        return startAsync(this,servletHttpExchange.getResponse());
     }
 
     @Override
@@ -975,7 +975,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
         ServletContext servletContext = getServletContext();
         if(asyncContext == null) {
-            asyncContext = new ServletAsyncContext(httpServletObject, servletContext, servletContext.getAsyncExecutorService(), servletRequest, servletResponse);
+            asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getAsyncExecutorService(), servletRequest, servletResponse);
         }
         asyncContext.setTimeout(servletContext.getAsyncTimeout());
         return asyncContext;
@@ -1136,8 +1136,8 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     @Override
     public <T extends HttpUpgradeHandler> T upgrade(Class<T> httpUpgradeHandlerClass) throws IOException, ServletException {
         try {
-//            httpServletObject.getHttpServletResponse().setStatus(HttpServletResponse.SC_SWITCHING_PROTOCOLS);
-//            httpServletObject.getHttpServletResponse().getOutputStream().close();
+//            servletHttpExchange.getHttpServletResponse().setStatus(HttpServletResponse.SC_SWITCHING_PROTOCOLS);
+//            servletHttpExchange.getHttpServletResponse().getOutputStream().close();
 
             T handler = httpUpgradeHandlerClass.newInstance();
             return handler;
@@ -1148,7 +1148,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     @Override
     public void recycle() {
-	    ServletHttpSession httpSession = httpServletObject.getHttpSession();
+	    ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
 	    if(httpSession != null) {
 		    if (httpSession.isValid()) {
 			    httpSession.save();
@@ -1183,7 +1183,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.cookies = null;
         this.locales = null;
         this.asyncContext = null;
-        this.httpServletObject = null;
+        this.servletHttpExchange = null;
         this.multipartConfigElement = null;
         this.servletSecurityElement = null;
 

@@ -113,7 +113,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
                                       List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
                                       Endpoint localEndpoint, EndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer){
         FullHttpRequest nettyRequest = servletRequest.getNettyRequest();
-        ChannelHandlerContext channelContext = Wrapper.unwrap(servletRequest.getHttpServletObject().getChannelHandlerContext());
+        ChannelHandlerContext channelContext = Wrapper.unwrap(servletRequest.getServletHttpExchange().getChannelHandlerContext());
 
         String queryString = servletRequest.getQueryString();
         String httpSessionId = servletRequest.getSession().getId();

@@ -184,9 +184,9 @@ public class HttpServletProtocol extends AbstractProtocol {
                 @Override
                 protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
                     if(compressionExcludedUserAgents.length > 0) {
-                        ServletHttpObject httpObject = ServletHttpObject.getHttpObject(ctx);
-                        if(httpObject != null) {
-                            List<String> values = httpObject.getHttpServletRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
+                        ServletHttpExchange httpExchange = ServletHttpExchange.getHttpExchange(ctx);
+                        if(httpExchange != null) {
+                            List<String> values = httpExchange.getRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
                             for (String excludedUserAgent : compressionExcludedUserAgents) {
                                 for (String value : values) {
                                     if (value.contains(excludedUserAgent)) {

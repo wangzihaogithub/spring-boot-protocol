@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse,Recyclable {
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
 
-    private ServletHttpObject httpServletObject;
+    private ServletHttpExchange servletHttpExchange;
     private NettyHttpResponse nettyResponse = new NettyHttpResponse();
     private PrintWriter writer;
     private List<Cookie> cookies = new ArrayList<>();
@@ -38,12 +38,12 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     protected ServletHttpServletResponse() {}
 
-    public static ServletHttpServletResponse newInstance(ServletHttpObject httpServletObject) {
-        Objects.requireNonNull(httpServletObject);
+    public static ServletHttpServletResponse newInstance(ServletHttpExchange servletHttpExchange) {
+        Objects.requireNonNull(servletHttpExchange);
 
         ServletHttpServletResponse instance = RECYCLER.getInstance();
-        instance.httpServletObject = httpServletObject;
-        instance.outputStream.wrap(ServletOutputStream.newInstance(httpServletObject));
+        instance.servletHttpExchange = servletHttpExchange;
+        instance.outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
         return instance;
     }
 
@@ -51,8 +51,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return cookies;
     }
 
-    public ServletHttpObject getHttpServletObject() {
-        return httpServletObject;
+    public ServletHttpExchange getServletHttpExchange() {
+        return servletHttpExchange;
     }
 
     public NettyHttpResponse getNettyResponse() {
@@ -153,7 +153,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      */
     public void changeToChunkStream() {
         //If the client does not accept block transfers, no switch is made
-        if(!HttpHeaderUtil.isAcceptTransferChunked(httpServletObject.getHttpServletRequest().getNettyHeaders())){
+        if(!HttpHeaderUtil.isAcceptTransferChunked(servletHttpExchange.getRequest().getNettyHeaders())){
             return;
         }
 
@@ -164,7 +164,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             }
 
             ServletOutputStream newOut = new ServletOutputChunkedStream();
-            newOut.setHttpServletObject(httpServletObject);
+            newOut.setServletHttpExchange(servletHttpExchange);
             if (oldOut == null) {
                 outputStream.wrap(newOut);
                 return;
@@ -177,7 +177,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
                     oldOut.setBuffer(null);
                     newOut.setBuffer(content);
                 }
-                newOut.setHttpServletObject(oldOut.getHttpServletObject());
+                newOut.setServletHttpExchange(oldOut.getServletHttpExchange());
                 outputStream.wrap(newOut);
             } finally {
                 oldOut.unlock();
@@ -198,11 +198,11 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public String encodeURL(String url) {
-        if(!httpServletObject.getHttpServletRequest().isRequestedSessionIdFromCookie()){
+        if(!servletHttpExchange.getRequest().isRequestedSessionIdFromCookie()){
             //If the Session ID comes from a Cookie, then the client definitely supports cookies and does not need to rewrite the URL
             return url;
         }
-        return url + ";" + HttpConstants.JSESSION_ID_URL + "=" + httpServletObject.getHttpServletRequest().getRequestedSessionId();
+        return url + ";" + HttpConstants.JSESSION_ID_URL + "=" + servletHttpExchange.getRequest().getRequestedSessionId();
     }
 
     @Override
@@ -357,7 +357,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         if(outputStream.unwrap() == null){
             synchronized (outputStream) {
                 if(outputStream.unwrap() == null) {
-                    outputStream.wrap(ServletOutputStream.newInstance(httpServletObject));
+                    outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
                 }
             }
         }
@@ -375,7 +375,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             if(MediaType.isHtmlType(getContentType())){
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
             }else {
-                characterEncoding = httpServletObject.getServletContext().getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.getServletContext().getResponseCharacterEncoding();
             }
             setCharacterEncoding(characterEncoding);
         }
@@ -503,7 +503,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             nettyResponse.recycle();
             errorState.set(0);
             contentLength = -1;
-            httpServletObject = null;
+            servletHttpExchange = null;
             writer = null;
             cookies.clear();
             contentType = null;

@@ -50,7 +50,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     protected AtomicBoolean isEmpty = new AtomicBoolean(true);
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     protected AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
-    private ServletHttpObject httpServletObject;
+    private ServletHttpExchange servletHttpExchange;
     private CompositeByteBufX buffer;
     private Lock bufferReadWriterLock;
     private ChannelFutureListener closeListener;
@@ -59,10 +59,10 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     protected ServletOutputStream() {}
 
-    public static ServletOutputStream newInstance(ServletHttpObject httpServletObject) {
+    public static ServletOutputStream newInstance(ServletHttpExchange servletHttpExchange) {
         ServletOutputStream instance = RECYCLER.getInstance();
-        instance.setHttpServletObject(httpServletObject);
-        instance.responseWriterChunkMaxHeapByteLength = httpServletObject.getServletContext().getResponseWriterChunkMaxHeapByteLength();
+        instance.setServletHttpExchange(servletHttpExchange);
+        instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
 
         instance.isEmpty.compareAndSet(true,false);
         return instance;
@@ -152,7 +152,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 lock();
                 CompositeByteBufX content = getBuffer();
                 if (content != null) {
-                    httpServletObject.getHttpServletResponse()
+                    servletHttpExchange.getResponse()
                             .getNettyResponse()
                             .setContent(content);
                 }
@@ -172,12 +172,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     protected void sendResponse(ChannelFutureListener finishListener){
         //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
-        ChannelHandlerContext channel = httpServletObject.getChannelHandlerContext();
-        ServletHttpServletRequest servletRequest = httpServletObject.getHttpServletRequest();
-        ServletHttpServletResponse servletResponse = httpServletObject.getHttpServletResponse();
+        ChannelHandlerContext channel = servletHttpExchange.getChannelHandlerContext();
+        ServletHttpServletRequest servletRequest = servletHttpExchange.getRequest();
+        ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
         NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
-        ServletSessionCookieConfig sessionCookieConfig = httpServletObject.getServletContext().getSessionCookieConfig();
-        boolean isKeepAlive = httpServletObject.isHttpKeepAlive();
+        ServletSessionCookieConfig sessionCookieConfig = servletHttpExchange.getServletContext().getSessionCookieConfig();
+        boolean isKeepAlive = servletHttpExchange.isHttpKeepAlive();
 
         IOUtil.writerModeToReadMode(nettyResponse.content());
         settingResponseHeader(isKeepAlive, nettyResponse, servletRequest, servletResponse, sessionCookieConfig);
@@ -239,7 +239,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * Destroy yourself,
      */
     public void destroy(){
-        this.httpServletObject = null;
+        this.servletHttpExchange = null;
         this.isSendResponseHeader = null;
         this.isClosed = null;
         this.buffer = null;
@@ -304,18 +304,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     /**
      * Put in the servlet object
-     * @param httpServletObject httpServletObject
+     * @param servletHttpExchange servletHttpExchange
      */
-    protected void setHttpServletObject(ServletHttpObject httpServletObject) {
-        this.httpServletObject = httpServletObject;
+    protected void setServletHttpExchange(ServletHttpExchange servletHttpExchange) {
+        this.servletHttpExchange = servletHttpExchange;
     }
 
     /**
      * Get servlet object
-     * @return ServletHttpObject
+     * @return ServletHttpExchange
      */
-    protected ServletHttpObject getHttpServletObject() {
-        return httpServletObject;
+    protected ServletHttpExchange getServletHttpExchange() {
+        return servletHttpExchange;
     }
 
     /**
@@ -471,7 +471,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 closeListener.operationComplete(future);
                 closeListener = null;
             }
-            httpServletObject = null;
+            servletHttpExchange = null;
             if(buffer != null) {
                 buffer = null;
             }

@@ -16,31 +16,31 @@ import java.net.SocketAddress;
  * @author wangzihao
  *  2018/8/1/001
  */
-public class ServletHttpObject implements Recyclable{
-    private static final Recycler<ServletHttpObject> RECYCLER = new Recycler<>(ServletHttpObject::new);
+public class ServletHttpExchange implements Recyclable{
+    private static final Recycler<ServletHttpExchange> RECYCLER = new Recycler<>(ServletHttpExchange::new);
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
-    private static final AttributeKey<ServletHttpObject> CHANNEL_ATTR_KEY_OBJECT = AttributeKey.valueOf(ServletHttpObject.class + "#ServletHttpObject");
+    private static final AttributeKey<ServletHttpExchange> CHANNEL_ATTR_KEY_EXCHANGE = AttributeKey.valueOf(ServletHttpExchange.class + "#ServletHttpExchange");
 
-    private ServletHttpServletRequest httpServletRequest;
-    private ServletHttpServletResponse httpServletResponse;
+    private ServletHttpServletRequest request;
+    private ServletHttpServletResponse response;
     private ChannelHandlerContext channelHandlerContext;
     private ServletContext servletContext;
     private boolean isHttpKeepAlive;
 
-    private ServletHttpObject() {
+    private ServletHttpExchange() {
     }
 
-    public static ServletHttpObject newInstance(ServletContext servletContext, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
-        ServletHttpObject instance = RECYCLER.getInstance();
-        setHttpObject(context,instance);
+    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
+        ServletHttpExchange instance = RECYCLER.getInstance();
+        setHttpExchange(context,instance);
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(fullHttpRequest);
 
         //Create a new servlet request object
-        instance.httpServletRequest = ServletHttpServletRequest.newInstance(instance,fullHttpRequest);
+        instance.request = ServletHttpServletRequest.newInstance(instance,fullHttpRequest);
         //Create a new servlet response object
-        instance.httpServletResponse = ServletHttpServletResponse.newInstance(instance);
+        instance.response = ServletHttpServletResponse.newInstance(instance);
         return instance;
     }
 
@@ -74,12 +74,12 @@ public class ServletHttpObject implements Recyclable{
         return false;
     }
 
-    public static ServletHttpObject getHttpObject(ChannelHandlerContext channelHandlerContext){
-        return getAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_OBJECT);
+    public static ServletHttpExchange getHttpExchange(ChannelHandlerContext channelHandlerContext){
+        return getAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE);
     }
 
-    public static void setHttpObject(ChannelHandlerContext channelHandlerContext, ServletHttpObject httpObject){
-        setAttribute(channelHandlerContext,CHANNEL_ATTR_KEY_OBJECT,httpObject);
+    public static void setHttpExchange(ChannelHandlerContext channelHandlerContext, ServletHttpExchange httpExchange){
+        setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE,httpExchange);
     }
 
     public ServletHttpSession getHttpSession(){
@@ -94,23 +94,23 @@ public class ServletHttpObject implements Recyclable{
         return isHttpKeepAlive;
     }
 
-    public ServletHttpServletRequest getHttpServletRequest() {
-        return httpServletRequest;
+    public ServletHttpServletRequest getRequest() {
+        return request;
     }
 
     public ServletContext getServletContext() {
         return servletContext;
     }
 
-    public ServletHttpServletResponse getHttpServletResponse() {
-        return httpServletResponse;
+    public ServletHttpServletResponse getResponse() {
+        return response;
     }
 
     public ChannelHandlerContext getChannelHandlerContext() {
         return channelHandlerContext;
     }
 
-    public InetSocketAddress getServletServerAddress(){
+    public InetSocketAddress getServerAddress(){
         return servletContext.getServerAddress();
     }
 
@@ -157,18 +157,18 @@ public class ServletHttpObject implements Recyclable{
      */
     @Override
     public void recycle() {
-        httpServletResponse.recycle();
-        httpServletRequest.recycle();
+        response.recycle();
+        request.recycle();
 
         if(channelHandlerContext instanceof Recyclable){
             ((Recyclable) channelHandlerContext).recycle();
         }
 
         if(channelHandlerContext != null) {
-            setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_OBJECT, null);
+            setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE, null);
         }
-        httpServletResponse = null;
-        httpServletRequest = null;
+        response = null;
+        request = null;
         channelHandlerContext = null;
         servletContext = null;
 
