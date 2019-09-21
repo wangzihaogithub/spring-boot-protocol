@@ -63,7 +63,11 @@ public abstract class AbstractNettyServer implements Runnable{
         this.ioThreadCount = ioThreadCount;
     }
 
-    protected abstract ChannelHandler newInitializerChannelHandler();
+    protected abstract ChannelHandler newWorkerChannelHandler();
+
+    protected ChannelHandler newBossChannelHandler(){
+        return null;
+    }
 
     protected ServerBootstrap newServerBootstrap(){
         return new ServerBootstrap();
@@ -114,13 +118,15 @@ public abstract class AbstractNettyServer implements Runnable{
             this.boss = newBossEventLoopGroup();
             this.worker = newWorkerEventLoopGroup();
             ChannelFactory<? extends ServerChannel> channelFactory = newServerChannelFactory();
-            ChannelHandler initializerChannelHandler = newInitializerChannelHandler();
+            ChannelHandler bossChannelHandler = newBossChannelHandler();
+            ChannelHandler workerChannelHandler = newWorkerChannelHandler();
 
-            bootstrap
-                    .group(boss, worker)
+            if(bossChannelHandler != null){
+                bootstrap.handler(bossChannelHandler);
+            }
+            bootstrap.group(boss, worker)
                     .channelFactory(channelFactory)
-                    .handler(initializerChannelHandler)
-                    .childHandler(initializerChannelHandler)
+                    .childHandler(workerChannelHandler)
                     //允许在同一端口上启动同一服务器的多个实例，只要每个实例捆绑一个不同的本地IP地址即可
                     .option(ChannelOption.SO_REUSEADDR, true)
 		            //允许使用同一个端口, 内核实现的负载均衡. 需要 Linux kernel >= 3.9

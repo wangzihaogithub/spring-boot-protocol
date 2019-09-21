@@ -26,8 +26,6 @@ public abstract class AbstractNettyClient{
     private Bootstrap bootstrap;
 
     private EventLoopGroup worker;
-    private ChannelFactory<?extends Channel> channelFactory;
-    private ChannelInitializer<?extends Channel> initializerChannelHandler;
     private InetSocketAddress remoteAddress;
     private boolean enableEpoll;
     private SocketChannel channel;
@@ -71,7 +69,7 @@ public abstract class AbstractNettyClient{
         this.ioThreadCount = ioThreadCount;
     }
 
-    protected abstract ChannelInitializer<?extends Channel> newInitializerChannelHandler();
+    protected abstract ChannelHandler newBossChannelHandler();
 
     protected Bootstrap newClientBootstrap(){
         return new Bootstrap();
@@ -106,13 +104,13 @@ public abstract class AbstractNettyClient{
         if(running.compareAndSet(false,true)){
             this.bootstrap = newClientBootstrap();
             this.worker = newWorkerEventLoopGroup();
-            this.channelFactory = newClientChannelFactory();
-            this.initializerChannelHandler = newInitializerChannelHandler();
+            ChannelFactory<?extends Channel> channelFactory = newClientChannelFactory();
+            ChannelHandler bossChannelHandler = newBossChannelHandler();
 
             this.bootstrap
                     .group(worker)
                     .channelFactory(channelFactory)
-                    .handler(initializerChannelHandler)
+                    .handler(bossChannelHandler)
                     .remoteAddress(remoteAddress)
                     //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
 //                    .option(ChannelOption.SO_BACKLOG, 1024) // determining the number of connections queued
@@ -166,8 +164,6 @@ public abstract class AbstractNettyClient{
             AbstractNettyClient.this.bootstrap = null;
             AbstractNettyClient.this.worker.shutdownGracefully();
             AbstractNettyClient.this.worker= null;
-            AbstractNettyClient.this.channelFactory = null;
-            AbstractNettyClient.this.initializerChannelHandler = null;
             AbstractNettyClient.this.running.set(false);
             AbstractNettyClient.this.channel = null;
             stopAfter(future);

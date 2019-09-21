@@ -91,7 +91,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * @return DynamicProtocolChannelHandler
      */
     @Override
-    protected ChannelHandler newInitializerChannelHandler() {
+    protected ChannelHandler newWorkerChannelHandler() {
         //Dynamic protocol processor
         return new DynamicProtocolChannelHandler(protocolHandlers,properties.isEnableTcpPackageLog(),properties.getTcpPackageLogLevel(),properties.getMaxConnections());
     }

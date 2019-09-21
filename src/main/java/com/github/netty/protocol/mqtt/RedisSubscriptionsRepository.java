@@ -57,7 +57,7 @@ public class RedisSubscriptionsRepository extends AbstractNettyClient implements
     }
 
     @Override
-    protected ChannelInitializer<? extends Channel> newInitializerChannelHandler() {
+    protected ChannelInitializer<? extends Channel> newBossChannelHandler() {
         return new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(Channel ch) throws Exception {
