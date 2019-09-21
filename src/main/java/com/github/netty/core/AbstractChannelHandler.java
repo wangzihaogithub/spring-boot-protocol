@@ -7,7 +7,6 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.TypeParameterMatcher;
 
 /**
@@ -19,7 +18,6 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
     private final TypeParameterMatcher matcherInbound;
     private final TypeParameterMatcher matcherOutbound;
     private final boolean autoRelease;
-    private String simpleClassName = getClass().getSimpleName();
 
     protected AbstractChannelHandler() {
         this(true);
@@ -37,7 +35,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
         try {
             boolean match = matcherInbound.match(msg);
             if (logger.isDebugEnabled()) {
-                logger.debug("{} channelRead({}) -> match({}) ",simpleClassName,msg.getClass(),match);
+                logger.debug("ChannelRead({}) -> match({}) ",msg.getClass(),match);
             }
             if (match) {
                 I imsg = (I) msg;
@@ -61,7 +59,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
     public final void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         boolean match = matcherOutbound.match(msg);
         if(logger.isDebugEnabled()) {
-            logger.debug("{} -> channelWrite({}) -> match({}) ", simpleClassName, msg.getClass(), match);
+            logger.debug("ChannelWrite({}) -> match({}) ", msg.getClass(), match);
         }
         if (match) {
             O imsg = (O) msg;
