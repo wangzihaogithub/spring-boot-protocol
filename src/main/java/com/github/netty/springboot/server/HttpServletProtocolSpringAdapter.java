@@ -14,6 +14,7 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.server.ErrorPage;
@@ -23,8 +24,6 @@ import org.springframework.boot.web.server.SslStoreProvider;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import javax.annotation.Resource;
 import javax.net.ssl.KeyManagerFactory;
@@ -44,6 +43,8 @@ import java.util.function.Supplier;
 public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor {
     private NettyProperties properties;
     private ApplicationX application;
+    @Autowired
+    private ListableBeanFactory listableBeanFactory;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
         super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
@@ -81,10 +82,11 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         application.addInstance(servletContext);
         application.addInstance(servletContext.getSessionService());
 
-        WebApplicationContext springApplication = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
-        for (String beanName : springApplication.getBeanDefinitionNames()) {
-            Object bean = springApplication.getBean(beanName);
-            application.addInstance(beanName,bean,false);
+        if(listableBeanFactory != null) {
+            for (String beanName : listableBeanFactory.getBeanDefinitionNames()) {
+                Object bean = listableBeanFactory.getBean(beanName);
+                application.addInstance(beanName, bean, false);
+            }
         }
         application.scanner("com.github.netty").inject();
     }
