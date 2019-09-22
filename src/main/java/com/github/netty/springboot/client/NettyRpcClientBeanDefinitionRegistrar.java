@@ -4,10 +4,7 @@ import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.BeanClassLoaderAware;
-import org.springframework.beans.factory.BeanCreationException;
-import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.*;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
@@ -40,10 +37,11 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
     private Environment environment;
-    private BeanFactory beanFactory;
     private String enableNettyRpcClientsCanonicalName = EnableNettyRpcClients.class.getCanonicalName();
     private String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
     private String lazyCanonicalName = Lazy.class.getCanonicalName();
+	private ObjectFactory<NettyRpcLoadBalanced> nettyRpcLoadBalancedProvider;
+	private ObjectFactory<NettyProperties> nettyPropertiesProvider;
 
     public NettyRpcClientBeanDefinitionRegistrar() {}
 
@@ -107,13 +105,11 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     public <T> Supplier<T> newInstanceSupplier(Class<T> beanClass, String serviceName,int timeout) {
         return ()->{
-            NettyProperties nettyConfig = beanFactory.getBean(NettyProperties.class);
-            Supplier<NettyRpcLoadBalanced> loadBalancedSupplier = ()->
-                    beanFactory.getBean(NettyRpcLoadBalanced.class);
+            NettyProperties nettyProperties = nettyPropertiesProvider.getObject();
 
             NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceName,null,
-                    beanClass,nettyConfig,
-                    loadBalancedSupplier);
+                    beanClass,nettyProperties,
+		            nettyRpcLoadBalancedProvider::getObject);
             nettyRpcClientProxy.setTimeout(timeout);
             Object instance = Proxy.newProxyInstance(classLoader,new Class[]{beanClass},nettyRpcClientProxy);
             return (T) instance;
@@ -189,6 +185,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
-        this.beanFactory = beanFactory;
+	    this.nettyRpcLoadBalancedProvider = beanFactory.getBeanProvider(NettyRpcLoadBalanced.class);
+	    this.nettyPropertiesProvider = beanFactory.getBeanProvider(NettyProperties.class);;
     }
 }
