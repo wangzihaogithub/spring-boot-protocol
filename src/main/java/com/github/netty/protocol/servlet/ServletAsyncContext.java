@@ -25,6 +25,7 @@ import java.util.function.Consumer;
 public class ServletAsyncContext implements AsyncContext,Recyclable {
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;
+    private static final int STATUS_RUNNING = 1;
     private static final int STATUS_COMPLETE = 2;
 
     /**
@@ -117,7 +118,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
 
     @Override
     public void complete() {
-        if(status.compareAndSet(STATUS_START,STATUS_COMPLETE)){
+        if(status.compareAndSet(STATUS_RUNNING,STATUS_COMPLETE)){
             //Notify the end
             notifyEvent(listenerWrapper -> {
                 try {
@@ -152,10 +153,15 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
 
     @Override
     public void start(Runnable runnable) {
-        if(status.compareAndSet(STATUS_INIT,STATUS_START)){
+        start();
+        if(status.compareAndSet(STATUS_START,STATUS_RUNNING)){
             Runnable task = newTaskWrapper(runnable);
             executorService.execute(task);
         }
+    }
+
+    public void start(){
+        status.compareAndSet(STATUS_INIT,STATUS_START);
     }
 
     private Runnable newTaskWrapper(Runnable run){

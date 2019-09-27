@@ -978,6 +978,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getAsyncExecutorService(), servletRequest, servletResponse);
         }
         asyncContext.setTimeout(servletContext.getAsyncTimeout());
+        asyncContext.start();
         return asyncContext;
     }
 
