@@ -33,7 +33,6 @@
 
         <netty.version>4.1.25.Final</netty.version>
         <fastjson.version>1.2.49</fastjson.version>
-        <asm.version>7.0</asm.version>
     </properties>
 
     <licenses>
@@ -69,12 +68,6 @@
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
             <version>${fastjson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm</artifactId>
-            <version>${asm.version}</version>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
