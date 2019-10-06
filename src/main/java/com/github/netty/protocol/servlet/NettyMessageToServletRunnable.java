@@ -6,6 +6,7 @@ import com.github.netty.core.util.Recycler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 
+import javax.servlet.ReadListener;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
@@ -70,6 +71,12 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 httpServletRequest.setDispatcher(dispatcher);
                 dispatcher.dispatch(httpServletRequest, httpServletResponse);
 
+                if(httpServletRequest.isAsync()){
+                    ReadListener readListener = httpServletRequest.getInputStream().getReadListener();
+                    if(readListener != null){
+                        readListener.onAllDataRead();
+                    }
+                }
             }catch (ServletException se){
                 realThrowable = se.getRootCause();
             }catch (Throwable throwable){

@@ -19,6 +19,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private AtomicBoolean closed = new AtomicBoolean(false); //Whether the input stream has been closed to ensure thread safety
     private ByteBuf source;
     private int contentLength;
+    private ReadListener readListener;
 
     public ServletInputStreamWrapper() {}
 
@@ -53,15 +54,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
      */
     @Override
     public boolean isReady() {
-        if(source == null){
-            return true;
-        }
-        return source.readableBytes() > 0;
+        return true;
     }
 
     @Override
     public void setReadListener(ReadListener readListener) {
-        // TODO: 10月16日/0016 Listen for write events
+        this.readListener = readListener;
     }
 
     /**
@@ -90,6 +88,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             if(RecyclableUtil.release(source)){
                 source = null;
             }
+            readListener = null;
         }
     }
 
@@ -148,6 +147,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     public boolean isClosed() {
         return closed.get();
+    }
+
+    public ReadListener getReadListener() {
+        return readListener;
     }
 
     @Override

@@ -15,6 +15,7 @@ import java.io.PrintWriter;
 import java.nio.charset.Charset;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * Servlet response
@@ -43,7 +44,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
         ServletHttpServletResponse instance = RECYCLER.getInstance();
         instance.servletHttpExchange = servletHttpExchange;
-        instance.outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
         return instance;
     }
 
@@ -358,6 +358,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             synchronized (outputStream) {
                 if(outputStream.unwrap() == null) {
                     outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
+                    changeToChunkStream();
                 }
             }
         }
@@ -476,9 +477,9 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
-    public void recycle() {
+    public <T> void recycle(Consumer<T> consumer) {
         //1. Close the output stream first; 2.(by calling back CloseListener) recycle the netty response; 3
-        outputStream.recycle();
+        outputStream.recycle(consumer);
     }
 
     public boolean isError() {

@@ -6,10 +6,7 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -159,16 +156,13 @@ public class HttpServletProtocol extends AbstractProtocol {
             pipeline.addLast("SSL", new SslHandler(engine,true));
         }
 
+        pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
+
         //HTTP encoding decoding
         pipeline.addLast("HttpCodec", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
 
         //HTTP request aggregation, set the maximum message value to 5M
         pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength,false));
-
-        //Block transfer
-        if(enableContentCompression && pipeline.context(ChunkedWriteHandler.class) == null) {
-            pipeline.addAfter("HttpCodec", "ChunkedWrite",new ChunkedWriteHandler());
-        }
 
         //The content of compression
         if(enableContentCompression) {
@@ -179,6 +173,16 @@ public class HttpServletProtocol extends AbstractProtocol {
                 public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
                     this.ctx = ctx;
                     super.handlerAdded(ctx);
+                }
+
+                @Override
+                public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+                    if (msg instanceof ByteBuf) {
+                        // convert ByteBuf to HttpContent to make it work with compression. This is needed as we use the
+                        // ChunkedWriteHandler to send files when compression is enabled.
+                        msg = new DefaultHttpContent((ByteBuf) msg);
+                    }
+                    super.write(ctx, msg, promise);
                 }
 
                 @Override
@@ -211,7 +215,11 @@ public class HttpServletProtocol extends AbstractProtocol {
                 }
             });
         }
-        pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
+
+        //Block transfer
+        if(enableContentCompression) {
+            pipeline.addLast( "ChunkedWrite",new ChunkedWriteHandler());
+        }
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);

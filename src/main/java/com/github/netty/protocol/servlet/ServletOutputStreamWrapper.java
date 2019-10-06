@@ -6,6 +6,7 @@ import io.netty.channel.ChannelFutureListener;
 
 import javax.servlet.*;
 import java.io.IOException;
+import java.util.function.Consumer;
 
 /**
  * Servlets output streams (wrapper classes) that control access to the flow
@@ -115,15 +116,14 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     }
 
     @Override
-    public void recycle() {
+    public <T> void recycle(Consumer<T> consumer) {
         if(source != null){
             ServletOutputStream out = source;
             source = null;
-            out.recycle();
+            out.recycle(consumer);
         }
         if(suspendFlag){
             suspendFlag = false;
         }
     }
-
 }

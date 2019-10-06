@@ -6,14 +6,8 @@ import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.DefaultHttpContent;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.channel.*;
+import io.netty.handler.codec.http.*;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.WriteListener;
@@ -29,6 +23,7 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 
 /**
  * Servlet OutputStream
@@ -47,14 +42,14 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
-    protected AtomicBoolean isEmpty = new AtomicBoolean(true);
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     protected AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
     private ServletHttpExchange servletHttpExchange;
     private CompositeByteBufX buffer;
     private Lock bufferReadWriterLock;
-    private ChannelFutureListener closeListener;
-    private ChannelFutureListener closeListenerWrapper = new CloseListenerRecycleWrapper();
+    private WriteListener writeListener;
+
+    private CloseListenerRecycleWrapper closeListenerWrapper = new CloseListenerRecycleWrapper();
     private int responseWriterChunkMaxHeapByteLength;
 
     protected ServletOutputStream() {}
@@ -63,8 +58,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         ServletOutputStream instance = RECYCLER.getInstance();
         instance.setServletHttpExchange(servletHttpExchange);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
-
-        instance.isEmpty.compareAndSet(true,false);
         return instance;
     }
 
@@ -97,11 +90,11 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public void setWriteListener(WriteListener writeListener) {
-        // TODO: 10-16/0016 Listen for write events
+        this.writeListener = writeListener;
     }
 
     public void setCloseListener(ChannelFutureListener closeListener) {
-        this.closeListener = closeListener;
+        this.closeListenerWrapper.closeListener = closeListener;
     }
 
     @Override
@@ -142,35 +135,29 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     @Override
     public void close() throws IOException {
-        if(isClosed()){
-            return;
-        }
-
-        flush();
         if (isClosed.compareAndSet(false,true)) {
-            try {
-                lock();
-                CompositeByteBufX content = getBuffer();
-                if (content != null) {
-                    servletHttpExchange.getResponse()
-                            .getNettyResponse()
-                            .setContent(content);
-                }
-            }finally {
-                unlock();
+            CompositeByteBufX content = getBuffer();
+            if (content != null) {
+                servletHttpExchange.getResponse()
+                        .getNettyResponse()
+                        .setContent(content);
             }
 
             if (isSendResponseHeader.compareAndSet(false,true)) {
-                sendResponse(getCloseListener());
+                LastHttpContent lastHttpContent = content == null?
+                        LastHttpContent.EMPTY_LAST_CONTENT : new DefaultLastHttpContent(content);
+                sendResponse().addListener((ChannelFutureListener) future ->
+                        future.channel()
+                        .writeAndFlush(lastHttpContent)
+                        .addListener(getCloseListener()));
             }
         }
     }
 
     /**
      * Send a response
-     * @param finishListener Monitoring after the operation is completed
      */
-    protected void sendResponse(ChannelFutureListener finishListener){
+    protected ChannelFuture sendResponse(){
         //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
         ChannelHandlerContext channel = servletHttpExchange.getChannelHandlerContext();
         ServletHttpServletRequest servletRequest = servletHttpExchange.getRequest();
@@ -181,21 +168,20 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
         IOUtil.writerModeToReadMode(nettyResponse.content());
         settingResponseHeader(isKeepAlive, nettyResponse, servletRequest, servletResponse, sessionCookieConfig);
-        writeResponseToChannel(isCloseChannel(isKeepAlive,nettyResponse.getStatus()), channel, nettyResponse, finishListener);
+        return channel.writeAndFlush(nettyResponse);
     }
 
     /**
      * Whether the pipe needs to be closed
      * @param isKeepAlive
-     * @param status
+     * @param responseStatus
      * @return
      */
-    private static boolean isCloseChannel(boolean isKeepAlive,HttpResponseStatus status){
+    private static boolean isCloseChannel(boolean isKeepAlive,int responseStatus){
         if(isKeepAlive){
             return false;
         }
-        int responseStatus = status.code();
-        if(responseStatus >= 100 && responseStatus < 200){
+        if(responseStatus >= 100 && responseStatus < 300){
             return false;
         }
         return true;
@@ -335,34 +321,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Written response
-     * @param isCloseChannel isCloseChannel
-     * @param channel channel
-     * @param nettyResponse nettyResponse
-     * @param finishListener finishListener
-     */
-    private static void writeResponseToChannel(boolean isCloseChannel, ChannelHandlerContext channel,
-                                        NettyHttpResponse nettyResponse, ChannelFutureListener finishListener) {
-        ChannelPromise promise;
-        //If you need to close the pipe or need a callback
-        if(isCloseChannel || finishListener != null) {
-            promise = channel.newPromise();
-            promise.addListener(FlushListener.newInstance(isCloseChannel, finishListener));
-        }else {
-            promise = channel.voidPromise();
-        }
-
-        ByteBuf content = nettyResponse.content();
-        if(content == null) {
-            channel.writeAndFlush(nettyResponse, promise);
-        }else {
-            channel.write(nettyResponse,channel.voidPromise());
-            channel.write(new DefaultHttpContent(content),channel.voidPromise());
-            channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);
-        }
-    }
-
-    /**
      * Set the response header
      * @param isKeepAlive keep alive
      * @param nettyResponse nettyResponse
@@ -450,11 +408,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     @Override
-    public void recycle() {
+    public <T> void recycle(Consumer<T> consumer) {
+        this.closeListenerWrapper.recycleConsumer = consumer;
         try {
-            if(isEmpty.get()){
-                return;
-            }
             close();
         } catch (IOException e) {
             e.printStackTrace();
@@ -465,63 +421,33 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * Closing the listening wrapper class (for data collection)
      */
     private class CloseListenerRecycleWrapper implements ChannelFutureListener{
+        private ChannelFutureListener closeListener;
+        private Consumer recycleConsumer;
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
-            if(closeListener != null) {
-                closeListener.operationComplete(future);
-                closeListener = null;
+            boolean isNeedClose = isCloseChannel(servletHttpExchange.isHttpKeepAlive(),
+                    servletHttpExchange.getResponse().getStatus());
+            if(isNeedClose){
+                ChannelFuture closeFuture = servletHttpExchange.getChannelHandlerContext().close();
+                ChannelFutureListener closeListener = this.closeListener;
+                if(closeListener != null) {
+                    closeFuture.addListener(closeListener);
+                }
             }
+            Consumer recycleConsumer = this.recycleConsumer;
+            if(recycleConsumer != null){
+                recycleConsumer.accept(ServletOutputStream.this);
+            }
+
+            buffer = null;
+            isClosed.set(false);
+            isSendResponseHeader.set(false);
+            writeListener = null;
             servletHttpExchange = null;
-            if(buffer != null) {
-                buffer = null;
-            }
-            isClosed.compareAndSet(true,false);
-            isSendResponseHeader.compareAndSet(true,false);
-            isEmpty.compareAndSet(false,true);
+            this.closeListener = null;
+            this.recycleConsumer = null;
             RECYCLER.recycleInstance(ServletOutputStream.this);
         }
     }
 
-    /**
-     * FlushListener Optimize the number of lambda instances to reduce gc times
-     */
-    private static class FlushListener implements ChannelFutureListener,Recyclable {
-        private boolean isCloseChannel;
-        private ChannelFutureListener finishListener;
-
-        private static final Recycler<FlushListener> RECYCLER = new Recycler<>(FlushListener::new);
-
-        private static FlushListener newInstance(boolean isCloseChannel, ChannelFutureListener finishListener) {
-            FlushListener instance = RECYCLER.getInstance();
-            instance.isCloseChannel = isCloseChannel;
-            instance.finishListener = finishListener;
-            return instance;
-        }
-
-        @Override
-        public void recycle() {
-            finishListener = null;
-            RECYCLER.recycleInstance(FlushListener.this);
-        }
-
-        @Override
-        public void operationComplete(ChannelFuture future) throws Exception {
-            try {
-                if(isCloseChannel){
-                    ChannelFuture channelFuture = future.channel().close();
-                    if(finishListener != null) {
-                        channelFuture.addListener(finishListener);
-                    }
-                }else {
-                    if(finishListener != null) {
-                        finishListener.operationComplete(future);
-                    }
-                }
-            }catch (Throwable throwable){
-                throwable.printStackTrace();
-            }finally {
-                FlushListener.this.recycle();
-            }
-        }
-    }
 }

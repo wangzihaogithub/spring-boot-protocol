@@ -24,6 +24,9 @@ public class HttpHeaderUtil {
      * @param lastHttpContent 最后一次内容
      */
     public static void removeHeaderUnSupportTrailer(LastHttpContent lastHttpContent) {
+        if(lastHttpContent == null){
+            return;
+        }
         if(lastHttpContent == LastHttpContent.EMPTY_LAST_CONTENT){
             return;
         }
@@ -271,7 +274,7 @@ public class HttpHeaderUtil {
      */
     public static void setTransferEncodingChunked(HttpHeaders headers, boolean chunked) {
         if (chunked) {
-            headers.add(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED);
+            headers.set(HttpHeaderConstants.TRANSFER_ENCODING, HttpHeaderConstants.CHUNKED);
             headers.remove(HttpHeaderConstants.CONTENT_LENGTH);
         } else {
             List values = headers.getAll(HttpHeaderConstants.TRANSFER_ENCODING);
@@ -288,7 +291,7 @@ public class HttpHeaderUtil {
             if (values.isEmpty()) {
                 headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
             } else {
-                headers.set( HttpHeaderConstants.TRANSFER_ENCODING, (Iterable) values);
+                headers.set( HttpHeaderConstants.TRANSFER_ENCODING, values);
             }
         }
     }

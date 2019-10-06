@@ -4,13 +4,8 @@ import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.IOUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.channel.*;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
@@ -73,13 +68,19 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                     httpContext = pipeline.context(HttpRequestDecoder.class);
                 }
                 if(httpContext != null) {
+                    ChunkedWriteHandler chunkedWriteHandler = new ChunkedWriteHandler();
+                    try {
+                        chunkedWriteHandler.handlerAdded(httpContext);
+                    } catch (Exception e) {
+                        //skip
+                    }
                     pipeline.addAfter(
-                            httpContext.name(), "ChunkedWrite",new ChunkedWriteHandler());
+                            httpContext.name(), "ChunkedWrite",chunkedWriteHandler);
                 }
             }
 
-            super.sendResponse(future -> {
-                ChannelHandlerContext channel = getServletHttpExchange().getChannelHandlerContext();
+            super.sendResponse().addListener((ChannelFutureListener) future -> {
+                Channel channel = future.channel();
                 ChannelPromise promise;
                 if(listener == null){
                     promise = channel.voidPromise();
@@ -89,15 +90,15 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                 }
                 channel.writeAndFlush(chunkedInput,promise);
             });
-            return;
-        }
 
-        getServletHttpExchange().getChannelHandlerContext().flush();
-        if(listener != null){
-            try{
-                listener.operationComplete(null);
-            } catch (Exception e) {
-                throw new IOException(e.getMessage(),e);
+        }else {
+            ChannelFuture channelFuture = getServletHttpExchange().getChannelHandlerContext().writeAndFlush(chunkedInput);
+            if (listener != null) {
+                try {
+                    channelFuture.addListener(listener);
+                } catch (Exception e) {
+                    throw new IOException(e.getMessage(), e);
+                }
             }
         }
     }
@@ -105,15 +106,12 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
     /**
      * 字节块输入
      */
-    class ByteChunkedInput implements ChunkedInput<Object>{
+    static class ByteChunkedInput implements ChunkedInput<Object>{
         private boolean closeInputFlag = false;
         private boolean sendLastChunkFlag = false;
         private AtomicInteger readLength = new AtomicInteger();
         private ByteBuf chunkByteBuf;
         private LastHttpContent lastHttpContent;
-
-        public ByteChunkedInput() {
-        }
 
         @Override
         public long length() {
@@ -144,7 +142,6 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         @Override
         public void close() throws Exception {
             chunkByteBuf = null;
-            readLength = null;
         }
 
         @Deprecated
@@ -155,25 +152,35 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
 
         @Override
         public Object readChunk(ByteBufAllocator allocator) throws Exception {
-            if (closeInputFlag) {
-                if (sendLastChunkFlag) {
-                    return null;
-                } else {
-                    // Send last chunk for this input
-                    sendLastChunkFlag = true;
-                    //移除头部不支持拖挂的字段
-                    HttpHeaderUtil.removeHeaderUnSupportTrailer(lastHttpContent);
-                    return lastHttpContent;
-                }
-            }else {
-                if (chunkByteBuf == null) {
-                    return null;
-                }
-                ByteBuf byteBuf = chunkByteBuf;
-                chunkByteBuf = null;
-                readLength.addAndGet(byteBuf.capacity());
-                return byteBuf;
+            if (sendLastChunkFlag) {
+                return null;
             }
+
+            ByteBuf byteBuf = chunkByteBuf;
+            Object result;
+            if (closeInputFlag) {
+                // Send last chunk for this input
+                sendLastChunkFlag = true;
+                if(lastHttpContent != null){
+                    //Trailer does not support the removal of the head of field
+                    HttpHeaderUtil.removeHeaderUnSupportTrailer(lastHttpContent);
+                    if(byteBuf != null){
+                        lastHttpContent.content().writeBytes(byteBuf);
+                    }
+                    result = lastHttpContent;
+                }else if(byteBuf != null){
+                    result = new DefaultLastHttpContent(byteBuf);
+                }else {
+                    result = LastHttpContent.EMPTY_LAST_CONTENT;
+                }
+            } else {
+                result = byteBuf;
+            }
+            if(byteBuf != null) {
+                readLength.addAndGet(byteBuf.capacity());
+            }
+            chunkByteBuf = null;
+            return result;
         }
 
         public void setLastHttpContent(LastHttpContent lastHttpContent) {
@@ -185,7 +192,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }
 
         public void setChunkByteBuf(ByteBuf chunkByteBuf) {
-            //切换读模式
+            //Switching the read mode
             IOUtil.writerModeToReadMode(chunkByteBuf);
             this.chunkByteBuf = chunkByteBuf;
         }

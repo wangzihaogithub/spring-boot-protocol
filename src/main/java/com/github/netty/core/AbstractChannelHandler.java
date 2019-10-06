@@ -35,7 +35,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
         try {
             boolean match = matcherInbound.match(msg);
             if (logger.isDebugEnabled()) {
-                logger.debug("ChannelRead({}) -> match({}) ",msg.getClass(),match);
+                logger.debug("ChannelRead({}) -> match({}) ",messageToString(msg),match);
             }
             if (match) {
                 I imsg = (I) msg;
@@ -59,7 +59,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
     public final void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         boolean match = matcherOutbound.match(msg);
         if(logger.isDebugEnabled()) {
-            logger.debug("ChannelWrite({}) -> match({}) ", msg.getClass(), match);
+            logger.debug("ChannelWrite({}) -> match({}) ", messageToString(msg), match);
         }
         if (match) {
             O imsg = (O) msg;
@@ -112,4 +112,10 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
 
     }
 
+    public String messageToString(Object msg){
+        if(msg == null){
+            return "null";
+        }
+        return msg.getClass().getSimpleName();
+    }
 }

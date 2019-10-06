@@ -157,22 +157,23 @@ public class ServletHttpExchange implements Recyclable{
      */
     @Override
     public void recycle() {
-        response.recycle();
-        request.recycle();
+        response.recycle((e)->{
+            request.recycle();
 
-        if(channelHandlerContext instanceof Recyclable){
-            ((Recyclable) channelHandlerContext).recycle();
-        }
+            if(channelHandlerContext instanceof Recyclable){
+                ((Recyclable) channelHandlerContext).recycle();
+            }
 
-        if(channelHandlerContext != null) {
-            setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE, null);
-        }
-        response = null;
-        request = null;
-        channelHandlerContext = null;
-        servletContext = null;
+            if(channelHandlerContext != null) {
+                setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE, null);
+            }
+            response = null;
+            request = null;
+            channelHandlerContext = null;
+            servletContext = null;
 
-        RECYCLER.recycleInstance(this);
+            RECYCLER.recycleInstance(this);
+        });
     }
 
 }

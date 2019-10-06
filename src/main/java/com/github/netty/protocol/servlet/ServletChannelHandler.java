@@ -57,8 +57,8 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        logger.error(cause.toString());
-        ctx.channel().close();
+        logger.error("servlet handler exception. case={}, channel={}",cause.toString(),ctx.channel(),cause);
+        ctx.close();
     }
 
     /**
