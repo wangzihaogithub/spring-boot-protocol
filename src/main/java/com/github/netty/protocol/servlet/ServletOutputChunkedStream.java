@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.IOUtil;
+import com.github.netty.core.util.Recyclable;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
@@ -28,23 +29,49 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         if(getBuffer() == null) {
             return;
         }
-        flush0(null);
+        asyncFlush(null);
     }
 
     @Override
     public void close() throws IOException {
         if(super.isClosed.compareAndSet(false,true)){
             chunkedInput.setCloseInputFlag(true);
-            flush0(getCloseListener());
+            CloseListener closeListener = super.getCloseListener();
+            closeListener.addRecycleConsumer(o -> chunkedInput.recycle());
+            asyncFlush(closeListener);
         }
     }
 
     /**
-     * Refresh buffer (listen for completion events)
+     * Async refresh buffer (listen for completion events)
      * @param listener Called after refreshing the buffer
-     * @throws IOException
      */
-    private void flush0(ChannelFutureListener listener) throws IOException {
+    private void asyncFlush(ChannelFutureListener listener) {
+        if(super.isSendResponseIng){
+            return;
+        }
+
+        if (super.isSendResponseHeader.compareAndSet(false,true)) {
+            sendChunkedResponse(listener);
+            return;
+        }
+
+        bufferTransformToChunk();
+        if (chunkedInput.hasChunk()){
+            getServletHttpExchange().getChannelHandlerContext().flush();
+        }
+
+        if (listener != null) {
+            try {
+                listener.operationComplete(null);
+            } catch (Exception e) {
+                //inner error
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void bufferTransformToChunk(){
         try {
             lock();
             ByteBuf content = getBuffer();
@@ -55,31 +82,35 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }finally {
             unlock();
         }
+    }
 
-        if (super.isSendResponseHeader.compareAndSet(false,true)) {
-            NettyHttpResponse nettyResponse = getServletHttpExchange().getResponse().getNettyResponse();
-            LastHttpContent lastHttpContent = nettyResponse.enableTransferEncodingChunked();
-            chunkedInput.setLastHttpContent(lastHttpContent);
+    private void sendChunkedResponse(ChannelFutureListener listener){
+        NettyHttpResponse nettyResponse = getServletHttpExchange().getResponse().getNettyResponse();
+        LastHttpContent lastHttpContent = nettyResponse.enableTransferEncodingChunked();
+        chunkedInput.setLastHttpContent(lastHttpContent);
 
-            ChannelPipeline pipeline = getServletHttpExchange().getChannelHandlerContext().channel().pipeline();
-            if(pipeline.context(ChunkedWriteHandler.class) == null) {
-                ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
-                if(httpContext == null){
-                    httpContext = pipeline.context(HttpRequestDecoder.class);
-                }
-                if(httpContext != null) {
-                    ChunkedWriteHandler chunkedWriteHandler = new ChunkedWriteHandler();
-                    try {
-                        chunkedWriteHandler.handlerAdded(httpContext);
-                    } catch (Exception e) {
-                        //skip
-                    }
-                    pipeline.addAfter(
-                            httpContext.name(), "ChunkedWrite",chunkedWriteHandler);
-                }
+        ChannelPipeline pipeline = getServletHttpExchange().getChannelHandlerContext().channel().pipeline();
+        if(pipeline.context(ChunkedWriteHandler.class) == null) {
+            ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
+            if(httpContext == null){
+                httpContext = pipeline.context(HttpRequestDecoder.class);
             }
+            if(httpContext != null) {
+                ChunkedWriteHandler chunkedWriteHandler = new ChunkedWriteHandler();
+                try {
+                    chunkedWriteHandler.handlerAdded(httpContext);
+                } catch (Exception e) {
+                    //skip
+                }
+                pipeline.addAfter(
+                        httpContext.name(), "ChunkedWrite",chunkedWriteHandler);
+            }
+        }
 
-            super.sendResponse().addListener((ChannelFutureListener) future -> {
+        super.sendResponse().addListener((ChannelFutureListener) future -> {
+            bufferTransformToChunk();
+
+            if(chunkedInput.hasChunk()){
                 Channel channel = future.channel();
                 ChannelPromise promise;
                 if(listener == null){
@@ -89,24 +120,14 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                     promise.addListener(listener);
                 }
                 channel.writeAndFlush(chunkedInput,promise);
-            });
 
-        }else {
-            ChannelFuture channelFuture = getServletHttpExchange().getChannelHandlerContext().writeAndFlush(chunkedInput);
-            if (listener != null) {
-                try {
-                    channelFuture.addListener(listener);
-                } catch (Exception e) {
-                    throw new IOException(e.getMessage(), e);
-                }
+            }else if (listener != null) {
+                listener.operationComplete(future);
             }
-        }
+        });
     }
 
-    /**
-     * 字节块输入
-     */
-    static class ByteChunkedInput implements ChunkedInput<Object>{
+    static class ByteChunkedInput implements ChunkedInput<Object>, Recyclable {
         private boolean closeInputFlag = false;
         private boolean sendLastChunkFlag = false;
         private AtomicInteger readLength = new AtomicInteger();
@@ -195,6 +216,25 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             //Switching the read mode
             IOUtil.writerModeToReadMode(chunkByteBuf);
             this.chunkByteBuf = chunkByteBuf;
+        }
+
+        public boolean hasChunk() {
+            if(sendLastChunkFlag){
+                return false;
+            }
+            if(closeInputFlag){
+                return true;
+            }
+            return chunkByteBuf != null;
+        }
+
+        @Override
+        public void recycle() {
+            this.closeInputFlag = false;
+            this.sendLastChunkFlag = false;
+            this.readLength.set(0);
+            this.chunkByteBuf = null;
+            this.lastHttpContent = null;
         }
     }
 }

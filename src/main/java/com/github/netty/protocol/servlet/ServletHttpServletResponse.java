@@ -510,9 +510,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             contentType = null;
             characterEncoding = null;
             locale = null;
-            if(commitFlag) {
-                commitFlag = false;
-            }
+            commitFlag = false;
             ServletHttpServletResponse.RECYCLER.recycleInstance(ServletHttpServletResponse.this);
         }
     }

@@ -25,8 +25,8 @@ import java.util.function.Consumer;
 public class ServletAsyncContext implements AsyncContext,Recyclable {
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;
-    private static final int STATUS_RUNNING = 1;
-    private static final int STATUS_COMPLETE = 2;
+    private static final int STATUS_RUNNING = 2;
+    private static final int STATUS_COMPLETE = 3;
 
     /**
      * Has it been recycled
@@ -118,21 +118,20 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
 
     @Override
     public void complete() {
-        if(status.compareAndSet(STATUS_RUNNING,STATUS_COMPLETE)){
-            //Notify the end
-            notifyEvent(listenerWrapper -> {
-                try {
-                    AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
-                    listenerWrapper.asyncListener.onComplete(event);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-
-            //If the handler has finished, recycle it yourself
-            if(ioThreadExecuteOverFlag.get()) {
-                recycle();
+        status.set(STATUS_COMPLETE);
+        //Notify the end
+        notifyEvent(listenerWrapper -> {
+            try {
+                AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
+                listenerWrapper.asyncListener.onComplete(event);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
+        });
+
+        //If the handler has finished, recycle it yourself
+        if(ioThreadExecuteOverFlag.get()) {
+            recycle();
         }
     }
 
