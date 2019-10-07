@@ -49,6 +49,22 @@ public class TypeUtil {
         }
     }
 
+    public static boolean isPrimitive(Class<?> clazz) {
+        if (clazz.isPrimitive()) {
+            return true;
+        }
+        if(clazz.equals(Boolean.class) ||
+                clazz.equals(Byte.class) ||
+                clazz.equals(Character.class) ||
+                clazz.equals(Double.class) ||
+                clazz.equals(Float.class) ||
+                clazz.equals(Integer.class) ||
+                clazz.equals(Long.class) ||
+                clazz.equals(Short.class)) {
+            return true;
+        }
+        return false;
+    }
 
     public static <T> TypeResult getGenericType(Class<T> type,
                                                  Class<? extends T> clazz) {

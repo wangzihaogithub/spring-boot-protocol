@@ -27,8 +27,8 @@ import org.springframework.web.socket.server.standard.ServerEndpointRegistration
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.websocket.Endpoint;
-import javax.websocket.EndpointConfig;
 import javax.websocket.Extension;
+import javax.websocket.server.ServerEndpointConfig;
 import java.security.Principal;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -90,7 +90,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     protected WebSocketServerContainer getContainer(HttpServletRequest request) {
         ServletContext servletContext = request.getServletContext();
         Object websocketServerContainer = servletContext.getAttribute(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE);
-        if (websocketServerContainer == null || !(websocketServerContainer instanceof WebSocketServerContainer)) {
+        if (!(websocketServerContainer instanceof WebSocketServerContainer)) {
             websocketServerContainer = new WebSocketServerContainer();
             servletContext.setAttribute(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE, websocketServerContainer);
         }
@@ -110,8 +110,8 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
      * @param webSocketContainer webSocketContainer
      */
     protected void handshakeToWebsocket(ServletHttpServletRequest servletRequest, String subprotocols, int maxFramePayloadLength, Principal userPrincipal,
-                                      List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
-                                      Endpoint localEndpoint, EndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer){
+                                        List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
+                                        Endpoint localEndpoint, ServerEndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer){
         FullHttpRequest nettyRequest = servletRequest.getNettyRequest();
         ChannelHandlerContext channelContext = Wrapper.unwrap(servletRequest.getServletHttpExchange().getChannelHandlerContext());
 
@@ -120,7 +120,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         String webSocketURL = getWebSocketLocation(servletRequest);
         Map<String,List<String>> requestParameterMap = getRequestParameterMap(servletRequest);
 
-        WebSocketServerHandshaker wsHandshaker = new WebSocketServerHandshaker13Extension(webSocketURL,subprotocols,true,maxFramePayloadLength);
+        WebSocketServerHandshaker13Extension wsHandshaker = new WebSocketServerHandshaker13Extension(webSocketURL,subprotocols,true,maxFramePayloadLength);
         ChannelFuture handshakelFuture = wsHandshaker.handshake(channelContext.channel(), nettyRequest);
         handshakelFuture.addListener((ChannelFutureListener) future -> {
             if(future.isSuccess()) {
@@ -130,7 +130,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
                         channel, webSocketContainer, wsHandshaker,
                         requestParameterMap,
                         queryString, userPrincipal, httpSessionId,
-                        negotiatedExtensions, pathParameters, localEndpoint);
+                        negotiatedExtensions, pathParameters, localEndpoint,endpointConfig);
 
                 WebSocketSession.setSession(channel, websocketSession);
 

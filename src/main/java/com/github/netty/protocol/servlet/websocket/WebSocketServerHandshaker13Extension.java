@@ -21,7 +21,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     private static final char EXTENSION_SEPARATOR = ',';
     private static final char PARAMETER_SEPARATOR = ';';
     private static final char PARAMETER_EQUAL = '=';
-
+    private int rsv = 0;
     private String httpDecoderContextName;
     private Channel channel;
 
@@ -99,7 +99,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
         List<WebSocketServerExtension> validExtensions = null;
         if (extensionsHeader != null) {
             List<WebSocketExtensionData> extensions = WebSocketExtensionUtil.extractExtensions(extensionsHeader);
-            int rsv = 0;
+
 
             for (WebSocketExtensionData extensionData : extensions) {
                 Iterator<WebSocketServerExtensionHandshaker> extensionHandshakersIterator =
@@ -121,6 +121,10 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
             }
         }
         return validExtensions;
+    }
+
+    public int getRsv() {
+        return rsv;
     }
 
     /**
