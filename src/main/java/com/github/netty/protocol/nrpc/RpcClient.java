@@ -409,7 +409,7 @@ public class RpcClient extends AbstractNettyClient{
                 if (rpcResponse.getEncode() == BINARY) {
                     return rpcResponse.getData();
                 } else {
-                    return dataCodec.decodeResponseData(rpcResponse.getData());
+                    return dataCodec.decodeResponseData(rpcResponse.getData(),rpcMethod);
                 }
             } finally {
                 RecyclableUtil.release(rpcResponse);

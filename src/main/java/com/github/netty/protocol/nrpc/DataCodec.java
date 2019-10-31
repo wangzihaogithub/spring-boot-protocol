@@ -29,16 +29,18 @@ public interface DataCodec {
     /**
      * Response data - encoding
      * @param data data
+     * @param rpcMethod rpcMethod
      * @return byte[]
      */
-    byte[] encodeResponseData(Object data);
+    byte[] encodeResponseData(Object data,RpcMethod rpcMethod);
 
     /**
      * Response data - decoding
      * @param data data
+     * @param rpcMethod rpcMethod
      * @return Object
      */
-    Object decodeResponseData(byte[] data);
+    Object decodeResponseData(byte[] data,RpcMethod rpcMethod);
 
 
     /**

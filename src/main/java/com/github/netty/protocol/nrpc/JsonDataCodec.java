@@ -7,6 +7,7 @@ import com.alibaba.fastjson.serializer.*;
 import com.alibaba.fastjson.util.TypeUtils;
 import io.netty.util.concurrent.FastThreadLocal;
 
+import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -103,7 +104,7 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public byte[] encodeResponseData(Object data) {
+    public byte[] encodeResponseData(Object data,RpcMethod rpcMethod) {
         if(data == null){
             return EMPTY;
         }
@@ -117,12 +118,12 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public Object decodeResponseData(byte[] data) {
+    public Object decodeResponseData(byte[] data,RpcMethod rpcMethod) {
         if(data == null || data.length == 0){
             return null;
         }
-
-        return JSON.parse(data, FEATURES);
+        Type returnType = rpcMethod.getMethod().getGenericReturnType();
+        return JSON.parseObject(data,0, data.length, CHARSET_UTF8,returnType,FEATURES);
     }
 
     protected boolean isNeedCast(Object value,Class<?> type){
