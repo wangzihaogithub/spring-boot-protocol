@@ -7,8 +7,10 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.*;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.support.AbstractBeanDefinition;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.GenericBeanDefinition;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -33,7 +35,7 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar,
-        ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware, BeanFactoryAware {
+        ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware, BeanFactoryAware, BeanPostProcessor {
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
     private Environment environment;
@@ -47,6 +49,11 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public void registerBeanDefinitions(AnnotationMetadata metadata, BeanDefinitionRegistry registry) {
+        GenericBeanDefinition beanPostProcessorDefinition = new GenericBeanDefinition();
+        beanPostProcessorDefinition.setInstanceSupplier(()->this);
+        beanPostProcessorDefinition.setBeanClass(BeanPostProcessor.class);
+        registry.registerBeanDefinition("NettyRpcClientBeanPostProcessor",beanPostProcessorDefinition);
+
         ClassPathScanningCandidateComponentProvider scanner = getScanner();
         scanner.setResourceLoader(resourceLoader);
         scanner.addIncludeFilter(new AnnotationTypeFilter(NettyRpcClient.class));
@@ -186,6 +193,12 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
 	    this.nettyRpcLoadBalancedProvider = beanFactory.getBeanProvider(NettyRpcLoadBalanced.class);
-	    this.nettyPropertiesProvider = beanFactory.getBeanProvider(NettyProperties.class);;
+	    this.nettyPropertiesProvider = beanFactory.getBeanProvider(NettyProperties.class);
+    }
+
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        nettyPropertiesProvider.getObject().getApplication().addInstance(beanName, bean, false);
+        return bean;
     }
 }

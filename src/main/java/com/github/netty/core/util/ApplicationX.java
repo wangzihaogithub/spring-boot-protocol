@@ -25,16 +25,16 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
  *
  */
 public class ApplicationX {
-    private Collection<Class<? extends Annotation>> scannerAnnotationList = new HashSet<>(
+    private final Collection<Class<? extends Annotation>> scannerAnnotationList = new HashSet<>(
             Arrays.asList(Resource.class));
 
-    private Collection<Class<? extends Annotation>> injectAnnotationList = new HashSet<>(
+    private final Collection<Class<? extends Annotation>> injectAnnotationList = new HashSet<>(
             Arrays.asList(Resource.class));
 
-    private ClassLoader loader = getClass().getClassLoader();
-    private Scanner scanner = new Scanner();
-    private Injector injector = new Injector();
-    private Map<Object,Object> context = new ClassInstanceMap();
+    private final ClassLoader loader = getClass().getClassLoader();
+    private final Scanner scanner = new Scanner();
+    private final Injector injector = new Injector();
+    private final Map<Object,Object> context = new ClassInstanceMap();
 
     public ApplicationX() {
         addInstance(this);

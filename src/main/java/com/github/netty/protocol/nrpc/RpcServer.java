@@ -1,13 +1,20 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.AbstractNettyServer;
+import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestMappingName;
 
 /**
  * Rpc Server
@@ -15,11 +22,11 @@ import java.net.InetSocketAddress;
  *  2018/8/18/018
  */
 public class RpcServer extends AbstractNettyServer{
+    private Map<Object, Instance> instanceMap = new HashMap<>();
     /**
-     * RPC server side processor
+     * Maximum message length per pass
      */
-    private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-    private RpcEncoder rpcEncoder = new RpcEncoder();
+    private int messageMaxLength = 10 * 1024 * 1024;
 
     public RpcServer(int port) {
         this("",port);
@@ -42,16 +49,21 @@ public class RpcServer extends AbstractNettyServer{
      * @param instance instance
      */
     public void addInstance(Object instance){
-        rpcServerHandler.addInstance(instance);
+        addInstance(instance,getRequestMappingName(instance.getClass()),new ClassFileMethodToParameterNamesFunction());
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
      * @param requestMappingName requestMappingName
+     * @param methodToParameterNamesFunction  methodToParameterNamesFunction
      */
-    public void addInstance(Object instance,String requestMappingName){
-        rpcServerHandler.addInstance(instance,requestMappingName);
+    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
+        instanceMap.put(instance,new Instance(instance,requestMappingName,methodToParameterNamesFunction));
+    }
+
+    public boolean existInstance(Object instance){
+        return instanceMap.containsKey(instance);
     }
 
     /**
@@ -63,9 +75,14 @@ public class RpcServer extends AbstractNettyServer{
         return new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(Channel ch) throws Exception {
+                RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
+                for (Instance instance : instanceMap.values()) {
+                    rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.methodToParameterNamesFunction);
+                }
+
                 ChannelPipeline pipeline = ch.pipeline();
-                pipeline.addLast(new RpcDecoder());
-                pipeline.addLast(rpcEncoder);
+                pipeline.addLast(new RpcDecoder(messageMaxLength));
+                pipeline.addLast(new RpcEncoder());
                 pipeline.addLast(rpcServerHandler);
 
                 //TrafficShaping
@@ -74,4 +91,22 @@ public class RpcServer extends AbstractNettyServer{
         };
     }
 
+    public int getMessageMaxLength() {
+        return messageMaxLength;
+    }
+
+    public void setMessageMaxLength(int messageMaxLength) {
+        this.messageMaxLength = messageMaxLength;
+    }
+
+    static class Instance{
+        Object instance;
+        String requestMappingName;
+        Function<Method,String[]> methodToParameterNamesFunction;
+        Instance(Object instance, String requestMappingName, Function<Method, String[]> methodToParameterNamesFunction) {
+            this.instance = instance;
+            this.requestMappingName = requestMappingName;
+            this.methodToParameterNamesFunction = methodToParameterNamesFunction;
+        }
+    }
 }

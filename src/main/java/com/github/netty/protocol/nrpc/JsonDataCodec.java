@@ -8,8 +8,11 @@ import com.alibaba.fastjson.util.TypeUtils;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * @author wangzihao
@@ -38,6 +41,8 @@ public class JsonDataCodec implements DataCodec {
         }
     };
     private ParserConfig parserConfig;
+    private List<Consumer<Map<String,Object>>> encodeRequestConsumerList = new ArrayList<>();
+    private List<Consumer<Map<String,Object>>> decodeRequestConsumerList = new ArrayList<>();
 
     public JsonDataCodec() {
         this(new ParserConfig());
@@ -56,14 +61,20 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
-        if(data == null || data.length == 0){
-            return EMPTY;
-        }
+    public List<Consumer<Map<String, Object>>> getEncodeRequestConsumerList() {
+        return encodeRequestConsumerList;
+    }
 
+    @Override
+    public List<Consumer<Map<String, Object>>> getDecodeRequestConsumerList() {
+        return decodeRequestConsumerList;
+    }
+
+    @Override
+    public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
         String[] parameterNames = rpcMethod.getParameterNames();
         Map<String, Object> parameterMap = PARAMETER_MAP_LOCAL.get();
-        try {
+        if(data != null && data.length != 0){
             for (int i = 0; i < parameterNames.length; i++) {
                 String name = parameterNames[i];
                 if (name == null) {
@@ -72,7 +83,17 @@ public class JsonDataCodec implements DataCodec {
                 Object value = data[i];
                 parameterMap.put(name, value);
             }
-            return JSON.toJSONBytes(parameterMap, SERIALIZER_FEATURES);
+        }
+
+        try {
+            for (Consumer<Map<String, Object>> consumer : encodeRequestConsumerList) {
+                consumer.accept(parameterMap);
+            }
+            if(parameterMap.isEmpty()){
+                return EMPTY;
+            }else {
+                return JSON.toJSONBytes(parameterMap, SERIALIZER_FEATURES);
+            }
         }finally {
             parameterMap.clear();
         }
@@ -80,27 +101,34 @@ public class JsonDataCodec implements DataCodec {
 
     @Override
     public Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod) {
-        if(data == null || data.length == 0){
-            return null;
+        Map parameterMap;
+        if(data != null && data.length != 0){
+            parameterMap = (Map) JSON.parse(data,0,data.length,CHARSET_UTF8.newDecoder(),FEATURE_MASK);
+        }else {
+            parameterMap = PARAMETER_MAP_LOCAL.get();
         }
-
-        String[] parameterNames = rpcMethod.getParameterNames();
-        Object[] parameterValues = new Object[parameterNames.length];
-        Class<?>[] parameterTypes = rpcMethod.getMethod().getParameterTypes();
-
-        Map parameterMap = (Map) JSON.parse(data,0,data.length,CHARSET_UTF8.newDecoder(),FEATURE_MASK);
-
-        for(int i =0; i<parameterNames.length; i++){
-            Class<?> type = parameterTypes[i];
-            String name = parameterNames[i];
-            Object value = parameterMap.get(name);
-
-            if(isNeedCast(value,type)){
-                value = cast(value, type);
+        try {
+            for (Consumer<Map<String, Object>> consumer : decodeRequestConsumerList) {
+                consumer.accept(parameterMap);
             }
-            parameterValues[i] = value;
+
+            String[] parameterNames = rpcMethod.getParameterNames();
+            Object[] parameterValues = new Object[parameterNames.length];
+            Class<?>[] parameterTypes = rpcMethod.getMethod().getParameterTypes();
+            for (int i = 0; i < parameterNames.length; i++) {
+                Class<?> type = parameterTypes[i];
+                String name = parameterNames[i];
+                Object value = parameterMap.get(name);
+
+                if (isNeedCast(value, type)) {
+                    value = cast(value, type);
+                }
+                parameterValues[i] = value;
+            }
+            return parameterValues;
+        }finally {
+            parameterMap.clear();
         }
-        return parameterValues;
     }
 
     @Override

@@ -14,7 +14,7 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.*;
  */
 public class RpcServerInstance {
     private Object instance;
-    private Map<String,RpcMethod> rpcMethodMap;
+    private Map<String,RpcMethod<RpcServerInstance>> rpcMethodMap;
     private DataCodec dataCodec;
 
     /**
@@ -24,18 +24,21 @@ public class RpcServerInstance {
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      */
     protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction) {
-        this.rpcMethodMap = RpcMethod.getMethodMap(instance.getClass(), methodToParameterNamesFunction);
+        this.instance = instance;
+        this.dataCodec = dataCodec;
+        this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
-        this.instance = instance;
-        this.dataCodec = dataCodec;
     }
 
-    public ResponsePacket invoke(RequestPacket rpcRequest){
+    public ResponsePacket invoke(RequestPacket rpcRequest,RpcContext<RpcServerInstance> rpcContext){
         ResponsePacket rpcResponse = ResponsePacket.newInstance();
+        rpcContext.setResponse(rpcResponse);
+
         rpcResponse.setRequestId(rpcRequest.getRequestId());
-        RpcMethod rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
+        RpcMethod<RpcServerInstance> rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
+        rpcContext.setRpcMethod(rpcMethod);
         if(rpcMethod == null) {
             rpcResponse.setEncode(DataCodec.Encode.BINARY);
             rpcResponse.setStatus(NO_SUCH_METHOD);
@@ -46,7 +49,9 @@ public class RpcServerInstance {
 
         try {
             Object[] args = dataCodec.decodeRequestData(rpcRequest.getData(),rpcMethod);
+            rpcContext.setArgs(args);
             Object result = rpcMethod.getMethod().invoke(instance, args);
+            rpcContext.setResult(result);
             //Whether to code or not
             if(result instanceof byte[]){
                 rpcResponse.setEncode(DataCodec.Encode.BINARY);
@@ -58,7 +63,8 @@ public class RpcServerInstance {
             rpcResponse.setStatus(OK);
             rpcResponse.setMessage("ok");
             return rpcResponse;
-        }catch (Throwable t){
+        }catch (Exception t){
+            rpcContext.setException(t);
             String message = getMessage(t);
             Throwable cause = getCause(t);
             if(cause != null){

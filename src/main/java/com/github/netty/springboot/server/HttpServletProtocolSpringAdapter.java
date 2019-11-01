@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor {
     private NettyProperties properties;
     private ApplicationX application;
-    @Autowired
+    @Autowired(required = false)
     private ListableBeanFactory listableBeanFactory;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {

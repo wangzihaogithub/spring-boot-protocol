@@ -112,7 +112,7 @@ public class RpcPacket implements Recyclable {
 
         @Override
         public void recycle() {
-            RECYCLER.recycleInstance(this);
+//            RECYCLER.recycleInstance(this);
         }
 
         @Override
@@ -184,10 +184,10 @@ public class RpcPacket implements Recyclable {
 
         @Override
         public void recycle() {
-            this.message = null;
-            this.encode = null;
-            this.setData(null);
-            RECYCLER.recycleInstance(this);
+//            this.message = null;
+//            this.encode = null;
+//            this.setData(null);
+//            RECYCLER.recycleInstance(this);
         }
         @Override
         public void toStringAppend(StringJoiner joiner) {

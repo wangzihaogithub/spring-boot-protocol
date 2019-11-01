@@ -11,11 +11,13 @@ import java.util.function.Function;
  * Rpc Method
  * @author wangzihao
  */
-public class RpcMethod {
+public class RpcMethod<INSTANCE> {
     private Method method;
     private String[] parameterNames;
+    private INSTANCE instance;
 
-    public RpcMethod(Method method, String[] parameterNames) {
+    public RpcMethod(INSTANCE instance,Method method, String[] parameterNames) {
+        this.instance = instance;
         this.method = method;
         this.parameterNames = parameterNames;
     }
@@ -28,23 +30,23 @@ public class RpcMethod {
         return parameterNames;
     }
 
-    public static Map<String,RpcMethod> getMethodMap(Class source, Function<Method,String[]> methodToParameterNamesFunction){
+    public static <INSTANCE>Map<String,RpcMethod<INSTANCE>> getMethodMap(INSTANCE instance,Class source, Function<Method,String[]> methodToParameterNamesFunction){
         Class[] classes = ReflectUtil.getInterfaces(source);
-        Map<String,RpcMethod> methodMap = new HashMap<>(6);
+        Map<String,RpcMethod<INSTANCE>> methodMap = new HashMap<>(6);
 
         if(classes.length == 0){
-            initMethod(source,methodToParameterNamesFunction,methodMap);
+            initMethod(instance,source,methodToParameterNamesFunction,methodMap);
         }else {
             for(Class clazz : classes) {
                 if(clazz != Object.class){
-                    initMethod(clazz,methodToParameterNamesFunction,methodMap);
+                    initMethod(instance,clazz,methodToParameterNamesFunction,methodMap);
                 }
             }
         }
         return methodMap;
     }
 
-    private static void initMethod(Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod> methodMap){
+    private static <INSTANCE>void initMethod(INSTANCE instance,Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod<INSTANCE>> methodMap){
         for(Method method : source.getMethods()) {
             Class declaringClass = method.getDeclaringClass();
             //必须是自身的方法
@@ -52,13 +54,17 @@ public class RpcMethod {
                 continue;
             }
 
-            RpcMethod rpcMethod = new RpcMethod(method,methodToParameterNamesFunction.apply(method));
-            RpcMethod oldMethod = methodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
+            RpcMethod<INSTANCE> rpcMethod = new RpcMethod<>(instance,method,methodToParameterNamesFunction.apply(method));
+            RpcMethod<INSTANCE> oldMethod = methodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
             if(oldMethod != null){
                 throw new IllegalStateException("Exposed methods of the same class cannot have the same name, " +
                         "class=["+source.getSimpleName()+"], method=["+method.getName()+"]");
             }
         }
+    }
+
+    public INSTANCE getInstance() {
+        return instance;
     }
 
     @Override

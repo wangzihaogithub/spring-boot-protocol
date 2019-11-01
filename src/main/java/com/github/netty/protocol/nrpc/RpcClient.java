@@ -20,10 +20,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,6 +28,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+import static com.github.netty.protocol.nrpc.RpcClientAop.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
@@ -55,6 +53,7 @@ public class RpcClient extends AbstractNettyClient{
 
     protected final DataCodec dataCodec;
     protected final Map<Integer, RpcFuture> futureMap;
+    private final List<RpcClientAop> nettyRpcClientAopList = new ArrayList<>();
 
     public RpcClient(String remoteHost, int remotePort) {
         this(new InetSocketAddress(remoteHost, remotePort));
@@ -76,6 +75,14 @@ public class RpcClient extends AbstractNettyClient{
             futureMap = new HashMap<>(64);
         }
         this.futureMap = futureMap;
+    }
+
+    public DataCodec getDataCodec() {
+        return dataCodec;
+    }
+
+    public List<RpcClientAop> getAopList() {
+        return nettyRpcClientAopList;
     }
 
     public void setIdleTime(int idleTime) {
@@ -157,7 +164,7 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public InvocationHandler newRpcInstance(Class clazz, int timeout, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction){
-        Map<String, RpcMethod> rpcMethodMap = RpcMethod.getMethodMap(clazz, methodToParameterNamesFunction);
+        Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction);
         if (rpcMethodMap.isEmpty()) {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
         }
@@ -181,6 +188,9 @@ public class RpcClient extends AbstractNettyClient{
      */
     @Override
     protected ChannelInitializer<? extends Channel> newBossChannelHandler() {
+        for (RpcClientAop aop : nettyRpcClientAopList) {
+            aop.onInitAfter(this);
+        }
         return new ChannelInitializer<Channel>() {
             @Override
             protected void initChannel(Channel channel) throws Exception {
@@ -235,6 +245,9 @@ public class RpcClient extends AbstractNettyClient{
         }else {
             state = State.DOWN;
         }
+        for (RpcClientAop aop : nettyRpcClientAopList) {
+            aop.onConnectAfter(this);
+        }
     }
 
     @Override
@@ -249,6 +262,9 @@ public class RpcClient extends AbstractNettyClient{
         }
         if(future.cause() != null){
             logger.error(future.cause().getMessage(),future.cause());
+        }
+        for (RpcClientAop aop : nettyRpcClientAopList) {
+            aop.onDisconnectAfter(this);
         }
     }
 
@@ -290,7 +306,7 @@ public class RpcClient extends AbstractNettyClient{
         return state;
     }
 
-    public int newRequestId(){
+    protected int newRequestId(){
         int id = incr.getAndIncrement();
         if(id < 0){
             id = 0;
@@ -315,8 +331,8 @@ public class RpcClient extends AbstractNettyClient{
     }
 
 
-    public class ReceiverChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
-        public ReceiverChannelHandler() {
+    class ReceiverChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
+        ReceiverChannelHandler() {
             super(false);
         }
 
@@ -345,12 +361,12 @@ public class RpcClient extends AbstractNettyClient{
         }
     }
 
-    public class Sender implements InvocationHandler {
+    class Sender implements InvocationHandler {
         private int timeout;
         private String requestMappingName;
-        private Map<String, RpcMethod> rpcMethodMap;
+        private Map<String, RpcMethod<RpcClient>> rpcMethodMap;
 
-        Sender(int timeout, String requestMappingName, Map<String, RpcMethod> rpcMethodMap) {
+        Sender(int timeout, String requestMappingName, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
             this.requestMappingName = requestMappingName;
@@ -382,39 +398,59 @@ public class RpcClient extends AbstractNettyClient{
                 return this.equals(args[0]);
             }
 
-            RpcMethod rpcMethod = rpcMethodMap.get(methodName);
+            RpcMethod<RpcClient> rpcMethod = rpcMethodMap.get(methodName);
             if (rpcMethod == null) {
                 return null;
             }
 
             int requestId = newRequestId();
-
+            byte ackFlag = rpcMethod.getMethod().getReturnType() == void.class? ACK_NO : ACK_YES;
             RequestPacket rpcRequest = RequestPacket.newInstance();
             rpcRequest.setRequestId(requestId);
             rpcRequest.setRequestMappingName(requestMappingName);
             rpcRequest.setMethodName(rpcMethod.getMethod().getName());
             rpcRequest.setData(dataCodec.encodeRequestData(args, rpcMethod));
-            rpcRequest.setAck(ACK_YES);
+            rpcRequest.setAck(ackFlag);
 
             RpcFuture future = RpcFuture.newInstance();
             futureMap.put(requestId, future);
-
             getChannel().writeAndFlush(rpcRequest).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
 
-            ResponsePacket rpcResponse = null;
+            Object result = null;
+            RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
+            rpcContext.setArgs(args);
+            rpcContext.setRequest(rpcRequest);
+            rpcContext.setRpcMethod(rpcMethod);
             try {
-                rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
-                futureMap.remove(requestId);
-                //If the server is not encoded, return directly
-                if (rpcResponse.getEncode() == BINARY) {
-                    return rpcResponse.getData();
-                } else {
-                    return dataCodec.decodeResponseData(rpcResponse.getData(),rpcMethod);
+                if (ackFlag == ACK_YES) {
+                    ResponsePacket rpcResponse = null;
+                    try {
+                        rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+                        futureMap.remove(requestId);
+                        rpcContext.setResponse(rpcResponse);
+
+                        //If the server is not encoded, return directly
+                        if (rpcResponse.getEncode() == BINARY) {
+                            result = rpcResponse.getData();
+                        } else {
+                            result = dataCodec.decodeResponseData(rpcResponse.getData(), rpcMethod);
+                        }
+                        rpcContext.setResult(result);
+                    } finally {
+                        RecyclableUtil.release(rpcResponse);
+                        future.recycle();
+                    }
                 }
-            } finally {
-                RecyclableUtil.release(rpcResponse);
-                future.recycle();
+            }catch (Exception e){
+                rpcContext.setException(e);
+                throw e;
+            }finally {
+                for (RpcClientAop aop : nettyRpcClientAopList) {
+                    aop.onResponseAfter(rpcContext);
+                }
+                rpcContext.recycle();
             }
+            return result;
         }
     }
 

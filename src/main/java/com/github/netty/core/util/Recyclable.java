@@ -11,9 +11,7 @@ public interface Recyclable {
     /**
      * recycle
      */
-    default void recycle(){
-        recycle(null);
-    }
+    default void recycle(){}
 
     /**
      * async recycle
@@ -21,6 +19,10 @@ public interface Recyclable {
      * @param <T> last recycle object
      */
     default <T> void recycle(Consumer<T> consumer){
-        consumer.accept(null);
+        if(consumer == null){
+            recycle();
+        }else {
+            consumer.accept(null);
+        }
     }
 }

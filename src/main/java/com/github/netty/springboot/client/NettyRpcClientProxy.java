@@ -5,6 +5,7 @@ import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
+import com.github.netty.protocol.nrpc.RpcClientAop;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
@@ -17,10 +18,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -143,6 +141,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
                 if(rpcClient == null) {
                     NettyProperties.Nrpc nrpc = properties.getNrpc();
                     rpcClient = new RpcClient(address);
+                    rpcClient.getAopList().addAll(properties.getApplication().getBeanForType(RpcClientAop.class));
                     rpcClient.setIoThreadCount(nrpc.getClientIoThreads());
                     rpcClient.setIoRatio(nrpc.getClientIoRatio());
                     rpcClient.run();

@@ -7,30 +7,29 @@ import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
+import static com.github.netty.protocol.nrpc.RpcServerAop.CONTEXT_LOCAL;
 
 /**
  * Server side processor
  * @author wangzihao
  *  2018/9/16/016
  */
-@ChannelHandler.Sharable
 public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
     /**
      * Data encoder decoder. (Serialization or Deserialization)
      */
     private DataCodec dataCodec;
     private final Map<String,RpcServerInstance> serviceInstanceMap = new HashMap<>();
+    private final List<RpcServerAop> nettyRpcServerAopList = new ArrayList<>();
+    private ChannelHandlerContext context;
 
     public RpcServerChannelHandler() {
         this(new JsonDataCodec());
@@ -41,11 +40,48 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         this.dataCodec = dataCodec;
     }
 
+    public List<RpcServerAop> getAopList() {
+        return nettyRpcServerAopList;
+    }
+
+    public DataCodec getDataCodec() {
+        return dataCodec;
+    }
+
+    public ChannelHandlerContext getContext() {
+        return context;
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        this.context = ctx;
+        for (RpcServerAop aop : nettyRpcServerAopList) {
+            aop.onConnectAfter(this);
+        }
+        super.channelActive(ctx);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        for (RpcServerAop aop : nettyRpcServerAopList) {
+            aop.onDisconnectAfter(this);
+        }
+        super.channelInactive(ctx);
+    }
+
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
         try {
             if (packet instanceof RequestPacket) {
-                onRequestReceived(ctx, (RequestPacket) packet);
+                RpcContext<RpcServerInstance> rpcContext = CONTEXT_LOCAL.get();
+                try {
+                    onRequestReceived(ctx, (RequestPacket) packet,rpcContext);
+                }finally {
+                    for (RpcServerAop aop : nettyRpcServerAopList) {
+                        aop.onResponseAfter(rpcContext);
+                    }
+                    rpcContext.recycle();
+                }
             } else {
                 if (packet.getAck() == ACK_YES) {
                     RpcPacket responsePacket = new RpcPacket(RpcPacket.TYPE_PONG);
@@ -58,35 +94,36 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         }
     }
 
-    protected void onRequestReceived(ChannelHandlerContext ctx, RequestPacket request){
+    protected void onRequestReceived(ChannelHandlerContext ctx, RequestPacket request,RpcContext<RpcServerInstance> rpcContext){
+        rpcContext.setRequest(request);
         RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getRequestMappingName());
         if(rpcInstance == null) {
             if(request.getAck() == ACK_YES) {
-                ResponsePacket rpcResponse = ResponsePacket.newInstance();
-
+                ResponsePacket response = ResponsePacket.newInstance();
+                rpcContext.setResponse(response);
                 boolean release = true;
                 try {
-                    rpcResponse.setRequestId(request.getRequestId());
-                    rpcResponse.setEncode(BINARY);
-                    rpcResponse.setStatus(ResponsePacket.NO_SUCH_SERVICE);
-                    rpcResponse.setMessage("not found service " + request.getRequestMappingName());
-                    ctx.writeAndFlush(rpcResponse).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+                    response.setRequestId(request.getRequestId());
+                    response.setEncode(BINARY);
+                    response.setStatus(ResponsePacket.NO_SUCH_SERVICE);
+                    response.setMessage("not found service " + request.getRequestMappingName());
+
+                    ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                     release = false;
                 }finally {
                     if(release) {
-                        RecyclableUtil.release(rpcResponse);
+                        RecyclableUtil.release(response);
                     }
                 }
             }
-            return;
-        }
-
-        ResponsePacket response = rpcInstance.invoke(request);
-        if(request.getAck() == ACK_YES) {
-            ctx.writeAndFlush(response)
-                    .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }else {
-            RecyclableUtil.release(response);
+            ResponsePacket response = rpcInstance.invoke(request,rpcContext);
+            if (request.getAck() == ACK_YES) {
+                ctx.writeAndFlush(response)
+                        .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+            } else {
+                RecyclableUtil.release(response);
+            }
         }
     }
 
@@ -129,7 +166,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
             }
         }
 
-        logger.info("addInstance({}, {}, {})",
+        logger.trace("addInstance({}, {}, {})",
                 requestMappingName,
                 instance.getClass().getSimpleName(),
                 methodToParameterNamesFunction.getClass().getSimpleName());
@@ -151,6 +188,10 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
             }
         }
         return false;
+    }
+
+    public Map<String, RpcServerInstance> getServiceInstanceMap() {
+        return Collections.unmodifiableMap(serviceInstanceMap);
     }
 
     /**

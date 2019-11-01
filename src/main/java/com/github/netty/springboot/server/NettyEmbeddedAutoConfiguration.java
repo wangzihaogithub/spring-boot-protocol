@@ -7,7 +7,6 @@ import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.MqttProtocol;
 import com.github.netty.protocol.NRpcProtocol;
 import com.github.netty.springboot.NettyProperties;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -31,8 +30,10 @@ import java.util.function.Supplier;
 @AutoConfigureAfter(NettyProperties.class)
 @EnableConfigurationProperties(NettyProperties.class)
 public class NettyEmbeddedAutoConfiguration {
-    @Autowired
-    private NettyProperties nettyProperties;
+    private final NettyProperties nettyProperties;
+    public NettyEmbeddedAutoConfiguration(NettyProperties nettyProperties) {
+        this.nettyProperties = nettyProperties;
+    }
 
     /**
      * Add a TCP service factory
@@ -61,9 +62,9 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("nRpcProtocol")
     @ConditionalOnMissingBean(NRpcProtocol.class)
     public NRpcProtocol nRpcProtocol(){
-        HRpcProtocolSpringAdapter adapter = new HRpcProtocolSpringAdapter(nettyProperties.getApplication());
-        adapter.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
-        return adapter;
+        HRpcProtocolSpringAdapter protocol = new HRpcProtocolSpringAdapter(nettyProperties.getApplication());
+        protocol.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
+        return protocol;
     }
 
     /**
@@ -81,15 +82,15 @@ public class NettyEmbeddedAutoConfiguration {
             serverHandlerExecutor = () -> factory.getBean(serverHandlerExecutorClass);
         }
 
-        HttpServletProtocolSpringAdapter httpServletProtocolsRegister = new HttpServletProtocolSpringAdapter(nettyProperties,serverHandlerExecutor,resourceLoader.getClassLoader());
+        HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(nettyProperties,serverHandlerExecutor,resourceLoader.getClassLoader());
         NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
-        httpServletProtocolsRegister.setMaxInitialLineLength(http.getMaxHeaderLineSize());
-        httpServletProtocolsRegister.setMaxHeaderSize(http.getMaxHeaderSize());
-        httpServletProtocolsRegister.setMaxContentLength(http.getMaxContentSize());
-        httpServletProtocolsRegister.setMaxChunkSize(http.getMaxChunkSize());
+        protocol.setMaxInitialLineLength(http.getMaxHeaderLineSize());
+        protocol.setMaxHeaderSize(http.getMaxHeaderSize());
+        protocol.setMaxContentLength(http.getMaxContentSize());
+        protocol.setMaxChunkSize(http.getMaxChunkSize());
 
-        factory.addBeanPostProcessor(httpServletProtocolsRegister);
-        return httpServletProtocolsRegister;
+        factory.addBeanPostProcessor(protocol);
+        return protocol;
     }
 
     /**

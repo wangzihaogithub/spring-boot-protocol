@@ -3,10 +3,8 @@ package com.github.netty.protocol;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.ApplicationX;
-import com.github.netty.protocol.nrpc.RpcDecoder;
-import com.github.netty.protocol.nrpc.RpcEncoder;
-import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
-import com.github.netty.protocol.nrpc.RpcVersion;
+import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
+import com.github.netty.protocol.nrpc.*;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.buffer.ByteBuf;
@@ -15,8 +13,12 @@ import io.netty.channel.ChannelPipeline;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+
+import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestMappingName;
 
 /**
  * Internal RPC protocol registry
@@ -32,28 +34,28 @@ import java.util.function.Function;
  * 2018/11/25/025
  */
 public class NRpcProtocol extends AbstractProtocol {
-    private RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
      * Maximum message length per pass
      */
     private int messageMaxLength = 10 * 1024 * 1024;
+    private Map<Object,Instance> instanceMap = new HashMap<>();
 
     public NRpcProtocol(ApplicationX application) {
         this.application = application;
     }
 
     public void addInstance(Object instance){
-        rpcServerHandler.addInstance(instance);
+        addInstance(instance,getRequestMappingName(instance.getClass()),new ClassFileMethodToParameterNamesFunction());
     }
 
     public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
-        rpcServerHandler.addInstance(instance,requestMappingName,methodToParameterNamesFunction);
+        instanceMap.put(instance,new Instance(instance,requestMappingName,methodToParameterNamesFunction));
     }
 
     public boolean existInstance(Object instance){
-        return rpcServerHandler.existInstance(instance);
+        return instanceMap.containsKey(instance);
     }
 
     @Override
@@ -68,8 +70,13 @@ public class NRpcProtocol extends AbstractProtocol {
 
     @Override
     public void addPipeline(Channel channel) throws Exception {
-        ChannelPipeline pipeline = channel.pipeline();
+        RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
+        rpcServerHandler.getAopList().addAll(application.getBeanForType(RpcServerAop.class));
+        for (Instance instance : instanceMap.values()) {
+            rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.methodToParameterNamesFunction);
+        }
 
+        ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RpcDecoder(messageMaxLength));
         pipeline.addLast(new RpcEncoder());
         pipeline.addLast(rpcServerHandler);
@@ -90,6 +97,9 @@ public class NRpcProtocol extends AbstractProtocol {
             addInstance(serviceImpl);
         }
         addInstancePlugins();
+        for (RpcServerAop rpcServerAop : application.getBeanForType(RpcServerAop.class)) {
+            rpcServerAop.onInitAfter(this);
+        }
     }
 
     @Override
@@ -120,5 +130,16 @@ public class NRpcProtocol extends AbstractProtocol {
 
     public void setMessageMaxLength(int messageMaxLength) {
         this.messageMaxLength = messageMaxLength;
+    }
+
+    static class Instance{
+        Object instance;
+        String requestMappingName;
+        Function<Method,String[]> methodToParameterNamesFunction;
+        Instance(Object instance, String requestMappingName, Function<Method, String[]> methodToParameterNamesFunction) {
+            this.instance = instance;
+            this.requestMappingName = requestMappingName;
+            this.methodToParameterNamesFunction = methodToParameterNamesFunction;
+        }
     }
 }
