@@ -31,7 +31,7 @@ import java.util.*;
  * }
  *
  * class文件结构.官方文档 https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html
- * @author acer01
+ * @author wangzihao
  */
 public class JavaClassFile {
     private static final Attribute[] EMPTY_ATTRIBUTES = {};

@@ -4,7 +4,7 @@ import com.github.netty.core.util.Recyclable;
 
 /**
  * rpc context
- * @author acer01
+ * @author wangzihao
  */
 public class RpcContext<INSTANCE> implements Recyclable {
     private RpcPacket.RequestPacket request;

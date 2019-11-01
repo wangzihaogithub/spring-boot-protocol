@@ -11,6 +11,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
@@ -28,7 +29,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      */
     private DataCodec dataCodec;
     private final Map<String,RpcServerInstance> serviceInstanceMap = new HashMap<>();
-    private final List<RpcServerAop> nettyRpcServerAopList = new ArrayList<>();
+    private final List<RpcServerAop> nettyRpcServerAopList = new CopyOnWriteArrayList<>();
     private ChannelHandlerContext context;
 
     public RpcServerChannelHandler() {

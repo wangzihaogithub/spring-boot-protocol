@@ -4,6 +4,8 @@ import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.nrpc.*;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
@@ -24,6 +26,19 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
  * Internal RPC protocol registry
  *
  *  ACK flag : (0=Don't need, 1=Need)
+ *   Request Packet (note:  1 = request type)
+ *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----4B------+-------length-------------+
+ * | header/version | type | ACK   | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
+ * |   NRPC/010     |  1   | 1    |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
+ *
+ *
+ *   Response Packet (note: 2 = response type)
+ *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+---2B---+--------1B------+--length--+---1B---+-----4B------+----------length----------+
+ * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
+ * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
+ *-+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
+ *
  *
  *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
@@ -34,6 +49,7 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
  * 2018/11/25/025
  */
 public class NRpcProtocol extends AbstractProtocol {
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private ApplicationX application;
     private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
@@ -52,6 +68,10 @@ public class NRpcProtocol extends AbstractProtocol {
 
     public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
         instanceMap.put(instance,new Instance(instance,requestMappingName,methodToParameterNamesFunction));
+        logger.info("addInstance({}, {}, {})",
+                requestMappingName,
+                instance.getClass().getSimpleName(),
+                methodToParameterNamesFunction.getClass().getSimpleName());
     }
 
     public boolean existInstance(Object instance){

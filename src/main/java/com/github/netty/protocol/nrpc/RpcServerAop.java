@@ -5,7 +5,7 @@ import io.netty.util.concurrent.FastThreadLocal;
 
 /**
  * event aop
- * @author acer01
+ * @author wangzihao
  */
 public interface RpcServerAop {
 

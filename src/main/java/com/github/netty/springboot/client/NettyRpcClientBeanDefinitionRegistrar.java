@@ -32,6 +32,10 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
+ * Scan rpc interfaces and definition bean.
+ *
+ * @see #registerNettyRpcClient
+ * @see #newInstanceSupplier
  * @author wangzihao
  */
 public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar,

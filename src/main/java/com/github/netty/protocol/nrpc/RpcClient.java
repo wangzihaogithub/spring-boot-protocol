@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,7 +29,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
-import static com.github.netty.protocol.nrpc.RpcClientAop.*;
+import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
@@ -53,7 +54,7 @@ public class RpcClient extends AbstractNettyClient{
 
     protected final DataCodec dataCodec;
     protected final Map<Integer, RpcFuture> futureMap;
-    private final List<RpcClientAop> nettyRpcClientAopList = new ArrayList<>();
+    private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
 
     public RpcClient(String remoteHost, int remotePort) {
         this(new InetSocketAddress(remoteHost, remotePort));

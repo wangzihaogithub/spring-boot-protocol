@@ -28,7 +28,7 @@ import java.util.List;
 
 /**
  *
- * @author andrea
+ * @author wangzihao
  */
 @Sharable
 public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage,MqttMessage> {

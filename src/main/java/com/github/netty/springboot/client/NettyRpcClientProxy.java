@@ -5,8 +5,8 @@ import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
-import com.github.netty.protocol.nrpc.RpcClientAop;
 import com.github.netty.protocol.nrpc.RpcClient;
+import com.github.netty.protocol.nrpc.RpcClientAop;
 import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.springboot.NettyProperties;
@@ -18,16 +18,28 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
- * RPC client (thread safe)
+ * RPC client proxy (thread safe)
+ * 1. Management rpc client different ip addresses. Ip address corresponds to a client only.
+ * 2. In selecting ip address, will call NettyRpcLoadBalanced.class.
+ * @see com.github.netty.springboot.client.NettyRpcLoadBalanced#chooseAddress(NettyRpcRequest)
+ * @see com.github.netty.protocol.nrpc.RpcClient
+ *
+ * -----------------------------------------------------------------------
+ *
+ * Support rpc method annotation list.
+ * @see Protocol.RpcParam,RequestMapping,RequestParam,RequestBody,RequestHeader,PathVariable,CookieValue,RequestPart
  * @author wangzihao
  */
 public class NettyRpcClientProxy implements InvocationHandler {
-    private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new HashMap<>(5);
+    private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new ConcurrentHashMap<>(5);
 
     private String serviceName;
     private String requestMappingName;

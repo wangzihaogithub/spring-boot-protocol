@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Packet
  * 2019/3/17/017.
- * @author acer01
+ * @author wangzihao
  */
 public class Packet implements ReferenceCounted {
     public static final byte TYPE_UNKNOWN = 0;

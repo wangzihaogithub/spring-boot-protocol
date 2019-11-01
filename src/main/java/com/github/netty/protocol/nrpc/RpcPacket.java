@@ -8,7 +8,7 @@ import java.util.StringJoiner;
 /**
  * 2019/3/17/017.
  *
- * @author acer01
+ * @author wangzihao
  */
 public class RpcPacket implements Recyclable {
     public static final byte TYPE_REQUEST = 1;
