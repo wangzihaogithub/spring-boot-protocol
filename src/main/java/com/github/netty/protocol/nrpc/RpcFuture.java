@@ -1,5 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.core.CoreConstants;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Recycler;
@@ -14,7 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import static com.github.netty.protocol.nrpc.RpcPacket.*;
+
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 
 /**
  * Simple Future
@@ -41,6 +43,13 @@ public class RpcFuture implements Future<ResponsePacket>,Recyclable{
     public ResponsePacket get() throws InterruptedException, ExecutionException {
         TOTAL_COUNT.incrementAndGet();
 
+        for (int i = 0; i < CoreConstants.getRpcLockSpinCount(); i++) {
+            // yield CPU time.
+            Thread.yield();
+            if(isDone()){
+                break;
+            }
+        }
         try {
             if (!isDone()) {
                 lock.lock();
@@ -76,6 +85,13 @@ public class RpcFuture implements Future<ResponsePacket>,Recyclable{
     public ResponsePacket get(long timeout, TimeUnit timeUnit) throws InterruptedException, ExecutionException,TimeoutException {
         TOTAL_COUNT.incrementAndGet();
 
+        for (int i = 0; i < CoreConstants.getRpcLockSpinCount(); i++) {
+            // yield CPU time.
+            Thread.yield();
+            if(isDone()){
+                break;
+            }
+        }
         try {
             if (!isDone()) {
                 lock.lock();
