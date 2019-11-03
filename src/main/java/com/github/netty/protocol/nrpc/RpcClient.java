@@ -21,7 +21,10 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +43,7 @@ import static com.github.netty.protocol.nrpc.RpcPacket.*;
  *  2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient{
-    private final Map<String, Sender> rpcInstanceMap = new WeakHashMap<>();
+    private final Map<String, Sender> rpcInstanceMap = new HashMap<>(6);
     private int idleTime = 10;
     private RpcCommandService rpcCommandService;
     private RpcDBService rpcDBService;
@@ -424,7 +427,6 @@ public class RpcClient extends AbstractNettyClient{
             }
 
             Object result;
-
             if(rpcMethod.isReturnTypeReactivePublisherFlag()){
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
