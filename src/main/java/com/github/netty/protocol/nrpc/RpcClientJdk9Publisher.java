@@ -1,7 +1,7 @@
 //package com.github.netty.protocol.nrpc;
 //
 //import com.github.netty.core.util.RecyclableUtil;
-//import com.github.netty.protocol.nrpc.exception.RpcConnectException;
+//import com.github.netty.protocol.nrpc.exception.RpcException;
 //import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 //import io.netty.channel.ChannelFutureListener;
 //import io.netty.channel.socket.SocketChannel;
@@ -18,10 +18,11 @@
 ///**
 // * async response.
 // * @author wangzihao
-// *  2018/11/3/019
+// *  2019/11/3/019
 // */
 //public class RpcClientJdk9Publisher implements Publisher<Object>,Subscription,RpcDone {
-//    private long maxRequestCount;
+//    private static final long MAX_REQUEST_COUNT = Long.MAX_VALUE;
+//    private long currentRequestCount;
 //    private volatile boolean cancelFlag = false;
 //    private volatile Subscriber<? super Object> subscriber;
 //    private final RpcContext<RpcClient> rpcContext;
@@ -83,10 +84,14 @@
 //
 //    @Override
 //    public void request(long n) {
+//        if(n <= 0){
+//            throw new IllegalArgumentException("non-positive request");
+//        }
 //        if(cancelFlag){
 //            return;
 //        }
-//        maxRequestCount = n;
+//        currentRequestCount += n;
+//
 //        CONTEXT_LOCAL.set(rpcContext);
 //        try {
 //
@@ -123,23 +128,18 @@
 //                        CONTEXT_LOCAL.set(null);
 //                    }
 //                });
-//            }catch (RpcConnectException rpcConnectException){
-//                CONTEXT_LOCAL.set(rpcContext);
-//                try {
-//                    handlerRpcWriterException(rpcConnectException,requestId);
-//                } finally {
-//                    CONTEXT_LOCAL.set(null);
-//                }
+//            }catch (RpcException rpcException){
+//                handlerRpcWriterException(rpcException,requestId);
 //            }
 //        }finally {
 //            CONTEXT_LOCAL.set(null);
 //        }
 //    }
 //
-//    private void handlerRpcWriterException(Throwable throwable,int requestId){
+//    private void handlerRpcWriterException(RpcException rpcException,int requestId){
 //        rpcClient.rpcDoneMap.remove(requestId);
-//        rpcContext.setThrowable(throwable);
-//        subscriber.onError(throwable);
+//        rpcContext.setThrowable(rpcException);
+//        subscriber.onError(rpcException);
 //        for (RpcClientAop aop : rpcClient.getAopList()) {
 //            aop.onResponseAfter(rpcContext);
 //        }
@@ -159,6 +159,9 @@
 //        }finally {
 //            CONTEXT_LOCAL.set(null);
 //        }
-//        request(1);
+//    }
+//
+//    public long getCurrentRequestCount() {
+//        return currentRequestCount;
 //    }
 //}

@@ -361,10 +361,10 @@ public class RpcClient extends AbstractNettyClient{
             if(packet instanceof ResponsePacket) {
                 ResponsePacket rpcResponse = (ResponsePacket) packet;
 
-                RpcDone future = rpcDoneMap.remove(rpcResponse.getRequestId());
-                if (future != null) {
+                RpcDone rpcDone = rpcDoneMap.remove(rpcResponse.getRequestId());
+                if (rpcDone != null) {
                     //Handed over to the thread that sent the message
-                    future.done(rpcResponse);
+                    rpcDone.done(rpcResponse);
                 }
             }else {
                 logger.debug("client received packet={}",String.valueOf(packet));
@@ -484,6 +484,8 @@ public class RpcClient extends AbstractNettyClient{
                 SocketChannel channel = getChannel();
                 channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) channelFuture -> {
                     if(rpcContext.getState() == INIT){
+                        logger.warn("on timeout after. write event. isSuccess={},channel={}",
+                                channelFuture.isSuccess(),channelFuture.channel());
                         return;
                     }
                     CONTEXT_LOCAL.set(rpcContext);
@@ -492,16 +494,15 @@ public class RpcClient extends AbstractNettyClient{
                             rpcContext.setState(WRITE_FINISH);
                             onStateUpdate(rpcContext);
                         } else {
-                            Throwable throwable = channelFuture.cause();
                             channelFuture.channel().close().addListener(f -> connect());
-                            rpcContext.setThrowable(throwable);
+                            rpcContext.setThrowable(channelFuture.cause());
                         }
                     }finally {
                         CONTEXT_LOCAL.set(null);
                     }
                 });
-            }catch (RpcConnectException rpcConnectException){
-                rpcContext.setThrowable(rpcConnectException);
+            }catch (RpcException rpcException){
+                rpcContext.setThrowable(rpcException);
             }
 
             Object result = null;
