@@ -33,6 +33,7 @@
 
         <netty.version>4.1.43.Final</netty.version>
         <fastjson.version>1.2.49</fastjson.version>
+        <reactive-streams.version>1.0.3</reactive-streams.version>
     </properties>
 
     <licenses>
@@ -70,6 +71,13 @@
             <version>${fastjson.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.reactivestreams</groupId>
+            <artifactId>reactive-streams</artifactId>
+            <version>${reactive-streams.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>

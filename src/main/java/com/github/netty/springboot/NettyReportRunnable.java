@@ -5,7 +5,7 @@ import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.RpcClient;
-import com.github.netty.protocol.nrpc.RpcFuture;
+import com.github.netty.protocol.nrpc.RpcClientFuture;
 import com.github.netty.protocol.servlet.NettyMessageToServletRunnable;
 import com.github.netty.protocol.servlet.ServletFilterChain;
 
@@ -32,7 +32,7 @@ public class NettyReportRunnable implements Runnable{
     public void run() {
         try {
 //            String timeoutApis = RpcClient.getTimeoutApis();
-            long spinResponseCount = RpcFuture.TOTAL_SUCCESS_COUNT.get();
+            long spinResponseCount = RpcClientFuture.TOTAL_SUCCESS_COUNT.longValue();
             long totalCount = RpcClient.getTotalInvokeCount();
             long timeoutCount = RpcClient.getTotalTimeoutCount();
             long successCount = totalCount - timeoutCount;

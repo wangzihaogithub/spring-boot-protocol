@@ -9,6 +9,7 @@ import com.github.netty.core.util.ReflectUtil;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
+import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 import com.github.netty.protocol.nrpc.service.RpcCommandService;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
@@ -30,6 +31,7 @@ import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
+import static com.github.netty.protocol.nrpc.RpcContext.State.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
@@ -42,40 +44,51 @@ public class RpcClient extends AbstractNettyClient{
     private int idleTime = 10;
     private RpcCommandService rpcCommandService;
     private RpcDBService rpcDBService;
-    private AtomicInteger incr = new AtomicInteger();
+    private AtomicInteger requestIdIncr = new AtomicInteger();
     /**
      * Connection status
      */
-    private State state;
+    private State state = State.DOWN;
     /**
      * Automatic reconnect Future
      */
     private ScheduledFuture<?> autoReconnectScheduledFuture;
 
     protected final DataCodec dataCodec;
-    protected final Map<Integer, RpcFuture> futureMap;
+    protected final Map<Integer, RpcDone> rpcDoneMap;
     private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
 
     public RpcClient(String remoteHost, int remotePort) {
         this(new InetSocketAddress(remoteHost, remotePort));
     }
 
-    public RpcClient(InetSocketAddress address) {
-        this("",address);
+    public RpcClient(InetSocketAddress remoteAddress) {
+        this("",remoteAddress);
     }
 
     public RpcClient(String namePre, InetSocketAddress remoteAddress) {
+        this(namePre,remoteAddress,new JsonDataCodec());
+    }
+
+    public RpcClient(String namePre, InetSocketAddress remoteAddress,DataCodec dataCodec) {
         super(namePre + Thread.currentThread().getName()+"-", remoteAddress);
-        this.dataCodec = new JsonDataCodec();
-        Map<Integer,RpcFuture> futureMap;
+        this.dataCodec = dataCodec;
+        dataCodec.getEncodeRequestConsumerList().add(params -> {
+            RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onEncodeRequestBefore(rpcContext,params);
+            }
+        });
+
+        Map<Integer,RpcDone> futureMap;
         try {
-            futureMap = intObjectHashMapConstructor != null?
-                    intObjectHashMapConstructor.newInstance(64):
+            futureMap = INT_OBJECT_MAP_CONSTRUCTOR != null?
+                    INT_OBJECT_MAP_CONSTRUCTOR.newInstance(64):
                     new HashMap<>(64);
         } catch (Exception e) {
             futureMap = new HashMap<>(64);
         }
-        this.futureMap = futureMap;
+        this.rpcDoneMap = futureMap;
     }
 
     public DataCodec getDataCodec() {
@@ -84,6 +97,12 @@ public class RpcClient extends AbstractNettyClient{
 
     public List<RpcClientAop> getAopList() {
         return nettyRpcClientAopList;
+    }
+
+    public void onStateUpdate(RpcContext<RpcClient> rpcContext){
+        for (RpcClientAop aop : nettyRpcClientAopList) {
+            aop.onStateUpdate(rpcContext);
+        }
     }
 
     public void setIdleTime(int idleTime) {
@@ -206,7 +225,7 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     @Override
-    public SocketChannel getChannel() {
+    public SocketChannel getChannel() throws RpcConnectException{
         SocketChannel socketChannel = super.getChannel();
         if(socketChannel == null){
             connect();
@@ -308,10 +327,10 @@ public class RpcClient extends AbstractNettyClient{
     }
 
     protected int newRequestId(){
-        int id = incr.getAndIncrement();
+        int id = requestIdIncr.getAndIncrement();
         if(id < 0){
             id = 0;
-            incr.set(id);
+            requestIdIncr.set(id);
         }
         return id;
     }
@@ -342,7 +361,7 @@ public class RpcClient extends AbstractNettyClient{
             if(packet instanceof ResponsePacket) {
                 ResponsePacket rpcResponse = (ResponsePacket) packet;
 
-                RpcFuture future = futureMap.remove(rpcResponse.getRequestId());
+                RpcDone future = rpcDoneMap.remove(rpcResponse.getRequestId());
                 if (future != null) {
                     //Handed over to the thread that sent the message
                     future.done(rpcResponse);
@@ -385,17 +404,17 @@ public class RpcClient extends AbstractNettyClient{
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             String methodName = method.getName();
-            Class<?>[] parameterTypes = method.getParameterTypes();
+            int parameterCount = method.getParameterCount();
             if (method.getDeclaringClass() == Object.class) {
                 return method.invoke(this, args);
             }
-            if ("toString".equals(methodName) && parameterTypes.length == 0) {
+            if ("toString".equals(methodName) && parameterCount == 0) {
                 return this.toString();
             }
-            if ("hashCode".equals(methodName) && parameterTypes.length == 0) {
+            if ("hashCode".equals(methodName) && parameterCount == 0) {
                 return this.hashCode();
             }
-            if ("equals".equals(methodName) && parameterTypes.length == 1) {
+            if ("equals".equals(methodName) && parameterCount == 1) {
                 return this.equals(args[0]);
             }
 
@@ -404,71 +423,147 @@ public class RpcClient extends AbstractNettyClient{
                 return null;
             }
 
+            Object result;
+
+            if(rpcMethod.isReturnTypeReactivePublisherFlag()){
+                RpcContext<RpcClient> rpcContext = new RpcContext<>();
+                rpcContext.setArgs(args);
+                rpcContext.setRpcMethod(rpcMethod);
+                result = new RpcClientReactivePublisher(rpcContext,requestMappingName);
+            }else if(rpcMethod.isReturnTypeJdk9PublisherFlag()){
+                throw new UnsupportedOperationException("now version no support return type java.util.concurrent.Flow.Publisher. The future version will support. ");
+//                RpcContext<RpcClient> rpcContext = new RpcContext<>();
+//                rpcContext.setArgs(args);
+//                rpcContext.setRpcMethod(rpcMethod);
+//                rpcContext.setState(INIT);
+//                result = new RpcClientJdk9Publisher(rpcContext,requestMappingName);
+            }else {
+                RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
+                if(rpcContext == null){
+                    rpcContext = new RpcContext<>();
+                    CONTEXT_LOCAL.set(rpcContext);
+                }else {
+                    rpcContext.recycle();
+                }
+                try {
+                    rpcContext.setArgs(args);
+                    rpcContext.setRpcMethod(rpcMethod);
+                    result = requestSync(rpcContext);
+                }finally {
+                    CONTEXT_LOCAL.set(null);
+                }
+            }
+            return result;
+        }
+
+        Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
+            Method method = rpcContext.getRpcMethod().getMethod();
+            Class<?> returnType = method.getReturnType();
+            byte ackFlag = returnType == void.class? ACK_NO : ACK_YES;
+
             int requestId = newRequestId();
-            byte ackFlag = rpcMethod.getMethod().getReturnType() == void.class? ACK_NO : ACK_YES;
             RequestPacket rpcRequest = RequestPacket.newInstance();
             rpcRequest.setRequestId(requestId);
             rpcRequest.setRequestMappingName(requestMappingName);
-            rpcRequest.setMethodName(rpcMethod.getMethod().getName());
-            rpcRequest.setData(dataCodec.encodeRequestData(args, rpcMethod));
+            rpcRequest.setMethodName(method.getName());
             rpcRequest.setAck(ackFlag);
 
-            RpcFuture future = RpcFuture.newInstance();
-            futureMap.put(requestId, future);
-            getChannel().writeAndFlush(rpcRequest).addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
+            rpcContext.setRequest(rpcRequest);
+            rpcContext.setState(INIT);
+            onStateUpdate(rpcContext);
+
+            rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
+            rpcContext.setState(WRITE_ING);
+            onStateUpdate(rpcContext);
+
+            RpcClientFuture future = RpcClientFuture.newInstance();
+            if (ackFlag == ACK_YES) {
+                rpcDoneMap.put(requestId, future);
+            }
+            try {
+                SocketChannel channel = getChannel();
+                channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) channelFuture -> {
+                    if(rpcContext.getState() == INIT){
+                        return;
+                    }
+                    CONTEXT_LOCAL.set(rpcContext);
+                    try {
+                        if (channelFuture.isSuccess()) {
+                            rpcContext.setState(WRITE_FINISH);
+                            onStateUpdate(rpcContext);
+                        } else {
+                            Throwable throwable = channelFuture.cause();
+                            channelFuture.channel().close().addListener(f -> connect());
+                            rpcContext.setThrowable(throwable);
+                        }
+                    }finally {
+                        CONTEXT_LOCAL.set(null);
+                    }
+                });
+            }catch (RpcConnectException rpcConnectException){
+                rpcContext.setThrowable(rpcConnectException);
+            }
 
             Object result = null;
-            RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
-            rpcContext.setArgs(args);
-            rpcContext.setRequest(rpcRequest);
-            rpcContext.setRpcMethod(rpcMethod);
+            ResponsePacket rpcResponse = null;
             try {
-                if (ackFlag == ACK_YES) {
-                    ResponsePacket rpcResponse = null;
-                    try {
-                        rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
-                        futureMap.remove(requestId);
-                        rpcContext.setResponse(rpcResponse);
-
-                        //If the server is not encoded, return directly
-                        if (rpcResponse.getEncode() == BINARY) {
-                            result = rpcResponse.getData();
-                        } else {
-                            result = dataCodec.decodeResponseData(rpcResponse.getData(), rpcMethod);
-                        }
-                        rpcContext.setResult(result);
-                    } finally {
-                        RecyclableUtil.release(rpcResponse);
-                        future.recycle();
-                    }
+                Throwable throwable = rpcContext.getThrowable();
+                if(throwable instanceof RpcException){
+                    throw throwable;
+                }else if(throwable != null) {
+                    throw new RpcWriteException("rpc write exception. " + throwable, throwable);
                 }
-            }catch (Exception e){
-                rpcContext.setException(e);
+                if (ackFlag == ACK_YES) {
+                    rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+                    rpcContext.setResponse(rpcResponse);
+                    rpcContext.setState(READ_ING);
+                    onStateUpdate(rpcContext);
+
+                    //If the server is not encoded, return directly
+                    if (rpcResponse.getEncode() == BINARY) {
+                        result = rpcResponse.getData();
+                    } else {
+                        result = dataCodec.decodeResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
+                    }
+                    rpcContext.setResult(result);
+                    rpcContext.setState(READ_FINISH);
+                    onStateUpdate(rpcContext);
+                }
+            }catch (Throwable e){
+                rpcContext.setThrowable(e);
                 throw e;
             }finally {
-                for (RpcClientAop aop : nettyRpcClientAopList) {
-                    aop.onResponseAfter(rpcContext);
+                rpcDoneMap.remove(requestId);
+                try {
+                    for (RpcClientAop aop : nettyRpcClientAopList) {
+                        aop.onResponseAfter(rpcContext);
+                    }
+                }finally {
+                    RecyclableUtil.release(rpcResponse);
+                    future.recycle();
+                    rpcContext.recycle();
                 }
-                rpcContext.recycle();
             }
             return result;
         }
     }
 
-    private static Constructor<Map> intObjectHashMapConstructor;
+    private static final Constructor<Map> INT_OBJECT_MAP_CONSTRUCTOR;
     static {
+        Constructor<Map> intObjectHashMapConstructor;
         try {
             intObjectHashMapConstructor = (Constructor<Map>) Class.forName("io.netty.util.collection.IntObjectHashMap").getConstructor(int.class);;
         } catch (Exception e) {
             intObjectHashMapConstructor = null;
         }
+        INT_OBJECT_MAP_CONSTRUCTOR = intObjectHashMapConstructor;
     }
 
     public static long getTotalInvokeCount() {
-        return RpcFuture.TOTAL_COUNT.get();
+        return RpcClientFuture.TOTAL_COUNT.sum();
     }
 
     public static long getTotalTimeoutCount() {
-        return RpcFuture.TOTAL_COUNT.get() - RpcFuture.TOTAL_SUCCESS_COUNT.get();
+        return RpcClientFuture.TOTAL_COUNT.sum() - RpcClientFuture.TOTAL_SUCCESS_COUNT.sum();
     }
 }

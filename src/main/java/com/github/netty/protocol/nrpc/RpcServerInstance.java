@@ -63,8 +63,8 @@ public class RpcServerInstance {
             rpcResponse.setStatus(OK);
             rpcResponse.setMessage("ok");
             return rpcResponse;
-        }catch (Exception t){
-            rpcContext.setException(t);
+        }catch (Throwable t){
+            rpcContext.setThrowable(t);
             String message = getMessage(t);
             Throwable cause = getCause(t);
             if(cause != null){

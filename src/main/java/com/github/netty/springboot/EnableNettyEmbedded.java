@@ -1,6 +1,7 @@
 package com.github.netty.springboot;
 
-import com.github.netty.springboot.server.NettyEmbeddedAutoConfiguration;
+import com.github.netty.core.AbstractProtocol;
+import com.github.netty.springboot.server.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
 
@@ -9,11 +10,13 @@ import java.lang.annotation.*;
 /**
  * Enable embedded TCP container.
  * It will enable.
- *      1. http server protocol (Servlet Web, Reactive Web). or websocket.
- *      2. rpc server protocol.
+ *      1. http server protocol,
+ *          Servlet Web or Reactive Web. {@link NettyTcpServerFactory,HttpServletProtocolSpringAdapter}.
+ *          Websocket. {@link NettyRequestUpgradeStrategy}.
+ *      2. rpc server protocol. {@link HRpcProtocolSpringAdapter}.
  *      3. and user-defined protocols..
  *
- * If you want to add your own protocol,  you need implement AbstractProtocol.class.
+ * If you want to add your own protocol,  you need implement {@link AbstractProtocol}
  * <blockquote><pre>
  *     @Component
  *     public class MyProtocolsRegister extends AbstractProtocolsRegister{

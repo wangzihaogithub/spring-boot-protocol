@@ -1,0 +1,164 @@
+//package com.github.netty.protocol.nrpc;
+//
+//import com.github.netty.core.util.RecyclableUtil;
+//import com.github.netty.protocol.nrpc.exception.RpcConnectException;
+//import com.github.netty.protocol.nrpc.exception.RpcWriteException;
+//import io.netty.channel.ChannelFutureListener;
+//import io.netty.channel.socket.SocketChannel;
+//
+//import java.util.concurrent.Flow.Publisher;
+//import java.util.concurrent.Flow.Subscriber;
+//import java.util.concurrent.Flow.Subscription;
+//
+//import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+//import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
+//import static com.github.netty.protocol.nrpc.RpcContext.State.*;
+//import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
+//
+///**
+// * async response.
+// * @author wangzihao
+// *  2018/11/3/019
+// */
+//public class RpcClientJdk9Publisher implements Publisher<Object>,Subscription,RpcDone {
+//    private long maxRequestCount;
+//    private volatile boolean cancelFlag = false;
+//    private volatile Subscriber<? super Object> subscriber;
+//    private final RpcContext<RpcClient> rpcContext;
+//    private final RpcClient rpcClient;
+//    private final DataCodec dataCodec;
+//    private final String requestMappingName;
+//
+//    RpcClientJdk9Publisher(RpcContext<RpcClient> rpcContext, String requestMappingName) {
+//        this.rpcContext = rpcContext;
+//        this.rpcClient = rpcContext.getRpcMethod().getInstance();
+//        this.dataCodec = rpcClient.getDataCodec();
+//        this.requestMappingName = requestMappingName;
+//    }
+//
+//    @Override
+//    public void done(RpcPacket.ResponsePacket rpcResponse) {
+//        if(cancelFlag){
+//            return;
+//        }
+//        int requestId = rpcResponse.getRequestId();
+//        CONTEXT_LOCAL.set(rpcContext);
+//        try {
+//            rpcContext.setResponse(rpcResponse);
+//            rpcContext.setState(READ_ING);
+//            rpcClient.onStateUpdate(rpcContext);
+//
+//            handlerResponseIfNeedThrow(rpcResponse);
+//
+//            //If the server is not encoded, return directly
+//            Object result;
+//            if (rpcResponse.getEncode() == BINARY) {
+//                result = rpcResponse.getData();
+//            } else {
+//                result = dataCodec.decodeResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
+//            }
+//
+//            rpcContext.setResult(result);
+//            rpcContext.setState(READ_FINISH);
+//            rpcClient.onStateUpdate(rpcContext);
+//
+//            subscriber.onNext(result);
+//            subscriber.onComplete();
+//        }catch (Throwable t){
+//            rpcContext.setThrowable(t);
+//            subscriber.onError(t);
+//        }finally {
+//            try {
+//                for (RpcClientAop aop : rpcClient.getAopList()) {
+//                    aop.onResponseAfter(rpcContext);
+//                }
+//            }finally {
+//                rpcClient.rpcDoneMap.remove(requestId);
+//                RecyclableUtil.release(rpcResponse);
+//                rpcContext.recycle();
+//                CONTEXT_LOCAL.set(null);
+//            }
+//        }
+//    }
+//
+//    @Override
+//    public void request(long n) {
+//        if(cancelFlag){
+//            return;
+//        }
+//        maxRequestCount = n;
+//        CONTEXT_LOCAL.set(rpcContext);
+//        try {
+//
+//            int requestId = rpcClient.newRequestId();
+//            RpcPacket.RequestPacket rpcRequest = RpcPacket.RequestPacket.newInstance();
+//            rpcRequest.setRequestId(requestId);
+//            rpcRequest.setRequestMappingName(requestMappingName);
+//            rpcRequest.setMethodName(rpcContext.getRpcMethod().getMethod().getName());
+//            rpcRequest.setAck(ACK_YES);
+//
+//            rpcContext.setRequest(rpcRequest);
+//            rpcContext.setState(INIT);
+//            rpcClient.onStateUpdate(rpcContext);
+//
+//            rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
+//            rpcContext.setState(WRITE_ING);
+//            rpcClient.onStateUpdate(rpcContext);
+//
+//            rpcClient.rpcDoneMap.put(requestId, this);
+//            try {
+//                SocketChannel channel = rpcClient.getChannel();
+//                channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) future -> {
+//                    CONTEXT_LOCAL.set(rpcContext);
+//                    try {
+//                        if (future.isSuccess()) {
+//                            rpcContext.setState(WRITE_FINISH);
+//                            rpcClient.onStateUpdate(rpcContext);
+//                        }else {
+//                            Throwable throwable = future.cause();
+//                            future.channel().close().addListener(f -> rpcClient.connect());
+//                            handlerRpcWriterException(new RpcWriteException("rpc write exception. "+throwable,throwable),requestId);
+//                        }
+//                    } finally {
+//                        CONTEXT_LOCAL.set(null);
+//                    }
+//                });
+//            }catch (RpcConnectException rpcConnectException){
+//                CONTEXT_LOCAL.set(rpcContext);
+//                try {
+//                    handlerRpcWriterException(rpcConnectException,requestId);
+//                } finally {
+//                    CONTEXT_LOCAL.set(null);
+//                }
+//            }
+//        }finally {
+//            CONTEXT_LOCAL.set(null);
+//        }
+//    }
+//
+//    private void handlerRpcWriterException(Throwable throwable,int requestId){
+//        rpcClient.rpcDoneMap.remove(requestId);
+//        rpcContext.setThrowable(throwable);
+//        subscriber.onError(throwable);
+//        for (RpcClientAop aop : rpcClient.getAopList()) {
+//            aop.onResponseAfter(rpcContext);
+//        }
+//    }
+//
+//    @Override
+//    public void cancel() {
+//        this.cancelFlag = true;
+//    }
+//
+//    @Override
+//    public void subscribe(Subscriber<? super Object> subscriber) {
+//        this.subscriber = subscriber;
+//        CONTEXT_LOCAL.set(rpcContext);
+//        try {
+//            subscriber.onSubscribe(this);
+//        }finally {
+//            CONTEXT_LOCAL.set(null);
+//        }
+//        request(1);
+//    }
+//}

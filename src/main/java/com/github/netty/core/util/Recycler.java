@@ -1,7 +1,5 @@
 package com.github.netty.core.util;
 
-import com.github.netty.core.CoreConstants;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -14,6 +12,7 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class Recycler<T> {
+    private static final int DEFAULT_INSTANCE_COUNT = SystemPropertyUtil.getInt("netty-core.recyclerCount",30);
     /**
      * The instance queue of the current object
      */
@@ -34,7 +33,7 @@ public class Recycler<T> {
     private Thread formThread;
 
     public Recycler(Supplier<T> supplier) {
-        this(CoreConstants.getRecyclerCount(),supplier);
+        this(DEFAULT_INSTANCE_COUNT,supplier);
     }
 
     public Recycler(int instanceCount, Supplier<T> supplier) {

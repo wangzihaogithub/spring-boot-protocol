@@ -12,7 +12,16 @@ public class RpcContext<INSTANCE> implements Recyclable {
     private Object[] args;
     private Object result;
     private RpcMethod<INSTANCE> rpcMethod;
-    private Exception exception;
+    private Throwable throwable;
+    private State state = State.INIT;
+
+    public State getState() {
+        return state;
+    }
+
+    void setState(State state) {
+        this.state = state;
+    }
 
     public Object[] getArgs() {
         return args;
@@ -22,12 +31,12 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.args = args;
     }
 
-    public Exception getException() {
-        return exception;
+    public Throwable getThrowable() {
+        return throwable;
     }
 
-    void setException(Exception exception) {
-        this.exception = exception;
+    void setThrowable(Throwable throwable) {
+        this.throwable = throwable;
     }
 
     public RpcPacket.RequestPacket getRequest() {
@@ -69,6 +78,24 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.rpcMethod = null;
         this.result = null;
         this.args = null;
-        this.exception = null;
+        this.throwable = null;
+        this.state = State.INIT;
     }
+
+    @Override
+    public String toString() {
+        return "RpcContext{" +
+                "requestId=" + (request == null? null:request.getRequestId()) +
+                ", state=" + state +
+                '}';
+    }
+
+    public enum State{
+        INIT,
+        WRITE_ING,
+        WRITE_FINISH,
+        READ_ING,
+        READ_FINISH
+    }
+
 }

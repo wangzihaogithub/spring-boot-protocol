@@ -69,17 +69,17 @@ public class NettyRpcClientProxy implements InvocationHandler {
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
-        Class<?>[] parameterTypes = method.getParameterTypes();
+        int parameterCount = method.getParameterCount();
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(this, args);
         }
-        if ("toString".equals(methodName) && parameterTypes.length == 0) {
+        if ("toString".equals(methodName) && parameterCount == 0) {
             return this.toString();
         }
-        if ("hashCode".equals(methodName) && parameterTypes.length == 0) {
+        if ("hashCode".equals(methodName) && parameterCount == 0) {
             return this.hashCode();
         }
-        if ("equals".equals(methodName) && parameterTypes.length == 1) {
+        if ("equals".equals(methodName) && parameterCount == 1) {
             return this.equals(args[0]);
         }
 

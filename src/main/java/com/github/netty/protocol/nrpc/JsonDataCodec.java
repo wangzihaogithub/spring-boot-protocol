@@ -3,15 +3,18 @@ package com.github.netty.protocol.nrpc;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.parser.Feature;
 import com.alibaba.fastjson.parser.ParserConfig;
-import com.alibaba.fastjson.serializer.*;
+import com.alibaba.fastjson.serializer.JSONSerializer;
+import com.alibaba.fastjson.serializer.SerializeConfig;
+import com.alibaba.fastjson.serializer.SerializeWriter;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.util.TypeUtils;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
@@ -41,8 +44,8 @@ public class JsonDataCodec implements DataCodec {
         }
     };
     private ParserConfig parserConfig;
-    private List<Consumer<Map<String,Object>>> encodeRequestConsumerList = new ArrayList<>();
-    private List<Consumer<Map<String,Object>>> decodeRequestConsumerList = new ArrayList<>();
+    private List<Consumer<Map<String,Object>>> encodeRequestConsumerList = new CopyOnWriteArrayList<>();
+    private List<Consumer<Map<String,Object>>> decodeRequestConsumerList = new CopyOnWriteArrayList<>();
 
     public JsonDataCodec() {
         this(new ParserConfig());
@@ -114,7 +117,7 @@ public class JsonDataCodec implements DataCodec {
 
             String[] parameterNames = rpcMethod.getParameterNames();
             Object[] parameterValues = new Object[parameterNames.length];
-            Class<?>[] parameterTypes = rpcMethod.getMethod().getParameterTypes();
+            Class<?>[] parameterTypes = rpcMethod.getParameterTypes();
             for (int i = 0; i < parameterNames.length; i++) {
                 Class<?> type = parameterTypes[i];
                 String name = parameterNames[i];
@@ -150,7 +153,7 @@ public class JsonDataCodec implements DataCodec {
         if(data == null || data.length == 0){
             return null;
         }
-        Type returnType = rpcMethod.getMethod().getGenericReturnType();
+        Type returnType = rpcMethod.getGenericReturnType();
         return JSON.parseObject(data,0, data.length, CHARSET_UTF8,returnType,FEATURES);
     }
 

@@ -26,9 +26,18 @@ public class RpcPacket implements Recyclable {
      */
     private byte ack = ACK_NO;
     private byte[] data;
+    private long packetLength;
 
     public RpcPacket(int packetType){
         this.packetType = packetType;
+    }
+
+    public long getPacketLength() {
+        return packetLength;
+    }
+
+    public void setPacketLength(long packetLength) {
+        this.packetLength = packetLength;
     }
 
     public int getAck() {

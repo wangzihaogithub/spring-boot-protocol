@@ -5,7 +5,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 
-import static com.github.netty.core.util.IOUtil.*;
+import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
+import static com.github.netty.core.util.IOUtil.INT_LENGTH;
 import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
 import static com.github.netty.protocol.nrpc.RpcEncoder.RPC_CHARSET;
 import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
@@ -31,6 +32,7 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
  */
 public class RpcDecoder extends LengthFieldBasedFrameDecoder {
    private static final byte[] EMPTY = {};
+   private static final int LENGTH_FIELD_OFFSET = PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH;
 
     public RpcDecoder() {
         this(10 * 1024 * 1024);
@@ -39,7 +41,7 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
     public RpcDecoder(int maxLength) {
         super(maxLength,
                 //  header | type | ACK
-                PROTOCOL_HEADER.length + BYTE_LENGTH + BYTE_LENGTH,
+                LENGTH_FIELD_OFFSET,
                 INT_LENGTH,
                 0,
                 0,
@@ -76,10 +78,12 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
 
         //read total length
         long totalLength = msg.readUnsignedInt();
+        long totalPacketLength = totalLength + LENGTH_FIELD_OFFSET;
 
         switch (rpcType){
             case RpcPacket.TYPE_REQUEST:{
                 RequestPacket packet = RequestPacket.newInstance();
+                packet.setPacketLength(totalPacketLength);
                 //Ack
                 packet.setAck(ack);
 
@@ -104,6 +108,7 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
             }
             case RpcPacket.TYPE_RESPONSE:{
                 ResponsePacket packet = ResponsePacket.newInstance();
+                packet.setPacketLength(totalPacketLength);
                 //Ack
                 packet.setAck(ack);
 
@@ -131,6 +136,7 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
             }
             default:{
                 RpcPacket packet = new RpcPacket(rpcType);
+                packet.setPacketLength(totalPacketLength);
                 //ack
                 packet.setAck(ack);
 

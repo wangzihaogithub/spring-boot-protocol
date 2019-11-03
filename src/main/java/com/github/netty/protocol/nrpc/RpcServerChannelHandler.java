@@ -39,6 +39,12 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
     public RpcServerChannelHandler(DataCodec dataCodec) {
         super(true);
         this.dataCodec = dataCodec;
+        dataCodec.getEncodeRequestConsumerList().add(params -> {
+            RpcContext<RpcServerInstance> rpcContext = CONTEXT_LOCAL.get();
+            for (RpcServerAop aop : nettyRpcServerAopList) {
+                aop.onDecodeRequestBefore(rpcContext,params);
+            }
+        });
     }
 
     public List<RpcServerAop> getAopList() {
@@ -75,13 +81,22 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         try {
             if (packet instanceof RequestPacket) {
                 RpcContext<RpcServerInstance> rpcContext = CONTEXT_LOCAL.get();
+                if(rpcContext == null){
+                    rpcContext = new RpcContext<>();
+                    CONTEXT_LOCAL.set(rpcContext);
+                }else {
+                    rpcContext.recycle();
+                }
                 try {
                     onRequestReceived(ctx, (RequestPacket) packet,rpcContext);
                 }finally {
-                    for (RpcServerAop aop : nettyRpcServerAopList) {
-                        aop.onResponseAfter(rpcContext);
+                    try {
+                        for (RpcServerAop aop : nettyRpcServerAopList) {
+                            aop.onResponseAfter(rpcContext);
+                        }
+                    }finally {
+                        rpcContext.recycle();
                     }
-                    rpcContext.recycle();
                 }
             } else {
                 if (packet.getAck() == ACK_YES) {
