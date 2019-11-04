@@ -93,7 +93,6 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
 
         CONTEXT_LOCAL.set(rpcContext);
         try {
-
             int requestId = rpcClient.newRequestId();
             RpcPacket.RequestPacket rpcRequest = RpcPacket.RequestPacket.newInstance();
             rpcRequest.setRequestId(requestId);
@@ -112,6 +111,8 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcClient.rpcDoneMap.put(requestId, this);
             try {
                 SocketChannel channel = rpcClient.getChannel();
+                rpcContext.setRemoteAddress(channel.remoteAddress());
+                rpcContext.setLocalAddress(channel.localAddress());
                 channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) future -> {
                     CONTEXT_LOCAL.set(rpcContext);
                     try {

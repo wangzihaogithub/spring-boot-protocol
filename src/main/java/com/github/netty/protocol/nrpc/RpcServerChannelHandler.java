@@ -10,6 +10,7 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
@@ -111,6 +112,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
     }
 
     protected void onRequestReceived(ChannelHandlerContext ctx, RequestPacket request,RpcContext<RpcServerInstance> rpcContext){
+        rpcContext.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
+        rpcContext.setLocalAddress((InetSocketAddress) ctx.channel().localAddress());
         rpcContext.setRequest(request);
         RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getRequestMappingName());
         if(rpcInstance == null) {

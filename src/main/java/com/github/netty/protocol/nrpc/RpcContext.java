@@ -2,11 +2,15 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.util.Recyclable;
 
+import java.net.InetSocketAddress;
+
 /**
  * rpc context
  * @author wangzihao
  */
 public class RpcContext<INSTANCE> implements Recyclable {
+    private InetSocketAddress remoteAddress;
+    private InetSocketAddress localAddress;
     private RpcPacket.RequestPacket request;
     private RpcPacket.ResponsePacket response;
     private Object[] args;
@@ -14,6 +18,22 @@ public class RpcContext<INSTANCE> implements Recyclable {
     private RpcMethod<INSTANCE> rpcMethod;
     private Throwable throwable;
     private State state = State.INIT;
+
+    public InetSocketAddress getRemoteAddress() {
+        return remoteAddress;
+    }
+
+    void setRemoteAddress(InetSocketAddress remoteAddress) {
+        this.remoteAddress = remoteAddress;
+    }
+
+    public InetSocketAddress getLocalAddress() {
+        return localAddress;
+    }
+
+    void setLocalAddress(InetSocketAddress localAddress) {
+        this.localAddress = localAddress;
+    }
 
     public State getState() {
         return state;
@@ -79,6 +99,8 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.result = null;
         this.args = null;
         this.throwable = null;
+        this.localAddress = null;
+        this.remoteAddress = null;
         this.state = State.INIT;
     }
 

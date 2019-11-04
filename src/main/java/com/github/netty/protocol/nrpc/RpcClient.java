@@ -484,6 +484,8 @@ public class RpcClient extends AbstractNettyClient{
             }
             try {
                 SocketChannel channel = getChannel();
+                rpcContext.setRemoteAddress(channel.remoteAddress());
+                rpcContext.setLocalAddress(channel.localAddress());
                 channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) channelFuture -> {
                     if(rpcContext.getState() == INIT){
                         logger.warn("on timeout after. write event. isSuccess={},channel={}",
