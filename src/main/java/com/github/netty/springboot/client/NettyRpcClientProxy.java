@@ -35,7 +35,14 @@ import java.util.function.Supplier;
  * -----------------------------------------------------------------------
  *
  * Support rpc method annotation list.
- * @see Protocol.RpcParam,RequestMapping,RequestParam,RequestBody,RequestHeader,PathVariable,CookieValue,RequestPart
+ * @see Protocol.RpcParam
+ * @see RequestMapping
+ * @see RequestParam
+ * @see RequestBody
+ * @see RequestHeader
+ * @see PathVariable
+ * @see CookieValue
+ * @see RequestPart
  * @author wangzihao
  */
 public class NettyRpcClientProxy implements InvocationHandler {

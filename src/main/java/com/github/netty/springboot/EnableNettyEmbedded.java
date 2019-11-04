@@ -11,14 +11,14 @@ import java.lang.annotation.*;
  * Enable embedded TCP container.
  * It will enable.
  *      1. http server protocol,
- *          Servlet Web or Reactive Web. {@link NettyTcpServerFactory,HttpServletProtocolSpringAdapter}.
- *          Websocket. {@link NettyRequestUpgradeStrategy}.
- *      2. rpc server protocol. {@link HRpcProtocolSpringAdapter}.
+ *          Servlet Web or Reactive Web. {@link NettyTcpServerFactory} {@link HttpServletProtocolSpringAdapter}
+ *          Websocket. {@link NettyRequestUpgradeStrategy}
+ *      2. rpc server protocol. {@link HRpcProtocolSpringAdapter}
  *      3. and user-defined protocols..
  *
  * If you want to add your own protocol,  you need implement {@link AbstractProtocol}
- * <blockquote><pre>
- *     @Component
+ * <pre> {@code
+ *     \@Component
  *     public class MyProtocolsRegister extends AbstractProtocolsRegister{
  *          public static final byte[] PROTOCOL_HEADER = {
  *                  'M', 'Y',
@@ -48,12 +48,12 @@ import java.lang.annotation.*;
  *          }
  *     }
  *
- * </pre></blockquote>
+ * }</pre>
  *
  *-----------------------------------------------------------
  * If you want to enable websocket protocol,  you need use NettyRequestUpgradeStrategy.class.
  *  example..
-  * <blockquote><pre>
+  * <pre> {@code
   * public class WebsocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
   *     public RequestUpgradeStrategy requestUpgradeStrategy() {
   *         // return new JettyRequestUpgradeStrategy();
@@ -78,7 +78,7 @@ import java.lang.annotation.*;
   *         registry.setUserDestinationPrefix("/user/");
   *     }
   *  }
-  * </pre></blockquote>
+  * }</pre>
 
  * @see com.github.netty.springboot.NettyProperties
  * @see com.github.netty.springboot.server.NettyEmbeddedAutoConfiguration
@@ -87,8 +87,7 @@ import java.lang.annotation.*;
  * @see com.github.netty.springboot.server.HRpcProtocolSpringAdapter
  * @see com.github.netty.springboot.server.NettyRequestUpgradeStrategy
  * @see com.github.netty.core.AbstractProtocol
- * @author wangzihao
- * @date 2019-11-2 00:58:11
+ * @author wangzihao 2019-11-2 00:58:11
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
