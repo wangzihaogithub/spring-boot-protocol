@@ -334,20 +334,16 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         HttpHeaders headers = nettyResponse.headers();
 
         //Content length
-        if (!headers.contains(HttpHeaderConstants.CONTENT_LENGTH)) {
-            long contentLength = servletResponse.getContentLength();
-            if(contentLength >= 0){
-                headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
-            }else {
-                ByteBuf content = nettyResponse.content();
-                if(content != null) {
-                    headers.set(HttpHeaderConstants.CONTENT_LENGTH, content.readableBytes());
-                }
-            }
+        long contentLength = servletResponse.getContentLength();
+        if(contentLength >= 0) {
+            headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
+            headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
         }
 
         // Time and date response header
-        headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
+        if(!headers.contains(HttpHeaderConstants.DATE)) {
+            headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
+        }
 
         //Content Type The content of the response header
         String contentType = servletResponse.getContentType();
@@ -436,10 +432,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             boolean isNeedClose = isCloseChannel(servletHttpExchange.isHttpKeepAlive(),
                     servletHttpExchange.getResponse().getStatus());
             if(isNeedClose){
-                ChannelFuture closeFuture = servletHttpExchange.getChannelHandlerContext().close();
-                ChannelFutureListener closeListener = this.closeListener;
-                if(closeListener != null) {
-                    closeFuture.addListener(closeListener);
+                Channel channel = future.channel();
+                if(channel.isActive()){
+                    ChannelFuture closeFuture = channel.close();
+                    ChannelFutureListener closeListener = this.closeListener;
+                    if(closeListener != null) {
+                        closeFuture.addListener(closeListener);
+                    }
+                }else {
+                    ChannelFutureListener closeListener = this.closeListener;
+                    if(closeListener != null) {
+                        closeListener.operationComplete(future);
+                    }
                 }
             }
 

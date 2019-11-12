@@ -1,5 +1,6 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.CompositeByteBufX;
 import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.Recyclable;
@@ -11,6 +12,7 @@ import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -18,7 +20,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author wangzihao
  */
 public class ServletOutputChunkedStream extends ServletOutputStream {
-    private ByteChunkedInput chunkedInput = new ByteChunkedInput();
+    private final ByteChunkedInput chunkedInput = new ByteChunkedInput();
+    private final AtomicBoolean flushIngFlag = new AtomicBoolean(false);
+
 
     protected ServletOutputChunkedStream() {}
 
@@ -56,9 +60,18 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             return;
         }
 
-        bufferTransformToChunk();
-        if (chunkedInput.hasChunk()){
-            getServletHttpExchange().getChannelHandlerContext().flush();
+        if(flushIngFlag.compareAndSet(false,true)){
+            try {
+                bufferTransformToChunk();
+                if (chunkedInput.hasChunk()) {
+                    ChannelHandlerContext channelHandlerContext = getServletHttpExchange().getChannelHandlerContext();
+                    if (channelHandlerContext.channel().isActive()) {
+                        channelHandlerContext.flush();
+                    }
+                }
+            }finally {
+                flushIngFlag.set(false);
+            }
         }
 
         if (listener != null) {
@@ -107,22 +120,53 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }
         }
 
+        //see Http11Processor#prepareResponse
         super.sendResponse().addListener((ChannelFutureListener) future -> {
-            bufferTransformToChunk();
+            if(!future.isSuccess()){
+                future.channel().close().addListener(listener);
+                return;
+            }
 
-            if(chunkedInput.hasChunk()){
+            if(!flushIngFlag.compareAndSet(false,true)){
+                return;
+            }
+            try {
                 Channel channel = future.channel();
-                ChannelPromise promise;
-                if(listener == null){
-                    promise = channel.voidPromise();
+                ServletHttpServletResponse response = getServletHttpExchange().getResponse();
+                long contentLength = response.getContentLength();
+                if(contentLength >= 0){
+                    CompositeByteBufX content = getBuffer();
+                    if(content != null){
+                        IOUtil.writerModeToReadMode(content);
+                        if(listener == null){
+                            channel.writeAndFlush(new DefaultLastHttpContent(content), channel.voidPromise());
+                        }else {
+                            channel.writeAndFlush(new DefaultLastHttpContent(content)).addListener(listener);
+                        }
+                    }else {
+                        channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(listener);
+                    }
                 }else {
-                    promise = channel.newProgressivePromise();
-                    promise.addListener(listener);
-                }
-                channel.writeAndFlush(chunkedInput,promise);
+                    bufferTransformToChunk();
+                    if (chunkedInput.hasChunk()) {
+                        if (!channel.isActive()) {
+                            return;
+                        }
+                        ChannelPromise promise;
+                        if (listener == null) {
+                            promise = channel.voidPromise();
+                        } else {
+                            promise = channel.newProgressivePromise();
+                            promise.addListener(listener);
+                        }
+                        channel.writeAndFlush(chunkedInput, promise);
 
-            }else if (listener != null) {
-                listener.operationComplete(future);
+                    } else if (listener != null) {
+                        listener.operationComplete(future);
+                    }
+                }
+            } finally {
+                flushIngFlag.set(false);
             }
         });
     }
@@ -178,6 +222,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }
 
             ByteBuf byteBuf = chunkByteBuf;
+            IOUtil.writerModeToReadMode(byteBuf);
             Object result;
             if (closeInputFlag) {
                 // Send last chunk for this input
@@ -224,6 +269,9 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         public boolean hasChunk() {
             if(sendLastChunkFlag){
                 return false;
+            }
+            if(closeInputFlag){
+                return true;
             }
             return chunkByteBuf != null;
         }
