@@ -225,9 +225,6 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             if(sendLastChunkFlag){
                 return false;
             }
-            if(closeInputFlag){
-                return true;
-            }
             return chunkByteBuf != null;
         }
 
