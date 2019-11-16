@@ -1,4 +1,9 @@
 # Spring-boot-protocol
+
+将springboot的WebServer改为了NettyTcpServer, 为使用者扩充了网络编程的能力.
+
+![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
+
 多协议服务器, Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, RTSP(流媒体协议), DNS（域名解析协议）.
 
     1.可以替代tomcat或jetty. 导包后一个@EnableNettyServletEmbedded注解即用. 
@@ -55,7 +60,23 @@ github地址 : https://github.com/wangzihaogithub
 
 ##### 示例4. 协议网关, 监控各个协议的流量
 
+ ---
+
+#### 核心代码
+
+com.github.netty.springboot.server.NettyTcpServer服务器启动时
+
+com.github.netty.protocol.DynamicProtocolChannelHandler 接收新链接的第一个TCP数据包进行路由
+
+com.github.netty.core.ProtocolHandler 处理之后的数据交换逻辑
 
 
+#### 如何参与
+
+* 有问题交issue, 想改代码直接pull request即可. github都会通过微信及时通知我.
+
+* 有不懂得地方,我都会及时回复.
+
+* 如果觉得这个产品还不错，请多多向您的朋友、同事推荐，感谢至极
 
 
