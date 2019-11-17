@@ -3,6 +3,8 @@ package com.github.netty.springboot.server;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.NRpcProtocol;
+import com.github.netty.protocol.nrpc.RpcMethod;
+import com.github.netty.springboot.NettyRpcClient;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.annotation.Annotation;
@@ -23,6 +25,9 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
 
     @Override
     public void onServerStart() throws Exception {
+        RpcMethod.getRpcInterfaceAnnotations().add(RequestMapping.class);
+        RpcMethod.getRpcInterfaceAnnotations().add(NettyRpcClient.class);
+
         Collection list = super.getApplication().getBeanForAnnotation(Protocol.RpcService.class);
         for(Object serviceImpl : list){
             if(super.existInstance(serviceImpl)){

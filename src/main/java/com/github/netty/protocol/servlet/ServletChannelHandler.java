@@ -36,6 +36,10 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
         }
 
         Runnable task = messageToRunnable.newRunnable(context,msg);
+        run(task);
+    }
+
+    protected void run(Runnable task){
         Executor executor = getExecutor();
         if(executor != null) {
             executor.execute(task);

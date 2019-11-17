@@ -1,28 +1,30 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.CompositeByteBufX;
-import com.github.netty.core.util.HttpHeaderUtil;
-import com.github.netty.core.util.IOUtil;
-import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
-import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.DefaultLastHttpContent;
+import io.netty.handler.codec.http.HttpRequestDecoder;
+import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Servlet output stream (segmented)
+ * Servlet output stream (chunk)
  * @author wangzihao
  */
 public class ServletOutputChunkedStream extends ServletOutputStream {
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(ServletOutputChunkedStream.class);
     private final ByteChunkedInput chunkedInput = new ByteChunkedInput();
-    private final AtomicBoolean flushIngFlag = new AtomicBoolean(false);
-
+    private final AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
+    private final AtomicReference<ChannelPromise> currentPromiseReference = new AtomicReference<>(null);
 
     protected ServletOutputChunkedStream() {}
 
@@ -33,58 +35,69 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         if(getBuffer() == null) {
             return;
         }
-        asyncFlush(null);
+        flushAsync(null);
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if(super.isClosed.compareAndSet(false,true)){
             chunkedInput.setCloseInputFlag(true);
             CloseListener closeListener = super.getCloseListener();
-            closeListener.addRecycleConsumer(o -> chunkedInput.recycle());
-            asyncFlush(closeListener);
+            closeListener.addRecycleConsumer(o -> {
+                isSendResponseHeader.set(false);
+                currentPromiseReference.set(null);
+                chunkedInput.recycle();
+            });
+            flushAsync(closeListener);
         }
     }
 
     /**
      * Async refresh buffer (listen for completion events)
-     * @param listener Called after refreshing the buffer
+     * If flush operation is being performed, it will be appended to execute this operation callback
+     * The case of multiple IO will appear in the {@link #sendChunkedResponse}
+     *
+     * @param listener After the full execute of the callback method， The presence of multiple IO, so the last time callback
+     * @return ChannelFuture. IO once after the callback method
      */
-    private void asyncFlush(ChannelFutureListener listener) {
-        if(super.isSendResponseIng){
-            return;
-        }
-
-        if (super.isSendResponseHeader.compareAndSet(false,true)) {
-            sendChunkedResponse(listener);
-            return;
-        }
-
-        if(flushIngFlag.compareAndSet(false,true)){
-            try {
-                bufferTransformToChunk();
-                if (chunkedInput.hasChunk()) {
-                    ChannelHandlerContext channelHandlerContext = getServletHttpExchange().getChannelHandlerContext();
-                    if (channelHandlerContext.channel().isActive()) {
-                        channelHandlerContext.flush();
-                    }
+    private ChannelFuture flushAsync(ChannelFutureListener listener) {
+        ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
+        ChannelPromise promise = context.newPromise();
+        ChannelFuture endFuture = null;
+        try {
+            //try flush operation success
+            if (currentPromiseReference.compareAndSet(null, promise)) {
+                if (isSendResponseHeader.compareAndSet(false, true)) {
+                    endFuture = sendChunkedResponse(listener, promise);
+                } else {
+                    endFuture = flushChunk(context.channel(), promise);
                 }
-            }finally {
-                flushIngFlag.set(false);
+            } else {
+                //try flush operation failure, appended to execute this operation callback
+                ChannelPromise currentPromise = currentPromiseReference.get();
+                if (currentPromise == null) {
+                    endFuture = flushAsync(listener);
+                } else {
+                    endFuture = currentPromise.addListener(future -> flushAsync(listener));
+                }
+            }
+        }finally {
+            if(endFuture != null){
+                endFuture.addListener(f -> currentPromiseReference.compareAndSet(promise,null));
+            }else {
+                currentPromiseReference.compareAndSet(promise,null);
             }
         }
-
-        if (listener != null) {
-            try {
-                listener.operationComplete(null);
-            } catch (Exception e) {
-                //inner error
-                e.printStackTrace();
-            }
-        }
+        return endFuture;
     }
 
-    private void bufferTransformToChunk(){
+    /**
+     * flush chunk data {@link #chunkedInput}
+     * @param channel channel
+     * @param promise promise
+     * @return ChannelFuture The flush content callback
+     */
+    private ChannelFuture flushChunk(Channel channel, ChannelPromise promise) {
         try {
             lock();
             ByteBuf content = getBuffer();
@@ -95,14 +108,39 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }finally {
             unlock();
         }
+
+        ChannelFuture endFuture;
+        if (chunkedInput.hasChunk()) {
+            if(channel.isActive()){
+                endFuture = channel.writeAndFlush(chunkedInput, promise);
+            }else {
+                Object discardPacket = chunkedInput.readChunk(channel.alloc());
+                if(discardPacket != null) {
+                    LOGGER.warn("on sendChunkedResponse channel inactive. channel={}, discardPacket={}, packetType={}",
+                            channel,
+                            discardPacket,
+                            discardPacket.getClass().getName());
+                }
+                endFuture = promise;
+            }
+        } else{
+            endFuture = promise;
+        }
+        return endFuture;
     }
 
-    private void sendChunkedResponse(ChannelFutureListener listener){
-        NettyHttpResponse nettyResponse = getServletHttpExchange().getResponse().getNettyResponse();
-        LastHttpContent lastHttpContent = nettyResponse.enableTransferEncodingChunked();
+    /**
+     * The response header sent, and then sent the response content
+     * @param writerContentEndListener After the contents of the response is sent callback
+     * @param promise compareAndSet used promise
+     * @return ChannelPromise. After sending a response to callback
+     */
+    private ChannelFuture sendChunkedResponse(ChannelFutureListener writerContentEndListener,ChannelPromise promise){
+        ServletHttpServletResponse servletResponse = getServletHttpExchange().getResponse();
+        LastHttpContent lastHttpContent = servletResponse.getNettyResponse().enableTransferEncodingChunked();
         chunkedInput.setLastHttpContent(lastHttpContent);
 
-        ChannelPipeline pipeline = getServletHttpExchange().getChannelHandlerContext().channel().pipeline();
+        ChannelPipeline pipeline = promise.channel().pipeline();
         if(pipeline.context(ChunkedWriteHandler.class) == null) {
             ChannelHandlerContext httpContext = pipeline.context(HttpServerCodec.class);
             if(httpContext == null){
@@ -121,56 +159,35 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }
 
         //see Http11Processor#prepareResponse
-        super.sendResponse().addListener((ChannelFutureListener) future -> {
-            if(!future.isSuccess()){
-                future.channel().close().addListener(listener);
-                return;
-            }
-
-            if(!flushIngFlag.compareAndSet(false,true)){
-                return;
-            }
-            try {
+        return super.sendResponse().addListener((ChannelFutureListener) future -> {
+            ChannelFuture endFuture;
+            if(future.isSuccess()){
                 Channel channel = future.channel();
-                ServletHttpServletResponse response = getServletHttpExchange().getResponse();
-                long contentLength = response.getContentLength();
-                if(contentLength >= 0){
+                if(servletResponse.getContentLength() >= 0){
                     CompositeByteBufX content = getBuffer();
                     if(content != null){
                         IOUtil.writerModeToReadMode(content);
-                        if(listener == null){
-                            channel.writeAndFlush(new DefaultLastHttpContent(content), channel.voidPromise());
-                        }else {
-                            channel.writeAndFlush(new DefaultLastHttpContent(content)).addListener(listener);
-                        }
+                        endFuture = channel.writeAndFlush(new DefaultLastHttpContent(content), promise);
                     }else {
-                        channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT).addListener(listener);
+                        endFuture = channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT,promise);
                     }
                 }else {
-                    bufferTransformToChunk();
-                    if (chunkedInput.hasChunk()) {
-                        if (!channel.isActive()) {
-                            return;
-                        }
-                        ChannelPromise promise;
-                        if (listener == null) {
-                            promise = channel.voidPromise();
-                        } else {
-                            promise = channel.newProgressivePromise();
-                            promise.addListener(listener);
-                        }
-                        channel.writeAndFlush(chunkedInput, promise);
-
-                    } else if (listener != null) {
-                        listener.operationComplete(future);
-                    }
+                    endFuture = flushChunk(channel,promise);
                 }
-            } finally {
-                flushIngFlag.set(false);
+            }else {
+                endFuture = future.channel().close(promise);
+            }
+
+            if(writerContentEndListener != null){
+                endFuture.addListener(writerContentEndListener);
             }
         });
     }
 
+    /**
+     * Chunked transfer input. Multiple IO writing.
+     * Refer Http Chunked transfer
+     */
     static class ByteChunkedInput implements ChunkedInput<Object>, Recyclable {
         private boolean closeInputFlag = false;
         private boolean sendLastChunkFlag = false;
@@ -216,7 +233,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
         }
 
         @Override
-        public Object readChunk(ByteBufAllocator allocator) throws Exception {
+        public Object readChunk(ByteBufAllocator allocator) {
             if (sendLastChunkFlag) {
                 return null;
             }

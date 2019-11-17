@@ -6,8 +6,13 @@ import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.*;
-import io.netty.handler.codec.http.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.DefaultLastHttpContent;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.WriteListener;
@@ -40,15 +45,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
-    protected AtomicBoolean isSendResponseHeader = new AtomicBoolean(false);
     private ServletHttpExchange servletHttpExchange;
     private CompositeByteBufX buffer;
     private Lock bufferReadWriterLock;
     private WriteListener writeListener;
-
     private CloseListener closeListenerWrapper = new CloseListener();
     private int responseWriterChunkMaxHeapByteLength;
-    protected volatile boolean isSendResponseIng = false;
 
     protected ServletOutputStream() {}
 
@@ -141,14 +143,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                         .setContent(content);
             }
 
-            if (isSendResponseHeader.compareAndSet(false,true)) {
-                LastHttpContent lastHttpContent = content == null?
-                        LastHttpContent.EMPTY_LAST_CONTENT : new DefaultLastHttpContent(content);
-                sendResponse().addListener((ChannelFutureListener) future ->
-                        future.channel()
-                        .writeAndFlush(lastHttpContent)
-                        .addListener(getCloseListener()));
-            }
+            LastHttpContent lastHttpContent = content == null?
+                    LastHttpContent.EMPTY_LAST_CONTENT : new DefaultLastHttpContent(content);
+            sendResponse().addListener((ChannelFutureListener) future ->
+                    future.channel()
+                    .writeAndFlush(lastHttpContent)
+                    .addListener(getCloseListener()));
         }
     }
 
@@ -156,9 +156,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * Send a response
      */
     protected ChannelFuture sendResponse(){
-        isSendResponseIng = true;
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
         //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
-        ChannelHandlerContext channel = servletHttpExchange.getChannelHandlerContext();
         ServletHttpServletRequest servletRequest = servletHttpExchange.getRequest();
         ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
         NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
@@ -167,7 +166,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
         IOUtil.writerModeToReadMode(nettyResponse.content());
         settingResponseHeader(isKeepAlive, nettyResponse, servletRequest, servletResponse, sessionCookieConfig);
-        return channel.writeAndFlush(nettyResponse).addListener(future -> isSendResponseIng = false);
+        return context.writeAndFlush(nettyResponse);
     }
 
     /**
@@ -225,7 +224,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     public void destroy(){
         this.servletHttpExchange = null;
-        this.isSendResponseHeader = null;
         this.isClosed = null;
         this.buffer = null;
     }
@@ -453,9 +451,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             }
 
             buffer = null;
-            isSendResponseIng = false;
             isClosed.set(false);
-            isSendResponseHeader.set(false);
             writeListener = null;
             servletHttpExchange = null;
             this.closeListener = null;

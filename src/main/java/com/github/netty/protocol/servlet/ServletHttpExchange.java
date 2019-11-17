@@ -1,8 +1,8 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.Recycler;
-import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.HttpHeaderUtil;
+import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.util.Attribute;
@@ -149,6 +149,22 @@ public class ServletHttpExchange implements Recyclable{
     public static <T> void setAttribute(ChannelHandlerContext context, AttributeKey<T> key,T value){
         if(isChannelActive(context)) {
             context.channel().attr(key).set(value);
+        }
+    }
+
+    public <T> T getAttribute(AttributeKey<T> key){
+        if(channelHandlerContext != null && channelHandlerContext.channel() != null) {
+            Attribute<T> attribute = channelHandlerContext.channel().attr(key);
+            if(attribute != null){
+                return attribute.get();
+            }
+        }
+        return null;
+    }
+
+    public <T> void setAttribute(AttributeKey<T> key,T value){
+        if(isChannelActive(channelHandlerContext)) {
+            channelHandlerContext.channel().attr(key).set(value);
         }
     }
 

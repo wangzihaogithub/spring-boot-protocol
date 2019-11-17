@@ -37,7 +37,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         instance.servletHttpExchange = ServletHttpExchange.newInstance(
                 servletContext,
                 context,
-                (FullHttpRequest) msg);;
+                (FullHttpRequest) msg);
         return instance;
     }
 
@@ -109,10 +109,9 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     }
                 }
                 //Error page
-                if(errorPage != null){
-                    errorPageManager.handleErrorPage(errorPage,realThrowable,httpServletRequest,httpServletResponse);
+                if(realThrowable != null) {
+                    errorPageManager.handleErrorPage(errorPage, realThrowable, httpServletRequest, httpServletResponse);
                 }
-
                 /*
                  * If not asynchronous, or asynchronous has ended
                  * each response object is valid only if it is within the scope of the servlet's service method or the filter's doFilter method, unless the
