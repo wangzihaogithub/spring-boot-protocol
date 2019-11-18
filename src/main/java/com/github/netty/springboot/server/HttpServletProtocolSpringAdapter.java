@@ -114,8 +114,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             minResponseSize = getMethod(minResponseSize.getClass(), "toBytes").invoke(minResponseSize);
         }
         super.setContentSizeThreshold(((Number) minResponseSize).intValue());
-        super.setCompressionMimeTypes(configurableWebServer.getCompression().getMimeTypes().clone());
-        super.setCompressionExcludedUserAgents(configurableWebServer.getCompression().getExcludedUserAgents());
+        super.setCompressionMimeTypes(compression.getMimeTypes().clone());
+        super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
 
         //Error page
         for(ErrorPage errorPage : configurableWebServer.getErrorPages()) {
