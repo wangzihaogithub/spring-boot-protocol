@@ -46,8 +46,8 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     private String enableNettyRpcClientsCanonicalName = EnableNettyRpcClients.class.getCanonicalName();
     private String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
     private String lazyCanonicalName = Lazy.class.getCanonicalName();
-	private ObjectFactory<NettyRpcLoadBalanced> nettyRpcLoadBalancedProvider;
-	private ObjectFactory<NettyProperties> nettyPropertiesProvider;
+	private Supplier<NettyRpcLoadBalanced> nettyRpcLoadBalancedSupplier;
+	private Supplier<NettyProperties> nettyPropertiesSupplier;
 
     public NettyRpcClientBeanDefinitionRegistrar() {}
 
@@ -116,11 +116,11 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     public <T> Supplier<T> newInstanceSupplier(Class<T> beanClass, String serviceName,int timeout) {
         return ()->{
-            NettyProperties nettyProperties = nettyPropertiesProvider.getObject();
+            NettyProperties nettyProperties = nettyPropertiesSupplier.get();
 
             NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceName,null,
                     beanClass,nettyProperties,
-		            nettyRpcLoadBalancedProvider::getObject);
+		            nettyRpcLoadBalancedSupplier::get);
             nettyRpcClientProxy.setTimeout(timeout);
             Object instance = Proxy.newProxyInstance(classLoader,new Class[]{beanClass},nettyRpcClientProxy);
             return (T) instance;
@@ -196,13 +196,13 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
-	    this.nettyRpcLoadBalancedProvider = beanFactory.getBeanProvider(NettyRpcLoadBalanced.class);
-	    this.nettyPropertiesProvider = beanFactory.getBeanProvider(NettyProperties.class);
+	    this.nettyRpcLoadBalancedSupplier = ()->beanFactory.getBean(NettyRpcLoadBalanced.class);
+	    this.nettyPropertiesSupplier = ()->beanFactory.getBean(NettyProperties.class);
     }
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        nettyPropertiesProvider.getObject().getApplication().addInstance(beanName, bean, false);
+        nettyPropertiesSupplier.get().getApplication().addInstance(beanName, bean, false);
         return bean;
     }
 }

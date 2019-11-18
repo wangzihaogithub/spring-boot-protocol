@@ -17,10 +17,7 @@ import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.boot.web.server.ErrorPage;
-import org.springframework.boot.web.server.MimeMappings;
-import org.springframework.boot.web.server.Ssl;
-import org.springframework.boot.web.server.SslStoreProvider;
+import org.springframework.boot.web.server.*;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
@@ -34,6 +31,8 @@ import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+
+import static org.springframework.util.ClassUtils.getMethod;
 
 /**
  * HttpServlet protocol registry (spring adapter)
@@ -108,8 +107,13 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
         }
 
-        super.setEnableContentCompression(configurableWebServer.getCompression().getEnabled());
-        super.setContentSizeThreshold((int) configurableWebServer.getCompression().getMinResponseSize().toBytes());
+        Compression compression = configurableWebServer.getCompression();
+        super.setEnableContentCompression(compression.getEnabled());
+        Object minResponseSize = getMethod(compression.getClass(), "getMinResponseSize").invoke(compression);
+        if(!(minResponseSize instanceof Number)) {
+            minResponseSize = getMethod(minResponseSize.getClass(), "toBytes").invoke(minResponseSize);
+        }
+        super.setContentSizeThreshold(((Number) minResponseSize).intValue());
         super.setCompressionMimeTypes(configurableWebServer.getCompression().getMimeTypes().clone());
         super.setCompressionExcludedUserAgents(configurableWebServer.getCompression().getExcludedUserAgents());
 
