@@ -1,6 +1,9 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.CompositeByteBufX;
+import com.github.netty.core.util.HttpHeaderUtil;
+import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.MediaType;
@@ -44,6 +47,16 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
         ServletHttpServletResponse instance = RECYCLER.getInstance();
         instance.servletHttpExchange = servletHttpExchange;
+
+        /**
+         * Reception not receive request
+         * https://github.com/wangzihaogithub/spring-boot-protocol/issues/2
+         */
+        instance.outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
+        //try if changeToChunkStream
+        instance.changeToChunkStream();
+        //------------------------
+
         return instance;
     }
 
@@ -354,14 +367,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     //Writer and OutputStream cannot be used together
     @Override
     public ServletOutputStreamWrapper getOutputStream() throws IOException {
-        if(outputStream.unwrap() == null){
-            synchronized (outputStream) {
-                if(outputStream.unwrap() == null) {
-                    outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
-                    changeToChunkStream();
-                }
-            }
-        }
         return outputStream;
     }
 
