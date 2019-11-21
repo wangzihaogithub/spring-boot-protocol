@@ -17,7 +17,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.TreeSet;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
@@ -47,8 +46,8 @@ public class NettyEmbeddedAutoConfiguration {
                                                        Collection<ServerListener> serverListeners){
         NettyTcpServerFactory tcpServerFactory = new NettyTcpServerFactory(
                 nettyProperties,
-                new TreeSet<>(Comparator.comparingInt(Ordered::getOrder)),
-                new TreeSet<>(Comparator.comparingInt(Ordered::getOrder))
+                new TreeSet<>(Ordered.COMPARATOR),
+                new TreeSet<>(Ordered.COMPARATOR)
                 );
         tcpServerFactory.getProtocolHandlers().addAll(protocolHandlers);
         tcpServerFactory.getServerListeners().addAll(serverListeners);
