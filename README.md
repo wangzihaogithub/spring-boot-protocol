@@ -30,13 +30,13 @@ github地址 : https://github.com/wangzihaogithub
     <dependency>
       <groupId>com.github.wangzihaogithub</groupId>
       <artifactId>spring-boot-protocol</artifactId>
-      <version>2.0.0</version>
+      <version>2.0.5</version>
     </dependency>
 	
 	
 #### 2.开启netty容器
 
-    @EnableNettyServletEmbedded//切换容器的注解
+    @EnableNettyEmbedded//切换容器的注解
     @SpringBootApplication
     public class ExampleApplication {
     
