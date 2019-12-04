@@ -6,7 +6,7 @@
 
 多协议服务器, Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, RTSP(流媒体协议), DNS（域名解析协议）.
 
-    1.可以替代tomcat或jetty. 导包后一个@EnableNettyServletEmbedded注解即用. 
+    1.可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
     
     2.HttpServlet性能比tomcat的NIO高出 20%(TPS)
     
@@ -30,13 +30,13 @@ github地址 : https://github.com/wangzihaogithub
     <dependency>
       <groupId>com.github.wangzihaogithub</groupId>
       <artifactId>spring-boot-protocol</artifactId>
-      <version>2.0.0</version>
+      <version>2.0.5</version>
     </dependency>
 	
 	
 #### 2.开启netty容器
 
-    @EnableNettyServletEmbedded//切换容器的注解
+    @EnableNettyEmbedded//切换容器的注解
     @SpringBootApplication
     public class ExampleApplication {
     
