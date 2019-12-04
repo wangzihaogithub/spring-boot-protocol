@@ -14,7 +14,6 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
-import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.server.*;
@@ -42,8 +41,6 @@ import static org.springframework.util.ClassUtils.getMethod;
 public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor {
     private NettyProperties properties;
     private ApplicationX application;
-    @Autowired(required = false)
-    private ListableBeanFactory listableBeanFactory;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
         super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
@@ -81,12 +78,6 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         application.addInstance(servletContext);
         application.addInstance(servletContext.getSessionService());
 
-        if(listableBeanFactory != null) {
-            for (String beanName : listableBeanFactory.getBeanDefinitionNames()) {
-                Object bean = listableBeanFactory.getBean(beanName);
-                application.addInstance(beanName, bean, false);
-            }
-        }
         application.scanner("com.github.netty").inject();
     }
 
