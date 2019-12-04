@@ -272,7 +272,7 @@ public class IOUtil {
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, encode));
             String line;
             while ((line = reader.readLine()) != null) {
-                sb.append(line);
+                sb.append(line).append('\n');;
             }
             String value = sb.toString();
             return value;
