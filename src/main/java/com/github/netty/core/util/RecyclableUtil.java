@@ -38,10 +38,16 @@ public class RecyclableUtil {
 
         if(obj instanceof ReferenceCounted) {
             ReferenceCounted counted = (ReferenceCounted)obj;
-            int refCnt = counted.refCnt();
-            if (refCnt > 0) {
-                counted.release(refCnt);
-                return true;
+            try {
+                int refCnt = counted.refCnt();
+                if (refCnt > 0) {
+                    counted.release(refCnt);
+                    return true;
+                }else {
+                    return false;
+                }
+            }catch (IllegalStateException e){
+                throw e;
             }
         }
         if(obj instanceof Recyclable){

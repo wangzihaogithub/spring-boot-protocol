@@ -2,27 +2,23 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.ProtocolHandler;
+import com.github.netty.core.TcpChannel;
+import com.github.netty.core.TcpEvent;
 import com.github.netty.metrics.BytesMetricsChannelHandler;
 import com.github.netty.metrics.MessageMetricsChannelHandler;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
+import io.netty.channel.*;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.util.AttributeKey;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.concurrent.Semaphore;
 
 /**
  * Created by wangzihao on 2018/12/9/009.
  */
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf,Object> {
-    public static final AttributeKey<Boolean> CONNECTION_OVERLOAD_ATTR = AttributeKey.valueOf("connectionOverload");
     /**
      * Protocol registry list, dynamic protocol will find a suitable protocol to supportPipeline on the new link
      */
@@ -42,10 +38,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     /**
      * maxConnections
      */
-    private Semaphore maxConnectionSemaphore;
     private int maxConnections;
 
-    public DynamicProtocolChannelHandler(Collection<ProtocolHandler> protocolHandlers, boolean enableTcpPackageLog, LogLevel logLevel,int maxConnections) {
+    public DynamicProtocolChannelHandler(Collection<ProtocolHandler> protocolHandlers, boolean enableTcpPackageLog, LogLevel logLevel, int maxConnections) {
         super(false);
         this.protocolHandlers = protocolHandlers;
         if(enableTcpPackageLog) {
@@ -54,7 +49,6 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             this.bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
         }
         this.maxConnections = maxConnections;
-        this.maxConnectionSemaphore = new Semaphore(maxConnections,false);
     }
 
     @Override
@@ -76,7 +70,14 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             if(loggingHandler != null){
                 channel.pipeline().addLast("logger", loggingHandler);
             }
-
+            TcpChannel.getChannels().put(channel.id(),new TcpChannel(channel,protocolHandler));
+            channel.pipeline().addLast("channels", new ChannelDuplexHandler(){
+                @Override
+                public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
+                    TcpChannel.getChannels().remove(ctx.channel().id());
+                    super.close(ctx,promise);
+                }
+            });
             protocolHandler.addPipeline(channel);
             if(channel.isRegistered()) {
                 channel.pipeline().fireChannelRegistered();
@@ -96,11 +97,10 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-        if(!maxConnectionSemaphore.tryAcquire()){
-            ctx.channel().attr(CONNECTION_OVERLOAD_ATTR).set(Boolean.TRUE);
-            logger.warn("Connection overload! maxConnections={},availablePermits={}, threads waiting to acquire number={} ",
-                    maxConnections,maxConnectionSemaphore.availablePermits(),maxConnectionSemaphore.getQueueLength());
-            ctx.close();
+        if(TcpChannel.getChannels().size() > maxConnections){
+            ctx.fireUserEventTriggered(new TcpEvent(TcpEvent.EVENT_CONNECTION_REFUSED,ctx.channel()));
+            ctx.writeAndFlush("refused connect")
+                    .addListener(ChannelFutureListener.CLOSE);
         }
     }
 
@@ -108,16 +108,6 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
         ctx.close();
-    }
-
-    @Override
-    public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-        Channel channel = ctx.channel();
-        // connectionOverload
-        if(channel.hasAttr(CONNECTION_OVERLOAD_ATTR) && channel.attr(CONNECTION_OVERLOAD_ATTR).get()){
-            return;
-        }
-        maxConnectionSemaphore.release();
     }
 
 }

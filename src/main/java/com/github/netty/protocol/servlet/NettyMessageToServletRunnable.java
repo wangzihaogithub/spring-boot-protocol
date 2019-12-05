@@ -109,7 +109,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     }
                 }
                 //Error page
-                if(realThrowable != null) {
+                if(realThrowable != null || errorPage != null) {
                     errorPageManager.handleErrorPage(errorPage, realThrowable, httpServletRequest, httpServletResponse);
                 }
                 /*
