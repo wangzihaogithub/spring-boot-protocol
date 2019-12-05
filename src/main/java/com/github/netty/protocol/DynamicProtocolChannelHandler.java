@@ -100,13 +100,17 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         if(TcpChannel.getChannels().size() > maxConnections){
             ctx.fireUserEventTriggered(new TcpEvent(TcpEvent.EVENT_CONNECTION_REFUSED,ctx.channel()));
             ctx.writeAndFlush("refused connect")
-                    .addListener(ChannelFutureListener.CLOSE);
+                    .addListener((ChannelFutureListener) future -> {
+                        TcpChannel.getChannels().remove(ctx.channel().id());
+                        future.channel().close();
+                    });
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+        TcpChannel.getChannels().remove(ctx.channel().id());
         ctx.close();
     }
 
