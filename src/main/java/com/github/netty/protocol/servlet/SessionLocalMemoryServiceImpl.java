@@ -118,7 +118,6 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
                 try {
                     Thread.sleep(sessionLifeCheckInter);
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
                     return;
                 }
                 for(Session session : sessionMap.values()){

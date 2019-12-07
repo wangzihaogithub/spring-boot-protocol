@@ -42,6 +42,11 @@ public class NettyProperties implements Serializable{
     private int serverIoRatio = 100;
 
     /**
+     * 是否禁用Nagle算法，true=禁用Nagle算法. 即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
+     */
+    private boolean tcpNodelay = false;
+
+    /**
      * 动态协议处理器,是在进入所有协议之前的入口- 使用者可以继承它加入自己的逻辑 比如:(处理超出最大tcp连接数时的逻辑, 处理遇到不支持的协议时的逻辑等..)
      */
     private Class<?extends DynamicProtocolChannelHandler> channelHandler = DynamicProtocolChannelHandler.class;
@@ -72,6 +77,14 @@ public class NettyProperties implements Serializable{
 
     public ApplicationX getApplication() {
         return application;
+    }
+
+    public boolean isTcpNodelay() {
+        return tcpNodelay;
+    }
+
+    public void setTcpNodelay(boolean tcpNodelay) {
+        this.tcpNodelay = tcpNodelay;
     }
 
     public Class<?extends DynamicProtocolChannelHandler> getChannelHandler() {

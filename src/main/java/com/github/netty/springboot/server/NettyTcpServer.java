@@ -6,8 +6,10 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.HostUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
+import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelOption;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
@@ -87,6 +89,16 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
                 protocolHandlers,
                 HostUtil.getOsName()
                 );
+    }
+
+    @Override
+    protected void config(ServerBootstrap bootstrap) throws Exception{
+        super.config(bootstrap);
+        //禁用Nagle算法，即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
+        bootstrap.childOption(ChannelOption.TCP_NODELAY, properties.isTcpNodelay());
+        for (ServerListener serverListener : serverListeners) {
+            serverListener.conifg(bootstrap);
+        }
     }
 
     /**

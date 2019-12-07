@@ -73,4 +73,9 @@ public class TcpChannel {
     public <T> Attribute<T> attr(AttributeKey<T> key){
         return channel.attr(key);
     }
+
+    @Override
+    public String toString() {
+        return protocol.toString() + channel;
+    }
 }

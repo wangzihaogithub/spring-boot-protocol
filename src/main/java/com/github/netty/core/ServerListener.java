@@ -1,13 +1,16 @@
 package com.github.netty.core;
 
+import io.netty.bootstrap.ServerBootstrap;
+
 /**
  * Server listening
  * Created by wangzihao on 2018/11/12/012.
  */
 public interface ServerListener extends Ordered{
 
-    void onServerStart() throws Exception;
-    void onServerStop() throws Exception;
+    default void onServerStart() throws Exception{}
+    default void onServerStop() throws Exception{}
+    default void conifg(ServerBootstrap bootstrap) throws Exception{}
 
     /**
      * default Priority order 0

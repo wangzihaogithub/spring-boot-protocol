@@ -3,10 +3,7 @@ package com.github.netty.springboot.server;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.HttpServletProtocol;
-import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.protocol.servlet.ServletErrorPage;
-import com.github.netty.protocol.servlet.SessionCompositeServiceImpl;
-import com.github.netty.protocol.servlet.SessionService;
+import com.github.netty.protocol.servlet.*;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -131,8 +128,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
      */
     protected SessionService newSessionService(NettyProperties properties,ServletContext servletContext){
         //Composite session (default local storage)
-        SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
-
+        SessionService sessionService;
         if(StringUtil.isNotEmpty(properties.getHttpServlet().getSessionRemoteServerAddress())) {
             //Enable session remote storage using RPC
             String remoteSessionServerAddress = properties.getHttpServlet().getSessionRemoteServerAddress();
@@ -143,17 +139,20 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             }else {
                 address = new InetSocketAddress(remoteSessionServerAddress,80);
             }
+            SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
             compositeSessionService.enableRemoteRpcSession(address,
-                    100,
+                    80,
                     1,
                     true,properties.getNrpc().isClientEnableHeartLog(),
                     properties.getNrpc().getClientHeartInterval());
-
+            sessionService = compositeSessionService;
         }else if(properties.getHttpServlet().isEnablesLocalFileSession()){
             //Enable session file storage
-            compositeSessionService.enableLocalFileSession(servletContext.getResourceManager());
+            sessionService = new SessionLocalFileServiceImpl(servletContext.getResourceManager());
+        }else {
+            sessionService = new SessionLocalMemoryServiceImpl();
         }
-        return compositeSessionService;
+        return sessionService;
     }
 
     /**

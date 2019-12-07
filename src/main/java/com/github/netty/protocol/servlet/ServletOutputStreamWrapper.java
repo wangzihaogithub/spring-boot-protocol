@@ -122,8 +122,6 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
             source = null;
             out.recycle(consumer);
         }
-        if(suspendFlag){
-            suspendFlag = false;
-        }
+        suspendFlag = false;
     }
 }
