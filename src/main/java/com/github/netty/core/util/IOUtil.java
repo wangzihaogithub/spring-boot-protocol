@@ -29,6 +29,19 @@ public class IOUtil {
     public static boolean FORCE_META_DATA = false;
 
     /**
+     * byte merge
+     * @param bytes1 bytes1
+     * @param bytes2 bytes2
+     * @return new bytes
+     */
+    public static byte[] merge(byte[] bytes1, byte[] bytes2){
+        byte[] newBytes = new byte[bytes1.length + bytes2.length];
+        System.arraycopy(bytes1,0,newBytes,0,bytes1.length);
+        System.arraycopy(bytes2,0,newBytes,bytes1.length,bytes2.length);
+        return newBytes;
+    }
+
+    /**
      * Write mode to read mode
      * @param byteBuf byteBuf
      */
@@ -272,7 +285,7 @@ public class IOUtil {
             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, encode));
             String line;
             while ((line = reader.readLine()) != null) {
-                sb.append(line).append('\n');;
+                sb.append(line).append('\n');
             }
             String value = sb.toString();
             return value;

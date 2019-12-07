@@ -8,13 +8,13 @@ import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
-import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * Netty container TCP layer server
@@ -28,14 +28,17 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     private final NettyProperties properties;
     private Collection<ProtocolHandler> protocolHandlers;
     private Collection<ServerListener> serverListeners;
+    private Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
 
     public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties,
                           Collection<ProtocolHandler> protocolHandlers,
-                          Collection<ServerListener> serverListeners){
+                          Collection<ServerListener> serverListeners,
+                          Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier){
         super(serverAddress);
         this.properties = properties;
-        this.protocolHandlers = protocolHandlers;
         this.serverListeners = serverListeners;
+        this.protocolHandlers = protocolHandlers;
+        this.channelHandlerSupplier = channelHandlerSupplier;
     }
 
     @Override
@@ -93,7 +96,13 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     @Override
     protected ChannelHandler newWorkerChannelHandler() {
         //Dynamic protocol processor
-        return new DynamicProtocolChannelHandler(protocolHandlers,properties.isEnableTcpPackageLog(),properties.getTcpPackageLogLevel(),properties.getMaxConnections());
+        DynamicProtocolChannelHandler handler = channelHandlerSupplier.get();
+        if(properties.isEnableTcpPackageLog()){
+            handler.enableTcpPackageLog(properties.getTcpPackageLogLevel());
+        }
+        handler.setMaxConnections(properties.getMaxConnections());
+        handler.setProtocolHandlers(protocolHandlers);
+        return handler;
     }
 
     /**

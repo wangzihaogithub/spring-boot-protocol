@@ -1,12 +1,13 @@
 package com.github.netty.springboot.server;
 
-import com.github.netty.core.Ordered;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
+import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.MqttProtocol;
 import com.github.netty.protocol.NRpcProtocol;
 import com.github.netty.springboot.NettyProperties;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -17,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 
 import java.util.Collection;
-import java.util.TreeSet;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -43,12 +43,14 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("nettyServerFactory")
     @ConditionalOnMissingBean(NettyTcpServerFactory.class)
     public NettyTcpServerFactory nettyTcpServerFactory(Collection<ProtocolHandler> protocolHandlers,
-                                                       Collection<ServerListener> serverListeners){
-        NettyTcpServerFactory tcpServerFactory = new NettyTcpServerFactory(
-                nettyProperties,
-                new TreeSet<>(Ordered.COMPARATOR),
-                new TreeSet<>(Ordered.COMPARATOR)
-                );
+                                                       Collection<ServerListener> serverListeners,
+                                                       BeanFactory beanFactory){
+        Supplier<DynamicProtocolChannelHandler> handlerSupplier = ()->{
+            Class<?extends DynamicProtocolChannelHandler> type = nettyProperties.getChannelHandler();
+            return type == DynamicProtocolChannelHandler.class?
+                    new DynamicProtocolChannelHandler() : beanFactory.getBean(type);
+        };
+        NettyTcpServerFactory tcpServerFactory = new NettyTcpServerFactory(nettyProperties,handlerSupplier);
         tcpServerFactory.getProtocolHandlers().addAll(protocolHandlers);
         tcpServerFactory.getServerListeners().addAll(serverListeners);
         return tcpServerFactory;

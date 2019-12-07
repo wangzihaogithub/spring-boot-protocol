@@ -1,6 +1,7 @@
 package com.github.netty.springboot;
 
 import com.github.netty.core.util.ApplicationX;
+import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import io.netty.handler.logging.LogLevel;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -41,6 +42,11 @@ public class NettyProperties implements Serializable{
     private int serverIoRatio = 100;
 
     /**
+     * 动态协议处理器,是在进入所有协议之前的入口- 使用者可以继承它加入自己的逻辑 比如:(处理超出最大tcp连接数时的逻辑, 处理遇到不支持的协议时的逻辑等..)
+     */
+    private Class<?extends DynamicProtocolChannelHandler> channelHandler = DynamicProtocolChannelHandler.class;
+
+    /**
      * HTTP协议(Servlet实现)
      */
     private final HttpServlet httpServlet = new HttpServlet();
@@ -66,6 +72,14 @@ public class NettyProperties implements Serializable{
 
     public ApplicationX getApplication() {
         return application;
+    }
+
+    public Class<?extends DynamicProtocolChannelHandler> getChannelHandler() {
+        return channelHandler;
+    }
+
+    public void setChannelHandler(Class<?extends DynamicProtocolChannelHandler> channelHandler) {
+        this.channelHandler = channelHandler;
     }
 
     public LogLevel getTcpPackageLogLevel() {

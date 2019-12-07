@@ -1,7 +1,9 @@
 package com.github.netty.springboot.server;
 
+import com.github.netty.core.Ordered;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
+import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
@@ -21,8 +23,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Objects;
+import java.util.TreeSet;
+import java.util.function.Supplier;
 
 /**
  * Netty container factory TCP layer server factory
@@ -37,19 +40,18 @@ public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
         implements ConfigurableReactiveWebServerFactory,ConfigurableServletWebServerFactory {
     protected NettyProperties properties;
-    private Collection<ProtocolHandler> protocolHandlers;
-    private Collection<ServerListener> serverListeners;
+    private Collection<ProtocolHandler> protocolHandlers = new TreeSet<>(Ordered.COMPARATOR);
+    private Collection<ServerListener> serverListeners = new TreeSet<>(Ordered.COMPARATOR);
+    private Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
 
     public NettyTcpServerFactory() {
-        this(new NettyProperties(),Collections.emptyList(),Collections.emptyList());
+        this(new NettyProperties(),DynamicProtocolChannelHandler::new);
     }
 
     public NettyTcpServerFactory(NettyProperties properties,
-                                 Collection<ProtocolHandler> protocolHandlers,
-                                 Collection<ServerListener> serverListeners) {
+                                 Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier) {
         this.properties = properties;
-        this.protocolHandlers = Objects.requireNonNull(protocolHandlers);
-        this.serverListeners = Objects.requireNonNull(serverListeners);
+        this.channelHandlerSupplier = channelHandlerSupplier;
     }
 
     /**
@@ -69,7 +71,7 @@ public class NettyTcpServerFactory
 
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
-            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners,channelHandlerSupplier);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
@@ -102,7 +104,7 @@ public class NettyTcpServerFactory
 
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
-            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners);
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners,channelHandlerSupplier);
         }catch (Exception e){
             throw new IllegalStateException(e.getMessage(),e);
         }
