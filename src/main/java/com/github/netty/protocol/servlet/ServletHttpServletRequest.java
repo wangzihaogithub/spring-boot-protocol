@@ -67,7 +67,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private BufferedReader reader;
     private FullHttpRequest nettyRequest;
     private ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
-    private Map<String,Object> attributeMap = new ConcurrentHashMap<>(16);
+    private Map<String,Object> attributeMap = Collections.synchronizedMap(new HashMap<>(16));
     private LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
     private Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
 	    @Override
@@ -115,7 +115,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
-    private ServletRequestDispatcher dispatcher;
 
     protected ServletHttpServletRequest() {}
 
@@ -125,10 +124,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         instance.nettyRequest = fullHttpRequest;
         instance.inputStream.wrap(fullHttpRequest.content());
         return instance;
-    }
-
-    void setDispatcher(ServletRequestDispatcher dispatcher) {
-        this.dispatcher = dispatcher;
     }
 
     void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
@@ -361,7 +356,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 
     /**
      * New session ID
-     * @return
+     * @return session ID
      */
     private String newSessionId(){
         return String.valueOf(snowflakeIdWorker.nextId());
@@ -732,11 +727,15 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     @Override
-    public ServletInputStreamWrapper getInputStream() throws IOException {
+    public ServletInputStreamWrapper getInputStream(){
         if(reader != null){
             throw new IllegalStateException("getReader() has already been called for this request");
         }
         usingInputStreamFlag = true;
+        return inputStream;
+    }
+
+    ServletInputStreamWrapper getInputStream0(){
         return inputStream;
     }
 
@@ -824,7 +823,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                     if(charset == null){
                         charset = getServletContext().getRequestCharacterEncoding();
                     }
-                    reader = new BufferedReader(new InputStreamReader(getInputStream(),charset));
+                    reader = new BufferedReader(new InputStreamReader(getInputStream0(),charset));
                 }
             }
         }
@@ -1170,7 +1169,6 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
         this.decodeCookieFlag = false;
         this.decodePathsFlag = false;
         this.usingInputStreamFlag = false;
-        this.dispatcher = null;
         this.reader = null;
         this.sessionIdSource = null;
         this.protocol = null;

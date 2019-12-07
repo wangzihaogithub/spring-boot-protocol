@@ -6,6 +6,7 @@ import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
 import io.netty.handler.codec.http.HttpConstants;
 import io.netty.util.CharsetUtil;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletRequestWrapper;
@@ -19,6 +20,8 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -27,9 +30,33 @@ import java.util.*;
  *  2018/7/15/015
  */
 public class ServletUtil {
-
     private static final String EMPTY_STRING = "";
     private static final char SPACE = 0x20;
+    private static final FastThreadLocal<DateFormat> DATE_FORMAT_GMT_LOCAL = new FastThreadLocal<DateFormat>() {
+        private TimeZone timeZone = TimeZone.getTimeZone("GMT");
+        @Override
+        protected DateFormat initialValue() {
+            DateFormat df = new SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.ENGLISH);
+            df.setTimeZone(timeZone);
+            return df;
+        }
+    };
+    private static long lastTimestamp = System.currentTimeMillis();
+    private static String nowRFCTime = DATE_FORMAT_GMT_LOCAL.get().format(new Date(lastTimestamp));
+
+    public static String getDateByRfcHttp(){
+        long timestamp = System.currentTimeMillis();
+        //cache 1/s
+        if(timestamp - lastTimestamp > 1000){
+            lastTimestamp = timestamp;
+            nowRFCTime = DATE_FORMAT_GMT_LOCAL.get().format(new Date(timestamp));
+        }
+        return nowRFCTime;
+    }
+
+    public static String date2string(long date){
+        return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(date));
+    }
 
     public static String getCookieValue(Cookie[] cookies, String cookieName){
         if(cookies == null || cookieName == null) {

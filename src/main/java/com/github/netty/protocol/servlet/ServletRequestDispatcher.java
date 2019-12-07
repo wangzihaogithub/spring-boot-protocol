@@ -185,12 +185,7 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
         }
 
         //Hand over control of the output stream
-        ServletOutputStreamWrapper outWrapper;
-        try {
-            outWrapper = httpResponse.getOutputStream();
-        } catch (IOException e) {
-            throw new IllegalStateException(e.getMessage(),e);
-        }
+        ServletOutputStreamWrapper outWrapper = httpResponse.getOutputStream();
 
         //Pause the current response
         outWrapper.setSuspendFlag(true);

@@ -13,6 +13,7 @@ import java.util.function.Supplier;
  */
 public class Recycler<T> {
     private static final int DEFAULT_INSTANCE_COUNT = SystemPropertyUtil.getInt("netty-core.recyclerCount",30);
+    private static final boolean ENABLE = SystemPropertyUtil.getBoolean("netty-core.recyclerEnable",true);
     /**
      * The instance queue of the current object
      */
@@ -43,8 +44,10 @@ public class Recycler<T> {
         this.formThread = Thread.currentThread();
         this.formStack = formThread.getStackTrace()[3];
 
-        for(int i=0; i< instanceCount; i++) {
-            recycleInstance(supplier.get());
+        if(ENABLE) {
+            for (int i = 0; i < instanceCount; i++) {
+                recycleInstance(supplier.get());
+            }
         }
     }
 
@@ -61,14 +64,18 @@ public class Recycler<T> {
      * @return object
      */
     public T getInstance() {
-        TOTAL_COUNT.incrementAndGet();
-        T value = queue.pop();
-        if(value == null){
-            value = supplier.get();
+        if(ENABLE) {
+            TOTAL_COUNT.incrementAndGet();
+            T value = queue.pop();
+            if (value == null) {
+                value = supplier.get();
+            } else {
+                HIT_COUNT.incrementAndGet();
+            }
+            return value;
         }else {
-            HIT_COUNT.incrementAndGet();
+            return supplier.get();
         }
-        return value;
     }
 
     /**

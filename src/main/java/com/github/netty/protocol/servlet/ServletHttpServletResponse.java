@@ -364,14 +364,13 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return characterEncoding;
     }
 
-    //Writer and OutputStream cannot be used together
     @Override
-    public ServletOutputStreamWrapper getOutputStream() throws IOException {
+    public ServletOutputStreamWrapper getOutputStream(){
         return outputStream;
     }
 
     @Override
-    public PrintWriter getWriter() throws IOException {
+    public PrintWriter getWriter(){
         if(writer != null){
             return writer;
         }

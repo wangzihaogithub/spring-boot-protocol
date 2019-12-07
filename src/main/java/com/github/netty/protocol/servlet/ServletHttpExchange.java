@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.util.Attribute;
@@ -96,6 +97,15 @@ public class ServletHttpExchange implements Recyclable{
 
     public ServletHttpServletRequest getRequest() {
         return request;
+    }
+
+    public void touch(Object hit){
+        if(request != null){
+            ByteBuf byteBuf = request.getInputStream0().unwrap();
+            if(byteBuf != null){
+                byteBuf.touch(hit);
+            }
+        }
     }
 
     public ServletContext getServletContext() {

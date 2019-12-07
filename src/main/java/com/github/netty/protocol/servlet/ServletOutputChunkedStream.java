@@ -4,10 +4,7 @@ import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
-import io.netty.handler.codec.http.DefaultLastHttpContent;
-import io.netty.handler.codec.http.HttpRequestDecoder;
-import io.netty.handler.codec.http.HttpServerCodec;
-import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
@@ -61,21 +58,25 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
      * @return ChannelFuture. IO once after the callback method
      */
     private ChannelFuture flushAsync(ChannelFutureListener listener) {
+        getServletHttpExchange().touch(this);
         ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
         ChannelPromise promise = context.newPromise();
+
         ChannelFuture endFuture = null;
         try {
             //try flush operation success
             if (currentPromiseReference.compareAndSet(null, promise)) {
                 if (isSendResponseHeader.compareAndSet(false, true)) {
                     endFuture = sendChunkedResponse(listener, promise);
-                } else {
+                } else if(listener == null){
                     endFuture = flushChunk(context.channel(), promise);
+                }else {
+                    endFuture = flushChunk(context.channel(), promise).addListener(listener);
                 }
             } else {
                 //try flush operation failure, appended to execute this operation callback
                 ChannelPromise currentPromise = currentPromiseReference.get();
-                if (currentPromise == null) {
+                if (currentPromise == null || currentPromise.isVoid()) {
                     endFuture = flushAsync(listener);
                 } else {
                     endFuture = currentPromise.addListener(future -> flushAsync(listener));
@@ -83,7 +84,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }
         }finally {
             if(endFuture != null){
-                endFuture.addListener(f -> currentPromiseReference.compareAndSet(promise,null));
+                endFuture.addListener(f -> currentPromiseReference.compareAndSet(promise, null));
             }else {
                 currentPromiseReference.compareAndSet(promise,null);
             }
@@ -122,9 +123,11 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                             discardPacket.getClass().getName());
                 }
                 endFuture = promise;
+                promise.trySuccess();
             }
         } else{
             endFuture = promise;
+            promise.trySuccess();
         }
         return endFuture;
     }
@@ -171,6 +174,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                     }else {
                         endFuture = channel.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT,promise);
                     }
+                    chunkedInput.setSendLastChunkFlag(true);
                 }else {
                     endFuture = flushChunk(channel,promise);
                 }
@@ -179,7 +183,11 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }
 
             if(writerContentEndListener != null){
-                endFuture.addListener(writerContentEndListener);
+                if(endFuture.isVoid()){
+                    writerContentEndListener.operationComplete(future);
+                }else {
+                    endFuture.addListener(writerContentEndListener);
+                }
             }
         });
     }
@@ -291,6 +299,10 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
                 return true;
             }
             return chunkByteBuf != null;
+        }
+
+        public void setSendLastChunkFlag(boolean sendLastChunkFlag) {
+            this.sendLastChunkFlag = sendLastChunkFlag;
         }
 
         @Override

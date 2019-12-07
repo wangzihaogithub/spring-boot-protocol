@@ -38,6 +38,7 @@ public class NettyEmbeddedAutoConfiguration {
      * Add a TCP service factory
      * @param protocolHandlers protocolHandlers
      * @param serverListeners serverListeners
+     * @param beanFactory beanFactory
      * @return NettyTcpServerFactory
      */
     @Bean("nettyServerFactory")

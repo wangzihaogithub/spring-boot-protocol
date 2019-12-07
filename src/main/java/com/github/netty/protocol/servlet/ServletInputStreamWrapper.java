@@ -83,13 +83,13 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     @Override
-    public void close() throws IOException {
-        if (closed.compareAndSet(false,true)) {
-            if(RecyclableUtil.release(source)){
-                source = null;
-            }
-            readListener = null;
+    public void close() {
+        ByteBuf source = this.source;
+        if(source != null){
+            RecyclableUtil.release(source);
+            this.source = null;
         }
+        this.readListener = null;
     }
 
     /**
@@ -170,11 +170,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public void recycle() {
         if(!isClosed()) {
-            try {
-                close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            close();
         }
     }
 }

@@ -3,6 +3,7 @@ package com.github.netty.springboot;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import io.netty.handler.logging.LogLevel;
+import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.io.File;
@@ -47,6 +48,11 @@ public class NettyProperties implements Serializable{
     private boolean tcpNodelay = false;
 
     /**
+     * netty的内存泄漏检测级别(调试程序的时候用). 默认禁用, 不然极其耗费性能
+     */
+    private ResourceLeakDetector.Level resourceLeakDetectorLevel = ResourceLeakDetector.Level.DISABLED;
+
+    /**
      * 动态协议处理器,是在进入所有协议之前的入口- 使用者可以继承它加入自己的逻辑 比如:(处理超出最大tcp连接数时的逻辑, 处理遇到不支持的协议时的逻辑等..)
      */
     private Class<?extends DynamicProtocolChannelHandler> channelHandler = DynamicProtocolChannelHandler.class;
@@ -85,6 +91,14 @@ public class NettyProperties implements Serializable{
 
     public void setTcpNodelay(boolean tcpNodelay) {
         this.tcpNodelay = tcpNodelay;
+    }
+
+    public ResourceLeakDetector.Level getResourceLeakDetectorLevel() {
+        return resourceLeakDetectorLevel;
+    }
+
+    public void setResourceLeakDetectorLevel(ResourceLeakDetector.Level resourceLeakDetectorLevel) {
+        this.resourceLeakDetectorLevel = resourceLeakDetectorLevel;
     }
 
     public Class<?extends DynamicProtocolChannelHandler> getChannelHandler() {

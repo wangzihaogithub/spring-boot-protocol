@@ -13,15 +13,15 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.LastHttpContent;
-import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.WriteListener;
 import javax.servlet.http.Cookie;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -32,15 +32,6 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable  {
-    private static final FastThreadLocal<DateFormat> DATE_FORMAT_GMT_LOCAL = new FastThreadLocal<DateFormat>() {
-        private TimeZone timeZone = TimeZone.getTimeZone("GMT");
-        @Override
-        protected DateFormat initialValue() {
-            DateFormat df = new SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.ENGLISH);
-            df.setTimeZone(timeZone);
-            return df;
-        }
-    };
     public static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
@@ -131,14 +122,17 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * ■sendError Method called。
      * ■sendRedirect Method called。
      * ■AsyncContext.complete Method called
-     * @throws IOException IOException
      */
     @Override
-    public void close() throws IOException {
+    public void close() {
+        ServletHttpExchange exchange = servletHttpExchange;
+        if(exchange != null) {
+            exchange.touch(this);
+        }
         if (isClosed.compareAndSet(false,true)) {
             CompositeByteBufX content = getBuffer();
-            if (content != null) {
-                servletHttpExchange.getResponse()
+            if (content != null && exchange != null) {
+                exchange.getResponse()
                         .getNettyResponse()
                         .setContent(content);
             }
@@ -340,7 +334,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
         // Time and date response header
         if(!headers.contains(HttpHeaderConstants.DATE)) {
-            headers.set(HttpHeaderConstants.DATE, DATE_FORMAT_GMT_LOCAL.get().format(new Date()));
+            headers.set(HttpHeaderConstants.DATE, ServletUtil.getDateByRfcHttp());
         }
 
         //Content Type The content of the response header
@@ -403,11 +397,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public <T> void recycle(Consumer<T> consumer) {
         this.closeListenerWrapper.addRecycleConsumer(consumer);
-        try {
-            close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        close();
     }
 
     /**
