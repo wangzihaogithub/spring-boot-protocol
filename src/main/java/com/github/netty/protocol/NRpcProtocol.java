@@ -51,7 +51,6 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
 public class NRpcProtocol extends AbstractProtocol {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private ApplicationX application;
-    private AtomicBoolean addInstancePluginsFlag = new AtomicBoolean(false);
     /**
      * Maximum message length per pass
      */
@@ -131,13 +130,10 @@ public class NRpcProtocol extends AbstractProtocol {
      * Add an instance of the extension
      */
     protected void addInstancePlugins(){
-        if(addInstancePluginsFlag != null && addInstancePluginsFlag.compareAndSet(false,true)) {
-            //The RPC basic command service is enabled by default
-            addInstance(new RpcCommandServiceImpl());
-            //Open DB service by default
-            addInstance(new RpcDBServiceImpl());
-            addInstancePluginsFlag = null;
-        }
+        //The RPC basic command service is enabled by default
+        addInstance(new RpcCommandServiceImpl());
+        //Open DB service by default
+        addInstance(new RpcDBServiceImpl());
     }
 
     protected ApplicationX getApplication() {
