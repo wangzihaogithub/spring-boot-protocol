@@ -226,7 +226,9 @@ public class IOUtil {
                     }
                 },position,remaining);
             }
+            out.flush();
             outChannel.force(FORCE_META_DATA);
+            out.close();
         }
     }
 
