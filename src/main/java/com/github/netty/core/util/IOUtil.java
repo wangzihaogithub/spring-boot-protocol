@@ -201,6 +201,7 @@ public class IOUtil {
 
                 int remaining = buffer.remaining();
                 position += outChannel.transferFrom(new ReadableByteChannel() {
+                    private int offset;
                     @Override
                     public boolean isOpen() {
                         return true;
@@ -211,8 +212,17 @@ public class IOUtil {
 
                     @Override
                     public int read(ByteBuffer dst) throws IOException {
-                        dst.put(buffer);
-                        return remaining;
+                        int dstLimit = dst.limit();
+                        if(remaining > dstLimit){
+                            int i;
+                            for (i = 0; i < dstLimit && offset<remaining; i++) {
+                                dst.put(buffer.get(offset++));
+                            }
+                            return i;
+                        }else {
+                            dst.put(buffer);
+                            return remaining;
+                        }
                     }
                 },position,remaining);
             }
