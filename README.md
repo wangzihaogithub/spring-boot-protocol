@@ -30,7 +30,7 @@ github地址 : https://github.com/wangzihaogithub
     <dependency>
       <groupId>com.github.wangzihaogithub</groupId>
       <artifactId>spring-boot-protocol</artifactId>
-      <version>2.0.5</version>
+      <version>2.0.6</version>
     </dependency>
 	
 	
