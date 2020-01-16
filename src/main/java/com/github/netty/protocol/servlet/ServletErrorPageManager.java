@@ -84,7 +84,7 @@ public class ServletErrorPageManager {
             try {
                 httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("sendError. error={}",e.toString(),e);
             }
             return;
         }

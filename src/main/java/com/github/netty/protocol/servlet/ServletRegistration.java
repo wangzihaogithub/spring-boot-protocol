@@ -26,8 +26,23 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private boolean asyncSupported = true;
     private int loadOnStartup = -1;
     private Map<String,String> initParameterMap = new HashMap<>();
-    private Set<String> mappingSet = new HashSet<>();
+    private Set<String> mappingSet = new HashSet<String>(){
+        @Override
+        public boolean add(String pattern) {
+            urlMapper.addMapping(pattern, ServletRegistration.this, servletName);
+            return super.add(pattern);
+        }
+
+        @Override
+        public boolean addAll(Collection c) {
+            for (Object o : c) {
+                add(o.toString());
+            }
+            return c.size() > 0;
+        }
+    };
     private AtomicBoolean initServlet = new AtomicBoolean();
+    private Set<String> servletSecuritys = new LinkedHashSet<>();
 
     public ServletRegistration(String servletName, Servlet servlet,ServletContext servletContext,UrlMapper<ServletRegistration> urlMapper) {
         this.servletName = servletName;
@@ -92,9 +107,6 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     @Override
     public Set<String> addMapping(String... urlPatterns) {
         mappingSet.addAll(Arrays.asList(urlPatterns));
-        for(String pattern : urlPatterns) {
-            urlMapper.addMapping(pattern, this, servletName);
-        }
         return mappingSet;
     }
 
@@ -147,7 +159,8 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     @Override
     public Set<String> setServletSecurity(ServletSecurityElement constraint) {
         this.servletSecurityElement = constraint;
-        return new HashSet<>(servletSecurityElement.getMethodNames());
+        servletSecuritys.addAll(servletSecurityElement.getMethodNames());
+        return servletSecuritys;
     }
 
     @Override

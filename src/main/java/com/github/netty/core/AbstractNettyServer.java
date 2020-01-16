@@ -183,7 +183,7 @@ public abstract class AbstractNettyServer implements Runnable{
         //有异常抛出
         Throwable cause = future.cause();
         if(cause != null){
-            cause.printStackTrace();
+            logger.error("stopAfter error={}",cause.toString(),cause);
         }
         logger.info("{} stop [port = {} , cause = {}]...",getName(),getPort(),cause);
     }

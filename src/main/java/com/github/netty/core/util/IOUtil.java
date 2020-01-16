@@ -566,7 +566,7 @@ public class IOUtil {
                                         "D:\\", "test_writeFile_123.txt", false);
                                 System.out.println(Thread.currentThread());
                             } catch(IOException e){
-                                e.printStackTrace();
+                                //
                             }finally {
                                 latch.countDown();
                             }

@@ -207,6 +207,19 @@ public class NettyProperties implements Serializable{
          */
         private File basedir;
 
+        /**
+         * 是否开启DNS地址查询. true=开启 {@link javax.servlet.ServletRequest#getRemoteHost}
+         */
+        private boolean enableLookup = false;
+
+        public boolean isEnableLookup() {
+            return enableLookup;
+        }
+
+        public void setEnableLookup(boolean enableLookup) {
+            this.enableLookup = enableLookup;
+        }
+
         public int getMaxContentSize() {
             return maxContentSize;
         }

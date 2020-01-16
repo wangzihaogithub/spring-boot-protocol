@@ -1,5 +1,7 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.Recyclable;
 
 import javax.servlet.*;
@@ -23,6 +25,7 @@ import java.util.function.Consumer;
  *  2018/7/15/015
  */
 public class ServletAsyncContext implements AsyncContext,Recyclable {
+    private static final LoggerX logger = LoggerFactoryX.getLogger(ServletAsyncContext.class);
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;
     private static final int STATUS_RUNNING = 2;
@@ -125,7 +128,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                 AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
                 listenerWrapper.asyncListener.onComplete(event);
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
             }
         });
 
@@ -173,7 +176,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                     try {
                         listenerWrapper.asyncListener.onStartAsync(event);
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        logger.error("asyncContext notifyEvent.onStartAsync() error={}",e.toString(),e);
                     }
                 });
 
@@ -186,7 +189,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                         AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
                         listenerWrapper.asyncListener.onTimeout(event);
                     } catch (Exception ex) {
-                        ex.printStackTrace();
+                        logger.error("asyncContext notifyEvent.onTimeout() error={}",ex.toString(),ex);
                     }
                 });
             }catch (Throwable throwable){
@@ -201,7 +204,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
                     try {
                         listenerWrapper.asyncListener.onError(event);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        logger.error("asyncContext notifyEvent.onError() error={}",e.toString(),e);
                     }
                 });
             }
@@ -226,9 +229,8 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         try {
             return clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
-            e.printStackTrace();
+            throw new ServletException("asyncContext createListener error="+e,e);
         }
-        return null;
     }
 
     @Override

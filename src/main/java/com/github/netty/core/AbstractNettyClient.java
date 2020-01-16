@@ -173,9 +173,8 @@ public abstract class AbstractNettyClient{
     protected void stopAfter(ChannelFuture future){
         //有异常抛出
         if(future.cause() != null){
-            future.cause().printStackTrace();
+            logger.error("stopAfter. error={}",future.cause(),future.cause());
         }
-
         logger.info("{} stop [remoteAddress = {}]...",getName(),getRemoteAddress());
     }
 

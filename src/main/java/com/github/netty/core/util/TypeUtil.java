@@ -1211,7 +1211,6 @@ public class TypeUtil {
                 return clazz;
             }
         } catch (Throwable e) {
-            e.printStackTrace();
             // skip
         }
 

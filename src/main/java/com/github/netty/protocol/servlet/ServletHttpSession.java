@@ -1,5 +1,7 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.Wrapper;
 
 import javax.servlet.http.*;
@@ -13,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *  2018/7/15/015
  */
 public class ServletHttpSession implements HttpSession,Wrapper<Session>{
+    private static final LoggerX logger = LoggerFactoryX.getLogger(ServletHttpSession.class);
     private ServletContext servletContext;
     private String id;
 
@@ -25,7 +28,7 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
     private boolean newSessionFlag;
     private AtomicInteger accessCount;
 
-    private List<HttpSessionBindingListener> httpSessionBindingListenerList;
+    private final List<HttpSessionBindingListener> httpSessionBindingListenerList = new ArrayList<>();
 
     private Session source;
     /**
@@ -147,7 +150,6 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
         Object oldValue = getAttributeMap().put(name,value);
 
         if(value instanceof HttpSessionBindingListener){
-            httpSessionBindingListenerList = new ArrayList<>();
             httpSessionBindingListenerList.add((HttpSessionBindingListener) value);
         }
 
@@ -159,24 +161,22 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
             }
         }
 
-        if(httpSessionBindingListenerList != null){
-            HttpSessionBindingEvent valueBoundEvent = new HttpSessionBindingEvent(this,name,value);
+        HttpSessionBindingEvent valueBoundEvent = new HttpSessionBindingEvent(this,name,value);
+        for(HttpSessionBindingListener listener : httpSessionBindingListenerList){
+            try {
+                listener.valueBound(valueBoundEvent);
+            }catch (Throwable throwable){
+                logger.warn("listener.valueBound error ={},listener={},valueBoundEvent={}",throwable.toString(),listener,valueBoundEvent);
+            }
+        }
+
+        if(oldValue != null){
+            HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this,name,oldValue);
             for(HttpSessionBindingListener listener : httpSessionBindingListenerList){
                 try {
-                    listener.valueBound(valueBoundEvent);
+                    listener.valueUnbound(valueUnboundEvent);
                 }catch (Throwable throwable){
-                    throwable.printStackTrace();
-                }
-            }
-
-            if(oldValue != null){
-                HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this,name,oldValue);
-                for(HttpSessionBindingListener listener : httpSessionBindingListenerList){
-                    try {
-                        listener.valueUnbound(valueUnboundEvent);
-                    }catch (Throwable throwable){
-                        throwable.printStackTrace();
-                    }
+                    logger.warn("listener.valueBound error ={},listener={},valueBoundEvent={}",throwable.toString(),listener,valueBoundEvent);
                 }
             }
         }
@@ -191,20 +191,21 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
     public void removeAttribute(String name) {
         Object oldValue = getAttributeMap().remove(name);
 
-        if(oldValue instanceof HttpSessionBindingListener && httpSessionBindingListenerList != null){
+        if(oldValue instanceof HttpSessionBindingListener){
             httpSessionBindingListenerList.remove(oldValue);
         }
+        onRemoveAttribute(name,oldValue);
+    }
 
+    private void onRemoveAttribute(String name,Object oldValue){
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if(listenerManager.hasHttpSessionAttributeListener()){
             listenerManager.onHttpSessionAttributeRemoved(new HttpSessionBindingEvent(this,name,oldValue));
         }
 
-        if(httpSessionBindingListenerList != null){
-            HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this,name,oldValue);
-            for(HttpSessionBindingListener listener : httpSessionBindingListenerList){
-                listener.valueUnbound(valueUnboundEvent);
-            }
+        HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this,name,oldValue);
+        for(HttpSessionBindingListener listener : httpSessionBindingListenerList){
+            listener.valueUnbound(valueUnboundEvent);
         }
     }
 
@@ -224,6 +225,13 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
         }
 
         if(attributeMap != null) {
+            for (String key : attributeMap.keySet()) {
+                Object oldValue = attributeMap.remove(key);
+                if(!(oldValue instanceof HttpSessionBindingListener)){
+                    onRemoveAttribute(key,oldValue);
+                }
+            }
+            httpSessionBindingListenerList.clear();
             attributeMap.clear();
             attributeMap = null;
         }
@@ -278,10 +286,6 @@ public class ServletHttpSession implements HttpSession,Wrapper<Session>{
             for (Object value : attributeMap.values()) {
                 if(!(value instanceof HttpSessionBindingListener)){
                     continue;
-                }
-
-                if(httpSessionBindingListenerList == null){
-                    httpSessionBindingListenerList = new ArrayList<>();
                 }
                 httpSessionBindingListenerList.add((HttpSessionBindingListener) value);
             }

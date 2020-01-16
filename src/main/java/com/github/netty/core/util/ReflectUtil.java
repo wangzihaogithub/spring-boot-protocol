@@ -293,7 +293,7 @@ public class ReflectUtil {
 		try {
 			result = field.get(obj);
 		} catch (IllegalAccessException e) {
-			e.printStackTrace();
+			throw new IllegalArgumentException("getFieldValue error:"+e,e);
 		}
 		return result;
 	}

@@ -23,7 +23,21 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private UrlMapper<ServletFilterRegistration> urlMapper;
     private boolean asyncSupported = true;
     private Map<String,String> initParameterMap = new HashMap<>();
-    private Set<String> mappingSet = new HashSet<>();
+    private Set<String> mappingSet = new HashSet<String>(){
+        @Override
+        public boolean add(String pattern) {
+            urlMapper.addMapping(pattern, ServletFilterRegistration.this, filterName);
+            return super.add(pattern);
+        }
+
+        @Override
+        public boolean addAll(Collection c) {
+            for (Object o : c) {
+                add(o.toString());
+            }
+            return c.size() > 0;
+        }
+    };
     private Set<String> servletNameMappingSet = new HashSet<>();
     private AtomicBoolean initFilter = new AtomicBoolean();
 
@@ -124,9 +138,6 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     @Override
     public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... urlPatterns) {
         mappingSet.addAll(Arrays.asList(urlPatterns));
-        for(String pattern : urlPatterns) {
-            urlMapper.addMapping(pattern, this, filterName);
-        }
     }
 
     @Override

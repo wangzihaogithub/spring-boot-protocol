@@ -229,7 +229,7 @@ public class RpcClientHeartbeatTask implements Runnable{
                     task.run();
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                //skip
             }
         },heartIntervalSecond,heartIntervalSecond,TimeUnit.SECONDS);
     }

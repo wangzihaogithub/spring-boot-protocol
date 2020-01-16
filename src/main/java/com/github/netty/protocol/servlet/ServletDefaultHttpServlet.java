@@ -1,5 +1,8 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+
 import javax.servlet.AsyncContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -13,6 +16,7 @@ import java.io.IOException;
  *  2018/7/15/015
  */
 public class ServletDefaultHttpServlet extends HttpServlet {
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     @Override
     protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
@@ -22,7 +26,7 @@ public class ServletDefaultHttpServlet extends HttpServlet {
                 response.getWriter().write("404");
                 context.complete();
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("service error ={}",e.toString(),e);
             }
         });
     }

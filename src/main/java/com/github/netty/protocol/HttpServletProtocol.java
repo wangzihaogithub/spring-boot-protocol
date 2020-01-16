@@ -3,6 +3,7 @@ package com.github.netty.protocol;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
@@ -28,6 +29,7 @@ import java.util.function.Supplier;
  *  2018/11/11/011
  */
 public class HttpServletProtocol extends AbstractProtocol {
+    private static final LoggerX logger = LoggerFactoryX.getLogger(HttpServletProtocol.class);
     private final ServletContext servletContext;
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
@@ -57,6 +59,8 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         //Servlet will be initialized automatically before use.
         initFilter(servletContext);
+
+        listenerManager.onServletContainerInitializerStartup(Collections.emptySet(),servletContext);
 
         LoggerFactoryX.getLogger(HttpServletProtocol.class).info(
                 "Netty servlet on port: {}, with context path '{}'",
@@ -103,7 +107,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                 try {
                     filter.destroy();
                 }catch (Exception e){
-                    e.printStackTrace();
+                    logger.error("destroyFilter error={},filter={}",e.toString(),filter,e);
                 }
             }
         }
@@ -123,7 +127,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                 try {
                     servlet.destroy();
                 }catch (Exception e){
-                    e.printStackTrace();
+                    logger.error("destroyServlet error={},servlet={}",e.toString(),servlet,e);
                 }
             }
         }

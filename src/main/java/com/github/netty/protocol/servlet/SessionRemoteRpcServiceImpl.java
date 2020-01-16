@@ -1,8 +1,11 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.exception.RpcDecodeException;
+import com.github.netty.protocol.nrpc.exception.RpcEncodeException;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.util.concurrent.FastThreadLocal;
 
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class SessionRemoteRpcServiceImpl implements SessionService {
     private static final String SESSION_GROUP = "/session";
+    private static final LoggerX logger = LoggerFactoryX.getLogger(SessionRemoteRpcServiceImpl.class);
 
     private String name = NamespaceUtil.newIdName(getClass());
     private static final byte[] EMPTY = {};
@@ -133,22 +137,21 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
 
             return session;
         } catch (Exception e) {
-            throw new RpcDecodeException(e.getMessage(),e);
+            throw new RpcDecodeException("decode http session error="+e,e);
         } finally {
             try {
                 if(ois != null) {
                     ois.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+               //skip
             }
-
             try {
                 if(bfi != null){
                     bfi.close();
                 }
             }catch (Exception e){
-                e.printStackTrace();
+                //skip
             }
         }
     }
@@ -189,7 +192,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
                     if (entry.getValue() instanceof Serializable) {
                         attributeSize++;
                     }else {
-//                        logger.warn("The value of key={} in the session property is not serialized and has been skipped automatically",entry.getKey());
+                        logger.warn("The value of key={} in the http session property is not serialized and has been skipped automatically",entry.getKey());
                     }
                 }
             }
@@ -209,23 +212,22 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             oout.flush();
             return bout.toByteArray();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RpcEncodeException("encode http session error="+e,e);
         } finally {
             if (oout != null) {
                 try {
                     oout.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    //skip
                 }
             } else {
                 try {
                     bout.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    //skip
                 }
             }
         }
-        return null;
     }
 
     @Override

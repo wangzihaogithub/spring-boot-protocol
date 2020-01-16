@@ -76,10 +76,10 @@ public class UrlMapper<T> {
 	    List<Element<T>> elementList = this.elementList;
 
         for (Element element : elementList) {
-            if(singlePattern && element.objectName.equals(objectName)) {
-                throw new IllegalArgumentException("The [" + objectName + "] mapping exist!");
-            }
-            if(element.originalPattern.equals(urlPattern)) {
+            if(singlePattern) {
+                if(element.objectName.equals(objectName)) {
+                    throw new IllegalArgumentException("The [" + objectName + "] mapping exist!");
+                }
                 element.objectName = objectName;
                 element.object = object;
                 return;

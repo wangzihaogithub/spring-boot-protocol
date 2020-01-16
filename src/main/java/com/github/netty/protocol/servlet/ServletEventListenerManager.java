@@ -1,9 +1,15 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+
 import javax.servlet.*;
+import javax.servlet.ServletContext;
 import javax.servlet.http.*;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -12,8 +18,9 @@ import java.util.function.Function;
  *  2018/7/29/029
  */
 public class ServletEventListenerManager {
+    private static final LoggerX logger = LoggerFactoryX.getLogger(ServletEventListenerManager.class);
     private final Object lock = new Object();
-
+    private List<ServletContainerInitializer> servletContainerInitializerList;
     private List<ServletContextAttributeListener> servletContextAttributeListenerList;
     private List<ServletRequestListener> servletRequestListenerList;
     private List<ServletRequestAttributeListener> servletRequestAttributeListenerList;
@@ -33,8 +40,21 @@ public class ServletEventListenerManager {
         try {
             return servletAddedListener.apply(servlet);
         }catch (Exception ex){
-            ex.printStackTrace();
+            logger.warn("servletAddedListener error ={},servlet={}",ex.toString(),servlet);
             return servlet;
+        }
+    }
+
+    public void onServletContainerInitializerStartup(Set<Class<?>> c, ServletContext ctx){
+        if(servletContainerInitializerList == null){
+            return;
+        }
+        for(ServletContainerInitializer listener : servletContainerInitializerList){
+            try {
+                listener.onStartup(c,ctx);
+            }catch (Exception ex){
+                logger.warn("onServletContainerInitializerStartup. error ={},listener={}",ex.toString(),listener);
+            }
         }
     }
 
@@ -46,7 +66,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeAdded(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletContextAttributeAdded. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -59,7 +79,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeRemoved(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletContextAttributeRemoved error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -72,7 +92,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeReplaced(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletContextAttributeReplaced. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -85,7 +105,7 @@ public class ServletEventListenerManager {
             try {
                 listener.requestInitialized(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletRequestInitialized. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -98,7 +118,7 @@ public class ServletEventListenerManager {
             try {
                 listener.requestDestroyed(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletRequestDestroyed. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -111,7 +131,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeAdded(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletRequestAttributeAdded. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -124,7 +144,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeRemoved(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletRequestAttributeRemoved. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -137,7 +157,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeReplaced(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletRequestAttributeReplaced. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -150,7 +170,7 @@ public class ServletEventListenerManager {
             try {
                 listener.sessionIdChanged(event,oldSessionId);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionIdChanged. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -163,7 +183,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeAdded(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionAttributeAdded. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -176,7 +196,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeRemoved(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionAttributeRemoved. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -189,7 +209,7 @@ public class ServletEventListenerManager {
             try {
                 listener.attributeReplaced(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionAttributeReplaced. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -202,7 +222,7 @@ public class ServletEventListenerManager {
             try {
                 listener.sessionCreated(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionCreated. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -215,7 +235,7 @@ public class ServletEventListenerManager {
             try {
                 listener.sessionDestroyed(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onHttpSessionDestroyed. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -228,7 +248,7 @@ public class ServletEventListenerManager {
             try {
                 listener.contextInitialized(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletContextInitialized. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -241,7 +261,7 @@ public class ServletEventListenerManager {
             try {
                 listener.contextDestroyed(event);
             }catch (Exception ex){
-                ex.printStackTrace();
+                logger.warn("onServletContextDestroyed. error ={},listener={}",ex.toString(),listener);
             }
         }
     }
@@ -279,6 +299,13 @@ public class ServletEventListenerManager {
 
     public void setServletAddedListener(Function<Servlet, Servlet> servletAddedListener) {
         this.servletAddedListener = servletAddedListener;
+    }
+
+    public void addservletContainerInitializer(ServletContainerInitializer listener){
+        if(servletContainerInitializerList == null){
+            servletContainerInitializerList = new ArrayList<>();
+        }
+        servletContainerInitializerList.add(listener);
     }
 
     public void addServletContextAttributeListener(ServletContextAttributeListener listener){
