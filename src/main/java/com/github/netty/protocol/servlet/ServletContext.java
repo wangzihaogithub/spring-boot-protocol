@@ -79,6 +79,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private ClassLoader classLoader;
 
     public ServletContext(ClassLoader classLoader) {
+        ServletUtil.class.getClassLoader();//init server.properties
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
     }
 

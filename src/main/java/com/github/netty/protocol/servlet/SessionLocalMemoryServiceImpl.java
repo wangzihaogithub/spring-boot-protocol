@@ -3,8 +3,8 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.NamespaceUtil;
-import com.github.netty.protocol.servlet.util.ServletUtil;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -130,7 +130,9 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
                 }
                 try {
                     int sleepTime = maxInactiveInterval * 1000;
-                    logger.debug("plan next Check {}", ServletUtil.date2string(System.currentTimeMillis() + sleepTime));
+                    if(logger.isDebugEnabled()) {
+                        logger.debug("plan next Check {}", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(System.currentTimeMillis() + sleepTime)));
+                    }
                     Thread.sleep(sleepTime);
                 } catch (InterruptedException e) {
                     return;
