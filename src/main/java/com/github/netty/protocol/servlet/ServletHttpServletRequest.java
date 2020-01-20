@@ -376,8 +376,9 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
                     serverName = sb.toString();
                     sb.setLength(0);
                     hasPort = true;
+                }else {
+                    sb.append(c);
                 }
-                sb.append(c);
                 i++;
             }
             if(hasPort && sb.length() > 0){
