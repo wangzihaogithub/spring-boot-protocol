@@ -75,7 +75,7 @@ public class NettyProperties implements Serializable{
     private final Rtsp rtsp = new Rtsp();
 
     /**
-     * 全局对象
+     * 全局对象(类似spring容器)
      */
     private transient final ApplicationX application = new ApplicationX();
 
@@ -200,10 +200,10 @@ public class NettyProperties implements Serializable{
         /**
          * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
          */
-        private int responseWriterChunkMaxHeapByteLength = 4096;
+        private int responseWriterChunkMaxHeapByteLength = 4096 * 10;
 
         /**
-         * 文件基础目录。如果未指定，则使用临时目录。
+         * servlet文件存储的根目录。(servlet文件上传下载) 如果未指定，则使用临时目录。
          */
         private File basedir;
 
