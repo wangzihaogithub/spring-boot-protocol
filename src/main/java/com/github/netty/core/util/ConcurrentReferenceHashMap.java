@@ -223,13 +223,11 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
     }
 
     @Override
-    
     public V put(K key, V value) {
         return put(key, value, true);
     }
 
     @Override
-    
     public V putIfAbsent(K key, V value) {
         return put(key, value, false);
     }
@@ -238,7 +236,6 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
     private V put(final K key, final V value, final boolean overwriteExisting) {
         return doTask(key, new Task<V>(TaskOption.RESTRUCTURE_BEFORE, TaskOption.RESIZE) {
             @Override
-            
             protected V execute(Reference<K, V> ref, Entry<K, V> entry, Entries entries) {
                 if (entry != null) {
                     V oldValue = entry.getValue();
@@ -254,11 +251,9 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
     }
 
     @Override
-    
     public V remove(Object key) {
         return doTask(key, new Task<V>(TaskOption.RESTRUCTURE_AFTER, TaskOption.SKIP_IF_EMPTY) {
             @Override
-            
             protected V execute(Reference<K, V> ref, Entry<K, V> entry) {
                 if (entry != null) {
                     if (ref != null) {
@@ -285,7 +280,7 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
                 return Boolean.FALSE;
             }
         });
-        return (result == Boolean.TRUE);
+        return (result.equals(Boolean.TRUE));
     }
 
     @Override
@@ -300,11 +295,10 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
                 return Boolean.FALSE;
             }
         });
-        return (result == Boolean.TRUE);
+        return (result.equals(Boolean.TRUE));
     }
 
     @Override
-    
     public V replace(K key, final V value) {
         return doTask(key, new Task<V>(TaskOption.RESTRUCTURE_BEFORE, TaskOption.SKIP_IF_EMPTY) {
             @Override
@@ -1041,7 +1035,7 @@ public class ConcurrentReferenceHashMap<K, V> extends AbstractMap<K, V> implemen
         }
     }
 
-    public static int nullSafeHashCode( Object obj) {
+    public static int nullSafeHashCode(Object obj) {
         if (obj == null) {
             return 0;
         }
