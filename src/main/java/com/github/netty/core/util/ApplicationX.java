@@ -1929,7 +1929,7 @@ public class ApplicationX {
     @Documented
     public @interface Primary {}
 
-    @Target({TYPE, FIELD})
+    @Target({CONSTRUCTOR, METHOD, PARAMETER, FIELD, ANNOTATION_TYPE})
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Resource {
         String name() default "";
