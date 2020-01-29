@@ -15,10 +15,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarInputStream;
 import java.util.stream.Stream;
@@ -41,10 +38,12 @@ public class ApplicationX {
             "org.springframework.util.ConcurrentReferenceHashMap",
             "org.hibernate.validator.internal.util.ConcurrentReferenceHashMap"
     );
+
     private static final Map<Class,Boolean> AUTOWIRED_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(128);
     private static final Map<Class,Boolean> QUALIFIER_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(128);
+    private static final Map<Class,Boolean> FACTORY_METHOD_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(32);
     private static final Map<Class,PropertyDescriptor[]> PROPERTY_DESCRIPTOR_CACHE_MAP = newConcurrentReferenceMap(128);
-    private static final Map<Class, Method[]> DECLARED_METHODS_CACHE = newConcurrentReferenceMap(128);
+    private static final Map<Class, Method[]> DECLARED_METHODS_CACHE_MAP = newConcurrentReferenceMap(128);
 
     private Supplier<ClassLoader> resourceLoader;
     private Function<BeanDefinition,String> beanNameGenerator = new DefaultBeanNameGenerator(this);
@@ -61,10 +60,13 @@ public class ApplicationX {
                 Arrays.asList(Resource.class,Qualifier.class));
     private final Collection<Class<? extends Annotation>> orderedAnnotations = new LinkedHashSet<>(
                 Arrays.asList(Order.class));
+    private final Collection<Class<? extends Annotation>> factoryMethodAnnotations = new LinkedHashSet<>(
+                Arrays.asList(Bean.class));
     private final Collection<String> beanSkipLifecycles = new LinkedHashSet<>(8);
     private final Collection<BeanPostProcessor> beanPostProcessors = new TreeSet<>(new OrderComparator(orderedAnnotations));
     private final Map<String,BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>(64);
     private final Map<Class,String[]> beanNameMap = new ConcurrentHashMap<>(64);
+    private final Map<String, String> beanAliasMap = new ConcurrentHashMap<>(6);
     private final Map<String,Object> beanInstanceMap = new ConcurrentHashMap<>(64);
     private final Map<Class, AbstractBeanFactory> beanFactoryMap = new LinkedHashMap<>(8);
     private final AbstractBeanFactory defaultBeanFactory = new DefaultBeanFactory();
@@ -104,7 +106,7 @@ public class ApplicationX {
         System.out.println("new = " + (System.currentTimeMillis() - startTime)+"/ms");
 
         startTime = System.currentTimeMillis();
-        int count = app.scanner("com.github.netty");
+        int count = app.scanner("com.github.netty").inject();
         System.out.println("scanner = " + (System.currentTimeMillis() - startTime)+"/ms");
 
         System.out.println("count = " + count);
@@ -123,14 +125,18 @@ public class ApplicationX {
     }
 
     public Object addInstance(Object instance){
-        return addInstance(instance,true);
+        return addInstance(instance,null,true,null);
     }
 
-    public Object addInstance(Object instance,boolean isLifecycle){
-        return addInstance(null,instance,isLifecycle);
+    public Object addInstance(Object instance,String beanName){
+        return addInstance(instance,beanName,true,null);
     }
 
-    public Object addInstance(String beanName,Object instance,boolean isLifecycle){
+    public Object addInstance(Object instance,String beanName,boolean isLifecycle){
+        return addInstance(instance,beanName,isLifecycle,null);
+    }
+
+    public Object addInstance(Object instance, String beanName, boolean isLifecycle, BiConsumer<String,BeanDefinition> beanDefinitionConfig){
         Class beanType = instance.getClass();
         BeanDefinition definition = newBeanDefinition(beanType);
         definition.setBeanSupplier(()->instance);
@@ -140,15 +146,104 @@ public class ApplicationX {
         if(beanName == null){
             beanName = beanNameGenerator.apply(definition);
         }
+        if(beanDefinitionConfig != null) {
+            beanDefinitionConfig.accept(beanName, definition);
+        }
         addBeanDefinition(beanName,definition);
         Object oldInstance = beanInstanceMap.remove(beanName, instance);
-        getBean(beanName,null,true);
+        if(!definition.isLazyInit()) {
+            getBean(beanName, null, true);
+        }
         return oldInstance;
     }
 
-    public int scanner(ClassLoader classLoader){
-        Map<Class,Boolean> scannerAnnotationCacheMap = new ConcurrentHashMap<>();
-        AtomicInteger classCount = new AtomicInteger();
+    public void registerAlias(String name, String alias) {
+        Objects.requireNonNull(name, "'name' must not be empty");
+        Objects.requireNonNull(alias, "'alias' must not be empty");
+        synchronized (this.beanAliasMap) {
+            if (alias.equals(name)) {
+                this.beanAliasMap.remove(alias);
+            }else {
+                String registeredName = this.beanAliasMap.get(alias);
+                if (registeredName != null && registeredName.equals(name)) {
+                    // An existing alias - no need to re-register
+                    return;
+                }
+                if (hasAlias(alias, name)) {
+                    throw new IllegalStateException("Cannot register alias '" + alias +
+                            "' for name '" + name + "': Circular reference - '" +
+                            name + "' is a direct or indirect alias for '" + alias + "' already");
+                }
+                this.beanAliasMap.put(alias, name);
+            }
+        }
+    }
+
+    public boolean hasAlias(String name, String alias) {
+        for (Map.Entry<String, String> entry : this.beanAliasMap.entrySet()) {
+            String registeredName = entry.getValue();
+            if (registeredName.equals(name)) {
+                String registeredAlias = entry.getKey();
+                if (registeredAlias.equals(alias) || hasAlias(registeredAlias, alias)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public void removeAlias(String alias) {
+        synchronized (this.beanAliasMap) {
+            String name = this.beanAliasMap.remove(alias);
+            if (name == null) {
+                throw new IllegalStateException("No alias '" + alias + "' registered");
+            }
+        }
+    }
+
+    public boolean isAlias(String name) {
+        return this.beanAliasMap.containsKey(name);
+    }
+
+    /**
+     * Determine the raw name, resolving aliases to canonical names.
+     * @param beanNameOrAlias the user-specified name
+     * @return the transformed name
+     */
+    public String getBeanName(String beanNameOrAlias) {
+        String canonicalName = beanNameOrAlias;
+        // Handle aliasing...
+        String resolvedName;
+        do {
+            resolvedName = this.beanAliasMap.get(canonicalName);
+            if (resolvedName != null) {
+                canonicalName = resolvedName;
+            }
+        }while (resolvedName != null);
+        return canonicalName;
+    }
+
+    public String[] getAliases(String name) {
+        List<String> result = new ArrayList<>();
+        synchronized (this.beanAliasMap) {
+            retrieveAliases(name, result);
+        }
+        return result.toArray(new String[0]);
+    }
+
+    private void retrieveAliases(String name, List<String> result) {
+        for (Map.Entry<String, String> entry : beanAliasMap.entrySet()) {
+            String alias = entry.getKey();
+            String registeredName = entry.getValue();
+            if (registeredName.equals(name)) {
+                result.add(alias);
+                retrieveAliases(alias, result);
+            }
+        }
+    }
+
+    public ScannerResult scanner(ClassLoader classLoader){
+        ScannerResult result = new ScannerResult();
         try {
             for(String rootPackage : scanner.getRootPackages()){
                 scanner.doScan(rootPackage,classLoader,(className)->{
@@ -161,46 +256,54 @@ public class ApplicationX {
                         if(clazz.isInterface()){
                             return;
                         }
-                        if(!isExistAnnotation(clazz, scannerAnnotations, scannerAnnotationCacheMap)) {
+                        if(!isExistAnnotation(clazz, scannerAnnotations, result.scannerAnnotationCacheMap)) {
                             return;
                         }
                         BeanDefinition definition = newBeanDefinition(clazz);
                         String beanName = beanNameGenerator.apply(definition);
-                        addBeanDefinition(beanName,definition);
-                        classCount.incrementAndGet();
+                        result.beanDefinitionMap.put(beanName,definition);
                     } catch (ReflectiveOperationException | LinkageError e) {
                         //skip
                     }
                 });
             }
-            if(classCount.get() > 0) {
-                LinkedList<String> beanNameList = new LinkedList<>();
-                for (Map.Entry<String, BeanDefinition> entry : beanDefinitionMap.entrySet()) {
-                    String beanName = entry.getKey();
-                    BeanDefinition definition = entry.getValue();
-                    if (!definition.isLazyInit() && definition.isSingleton()) {
-                        if(BeanPostProcessor.class.isAssignableFrom(definition.getBeanClass())) {
-                            beanNameList.addFirst(beanName);
-                        }else {
-                            beanNameList.addLast(beanName);
-                        }
-                    }
-                }
-
-                for (String beanName : beanNameList) {
-                    getBean(beanName, null, true);
-                }
-            }
-            return classCount.get();
+            return result;
         } catch (Exception e) {
             throw new IllegalStateException("scanner error="+e,e);
         }
     }
 
-    public int scanner(String... rootPackage){
+    public ScannerResult scanner(String... rootPackage){
         addScanPackage(rootPackage);
         ClassLoader loader = resourceLoader.get();
         return scanner(loader);
+    }
+
+    public class ScannerResult{
+        private final Map<String,BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>(64);
+        private final Map<Class,Boolean> scannerAnnotationCacheMap = new ConcurrentHashMap<>(64);
+        public int inject(){
+            LinkedList<String> beanNameList = new LinkedList<>();
+            for (Map.Entry<String,BeanDefinition> entry : beanDefinitionMap.entrySet()) {
+                String beanName = entry.getKey();
+                BeanDefinition definition = entry.getValue();
+
+                addBeanDefinition(beanName,definition);
+                if (definition.isSingleton() && !definition.isLazyInit()) {
+                    if(BeanPostProcessor.class.isAssignableFrom(definition.getBeanClass())) {
+                        beanNameList.addFirst(beanName);
+                    }else {
+                        beanNameList.addLast(beanName);
+                    }
+                }
+            }
+            for (String beanName : beanNameList) {
+                getBean(beanName, null, true);
+            }
+            beanDefinitionMap.clear();
+            scannerAnnotationCacheMap.clear();
+            return beanNameList.size();
+        }
     }
 
     public ApplicationX addExcludesPackage(String... excludesPackages){
@@ -230,7 +333,7 @@ public class ApplicationX {
     }
 
     public ApplicationX addBeanFactory(Class type, AbstractBeanFactory beanFactory){
-        addInstance(beanFactory,true);
+        addInstance(beanFactory);
         beanFactoryMap.put(type,beanFactory);
         return this;
     }
@@ -270,32 +373,40 @@ public class ApplicationX {
         String beanName;
         if(beanNames.length == 0){
             if(required){
-                throw new IllegalStateException("Not found bean. "+Arrays.toString(beanNames));
+                throw new IllegalStateException("Not found bean. by type="+clazz);
             }else {
                 return null;
             }
         }else if(beanNames.length == 1){
             beanName = beanNames[0];
         }else {
-            beanName = null;
+            List<String> primaryBeanNameList = new ArrayList<>(beanNames.length);
+            List<String> nonPrimaryBeanNameList = new ArrayList<>(beanNames.length);
             for (String eachBeanName : beanNames) {
                 BeanDefinition definition = getBeanDefinition(eachBeanName);
                 if(definition.isPrimary()){
-                    if(beanName == null){
-                        beanName = eachBeanName;
-                    }else {
-                        throw new IllegalStateException("Found more primary bean. "+Arrays.toString(beanNames));
-                    }
+                    primaryBeanNameList.add(eachBeanName);
                 }else {
-                    //后面的bean覆盖前面的bean
-                    beanName = eachBeanName;
+                    nonPrimaryBeanNameList.add(eachBeanName);
                 }
+            }
+            if(primaryBeanNameList.isEmpty()){
+                if(nonPrimaryBeanNameList.size() == 1){
+                    beanName = nonPrimaryBeanNameList.get(0);
+                }else {
+                    throw new IllegalStateException("Found more bean. you can Annotation @Primary. beanNames="+nonPrimaryBeanNameList);
+                }
+            }else if(primaryBeanNameList.size() == 1){
+                beanName = primaryBeanNameList.get(0);
+            }else {
+                throw new IllegalStateException("Found more primary bean. beanNames="+primaryBeanNameList);
             }
         }
         return getBean(beanName,args,required);
      }
 
-    public <T>T getBean(String beanName,Object[] args,boolean required){
+    public <T>T getBean(String beanNameOrAlias,Object[] args,boolean required){
+        String beanName = getBeanName(beanNameOrAlias);
         BeanDefinition definition = beanDefinitionMap.get(beanName);
         if(definition == null) {
             if(required) {
@@ -352,7 +463,70 @@ public class ApplicationX {
         return result;
     }
 
-    private Object initializeBean(String beanName, BeanWrapper beanWrapper, BeanDefinition definition) throws IllegalStateException{
+    public boolean containsBean(String name) {
+        String beanName = getBeanName(name);
+        return beanInstanceMap.containsKey(beanName) || beanDefinitionMap.containsKey(beanName);
+    }
+
+    public boolean containsInstance(String name) {
+        String beanName = getBeanName(name);
+        return beanInstanceMap.containsKey(beanName);
+    }
+
+    public BeanDefinition newBeanDefinition(Class beanType){
+        return newBeanDefinition(beanType,beanType);
+    }
+
+    public BeanDefinition newBeanDefinition(Class beanType,AnnotatedElement annotatedElement){
+        Lazy lazyAnnotation = annotatedElement.getAnnotation(Lazy.class);
+        Scope scopeAnnotation = annotatedElement.getAnnotation(Scope.class);
+        Primary primaryAnnotation = annotatedElement.getAnnotation(Primary.class);
+
+        BeanDefinition definition = new BeanDefinition();
+        definition.setBeanClass(beanType);
+        definition.setBeanClassName(beanType.getName());
+        definition.setScope(scopeAnnotation == null? BeanDefinition.SCOPE_SINGLETON : scopeAnnotation.value());
+        definition.setLazyInit(lazyAnnotation != null && lazyAnnotation.value());
+        definition.setInitMethodName(findMethodNameByNoArgs(beanType,initMethodAnnotations));
+        definition.setDestroyMethodName(findMethodNameByNoArgs(beanType,destroyMethodAnnotations));
+        definition.setPrimary(primaryAnnotation != null);
+        return definition;
+    }
+
+    public BeanDefinition addBeanDefinition(String beanName,BeanDefinition definition){
+        return addBeanDefinition(beanName,definition,beanNameMap,beanDefinitionMap);
+    }
+
+    public BeanDefinition addBeanDefinition(String beanName,BeanDefinition definition,
+                                            Map<Class,String[]> beanNameMap,
+                                            Map<String,BeanDefinition> beanDefinitionMap){
+        Class beanClass = definition.getBeanClassIfResolve(resourceLoader);
+        String[] oldBeanNames = beanNameMap.get(beanClass);
+        Set<String> nameSet = oldBeanNames != null? new LinkedHashSet<>(Arrays.asList(oldBeanNames)):new LinkedHashSet<>(1);
+        nameSet.add(beanName);
+
+        beanNameMap.put(beanClass,nameSet.toArray(new String[0]));
+        return beanDefinitionMap.put(beanName,definition);
+    }
+
+    protected int findAutowireType(AnnotatedElement field){
+        int autowireType;
+        Annotation qualifierAnnotation = findDeclaredAnnotation(field, qualifierAnnotations,QUALIFIER_ANNOTATION_CACHE_MAP);
+        if(qualifierAnnotation != null){
+            if("Resource".equals(qualifierAnnotation.annotationType().getSimpleName())){
+                String autowiredBeanName = getAnnotationValue(qualifierAnnotation, "value", String.class);
+                autowireType = (autowiredBeanName == null || autowiredBeanName.isEmpty())?
+                        BeanDefinition.AUTOWIRE_BY_TYPE : BeanDefinition.AUTOWIRE_BY_TYPE;
+            }else {
+                autowireType = BeanDefinition.AUTOWIRE_BY_NAME;
+            }
+        }else {
+            autowireType = BeanDefinition.AUTOWIRE_BY_TYPE;
+        }
+        return autowireType;
+    }
+
+    protected Object initializeBean(String beanName, BeanWrapper beanWrapper, BeanDefinition definition) throws IllegalStateException{
         Object bean = beanWrapper.getWrappedInstance();
         invokeBeanAwareMethods(beanName,bean,definition);
         Object wrappedBean = bean;
@@ -362,7 +536,7 @@ public class ApplicationX {
         return wrappedBean;
     }
 
-    private void invokeBeanAwareMethods(String beanName, Object bean, BeanDefinition definition) throws IllegalStateException{
+    protected void invokeBeanAwareMethods(String beanName, Object bean, BeanDefinition definition) throws IllegalStateException{
         if(bean instanceof Aware){
             if(bean instanceof BeanNameAware){
                 ((BeanNameAware) bean).setBeanName(beanName);
@@ -373,7 +547,7 @@ public class ApplicationX {
         }
     }
 
-    private Object applyBeanBeforeInitialization(String beanName, Object bean) throws IllegalStateException{
+    protected Object applyBeanBeforeInitialization(String beanName, Object bean) throws IllegalStateException{
         Object result = bean;
         for (BeanPostProcessor processor : new ArrayList<>(beanPostProcessors)) {
             Object current;
@@ -405,38 +579,6 @@ public class ApplicationX {
             result = current;
         }
         return result;
-    }
-
-    public BeanDefinition newBeanDefinition(Class beanType){
-        Lazy lazyAnnotation = (Lazy) beanType.getAnnotation(Lazy.class);
-        Scope scopeAnnotation = (Scope) beanType.getAnnotation(Scope.class);
-        Primary primaryAnnotation = (Primary) beanType.getAnnotation(Primary.class);
-
-        BeanDefinition definition = new BeanDefinition();
-        definition.setBeanClass(beanType);
-        definition.setBeanClassName(beanType.getName());
-        definition.setScope(scopeAnnotation == null? BeanDefinition.SCOPE_SINGLETON : scopeAnnotation.value());
-        definition.setLazyInit(lazyAnnotation != null && lazyAnnotation.value());
-        definition.setInitMethodName(findMethodNameByNoArgs(beanType,initMethodAnnotations));
-        definition.setDestroyMethodName(findMethodNameByNoArgs(beanType,destroyMethodAnnotations));
-        definition.setPrimary(primaryAnnotation != null);
-        return definition;
-    }
-
-    public BeanDefinition addBeanDefinition(String beanName,BeanDefinition definition){
-        return addBeanDefinition(beanName,definition,beanNameMap,beanDefinitionMap);
-    }
-
-    public BeanDefinition addBeanDefinition(String beanName,BeanDefinition definition,
-                                            Map<Class,String[]> beanNameMap,
-                                            Map<String,BeanDefinition> beanDefinitionMap){
-        Class beanClass = definition.getBeanClassIfResolve(resourceLoader);
-        String[] oldBeanNames = beanNameMap.get(beanClass);
-        Set<String> nameSet = oldBeanNames != null? new LinkedHashSet<>(Arrays.asList(oldBeanNames)):new LinkedHashSet<>(1);
-        nameSet.add(beanName);
-
-        beanNameMap.put(beanClass,nameSet.toArray(new String[0]));
-        return beanDefinitionMap.put(beanName,definition);
     }
 
     private AbstractBeanFactory getBeanFactory(Class beanType){
@@ -660,23 +802,6 @@ public class ApplicationX {
         }
     }
 
-    protected int findAutowireType(AnnotatedElement field){
-        int autowireType;
-        Annotation qualifierAnnotation = findDeclaredAnnotation(field, qualifierAnnotations,QUALIFIER_ANNOTATION_CACHE_MAP);
-        if(qualifierAnnotation != null){
-            if("Resource".equals(qualifierAnnotation.annotationType().getSimpleName())){
-                String autowiredBeanName = getAnnotationValue(qualifierAnnotation, "value", String.class);
-                autowireType = (autowiredBeanName == null || autowiredBeanName.isEmpty())?
-                        BeanDefinition.AUTOWIRE_BY_TYPE : BeanDefinition.AUTOWIRE_BY_TYPE;
-            }else {
-                autowireType = BeanDefinition.AUTOWIRE_BY_NAME;
-            }
-        }else {
-            autowireType = BeanDefinition.AUTOWIRE_BY_TYPE;
-        }
-        return autowireType;
-    }
-
     /**
      * 参考 org.springframework.beans.factory.annotation.InjectedElement
      * @param <T> 成员
@@ -691,13 +816,6 @@ public class ApplicationX {
         private Class[] requiredClass;
         private String[] requiredName;
         private Boolean required;
-        public InjectElement(T member, ApplicationX applicationX, Annotation autowiredAnnotation, int[] autowireType, Boolean[] requireds) {
-            this.member = member;
-            this.applicationX = applicationX;
-            this.autowiredAnnotation = autowiredAnnotation;
-            this.autowireType = autowireType;
-            this.requireds = requireds;
-        }
 
         public InjectElement(Executable executable, ApplicationX applicationX){
             int parameterCount = executable.getParameterCount();
@@ -786,8 +904,7 @@ public class ApplicationX {
             List<InjectElement<Method>> result = new ArrayList<>();
             eachClass(rootClass, clazz -> {
                 for (Method method : getDeclaredMethods(clazz)) {
-                    if(method.getParameterCount() > 0
-                            && null != findDeclaredAnnotation(method, applicationX.autowiredAnnotations, AUTOWIRED_ANNOTATION_CACHE_MAP)){
+                    if(null != findDeclaredAnnotation(method, applicationX.autowiredAnnotations, AUTOWIRED_ANNOTATION_CACHE_MAP)){
                         result.add(new InjectElement<>(method, applicationX));
                     }
                 }
@@ -817,7 +934,7 @@ public class ApplicationX {
                     }
                     case BeanDefinition.AUTOWIRE_BY_TYPE:
                     default:{
-                        Class autowireClass = requiredType[i] instanceof Class?
+                        Class<?> autowireClass = requiredType[i] instanceof Class?
                                     (Class)requiredType[i] : findConcreteClass(requiredClass[i],targetClass);
                         desc = autowireClass;
                         if(autowireClass == Object.class){
@@ -862,13 +979,16 @@ public class ApplicationX {
             return result == null? parameterGenericClass : result;
         }
 
-        public Object inject(Object target,Class beanClass) throws IllegalStateException{
+        public Object inject(Object target,Class targetClass) throws IllegalStateException{
+            if(targetClass == null){
+                targetClass = target.getClass();
+            }
             if(this.member instanceof Field) {
                 Field field = (Field) this.member;
                 if (Modifier.isFinal(field.getModifiers())) {
                     return null;
                 }
-                Object[] values = getInjectValues(beanClass);
+                Object[] values = getInjectValues(targetClass);
                 try {
                     boolean accessible = field.isAccessible();
                     try {
@@ -882,7 +1002,7 @@ public class ApplicationX {
                 }
             }else if(this.member instanceof Method) {
                 Method method = (Method) this.member;
-                Object[] values = getInjectValues(beanClass);
+                Object[] values = getInjectValues(targetClass);
                 try {
                     boolean accessible = method.isAccessible();
                     try {
@@ -939,15 +1059,15 @@ public class ApplicationX {
     }
 
     private static class DefaultBeanNameGenerator implements Function<BeanDefinition,String>{
+        private final Map<Class,Boolean> scannerAnnotationCacheMap = newConcurrentReferenceMap(32);
         private final ApplicationX applicationX;
-        private final Map<Class,Boolean> scannerAnnotationsCacheMap = newConcurrentReferenceMap(32);
         public DefaultBeanNameGenerator(ApplicationX applicationX) {
             this.applicationX = Objects.requireNonNull(applicationX);
         }
         @Override
         public String apply(BeanDefinition definition) {
             Class beanClass = definition.getBeanClassIfResolve(applicationX.resourceLoader);
-            Annotation annotation = findDeclaredAnnotation(beanClass, applicationX.scannerAnnotations,scannerAnnotationsCacheMap);
+            Annotation annotation = findDeclaredAnnotation(beanClass, applicationX.scannerAnnotations,scannerAnnotationCacheMap);
             String beanName = null;
             if(annotation != null){
                 beanName = getAnnotationValue(annotation,"value",String.class);
@@ -979,13 +1099,41 @@ public class ApplicationX {
             if (bean != null) {
                 return bean;
             }
+            // TODO: 1月29日 029  createBean Prepare method overrides.
+            return doCreateBean(beanName,definition,args);
+        }
+
+        protected Object doCreateBean(String beanName, BeanDefinition definition,Object[] args){
             BeanWrapper beanInstanceWrapper = createBeanInstance(beanName, definition, args);
             Object exposedObject = beanInstanceWrapper.getWrappedInstance();
+            Class<?> beanType = beanInstanceWrapper.getWrappedClass();
+
+            synchronized (definition.postProcessingLock) {
+                if (!definition.postProcessed) {
+                    try {
+                        applyMergedBeanDefinitionPostProcessors(definition, beanType, beanName);
+                    }
+                    catch (Throwable ex) {
+                        throw new IllegalStateException("Post-processing of merged bean definition failed. beanName="+beanName, ex);
+                    }
+                    definition.postProcessed = true;
+                }
+            }
+
             if(isLifecycle(beanName)){
                 populateBean(beanName,definition,beanInstanceWrapper);
                 exposedObject = initializeBean(beanName, beanInstanceWrapper, definition);
             }
             return exposedObject;
+        }
+
+        protected void applyMergedBeanDefinitionPostProcessors(BeanDefinition mbd, Class<?> beanType, String beanName) {
+            for (BeanPostProcessor bp : new ArrayList<>(beanPostProcessors)) {
+                if (bp instanceof MergedBeanDefinitionPostProcessor) {
+                    MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
+                    bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
+                }
+            }
         }
 
         protected Object resolveBeforeInstantiation(String beanName, BeanDefinition mbd) {
@@ -1303,6 +1451,7 @@ public class ApplicationX {
         public static final int DEPENDENCY_CHECK_SIMPLE = 2;
         public static final int DEPENDENCY_CHECK_ALL = 3;
         final Object postProcessingLock = new Object();
+        private boolean postProcessed = false;
 
         private int dependencyCheck = DEPENDENCY_CHECK_NONE;
         private final Map<String, Object> attributes = new LinkedHashMap<>();
@@ -1480,6 +1629,12 @@ public class ApplicationX {
             return bean;
         }
     }
+    public interface MergedBeanDefinitionPostProcessor extends BeanPostProcessor {
+        default void postProcessMergedBeanDefinition(BeanDefinition beanDefinition, Class<?> beanType, String beanName){}
+
+        default void resetBeanDefinition(String beanName) {
+        }
+    }
 
     public interface SmartInstantiationAwareBeanPostProcessor extends InstantiationAwareBeanPostProcessor {
         default Class<?> predictBeanType(Class<?> beanClass, String beanName) throws RuntimeException {
@@ -1535,7 +1690,6 @@ public class ApplicationX {
          * @return The value of the property.  Primitive types such as "int" will
          * be wrapped as the corresponding object type such as "java.lang.Integer".
          */
-
         Object getValue();
     }
 
@@ -1634,7 +1788,7 @@ public class ApplicationX {
     }
 
     @Order(Integer.MIN_VALUE + 20)
-    public static class AutowiredConstructorPostProcessor implements SmartInstantiationAwareBeanPostProcessor{
+    public static class AutowiredConstructorPostProcessor implements SmartInstantiationAwareBeanPostProcessor,MergedBeanDefinitionPostProcessor{
         private static final Constructor[] EMPTY = {};
         //如果字段参数注入缺少参数, 是否抛出异常
         private boolean defaultInjectRequiredField = true;
@@ -1642,8 +1796,20 @@ public class ApplicationX {
         private boolean defaultInjectRequiredMethod = true;
         private final ApplicationX applicationX;
         public AutowiredConstructorPostProcessor(ApplicationX applicationX) {
-            this.applicationX = applicationX;
+            this.applicationX = Objects.requireNonNull(applicationX);
         }
+        @Override
+        public void postProcessMergedBeanDefinition(BeanDefinition definition, Class<?> beanType, String beanName) {
+            eachClass(beanType, clazz -> {
+                for (Method method : getDeclaredMethods(clazz)) {
+                    Annotation factoryMethodAnnotation = findDeclaredAnnotation(method, applicationX.factoryMethodAnnotations, FACTORY_METHOD_ANNOTATION_CACHE_MAP);
+                    if(factoryMethodAnnotation != null) {
+                        addBeanDefinition(method,factoryMethodAnnotation,beanName,beanType);
+                    }
+                }
+            });
+        }
+
         @Override
         public Constructor<?>[] determineCandidateConstructors(Class<?> beanClass, String beanName) throws RuntimeException {
             List<Constructor<?>> list = new LinkedList<>();
@@ -1671,6 +1837,14 @@ public class ApplicationX {
         public boolean postProcessAfterInstantiation(Object bean, String beanName) throws RuntimeException {
             BeanDefinition definition = applicationX.getBeanDefinition(beanName);
             Class beanClass = definition.getBeanClassIfResolve(applicationX.getResourceLoader());
+            if(isAbstract(beanClass)){
+                beanClass = bean.getClass();
+            }
+            inject(bean,beanClass);
+            return true;
+        }
+
+        private void inject(Object bean,Class beanClass){
             List<InjectElement<Field>> declaredFields = InjectElement.getInjectFields(beanClass,applicationX);
             List<InjectElement<Method>> declaredMethods = InjectElement.getInjectMethods(beanClass,applicationX);
             for (InjectElement<Field> element : declaredFields) {
@@ -1685,10 +1859,40 @@ public class ApplicationX {
                 }
                 element.inject(bean,beanClass);
             }
-            return true;
+        }
+
+        private void addBeanDefinition(Method method, Annotation factoryMethodAnnotation, String factoryBeanName, Class<?> factoryBeanClass){
+            String[] beanNames = getAnnotationValue(factoryMethodAnnotation, "value", String[].class);
+            LinkedList<String> beanNameList = new LinkedList<>(beanNames == null || beanNames.length == 0?
+                    Arrays.asList(method.getName()):Arrays.asList(beanNames));
+            String beanName = beanNameList.pollFirst();
+
+            BeanDefinition definition = applicationX.newBeanDefinition(method.getReturnType(),method);
+            InjectElement<Method> element = new InjectElement<>(method, applicationX);
+            definition.setBeanSupplier(()->{
+                Object bean = element.applicationX.getBean(factoryBeanName);
+                return element.inject(bean,factoryBeanClass);
+            });
+
+            applicationX.addBeanDefinition(beanName,definition);
+            for (String alias : beanNameList) {
+                applicationX.registerAlias(beanName, alias);
+            }
         }
     }
 
+    @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE})
+    @Retention(RetentionPolicy.RUNTIME)
+    @Documented
+    public @interface Bean {
+        /**
+         * The name of this bean, or if several names, a primary bean name plus aliases.
+         * <p>If left unspecified, the name of the bean is the name of the annotated method.
+         * If specified, the method name is ignored.
+         * @return String[]
+         */
+        String[] value() default {};
+    }
     @Target(TYPE)
     @Retention(RetentionPolicy.RUNTIME)
     @Documented
@@ -1733,13 +1937,13 @@ public class ApplicationX {
     @Target(METHOD)
     public @interface PreDestroy {}
 
-    @Target({TYPE})
+    @Target({TYPE,METHOD})
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Scope {
         String value() default BeanDefinition.SCOPE_SINGLETON;
     }
 
-    @Target({TYPE})
+    @Target({TYPE,METHOD})
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Lazy {
         boolean value() default true;
@@ -1957,12 +2161,14 @@ public class ApplicationX {
             String beanName = entry.getKey();
             BeanDefinition definition = entry.getValue();
             try {
-                Object bean = getBean(beanName, null, false);
-                if(bean == null){
-                    continue;
+                if(containsInstance(beanName)){
+                    Object bean = getBean(beanName, null, false);
+                    if(bean == null){
+                        continue;
+                    }
+                    invokeBeanDestroy(beanName,bean,definition);
                 }
-                invokeBeanDestroy(beanName,bean,definition);
-            }catch (RuntimeException e){
+            }catch (Exception e){
                 //skip
             }
         }
@@ -2010,7 +2216,7 @@ public class ApplicationX {
         }
     }
 
-    public String[] getBeanNamesForType(){
+    public String[] getBeanNames(){
         return beanDefinitionMap.keySet().toArray(new String[0]);
     }
 
@@ -2036,6 +2242,10 @@ public class ApplicationX {
 
     public Collection<Class<? extends Annotation>> getOrderedAnnotations() {
         return orderedAnnotations;
+    }
+
+    public Collection<Class<? extends Annotation>> getFactoryMethodAnnotations() {
+        return factoryMethodAnnotations;
     }
 
     public Collection<BeanPostProcessor> getBeanPostProcessors() {
@@ -2127,7 +2337,7 @@ public class ApplicationX {
 
     private static Method[] getDeclaredMethods(Class<?> clazz) {
         Objects.requireNonNull(clazz);
-        Method[] result = DECLARED_METHODS_CACHE.get(clazz);
+        Method[] result = DECLARED_METHODS_CACHE_MAP.get(clazz);
         if (result == null) {
             try {
                 Method[] declaredMethods = clazz.getDeclaredMethods();
@@ -2143,7 +2353,7 @@ public class ApplicationX {
                 }else {
                     result = declaredMethods;
                 }
-                DECLARED_METHODS_CACHE.put(clazz, (result.length == 0 ? EMPTY_METHOD_ARRAY : result));
+                DECLARED_METHODS_CACHE_MAP.put(clazz, (result.length == 0 ? EMPTY_METHOD_ARRAY : result));
             }
             catch (Throwable ex) {
                 throw new IllegalStateException("Failed to introspect Class [" + clazz.getName() +
@@ -2180,8 +2390,7 @@ public class ApplicationX {
             }
         }
     }
-    private static <T>Constructor<T> getAnyConstructor(Class<?>[] parameterTypes,
-                                                       String... referenceMaps){
+    private static <T>Constructor<T> getAnyConstructor(Class<?>[] parameterTypes,String... referenceMaps){
         for (String s : referenceMaps) {
             try {
                 Class<T> aClass = (Class<T>) Class.forName(s);

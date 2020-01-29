@@ -202,7 +202,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        nettyPropertiesSupplier.get().getApplication().addInstance(beanName, bean, false);
+        nettyPropertiesSupplier.get().getApplication().addInstance(bean, beanName, false);
         return bean;
     }
 }

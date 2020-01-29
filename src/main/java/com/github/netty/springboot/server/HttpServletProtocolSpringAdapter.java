@@ -45,7 +45,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        application.addInstance(beanName,bean,false);
+        application.addInstance(bean,beanName,false);
         return bean;
     }
 
@@ -72,7 +72,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         application.addInstance(servletContext);
         application.addInstance(servletContext.getSessionService());
 
-        application.scanner("com.github.netty");
+        application.scanner("com.github.netty").inject();
     }
 
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
