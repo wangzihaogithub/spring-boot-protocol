@@ -43,7 +43,7 @@ public class ApplicationX {
     private static final Map<Class,Boolean> QUALIFIER_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(128);
     private static final Map<Class,Boolean> FACTORY_METHOD_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(32);
     private static final Map<Class,PropertyDescriptor[]> PROPERTY_DESCRIPTOR_CACHE_MAP = newConcurrentReferenceMap(128);
-    private static final Map<Class, Method[]> DECLARED_METHODS_CACHE_MAP = newConcurrentReferenceMap(128);
+    private static final Map<Class,Method[]> DECLARED_METHODS_CACHE_MAP = newConcurrentReferenceMap(128);
 
     private Supplier<ClassLoader> resourceLoader;
     private Function<BeanDefinition,String> beanNameGenerator = new DefaultBeanNameGenerator(this);
@@ -513,10 +513,10 @@ public class ApplicationX {
         int autowireType;
         Annotation qualifierAnnotation = findDeclaredAnnotation(field, qualifierAnnotations,QUALIFIER_ANNOTATION_CACHE_MAP);
         if(qualifierAnnotation != null){
-            if("Resource".equals(qualifierAnnotation.annotationType().getSimpleName())){
-                String autowiredBeanName = getAnnotationValue(qualifierAnnotation, "value", String.class);
+            if(Objects.equals(Resource.class.getSimpleName(),qualifierAnnotation.annotationType().getSimpleName())){
+                String autowiredBeanName = getAnnotationValue(qualifierAnnotation, "name", String.class);
                 autowireType = (autowiredBeanName == null || autowiredBeanName.isEmpty())?
-                        BeanDefinition.AUTOWIRE_BY_TYPE : BeanDefinition.AUTOWIRE_BY_TYPE;
+                        BeanDefinition.AUTOWIRE_BY_TYPE : BeanDefinition.AUTOWIRE_BY_NAME;
             }else {
                 autowireType = BeanDefinition.AUTOWIRE_BY_NAME;
             }
@@ -650,7 +650,6 @@ public class ApplicationX {
 //            //
 //        }
 //    }
-
     @Override
     public String toString() {
         return scanner.getRootPackages() +" @ size = " + beanDefinitionMap.size();
@@ -684,7 +683,6 @@ public class ApplicationX {
             } else {
                 names = readFromDirectory(filePath);
             }
-
             for (String name : names) {
                 if (isClassFile(name)) {
                     String className = toClassName(buffer, name, basePackage);
@@ -716,9 +714,7 @@ public class ApplicationX {
             if(shortName.contains(basePackage)) {
                 buffer.append(shortName);
             } else {
-                buffer.append(basePackage);
-                buffer.append('.');
-                buffer.append(shortName);
+                buffer.append(basePackage).append('.').append(shortName);
             }
             return buffer.toString();
         }
@@ -729,7 +725,7 @@ public class ApplicationX {
             JarInputStream jarIn = new JarInputStream(new FileInputStream(jarPath));
             JarEntry entry = jarIn.getNextJarEntry();
 
-            List<String> nameList = new ArrayList<String>();
+            List<String> nameList = new ArrayList<>();
             while (null != entry) {
                 String name = entry.getName();
                 if (name.startsWith(splashedPackageName) && isClassFile(name)) {
@@ -807,6 +803,7 @@ public class ApplicationX {
      * @param <T> 成员
      */
     public static class InjectElement<T extends Member>{
+        private static final String[] QUALIFIER_FIELDS = new String[]{"value","name"};
         private final T member;
         private final ApplicationX applicationX;
         private final Annotation autowiredAnnotation;
@@ -842,7 +839,7 @@ public class ApplicationX {
                     case BeanDefinition.AUTOWIRE_BY_NAME:{
                         Annotation qualifierAnnotation = findDeclaredAnnotation(parameter, applicationX.qualifierAnnotations, QUALIFIER_ANNOTATION_CACHE_MAP);
                         String autowiredBeanName = qualifierAnnotation != null?
-                                getAnnotationValue(qualifierAnnotation, "value", String.class) : parameter.getName();
+                                getQualifierAnnotationValue(qualifierAnnotation) : parameter.getName();
                         this.requiredName[i] = autowiredBeanName;
                         break;
                     }
@@ -873,7 +870,7 @@ public class ApplicationX {
                 case BeanDefinition.AUTOWIRE_BY_NAME:{
                     Annotation qualifierAnnotation = findDeclaredAnnotation(field, applicationX.qualifierAnnotations, QUALIFIER_ANNOTATION_CACHE_MAP);
                     String autowiredBeanName = qualifierAnnotation != null?
-                            getAnnotationValue(qualifierAnnotation, "value", String.class) : field.getName();
+                            getQualifierAnnotationValue(qualifierAnnotation) : field.getName();
                     this.requiredName = new String[]{autowiredBeanName};
                     break;
                 }
@@ -885,6 +882,10 @@ public class ApplicationX {
                 this.required = getAnnotationValue(this.autowiredAnnotation, "required", Boolean.class);
             }
             this.requireds = new Boolean[]{this.required};
+        }
+
+        private static String getQualifierAnnotationValue(Annotation qualifierAnnotation){
+            return getAnnotationValue(qualifierAnnotation, QUALIFIER_FIELDS, String.class);
         }
 
         public static List<InjectElement<Field>> getInjectFields(Class rootClass, ApplicationX applicationX){
@@ -1189,8 +1190,7 @@ public class ApplicationX {
             return bw;
         }
 
-        protected BeanWrapper autowireConstructor(
-                String beanName, BeanDefinition mbd, Constructor<?>[] ctors, Object[] explicitArgs) throws IllegalStateException{
+        protected BeanWrapper autowireConstructor(String beanName, BeanDefinition mbd, Constructor<?>[] ctors, Object[] explicitArgs) throws IllegalStateException{
             for (Constructor<?> constructor : ctors) {
                 InjectElement<Constructor<?>> element = new InjectElement<>(constructor, ApplicationX.this);
                 try {
@@ -1244,7 +1244,6 @@ public class ApplicationX {
             if (!continueWithPropertyPopulation) {
                 return;
             }
-
             PropertyValues pvs = definition.getPropertyValues();
             if(definition.getAutowireMode() == BeanDefinition.AUTOWIRE_BY_NAME
                     || definition.getAutowireMode() == BeanDefinition.AUTOWIRE_BY_TYPE) {
@@ -1352,6 +1351,16 @@ public class ApplicationX {
         private void autowireByName(String beanName,BeanDefinition definition,BeanWrapper beanInstanceWrapper,PropertyValues pvs){
 
         }
+    }
+
+    private static <T>T getAnnotationValue(Annotation annotation,String[] fieldNames,Class<T> type){
+        for (String fieldName : fieldNames) {
+            T value = getAnnotationValue(annotation,fieldName,type);
+            if(value != null){
+                return value;
+            }
+        }
+        return null;
     }
 
     private static <T>T getAnnotationValue(Annotation annotation,String fieldName,Class<T> type){
@@ -1923,7 +1932,7 @@ public class ApplicationX {
     @Target({TYPE, FIELD})
     @Retention(RetentionPolicy.RUNTIME)
     public @interface Resource {
-        String value() default "";
+        String name() default "";
         Class<?> type() default Object.class;
     }
 
