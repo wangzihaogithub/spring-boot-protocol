@@ -3,7 +3,6 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
-import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.UrlMapper;
 import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
 import io.netty.handler.codec.http.multipart.DiskAttribute;
@@ -79,7 +78,6 @@ public class ServletContext implements javax.servlet.ServletContext {
     private ClassLoader classLoader;
 
     public ServletContext(ClassLoader classLoader) {
-        ServletUtil.class.getClassLoader();//init server.properties
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
     }
 
@@ -366,13 +364,13 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getServerInfo() {
-        return ServletUtil.getServerInfo()
+        return ServerInfo.getServerInfo()
                 .concat("(JDK ")
-                .concat(ServletUtil.getJvmVersion())
+                .concat(ServerInfo.getJvmVersion())
                 .concat(";")
-                .concat(ServletUtil.getOsName())
+                .concat(ServerInfo.getOsName())
                 .concat(" ")
-                .concat(ServletUtil.getArch())
+                .concat(ServerInfo.getArch())
                 .concat(")");
     }
 
@@ -642,7 +640,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getVirtualServerName() {
-        return ServletUtil.getServerInfo()
+        return ServerInfo.getServerInfo()
         .concat(" (")
         .concat(serverAddress.getHostName())
         .concat(":")

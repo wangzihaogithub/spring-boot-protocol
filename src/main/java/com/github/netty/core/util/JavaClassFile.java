@@ -31,6 +31,7 @@ import java.util.*;
  * }
  *
  * class文件结构.官方文档 https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html
+ * 参考文件 com.sun.org.apache.bcel.internal.classfile.ClassParser
  * @author wangzihao
  */
 public class JavaClassFile {

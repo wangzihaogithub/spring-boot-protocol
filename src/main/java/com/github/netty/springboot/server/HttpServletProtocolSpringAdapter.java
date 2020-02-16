@@ -11,14 +11,12 @@ import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.server.*;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ResourceUtils;
 
-import javax.annotation.Resource;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import java.net.InetSocketAddress;
@@ -47,7 +45,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        application.addInstance(beanName,bean,false);
+        application.addInstance(bean,beanName,false);
         return bean;
     }
 
@@ -70,12 +68,11 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         super.onServerStart();
 
         //Injection into the spring object
-        application.addInjectAnnotation(Autowired.class, Resource.class);
         ServletContext servletContext = getServletContext();
         application.addInstance(servletContext);
         application.addInstance(servletContext.getSessionService());
 
-        application.scanner("com.github.netty").inject();
+//        application.scanner("com.github.netty").inject();
     }
 
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {

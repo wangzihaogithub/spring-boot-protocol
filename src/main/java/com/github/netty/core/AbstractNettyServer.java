@@ -8,6 +8,7 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.unix.UnixChannelOption;
 import io.netty.util.concurrent.Future;
@@ -24,6 +25,7 @@ public abstract class AbstractNettyServer implements Runnable{
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String name;
 
+    private ServerSocketChannel serverChannel;
     private EventLoopGroup boss;
     private EventLoopGroup worker;
     private InetSocketAddress serverAddress;
@@ -128,22 +130,32 @@ public abstract class AbstractNettyServer implements Runnable{
                     .channelFactory(channelFactory)
                     .childHandler(workerChannelHandler);
 	        config(bootstrap);
-            bootstrap.bind(serverAddress).addListener((ChannelFutureListener) this::startAfter);
-            running = true;
+            ChannelFuture channelFuture = bootstrap.bind(serverAddress).addListener((ChannelFutureListener) this::startAfter);
+            this.serverChannel = (ServerSocketChannel) channelFuture.channel();
+            this.running = true;
         } catch (Throwable throwable) {
             logger.error("server run fail. cause={}",throwable.toString(),throwable);
         }
     }
 
     public void stop() {
-        if (boss == null) {
+        if(serverChannel == null){
             return;
         }
-        boss.shutdownGracefully().addListener((future)->{
-            if (worker != null) {
-                worker.shutdownGracefully().addListener(this::stopAfter);
+        serverChannel.close().addListener((ChannelFutureListener) closeFuture -> {
+            if (boss == null) {
+                return;
             }
+            boss.shutdownGracefully().addListener((bossFuture)->{
+                if (worker != null) {
+                    worker.shutdownGracefully().addListener(this::stopAfter);
+                }
+            });
         });
+    }
+
+    public ServerSocketChannel getServerChannel() {
+        return serverChannel;
     }
 
     public String getName() {

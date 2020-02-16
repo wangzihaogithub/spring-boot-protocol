@@ -20,9 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TcpChannel {
     private static final Map<ChannelId,TcpChannel> CHANNELS = new ConcurrentHashMap<>(32);
-    private Channel channel;
-    private ProtocolHandler protocol;
-    private DynamicProtocolChannelHandler channelHandler;
+    private final Channel channel;
+    private final ProtocolHandler protocol;
+    private final DynamicProtocolChannelHandler channelHandler;
 
     public TcpChannel(Channel channel, ProtocolHandler protocol,DynamicProtocolChannelHandler channelHandler) {
         this.channel = channel;
