@@ -6,6 +6,7 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.HostUtil;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
+import com.github.netty.protocol.TcpChannel;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -71,6 +72,9 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
 
         try{
             super.stop();
+            for (TcpChannel tcpChannel : TcpChannel.getChannels().values()) {
+                tcpChannel.close();
+            }
         } catch (Exception e) {
             throw new WebServerException(e.getMessage(),e);
         }

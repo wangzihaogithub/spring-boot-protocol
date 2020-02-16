@@ -1021,7 +1021,7 @@ public class ApplicationX {
          * @param target 需要注入的实例
          * @param targetClass 需要注入的原始类型,用于查找泛型
          * @return 如果是方法,则返回方法返回值. 如果是构造器,返回实例. 如果是字段返回null
-         * @throws IllegalStateException
+         * @throws IllegalStateException 注入异常
          */
         public Object inject(Object target,Class targetClass) throws IllegalStateException{
             if(targetClass == null){

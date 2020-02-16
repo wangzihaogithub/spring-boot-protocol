@@ -72,7 +72,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         application.addInstance(servletContext);
         application.addInstance(servletContext.getSessionService());
 
-        application.scanner("com.github.netty").inject();
+//        application.scanner("com.github.netty").inject();
     }
 
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {

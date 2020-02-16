@@ -13,7 +13,7 @@ import java.util.*;
  * @param <K> the key type
  * @param <V> the value element type
  */
-public class LinkedMultiValueMap<K, V> implements Serializable, Cloneable {
+public class LinkedMultiValueMap<K, V> implements Map<K,List<V>>,Serializable, Cloneable {
 
 	private static final long serialVersionUID = 3801124242820219131L;
 
@@ -37,8 +37,8 @@ public class LinkedMultiValueMap<K, V> implements Serializable, Cloneable {
 	}
 
 
-	public LinkedMultiValueMap(Map<K, List<V>> otherMap) {
-		this.targetMap = new LinkedHashMap<>(otherMap);
+	public LinkedMultiValueMap(Map<K, List<V>> targetMap) {
+		this.targetMap = Objects.requireNonNull(targetMap);
 	}
 
 
@@ -80,65 +80,62 @@ public class LinkedMultiValueMap<K, V> implements Serializable, Cloneable {
 
 	// Map implementation
 
-	 
+	@Override
 	public int size() {
 		return this.targetMap.size();
 	}
 
-	 
+	@Override
 	public boolean isEmpty() {
 		return this.targetMap.isEmpty();
 	}
 
-	 
+	@Override
 	public boolean containsKey(Object key) {
 		return this.targetMap.containsKey(key);
 	}
 
-	 
+	@Override
 	public boolean containsValue(Object value) {
 		return this.targetMap.containsValue(value);
 	}
 
-	 
-	 
+	@Override
 	public List<V> get(Object key) {
 		return this.targetMap.get(key);
 	}
 
-	 
-	 
+	@Override
 	public List<V> put(K key, List<V> value) {
 		return this.targetMap.put(key, value);
 	}
 
-	 
-	 
+	@Override
 	public List<V> remove(Object key) {
 		return this.targetMap.remove(key);
 	}
 
-	 
+	@Override
 	public void putAll(Map<? extends K, ? extends List<V>> map) {
 		this.targetMap.putAll(map);
 	}
 
-	 
+	@Override
 	public void clear() {
 		this.targetMap.clear();
 	}
 
-	 
+	@Override
 	public Set<K> keySet() {
 		return this.targetMap.keySet();
 	}
 
-	 
+	@Override
 	public Collection<List<V>> values() {
 		return this.targetMap.values();
 	}
 
-	 
+	@Override
 	public Set<Map.Entry<K, List<V>>> entrySet() {
 		return this.targetMap.entrySet();
 	}
