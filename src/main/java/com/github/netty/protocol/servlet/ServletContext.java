@@ -577,29 +577,37 @@ public class ServletContext implements javax.servlet.ServletContext {
     public <T extends EventListener> void addListener(T listener) {
         Objects.requireNonNull(listener);
 
+        boolean addFlag = false;
         ServletEventListenerManager listenerManager = getServletEventListenerManager();
         if(listener instanceof ServletContextAttributeListener){
             listenerManager.addServletContextAttributeListener((ServletContextAttributeListener) listener);
-
-        }else if(listener instanceof ServletRequestListener){
+            addFlag = true;
+        }
+        if(listener instanceof ServletRequestListener){
             listenerManager.addServletRequestListener((ServletRequestListener) listener);
-
-        }else if(listener instanceof ServletRequestAttributeListener){
+            addFlag = true;
+        }
+        if(listener instanceof ServletRequestAttributeListener){
             listenerManager.addServletRequestAttributeListener((ServletRequestAttributeListener) listener);
-
-        }else if(listener instanceof HttpSessionIdListener){
+            addFlag = true;
+        }
+        if(listener instanceof HttpSessionIdListener){
             listenerManager.addHttpSessionIdListenerListener((HttpSessionIdListener) listener);
-
-        }else if(listener instanceof HttpSessionAttributeListener){
+            addFlag = true;
+        }
+        if(listener instanceof HttpSessionAttributeListener){
             listenerManager.addHttpSessionAttributeListener((HttpSessionAttributeListener) listener);
-
-        }else if(listener instanceof HttpSessionListener){
+            addFlag = true;
+        }
+        if(listener instanceof HttpSessionListener){
             listenerManager.addHttpSessionListener((HttpSessionListener) listener);
-
-        }else if(listener instanceof ServletContextListener){
+            addFlag = true;
+        }
+        if(listener instanceof ServletContextListener){
             listenerManager.addServletContextListener((ServletContextListener) listener);
-
-        }else {
+            addFlag = true;
+        }
+        if(!addFlag){
             throw new IllegalArgumentException("applicationContext.addListener.iae.wrongType"+
                     listener.getClass().getName());
         }
