@@ -5,6 +5,7 @@ import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 import java.io.File;
 import java.io.Serializable;
@@ -60,19 +61,29 @@ public class NettyProperties implements Serializable{
     /**
      * HTTP协议(Servlet实现)
      */
+    @NestedConfigurationProperty
     private final HttpServlet httpServlet = new HttpServlet();
     /**
      * NRPC协议
      */
+    @NestedConfigurationProperty
     private final Nrpc nrpc = new Nrpc();
     /**
      * MQTT协议
      */
+    @NestedConfigurationProperty
     private final Mqtt mqtt = new Mqtt();
     /**
      * RTSP协议
      */
+    @NestedConfigurationProperty
     private final Rtsp rtsp = new Rtsp();
+
+    /**
+     * MYSQL代理协议
+     */
+    @NestedConfigurationProperty
+    private final Mysql mysql = new Mysql();
 
     /**
      * 全局对象(类似spring容器)
@@ -163,6 +174,10 @@ public class NettyProperties implements Serializable{
 
     public HttpServlet getHttpServlet() {
         return httpServlet;
+    }
+
+    public Mysql getMysql() {
+        return mysql;
     }
 
     public static class HttpServlet{
@@ -426,5 +441,50 @@ public class NettyProperties implements Serializable{
 
     public static class Rtsp{
 
+    }
+
+    public static class Mysql{
+        /**
+         * 是否开启MYSQL代理协议
+         */
+        private boolean enabled = false;
+        /**
+         * 包最大长度(字节)
+         */
+        private int packetMaxLength = 16777216;
+        private String mysqlHost = "localhost";
+        private int mysqlPort = 3306;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getPacketMaxLength() {
+            return packetMaxLength;
+        }
+
+        public void setPacketMaxLength(int packetMaxLength) {
+            this.packetMaxLength = packetMaxLength;
+        }
+
+        public String getMysqlHost() {
+            return mysqlHost;
+        }
+
+        public void setMysqlHost(String mysqlHost) {
+            this.mysqlHost = mysqlHost;
+        }
+
+        public int getMysqlPort() {
+            return mysqlPort;
+        }
+
+        public void setMysqlPort(int mysqlPort) {
+            this.mysqlPort = mysqlPort;
+        }
     }
 }

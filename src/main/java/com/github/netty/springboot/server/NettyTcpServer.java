@@ -4,6 +4,7 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.HostUtil;
+import com.github.netty.core.util.ServerInfo;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.TcpChannel;
@@ -88,8 +89,9 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             PlatformDependent.throwException(cause);
         }
 
-        logger.info("{} start (port = {}, pid = {}, protocol = {}, os = {}) ...",
+        logger.info("{} start (version = {}, port = {}, pid = {}, protocol = {}, os = {}) ...",
                 getName(),
+                ServerInfo.getServerNumber(),
                 getPort()+"",
                 HostUtil.getPid()+"",
                 protocolHandlers,
@@ -106,7 +108,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         }
         bootstrap.childOption(ChannelOption.TCP_NODELAY, properties.isTcpNodelay());
         for (ServerListener serverListener : serverListeners) {
-            serverListener.conifg(bootstrap);
+            serverListener.config(bootstrap);
         }
     }
 

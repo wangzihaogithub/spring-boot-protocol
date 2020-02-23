@@ -2,10 +2,7 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
-import com.github.netty.protocol.DynamicProtocolChannelHandler;
-import com.github.netty.protocol.HttpServletProtocol;
-import com.github.netty.protocol.MqttProtocol;
-import com.github.netty.protocol.NRpcProtocol;
+import com.github.netty.protocol.*;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -17,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 
+import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
@@ -105,6 +103,21 @@ public class NettyEmbeddedAutoConfiguration {
     public MqttProtocol mqttProtocol(){
         NettyProperties.Mqtt mqtt = nettyProperties.getMqtt();
         return new MqttProtocol(mqtt.getMessageMaxLength(),mqtt.getNettyReaderIdleTimeSeconds(),mqtt.getAutoFlushIdleTime());
+    }
+
+    /**
+     * Add the MYSQL protocol registry
+     * @return MysqlServerProtocol
+     */
+    @Bean("mysqlServerProtocol")
+    @ConditionalOnMissingBean(MysqlServerProtocol.class)
+    @ConditionalOnProperty(prefix = "server.netty.mysql", name = "enabled", matchIfMissing = false)
+    public MysqlServerProtocol mysqlServerProtocol(){
+        NettyProperties.Mysql mysql = nettyProperties.getMysql();
+        MysqlServerProtocol protocol = new MysqlServerProtocol();
+        protocol.setMaxPacketSize(mysql.getPacketMaxLength());
+        protocol.setMysqlAddress(new InetSocketAddress(mysql.getMysqlHost(), mysql.getMysqlPort()));
+        return protocol;
     }
 
 }

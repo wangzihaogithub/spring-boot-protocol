@@ -18,7 +18,7 @@ public interface ProtocolHandler extends Ordered{
 
     /**
      * Support protocol
-     * @param msg This message
+     * @param msg client first message
      * @return true=Support, false=no Support
      */
     boolean canSupport(ByteBuf msg);
