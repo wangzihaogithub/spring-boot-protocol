@@ -49,7 +49,7 @@ public class ServerConnectionDecoder extends AbstractPacketDecoder implements Se
 				// TODO Decode auth more data packet: https://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::AuthMoreData
 				throw new UnsupportedOperationException("Implement auth more data");
 			default:
-				decodeHandshake(packet, out, header);
+				decodeHandshake(packet,sequenceId, out, header);
 		}
 	}
 
@@ -58,13 +58,14 @@ public class ServerConnectionDecoder extends AbstractPacketDecoder implements Se
 		throw new UnsupportedOperationException("Implement decodeAuthSwitchRequest decode.");
 	}
 
-	private void decodeHandshake(ByteBuf packet, List<Object> out, int protocolVersion) {
+	private void decodeHandshake(ByteBuf packet, int sequenceId,List<Object> out, int protocolVersion) {
 		if (protocolVersion < MINIMUM_SUPPORTED_PROTOCOL_VERSION) {
 			throw new CodecException("Unsupported version of MySQL");
 		}
 
 		final ServerHandshakePacket.Builder builder = ServerHandshakePacket.builder();
 		builder
+				.sequenceId(sequenceId)
 				.protocolVersion(protocolVersion)
 				.serverVersion(CodecUtils.readNullTerminatedString(packet))
 				.connectionId(packet.readIntLE())

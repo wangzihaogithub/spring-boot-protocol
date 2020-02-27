@@ -28,6 +28,7 @@ import java.util.*;
 public class ClientHandshakePacket extends DefaultByteBufHolder implements ClientPacket {
 
 	private final Set<CapabilityFlags> capabilityFlags = EnumSet.noneOf(CapabilityFlags.class);
+	private final int sequenceId;
 	private final int maxPacketSize;
 	private final MysqlCharacterSet characterSet;
 	private final String username;
@@ -38,6 +39,7 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 	private ClientHandshakePacket(Builder builder) {
 		super(builder.authPluginData);
 		this.capabilityFlags.addAll(builder.capabilities);
+		this.sequenceId = builder.sequenceId;
 		this.maxPacketSize = builder.maxPacketSize;
 		this.characterSet = builder.characterSet;
 		this.username = builder.username;
@@ -94,17 +96,25 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 
 	@Override
 	public int getSequenceId() {
-		return 1;
+		return sequenceId;
 	}
-
+	@Override
+	public String toString() {
+		return "sequenceId="+getSequenceId()+","+getClass().getSimpleName();
+	}
 	public static class Builder extends AbstractAuthPluginDataBuilder<Builder> {
 		private int maxPacketSize = Constants.DEFAULT_MAX_PACKET_SIZE;
+		private int sequenceId;
 		private MysqlCharacterSet characterSet = MysqlCharacterSet.DEFAULT;
 		private String username;
 		private String database;
 		private String authPluginName;
 		private Map<String, String> attributes = new HashMap<String, String>();
 
+		public Builder sequenceId(int sequenceId) {
+			this.sequenceId = sequenceId;
+			return this;
+		}
 		public Builder maxPacketSize(int maxPacketSize) {
 			this.maxPacketSize = maxPacketSize;
 			return this;

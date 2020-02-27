@@ -123,6 +123,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         if(properties.isEnableTcpPackageLog()){
             handler.enableTcpPackageLog(properties.getTcpPackageLogLevel());
         }
+        handler.setFirstClientPacketReadTimeoutMs(properties.getFirstClientPacketReadTimeoutMs());
         handler.setMaxConnections(properties.getMaxConnections());
         handler.setProtocolHandlers(protocolHandlers);
         return handler;

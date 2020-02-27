@@ -3,6 +3,8 @@ package com.github.netty.springboot.server;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.protocol.*;
+import com.github.netty.protocol.mysql.client.MysqlClientBusinessHandler;
+import com.github.netty.protocol.mysql.server.MysqlServerBusinessHandler;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
@@ -107,14 +109,23 @@ public class NettyEmbeddedAutoConfiguration {
 
     /**
      * Add the MYSQL protocol registry
+     * @param factory BeanFactory
      * @return MysqlServerProtocol
      */
     @Bean("mysqlServerProtocol")
-    @ConditionalOnMissingBean(MysqlServerProtocol.class)
+    @ConditionalOnMissingBean(MysqlProtocol.class)
     @ConditionalOnProperty(prefix = "server.netty.mysql", name = "enabled", matchIfMissing = false)
-    public MysqlServerProtocol mysqlServerProtocol(){
+    public MysqlProtocol mysqlServerProtocol(BeanFactory factory){
         NettyProperties.Mysql mysql = nettyProperties.getMysql();
-        MysqlServerProtocol protocol = new MysqlServerProtocol();
+        Class<? extends MysqlClientBusinessHandler> clientBusinessHandler = mysql.getClientBusinessHandler();
+        Class<? extends MysqlServerBusinessHandler> serverBusinessHandler = mysql.getServerBusinessHandler();
+
+        Supplier<MysqlClientBusinessHandler> clientSupplier = clientBusinessHandler == MysqlClientBusinessHandler.class?
+                MysqlClientBusinessHandler::new : ()-> factory.getBean(clientBusinessHandler);
+        Supplier<MysqlServerBusinessHandler> serverSupplier = serverBusinessHandler == MysqlServerBusinessHandler.class?
+                MysqlServerBusinessHandler::new : ()-> factory.getBean(serverBusinessHandler);
+
+        MysqlProtocol protocol = new MysqlProtocol(serverSupplier,clientSupplier);
         protocol.setMaxPacketSize(mysql.getPacketMaxLength());
         protocol.setMysqlAddress(new InetSocketAddress(mysql.getMysqlHost(), mysql.getMysqlPort()));
         return protocol;

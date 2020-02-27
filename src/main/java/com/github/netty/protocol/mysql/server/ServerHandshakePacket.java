@@ -29,7 +29,7 @@ import java.util.*;
 public class ServerHandshakePacket extends DefaultByteBufHolder implements ServerPacket {
 
 	public static final int DEFAULT_PROTOCOL_VERSION = 10;
-
+	private final int sequenceId;
 	private final int protocolVersion;
 	private final AsciiString serverVersion;
 	private final int connectionId;
@@ -47,6 +47,7 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 		if (builder.serverVersion == null) {
 			throw new NullPointerException("serverVersion can not be null");
 		}
+		sequenceId = builder.sequenceId;
 		serverVersion = AsciiString.of(builder.serverVersion);
 		connectionId = builder.connectionId;
 		capabilities = Collections.unmodifiableSet(builder.capabilities);
@@ -93,7 +94,7 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 
 	@Override
 	public int getSequenceId() {
-		return 0;
+		return sequenceId;
 	}
 
 	@Override
@@ -110,7 +111,10 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 				Objects.equals(serverStatus, handshake.serverStatus) &&
 				Objects.equals(authPluginName, handshake.authPluginName);
 	}
-
+	@Override
+	public String toString() {
+		return "sequenceId="+getSequenceId()+","+getClass().getSimpleName();
+	}
 	@Override
 	public int hashCode() {
 		return Objects.hash(super.hashCode(), protocolVersion, serverVersion, connectionId, capabilities, characterSet, serverStatus, authPluginName);
@@ -120,10 +124,15 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 		private int protocolVersion = DEFAULT_PROTOCOL_VERSION;
 		private CharSequence serverVersion;
 		private int connectionId = -1;
-
+		private int sequenceId;
 		private MysqlCharacterSet characterSet = MysqlCharacterSet.DEFAULT;
 		private Set<ServerStatusFlag> serverStatus = EnumSet.noneOf(ServerStatusFlag.class);
 		private String authPluginName;
+
+		public Builder sequenceId(int sequenceId) {
+			this.sequenceId = sequenceId;
+			return this;
+		}
 
 		public Builder protocolVersion(int protocolVerison) {
 			this.protocolVersion = protocolVerison;

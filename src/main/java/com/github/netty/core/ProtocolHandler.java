@@ -24,6 +24,15 @@ public interface ProtocolHandler extends Ordered{
     boolean canSupport(ByteBuf msg);
 
     /**
+     * Support protocol
+     * @param channel channel
+     * @return true=Support, false=no Support
+     */
+    default boolean canSupport(Channel channel){
+        return false;
+    }
+
+    /**
      * add protocol pipeline support
      * @param channel TCP channel
      * @throws Exception Exception

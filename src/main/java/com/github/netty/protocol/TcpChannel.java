@@ -49,7 +49,9 @@ public class TcpChannel {
     public ProtocolHandler getProtocol() {
         return protocol;
     }
-
+    public boolean isActive(){
+        return channel.isActive();
+    }
     public ChannelFuture writeAndFlush(byte[] msg){
         return channel.writeAndFlush(Unpooled.wrappedBuffer(msg));
     }

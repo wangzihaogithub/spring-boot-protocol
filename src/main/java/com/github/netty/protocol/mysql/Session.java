@@ -8,32 +8,51 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Session {
-	private static Logger logger = LoggerFactory.getLogger(Session.class);
     public static final AttributeKey<Session> SESSION_KEY = AttributeKey.valueOf("session");
+	private static Logger logger = LoggerFactory.getLogger(Session.class);
     private volatile Channel clientChannel;
-    private volatile Channel mysqlChannel;
-    
+    private volatile Channel serverChannel;
+
+	public void setClientChannel(Channel clientChannel) {
+		clientChannel.attr(Session.SESSION_KEY).set(this);
+		clientChannel.closeFuture().addListener(new ConnectionCloseFutureListener(this));
+		this.clientChannel = clientChannel;
+	}
+
+	public void setMysqlChannel(Channel serverChannel) {
+		serverChannel.attr(Session.SESSION_KEY).set(this);
+		serverChannel.closeFuture().addListener(new ConnectionCloseFutureListener(this));
+		this.serverChannel = serverChannel;
+	}
+
+	public Channel getServerChannel() {
+		return this.serverChannel;
+	}
+
+	public Channel getClientChannel() {
+		return this.clientChannel;
+	}
+
     private static class ConnectionCloseFutureListener implements GenericFutureListener<ChannelFuture> {
     	private final Session session;
-    	public ConnectionCloseFutureListener(Session session) {
+    	ConnectionCloseFutureListener(Session session) {
     		this.session = session;
     	}
-    	
 		@Override
 		public void operationComplete(ChannelFuture future) throws Exception {
 			Channel ch = future.channel();
-			Channel mysqlChannel = session.mysqlChannel;
+			Channel serverChannel = session.serverChannel;
 			Channel clientChannel = session.clientChannel;
 			if (ch == clientChannel) {
-				logger.info("clientChannel channel [{}] closed!", clientChannel);
+				logger.info("client channel closed ! [{}]", clientChannel);
 				// clientChannel connection close but it's mysqlChannel connection is still active or open, close it!
-				if(mysqlChannel != null) {
-					if (mysqlChannel.isActive() || mysqlChannel.isOpen()) {
-						mysqlChannel.close();
+				if(serverChannel != null) {
+					if (serverChannel.isActive() || serverChannel.isOpen()) {
+						serverChannel.close();
 					}
 				}
 			} else {
-				logger.info("mysqlChannel channel [{}] closed!", mysqlChannel);
+				logger.info("server channel closed ! [{}] ", serverChannel);
 				// mysqlChannel connection close but it's clientChannel connection is still active or open, close it!
 				if(clientChannel != null) {
 					if (clientChannel.isActive() || clientChannel.isOpen()) {
@@ -42,26 +61,6 @@ public class Session {
 				}
 			}
 		}
-    }
-
-	public void setClientChannel(Channel clientChannel) {
-		clientChannel.attr(Session.SESSION_KEY).set(this);
-		clientChannel.closeFuture().addListener(new ConnectionCloseFutureListener(this));
-		this.clientChannel = clientChannel;
-	}
-
-	public void setMysqlChannel(Channel mysqlChannel) {
-		mysqlChannel.attr(Session.SESSION_KEY).set(this);
-		mysqlChannel.closeFuture().addListener(new ConnectionCloseFutureListener(this));
-		this.mysqlChannel = mysqlChannel;
-	}
-
-    public Channel getMysqlChannel() {
-        return this.mysqlChannel;
-    }
-    
-    public Channel getClientChannel() {
-        return this.clientChannel;
     }
 
 }

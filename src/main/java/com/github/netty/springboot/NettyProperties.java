@@ -2,6 +2,8 @@ package com.github.netty.springboot;
 
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
+import com.github.netty.protocol.mysql.client.MysqlClientBusinessHandler;
+import com.github.netty.protocol.mysql.server.MysqlServerBusinessHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -28,7 +30,10 @@ public class NettyProperties implements Serializable{
      * 服务端 - 是否tcp数据包日志
      */
     private boolean enableTcpPackageLog = false;
-
+    /**
+     * 服务端 - 第一个客户端包的超时时间 (毫秒)
+     */
+    private long firstClientPacketReadTimeoutMs = 1000;
     /**
      * 服务端 - tcp数据包日志等级(需要先开启tcp数据包日志)
      */
@@ -110,6 +115,14 @@ public class NettyProperties implements Serializable{
 
     public void setResourceLeakDetectorLevel(ResourceLeakDetector.Level resourceLeakDetectorLevel) {
         this.resourceLeakDetectorLevel = resourceLeakDetectorLevel;
+    }
+
+    public long getFirstClientPacketReadTimeoutMs() {
+        return firstClientPacketReadTimeoutMs;
+    }
+
+    public void setFirstClientPacketReadTimeoutMs(long firstClientPacketReadTimeoutMs) {
+        this.firstClientPacketReadTimeoutMs = firstClientPacketReadTimeoutMs;
     }
 
     public Class<?extends DynamicProtocolChannelHandler> getChannelHandler() {
@@ -454,6 +467,14 @@ public class NettyProperties implements Serializable{
         private int packetMaxLength = 16777216;
         private String mysqlHost = "localhost";
         private int mysqlPort = 3306;
+        /**
+         * 用户可以处理MYSQL服务端的业务处理, 每次有链接进入时, 会从spring容器中获取实例, 可以是原型或单例
+         */
+        private Class<?extends MysqlServerBusinessHandler> serverBusinessHandler = MysqlServerBusinessHandler.class;
+        /**
+         * 用户可以处理MYSQL客户端的业务逻辑, 每次有链接进入时, 会从spring容器中获取实例, 可以是原型或单例
+         */
+        private Class<?extends MysqlClientBusinessHandler> clientBusinessHandler = MysqlClientBusinessHandler.class;
 
         public boolean isEnabled() {
             return enabled;
@@ -485,6 +506,22 @@ public class NettyProperties implements Serializable{
 
         public void setMysqlPort(int mysqlPort) {
             this.mysqlPort = mysqlPort;
+        }
+
+        public Class<? extends MysqlClientBusinessHandler> getClientBusinessHandler() {
+            return clientBusinessHandler;
+        }
+
+        public Class<? extends MysqlServerBusinessHandler> getServerBusinessHandler() {
+            return serverBusinessHandler;
+        }
+
+        public void setClientBusinessHandler(Class<? extends MysqlClientBusinessHandler> clientBusinessHandler) {
+            this.clientBusinessHandler = clientBusinessHandler;
+        }
+
+        public void setServerBusinessHandler(Class<? extends MysqlServerBusinessHandler> serverBusinessHandler) {
+            this.serverBusinessHandler = serverBusinessHandler;
         }
     }
 }

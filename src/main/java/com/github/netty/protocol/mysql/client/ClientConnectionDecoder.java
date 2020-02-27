@@ -34,6 +34,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 		}
 
 		final ClientHandshakePacket.Builder response = ClientHandshakePacket.create();
+		response.sequenceId(sequenceId);
 		response.addCapabilities(clientCapabilities)
 				.maxPacketSize((int)packet.readUnsignedIntLE());
 		final MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readByte());
