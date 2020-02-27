@@ -27,19 +27,26 @@ import java.util.List;
  *
  */
 public class ServerResultsetRowPacket extends AbstractMySqlPacket implements ServerPacket {
-	private final List<String> values = new ArrayList<>();
+	private final List<String> values;
 
 	public ServerResultsetRowPacket(int sequenceId, String... values) {
 		super(sequenceId);
+		this.values = new ArrayList<>(values.length);
 		Collections.addAll(this.values, values);
 	}
 
 	public ServerResultsetRowPacket(int sequenceId, Collection<String> values) {
 		super(sequenceId);
+		this.values = new ArrayList<>(values.size());
 		this.values.addAll(values);
 	}
 
 	public List<String> getValues() {
 		return values;
+	}
+
+	@Override
+	public String toString() {
+		return super.toString()+","+values.size();
 	}
 }

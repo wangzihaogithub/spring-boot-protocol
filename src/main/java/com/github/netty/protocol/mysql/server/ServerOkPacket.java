@@ -75,6 +75,11 @@ public class ServerOkPacket extends AbstractMySqlPacket implements ServerPacket 
 		return sessionStateChanges;
 	}
 
+	@Override
+	public String toString() {
+		return super.toString()+","+statusFlags;
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}

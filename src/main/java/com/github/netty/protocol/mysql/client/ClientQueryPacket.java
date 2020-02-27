@@ -22,7 +22,6 @@ import com.github.netty.protocol.mysql.Command;
  *
  */
 public class ClientQueryPacket extends ClientCommandPacket {
-
 	private final String query;
 
 	public ClientQueryPacket(int sequenceId, String query) {
@@ -32,5 +31,10 @@ public class ClientQueryPacket extends ClientCommandPacket {
 
 	public String getQuery() {
 		return query;
+	}
+
+	@Override
+	public String toString() {
+		return super.toString()+","+query;
 	}
 }

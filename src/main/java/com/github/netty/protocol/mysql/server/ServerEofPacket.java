@@ -51,4 +51,9 @@ public class ServerEofPacket extends AbstractMySqlPacket implements ServerPacket
 	public Set<ServerStatusFlag> getStatusFlags() {
 		return statusFlags;
 	}
+
+	@Override
+	public String toString() {
+		return super.toString()+","+statusFlags;
+	}
 }
