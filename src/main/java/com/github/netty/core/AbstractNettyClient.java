@@ -23,16 +23,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractNettyClient{
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final String name;
+    private final String namePre;
     private Bootstrap bootstrap;
 
     private EventLoopGroup worker;
-    private InetSocketAddress remoteAddress;
+    protected InetSocketAddress remoteAddress;
     private boolean enableEpoll;
-    private SocketChannel channel;
+    private volatile SocketChannel channel;
     private AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private AtomicBoolean running = new AtomicBoolean(false);
+
+    public AbstractNettyClient() {
+        this("",null);
+    }
 
     public AbstractNettyClient(String remoteHost,int remotePort) {
         this(new InetSocketAddress(remoteHost,remotePort));
@@ -50,6 +55,7 @@ public abstract class AbstractNettyClient{
     public AbstractNettyClient(String namePre,InetSocketAddress remoteAddress) {
         this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
+        this.namePre = namePre;
         this.name = NamespaceUtil.newIdName(namePre,getClass());
         if(enableEpoll) {
             logger.info("enable epoll client = {}",this);
@@ -78,11 +84,11 @@ public abstract class AbstractNettyClient{
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if(enableEpoll){
-            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Client-Worker"));
+            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll",namePre+"Client-Worker"));
             epollWorker.setIoRatio(ioRatio);
             worker = epollWorker;
         }else {
-            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Client-Worker"));
+            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO",namePre+"Client-Worker"));
             nioWorker.setIoRatio(ioRatio);
             worker = nioWorker;
         }
@@ -132,8 +138,13 @@ public abstract class AbstractNettyClient{
     }
 
     public Optional<ChannelFuture> connect(){
+        return connect(remoteAddress);
+    }
+
+    public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress){
         if(connectIngFlag.compareAndSet(false,true)) {
-            return Optional.of(bootstrap.connect()
+            this.remoteAddress = remoteAddress == null? (InetSocketAddress) bootstrap.config().remoteAddress() : remoteAddress;
+            return Optional.of(bootstrap.connect(this.remoteAddress)
                     .addListener((ChannelFutureListener) future -> {
                         connectIngFlag.set(false);
                         if (future.isSuccess()) {

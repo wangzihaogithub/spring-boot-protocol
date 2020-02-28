@@ -18,10 +18,19 @@ public interface ProtocolHandler extends Ordered{
 
     /**
      * Support protocol
-     * @param msg This message
+     * @param msg client first message
      * @return true=Support, false=no Support
      */
     boolean canSupport(ByteBuf msg);
+
+    /**
+     * Support protocol
+     * @param channel channel
+     * @return true=Support, false=no Support
+     */
+    default boolean canSupport(Channel channel){
+        return false;
+    }
 
     /**
      * add protocol pipeline support

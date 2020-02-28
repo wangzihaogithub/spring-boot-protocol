@@ -10,7 +10,7 @@ public interface ServerListener extends Ordered{
 
     default void onServerStart() throws Exception{}
     default void onServerStop() throws Exception{}
-    default void conifg(ServerBootstrap bootstrap) throws Exception{}
+    default void config(ServerBootstrap bootstrap) throws Exception{}
 
     /**
      * default Priority order 0
