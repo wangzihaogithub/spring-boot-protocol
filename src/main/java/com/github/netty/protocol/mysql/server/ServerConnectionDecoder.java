@@ -75,7 +75,7 @@ public class ServerConnectionDecoder extends AbstractPacketDecoder implements Se
 		builder.addCapabilities(CodecUtils.toEnumSet(CapabilityFlags.class, packet.readUnsignedShortLE()));
 		if (packet.isReadable()) {
 			builder
-					.characterSet(MysqlCharacterSet.findById(packet.readByte()))
+					.characterSet(MysqlCharacterSet.findByIdIfNullDefault(packet.readByte()))
 					.addServerStatus(CodecUtils.readShortEnumSet(packet, ServerStatusFlag.class))
 					.addCapabilities(
 							CodecUtils.toEnumSet(CapabilityFlags.class, packet.readUnsignedShortLE() << Short.SIZE));

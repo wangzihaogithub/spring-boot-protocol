@@ -173,6 +173,15 @@ public enum MysqlCharacterSet {
 		return null;
 	}
 
+	public static MysqlCharacterSet findByIdIfNullDefault(int id) {
+		for (MysqlCharacterSet charset : values()) {
+			if (charset.id == id) {
+				return charset;
+			}
+		}
+		return DEFAULT;
+	}
+
 	public Charset getCharset() {
 		return charset;
 	}

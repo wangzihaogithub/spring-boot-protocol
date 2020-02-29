@@ -121,8 +121,9 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 		}
 
 		public Builder characterSet(MysqlCharacterSet characterSet) {
-			Objects.requireNonNull(characterSet, "characterSet can NOT be null");
-			this.characterSet = characterSet;
+			if(characterSet != null) {
+				this.characterSet = characterSet;
+			}
 			return this;
 		}
 
