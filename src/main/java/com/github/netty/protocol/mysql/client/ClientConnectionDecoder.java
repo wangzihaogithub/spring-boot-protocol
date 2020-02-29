@@ -37,7 +37,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 		response.sequenceId(sequenceId);
 		response.addCapabilities(clientCapabilities)
 				.maxPacketSize((int)packet.readUnsignedIntLE());
-		final MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readByte());
+		final MysqlCharacterSet characterSet = MysqlCharacterSet.findByIdIfNullDefault(packet.readByte());
 		response.characterSet(characterSet);
 		packet.skipBytes(23);
 		if (packet.isReadable()) {
