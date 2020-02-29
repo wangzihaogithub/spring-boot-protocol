@@ -41,6 +41,8 @@ public class ServerResultsetDecoder extends AbstractPacketDecoder implements Ser
 		final Charset serverCharset = MysqlCharacterSet.getServerCharsetAttr(channel).getCharset();
 
 		switch (state) {
+            case ERROR:
+//                throw new IllegalStateException("Received a packet while in an error state");
 			case COMPLETE:
 //				throw new IllegalStateException("Received an unexpected packet after decoding a result set");
 			case COLUMN_COUNT:
@@ -52,8 +54,6 @@ public class ServerResultsetDecoder extends AbstractPacketDecoder implements Ser
 			case ROW:
 				handleRow(sequenceId, packet, out, capabilities, serverCharset);
 				break;
-			case ERROR:
-				throw new IllegalStateException("Received a packet while in an error state");
 		}
 	}
 
