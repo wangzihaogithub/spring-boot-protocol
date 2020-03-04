@@ -23,9 +23,10 @@ public interface Constants {
 
 	int NUL_BYTE = 0x00;
 
-	int RESPONSE_OK = 0x00;
-	int RESPONSE_EOF = 0xfe;
-	int RESPONSE_ERROR = 0xff;
+	int RESPONSE_ERROR = 0xFF;
+	int RESPONSE_EOF = 0xFE;
+	int RESPONSE_LOCAL_INFILE = 0xFB;
+	int RESPONSE_OK = 0;
 
 	int MINIMUM_SUPPORTED_PROTOCOL_VERSION = 10;
 

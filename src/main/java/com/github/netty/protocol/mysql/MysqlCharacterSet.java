@@ -23,6 +23,10 @@ import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
 
 public enum MysqlCharacterSet {
+	/**
+	 * Used to indicate that the server sent no field-level character set information, so the driver should use the connection-level character encoding instead.
+	 */
+	NO_CHARSET_INFO((byte) -1, "UTF-8"),
 	BIG5_CHINESE_CI((byte) 1, "Big5"),
 	LATIN2_CZECH_CS((byte) 2, "ISO8859_2"),
 	DEC8_SWEDISH_CI((byte) 3, "ISO8859_1"),
@@ -171,15 +175,6 @@ public enum MysqlCharacterSet {
 			}
 		}
 		return null;
-	}
-
-	public static MysqlCharacterSet findByIdIfNullDefault(int id) {
-		for (MysqlCharacterSet charset : values()) {
-			if (charset.id == id) {
-				return charset;
-			}
-		}
-		return DEFAULT;
 	}
 
 	public Charset getCharset() {

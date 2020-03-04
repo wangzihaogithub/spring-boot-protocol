@@ -105,7 +105,7 @@ public class ServerResultsetDecoder extends AbstractPacketDecoder implements Ser
 				.name(CodecUtils.readLengthEncodedString(packet, serverCharset))
 				.orgName(CodecUtils.readLengthEncodedString(packet, serverCharset));
 		packet.readByte();
-		builder.characterSet(MysqlCharacterSet.findByIdIfNullDefault(packet.readShortLE()))
+		builder.characterSet(MysqlCharacterSet.findById(packet.readShortLE()))
 				.columnLength(packet.readUnsignedIntLE())
 				.type(ColumnType.lookup(packet.readUnsignedByte()))
 				.addFlags(CodecUtils.readShortEnumSet(packet, ColumnFlag.class))

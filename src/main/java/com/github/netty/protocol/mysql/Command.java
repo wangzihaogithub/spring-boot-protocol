@@ -19,43 +19,47 @@ package com.github.netty.protocol.mysql;
 import java.util.Optional;
 
 /**
- *
+ * see com.mysql.cj.protocol.a.NativeConstants
  */
 public enum Command {
-	// Old (since MySQL 3.20) commands
-	COM_SLEEP(0x00),
-	COM_QUIT(0x01),
-	COM_INIT_DB(0x02),
-	COM_QUERY(0x03),
-	COM_FIELD_LIST(0x04),
-	COM_CREATE_DB(0x05),
-	COM_DROP_DB(0x06),
-	COM_REFRESH(0x07),
-	COM_SHUTDOWN(0x08),
-	COM_STATISTICS(0x09),
-	COM_PROCESS_INFO(0x0a),
-	COM_CONNECT(0x0b),
-	COM_PROCESS_KILL(0x0c),
-	COM_DEBUG(0x0d),
-	COM_PING(0x0e),
-	COM_TIME(0x0f),
-	COM_DELAYED_INSERT(0x10),
-	COM_CHANGE_USER(0x11),
-	COM_RESET_CONNECTION(0x1f),
-	COM_DAEMON(0x1d),
+	COM_SLEEP(0),
+	COM_QUIT(1),
+	COM_INIT_DB(2),
+	COM_QUERY(3),
+	COM_FIELD_LIST(4),//Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+	COM_CREATE_DB(5),//Not used; deprecated?
+	COM_DROP_DB(6),//Not used; deprecated?
+	COM_REFRESH(7),//Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+	COM_SHUTDOWN(8),//Deprecated in MySQL 5.7.9 and MySQL 8.0.0.
+	COM_STATISTICS(9),
+	COM_PROCESS_INFO(10),//Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+	COM_CONNECT(11),
+	COM_PROCESS_KILL(12),//Not used; deprecated in MySQL 5.7.11 and MySQL 8.0.0.
+	COM_DEBUG(13),
+	COM_PING(14),
+	COM_TIME(15),
+	COM_DELAYED_INSERT(16),
+	COM_CHANGE_USER(17),
+	COM_BINLOG_DUMP(18),
+	COM_TABLE_DUMP(19),
+	COM_CONNECT_OUT(20),
+	COM_REGISTER_SLAVE(21),
 
-	// Prepared statements
-	COM_STMT_PREPARE(0x16),
-	COM_STMT_SEND_LONG_DATA(0x18),
-	COM_STMT_EXECUTE(0x17),
-	COM_STMT_CLOSE(0x19),
-	COM_STMT_RESET(0x1a),
+	/*Prepared statements*/
+	COM_STMT_PREPARE(22),
+	COM_STMT_EXECUTE(23),
+	COM_STMT_SEND_LONG_DATA(24),
+	COM_STMT_CLOSE(25),
+	COM_STMT_RESET(26),
 
-	// Stored procedures
-	COM_SET_OPTION(0x1b),
-	COM_STMT_FETCH(0x1c);
+	/*Stored procedures*/
+	COM_SET_OPTION(27),
+	COM_STMT_FETCH(28),
 
-	// TODO Add replication protocol commands
+
+	COM_DAEMON(29),
+	COM_BINLOG_DUMP_GTID(30),
+	COM_RESET_CONNECTION(31);
 
 	private final int commandCode;
 
