@@ -410,5 +410,6 @@
 
     <!--mvn clean deploy -P release verify -Dgpg.passphrase=password-->
     <!--gpg &#45;&#45;keyserver hkp://keyserver.ubuntu.com:11371 &#45;&#45;send-keys DF6BD576-->
+    <!--gpg &#45;&#45;keyserver hkp://pool.sks-keyservers.net &#45;&#45;send-keys A12DCF7DF1-->
     <!--JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF-8-->
 </project>
