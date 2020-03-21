@@ -17,157 +17,136 @@
 package com.github.netty.protocol.mysql.server;
 
 import com.github.netty.protocol.mysql.*;
+import com.github.netty.protocol.mysql.client.ClientPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.DefaultByteBufHolder;
-import io.netty.util.AsciiString;
 
 import java.util.*;
 
 /**
- *
+ *Handshake packet respons
  */
-public class ServerHandshakePacket extends DefaultByteBufHolder implements ServerPacket {
+public class ServerHandshakePacket extends DefaultByteBufHolder implements ClientPacket {
 
-	public static final int DEFAULT_PROTOCOL_VERSION = 10;
+	private final Set<CapabilityFlags> capabilityFlags = EnumSet.noneOf(CapabilityFlags.class);
 	private final int sequenceId;
-	private final int protocolVersion;
-	private final AsciiString serverVersion;
-	private final int connectionId;
-	private final Set<CapabilityFlags> capabilities;
+	private final int maxPacketSize;
 	private final MysqlCharacterSet characterSet;
-	private final Set<ServerStatusFlag> serverStatus;
+	private final String username;
+	private final String database;
 	private final String authPluginName;
+	private final Map<String, String> attributes = new HashMap<String, String>();
 
 	private ServerHandshakePacket(Builder builder) {
 		super(builder.authPluginData);
-		if (builder.authPluginData.readableBytes() < Constants.AUTH_PLUGIN_DATA_PART1_LEN) {
-			throw new IllegalArgumentException("authPluginData can not contain less than " + Constants.AUTH_PLUGIN_DATA_PART1_LEN + " bytes.");
-		}
-		protocolVersion = builder.protocolVersion;
-		if (builder.serverVersion == null) {
-			throw new NullPointerException("serverVersion can not be null");
-		}
-		sequenceId = builder.sequenceId;
-		serverVersion = AsciiString.of(builder.serverVersion);
-		connectionId = builder.connectionId;
-		capabilities = Collections.unmodifiableSet(builder.capabilities);
-		characterSet = builder.characterSet;
-		serverStatus = Collections.unmodifiableSet(builder.serverStatus);
-		authPluginName = builder.authPluginName;
+		this.capabilityFlags.addAll(builder.capabilities);
+		this.sequenceId = builder.sequenceId;
+		this.maxPacketSize = builder.maxPacketSize;
+		this.characterSet = builder.characterSet;
+		this.username = builder.username;
+		this.database = builder.database;
+		this.authPluginName = builder.authPluginName;
+		this.attributes.putAll(builder.attributes);
 	}
 
-	public static Builder builder() {
+	public static Builder create() {
 		return new Builder();
 	}
 
-	public int getProtocolVersion() {
-		return protocolVersion;
-	}
-
-	public AsciiString getServerVersion() {
-		return serverVersion;
-	}
-
-	public int getConnectionId() {
-		return connectionId;
+	public static ServerHandshakePacket createSslResponse(Set<CapabilityFlags> capabilities, int maxPacketSize,
+														  MysqlCharacterSet characterSet) {
+		return create()
+				.maxPacketSize(maxPacketSize)
+				.characterSet(characterSet)
+				.addCapabilities(capabilities)
+				.addCapabilities(CapabilityFlags.CLIENT_SSL)
+				.build();
 	}
 
 	public ByteBuf getAuthPluginData() {
 		return content();
 	}
 
-	public Set<CapabilityFlags> getCapabilities() {
-		return capabilities;
+	public Set<CapabilityFlags> getCapabilityFlags() {
+		return EnumSet.copyOf(capabilityFlags);
+	}
+
+	public int getMaxPacketSize() {
+		return maxPacketSize;
 	}
 
 	public MysqlCharacterSet getCharacterSet() {
 		return characterSet;
 	}
 
-	public Set<ServerStatusFlag> getServerStatus() {
-		return serverStatus;
+	public String getUsername() {
+		return username;
+	}
+
+	public String getDatabase() {
+		return database;
 	}
 
 	public String getAuthPluginName() {
 		return authPluginName;
 	}
 
-	@Override
-	public int getSequenceId() {
-		return sequenceId;
+	public Map<String, String> getAttributes() {
+		return attributes;
 	}
 
 	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		if (!super.equals(o)) return false;
-		final ServerHandshakePacket handshake = (ServerHandshakePacket) o;
-		return protocolVersion == handshake.protocolVersion &&
-				connectionId == handshake.connectionId &&
-				Objects.equals(serverVersion, handshake.serverVersion) &&
-				Objects.equals(capabilities, handshake.capabilities) &&
-				characterSet == handshake.characterSet &&
-				Objects.equals(serverStatus, handshake.serverStatus) &&
-				Objects.equals(authPluginName, handshake.authPluginName);
+	public int getSequenceId() {
+		return sequenceId;
 	}
 	@Override
 	public String toString() {
 		return "sequenceId="+getSequenceId()+","+getClass().getSimpleName();
 	}
-	@Override
-	public int hashCode() {
-		return Objects.hash(super.hashCode(), protocolVersion, serverVersion, connectionId, capabilities, characterSet, serverStatus, authPluginName);
-	}
-
 	public static class Builder extends AbstractAuthPluginDataBuilder<Builder> {
-		private int protocolVersion = DEFAULT_PROTOCOL_VERSION;
-		private CharSequence serverVersion;
-		private int connectionId = -1;
+		private int maxPacketSize = Constants.DEFAULT_MAX_PACKET_SIZE;
 		private int sequenceId;
 		private MysqlCharacterSet characterSet = MysqlCharacterSet.DEFAULT;
-		private Set<ServerStatusFlag> serverStatus = EnumSet.noneOf(ServerStatusFlag.class);
+		private String username;
+		private String database;
 		private String authPluginName;
+		private Map<String, String> attributes = new HashMap<String, String>();
 
 		public Builder sequenceId(int sequenceId) {
 			this.sequenceId = sequenceId;
 			return this;
 		}
-
-		public Builder protocolVersion(int protocolVerison) {
-			this.protocolVersion = protocolVerison;
-			return this;
-		}
-
-		public Builder serverVersion(CharSequence serverVersion) {
-			this.serverVersion = serverVersion;
-			return this;
-		}
-
-		public Builder connectionId(int connectionId) {
-			this.connectionId = connectionId;
+		public Builder maxPacketSize(int maxPacketSize) {
+			this.maxPacketSize = maxPacketSize;
 			return this;
 		}
 
 		public Builder characterSet(MysqlCharacterSet characterSet) {
-			this.characterSet = characterSet == null ? MysqlCharacterSet.DEFAULT : characterSet;
+			if(characterSet != null) {
+				this.characterSet = characterSet;
+			}
 			return this;
 		}
 
-		public Builder addServerStatus(ServerStatusFlag serverStatus, ServerStatusFlag... serverStatuses) {
-			this.serverStatus.add(serverStatus);
-			Collections.addAll(this.serverStatus, serverStatuses);
+		public Builder username(String username) {
+			this.username = username;
 			return this;
 		}
 
-		public Builder addServerStatus(Collection<ServerStatusFlag> serverStatus) {
-			this.serverStatus.addAll(serverStatus);
+		public Builder database(String database) {
+			addCapabilities(CapabilityFlags.CLIENT_CONNECT_WITH_DB);
+			this.database = database;
 			return this;
 		}
 
 		public Builder authPluginName(String authPluginName) {
-			capabilities.add(CapabilityFlags.CLIENT_PLUGIN_AUTH);
+			addCapabilities(CapabilityFlags.CLIENT_PLUGIN_AUTH);
 			this.authPluginName = authPluginName;
+			return this;
+		}
+
+		public Builder addAttribute(String key, String value) {
+			attributes.put(key, value);
 			return this;
 		}
 

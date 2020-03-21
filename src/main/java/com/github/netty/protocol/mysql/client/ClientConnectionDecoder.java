@@ -4,6 +4,7 @@ import com.github.netty.protocol.mysql.AbstractPacketDecoder;
 import com.github.netty.protocol.mysql.CapabilityFlags;
 import com.github.netty.protocol.mysql.CodecUtils;
 import com.github.netty.protocol.mysql.MysqlCharacterSet;
+import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.DecoderException;
@@ -33,7 +34,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 			throw new DecoderException("MySQL client protocol 4.1 support required");
 		}
 
-		final ClientHandshakePacket.Builder response = ClientHandshakePacket.create();
+		final ServerHandshakePacket.Builder response = ServerHandshakePacket.create();
 		response.sequenceId(sequenceId);
 		response.addCapabilities(clientCapabilities)
 				.maxPacketSize((int)packet.readUnsignedIntLE());

@@ -1,6 +1,7 @@
 package com.github.netty.protocol.mysql.server;
 
 import com.github.netty.protocol.mysql.*;
+import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -63,7 +64,7 @@ public class ServerConnectionDecoder extends AbstractPacketDecoder implements Se
 			throw new CodecException("Unsupported version of MySQL");
 		}
 
-		final ServerHandshakePacket.Builder builder = ServerHandshakePacket.builder();
+		final ClientHandshakePacket.Builder builder = ClientHandshakePacket.builder();
 		builder
 				.sequenceId(sequenceId)
 				.protocolVersion(protocolVersion)
@@ -97,7 +98,7 @@ public class ServerConnectionDecoder extends AbstractPacketDecoder implements Se
 				}
 			}
 		}
-		final ServerHandshakePacket handshake = builder.build();
+		final ClientHandshakePacket handshake = builder.build();
 		out.add(handshake);
 	}
 }

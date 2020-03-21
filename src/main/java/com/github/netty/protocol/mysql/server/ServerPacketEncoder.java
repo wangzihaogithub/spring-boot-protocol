@@ -17,6 +17,7 @@
 package com.github.netty.protocol.mysql.server;
 
 import com.github.netty.protocol.mysql.*;
+import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
@@ -39,8 +40,8 @@ public class ServerPacketEncoder extends AbstractPacketEncoder<ServerPacket> {
 			encodeColumnDefinition(serverCharset, (ServerColumnDefinitionPacket) packet, buf);
 		} else if (packet instanceof ServerEofPacket) {
 			encodeEofResponse(capabilities, (ServerEofPacket) packet, buf);
-		} else if (packet instanceof ServerHandshakePacket) {
-			encodeHandshake((ServerHandshakePacket)packet, buf);
+		} else if (packet instanceof ClientHandshakePacket) {
+			encodeHandshake((ClientHandshakePacket)packet, buf);
 		} else if (packet instanceof ServerOkPacket) {
 			encodeOkResponse(capabilities, serverCharset, (ServerOkPacket) packet, buf);
 		} else if (packet instanceof ServerResultsetRowPacket) {
@@ -81,7 +82,7 @@ public class ServerPacketEncoder extends AbstractPacketEncoder<ServerPacket> {
 		}
 	}
 
-	protected void encodeHandshake(ServerHandshakePacket handshake, ByteBuf buf) {
+	protected void encodeHandshake(ClientHandshakePacket handshake, ByteBuf buf) {
 		buf.writeByte(handshake.getProtocolVersion())
 		   .writeBytes(handshake.getServerVersion().array())
 		   .writeByte(Constants.NUL_BYTE)

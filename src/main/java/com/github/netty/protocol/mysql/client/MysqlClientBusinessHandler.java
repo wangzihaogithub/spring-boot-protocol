@@ -1,9 +1,8 @@
 package com.github.netty.protocol.mysql.client;
 
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.protocol.mysql.ColumnType;
-import com.github.netty.protocol.mysql.MysqlPacket;
-import com.github.netty.protocol.mysql.Session;
+import com.github.netty.protocol.mysql.*;
+import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
 import com.github.netty.protocol.mysql.server.ServerColumnDefinitionPacket;
 import com.github.netty.protocol.mysql.server.ServerEofPacket;
 import com.github.netty.protocol.mysql.server.ServerResultsetRowPacket;
@@ -12,13 +11,15 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @ChannelHandler.Sharable
 public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPacket,MysqlPacket> {
-    private static Pattern SETTINGS_PATTERN = Pattern.compile("@@(\\w+)\\sAS\\s(\\w+)");
+    protected static Pattern SETTINGS_PATTERN = Pattern.compile("@@(\\w+)\\sAS\\s(\\w+)");
     private int maxPacketSize;
     private Session session;
     public MysqlClientBusinessHandler() {
@@ -26,8 +27,19 @@ public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPac
     }
 
     @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        EnumSet<CapabilityFlags> clientCapabilities = CapabilityFlags.getImplicitCapabilities();
+        clientCapabilities.addAll(EnumSet.of(
+                CapabilityFlags.CLIENT_PLUGIN_AUTH,
+                CapabilityFlags.CLIENT_SECURE_CONNECTION,
+                CapabilityFlags.CLIENT_CONNECT_WITH_DB));
+        CapabilityFlags.setCapabilitiesAttr(ctx.channel(), clientCapabilities);
+        super.channelActive(ctx);
+    }
+
+    @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, ClientPacket msg) throws Exception {
-        if (msg instanceof ClientHandshakePacket) {
+        if (msg instanceof ServerHandshakePacket) {
             ctx.pipeline().replace(ClientConnectionDecoder.class,
                     "ClientCommandDecoder", new ClientCommandDecoder(getMaxPacketSize()));
         }
@@ -38,20 +50,17 @@ public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPac
 
     }
 
-    public void setMaxPacketSize(int maxPacketSize) {
-        this.maxPacketSize = maxPacketSize;
-    }
-
-    public int getMaxPacketSize() {
-        return maxPacketSize;
-    }
-
-    public Session getSession() {
-        return session;
-    }
-
-    public void setSession(Session session) {
-        this.session = session;
+    public ServerHandshakePacket newServerHandshakePacket(String user, String password, String database,
+                                                          ClientHandshakePacket clientHandshakePacket,
+                                                          Set<CapabilityFlags> capabilities){
+        ServerHandshakePacket packet = ServerHandshakePacket.create()
+                .addCapabilities(capabilities)
+                .username(user)
+                .addAuthData(MysqlNativePasswordUtil.hashPassword(password, clientHandshakePacket.getAuthPluginData()))
+                .database(database)
+                .authPluginName(Constants.MYSQL_NATIVE_PASSWORD)
+                .build();
+        return packet;
     }
 
     /**
@@ -152,7 +161,7 @@ public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPac
         return ctx.writeAndFlush(new ServerEofPacket(++sequenceId, 0));
     }
 
-    private ServerColumnDefinitionPacket newColumnDefinition(int packetSequence, String name, String orgName, ColumnType columnType, int length) {
+    protected ServerColumnDefinitionPacket newColumnDefinition(int packetSequence, String name, String orgName, ColumnType columnType, int length) {
         return ServerColumnDefinitionPacket.builder()
                 .sequenceId(packetSequence)
                 .name(name)
@@ -161,4 +170,21 @@ public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPac
                 .columnLength(length)
                 .build();
     }
+
+    public void setMaxPacketSize(int maxPacketSize) {
+        this.maxPacketSize = maxPacketSize;
+    }
+
+    public int getMaxPacketSize() {
+        return maxPacketSize;
+    }
+
+    public Session getSession() {
+        return session;
+    }
+
+    public void setSession(Session session) {
+        this.session = session;
+    }
+
 }

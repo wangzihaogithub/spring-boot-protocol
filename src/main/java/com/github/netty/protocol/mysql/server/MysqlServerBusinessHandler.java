@@ -3,6 +3,7 @@ package com.github.netty.protocol.mysql.server;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.protocol.mysql.MysqlPacket;
 import com.github.netty.protocol.mysql.Session;
+import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -16,7 +17,7 @@ public class MysqlServerBusinessHandler extends AbstractChannelHandler<ServerPac
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, ServerPacket msg) throws Exception {
-        if (msg instanceof ServerHandshakePacket) {
+        if (msg instanceof ClientHandshakePacket) {
             ctx.pipeline().replace(ServerConnectionDecoder.class,
                     "ServerResultsetDecoder", new ServerResultsetDecoder(getMaxPacketSize()));
         }

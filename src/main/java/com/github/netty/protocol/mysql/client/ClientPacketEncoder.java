@@ -20,6 +20,7 @@ import com.github.netty.protocol.mysql.AbstractPacketEncoder;
 import com.github.netty.protocol.mysql.CapabilityFlags;
 import com.github.netty.protocol.mysql.CodecUtils;
 import com.github.netty.protocol.mysql.MysqlCharacterSet;
+import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -37,8 +38,8 @@ public class ClientPacketEncoder extends AbstractPacketEncoder<ClientPacket> {
 		final Set<CapabilityFlags> capabilities = CapabilityFlags.getCapabilitiesAttr(ctx.channel());
 		if (packet instanceof ClientCommandPacket) {
 			encodeCommandPacket((ClientCommandPacket) packet, buf, charset);
-		} else if (packet instanceof ClientHandshakePacket) {
-			final ClientHandshakePacket handshakeResponse = (ClientHandshakePacket) packet;
+		} else if (packet instanceof ServerHandshakePacket) {
+			final ServerHandshakePacket handshakeResponse = (ServerHandshakePacket) packet;
 			encodeHandshakeResponse(handshakeResponse, buf, charset, capabilities);
 		} else {
 			throw new IllegalStateException("Unknown client packet type: " + packet.getClass());
@@ -52,7 +53,7 @@ public class ClientPacketEncoder extends AbstractPacketEncoder<ClientPacket> {
 		}
 	}
 
-	private void encodeHandshakeResponse(ClientHandshakePacket handshakeResponse, ByteBuf buf, Charset charset, Set<CapabilityFlags> capabilities) {
+	private void encodeHandshakeResponse(ServerHandshakePacket handshakeResponse, ByteBuf buf, Charset charset, Set<CapabilityFlags> capabilities) {
 		buf.writeIntLE((int) CodecUtils.toLong(handshakeResponse.getCapabilityFlags()))
 				.writeIntLE(handshakeResponse.getMaxPacketSize())
 				.writeByte(handshakeResponse.getCharacterSet().getId())
