@@ -19,7 +19,7 @@ public class Session {
 		this.clientChannel = clientChannel;
 	}
 
-	public void setMysqlChannel(Channel serverChannel) {
+	public void setServerChannel(Channel serverChannel) {
 		serverChannel.attr(Session.SESSION_KEY).set(this);
 		serverChannel.closeFuture().addListener(new ConnectionCloseFutureListener(this));
 		this.serverChannel = serverChannel;

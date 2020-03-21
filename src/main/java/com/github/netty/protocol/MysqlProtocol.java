@@ -118,7 +118,7 @@ public class MysqlProtocol extends AbstractProtocol {
             .connect(mysqlAddress).get()
             .addListener((ChannelFutureListener) future -> {
                 if (future.isSuccess()) {
-                    session.setMysqlChannel(future.channel());
+                    session.setServerChannel(future.channel());
                 } else {
                     ServerErrorPacket errorPacket = new ServerErrorPacket(
                             0,2003,
