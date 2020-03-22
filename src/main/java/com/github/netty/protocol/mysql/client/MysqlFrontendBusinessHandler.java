@@ -17,16 +17,20 @@ import java.util.regex.Pattern;
 /**
  * Here the user business logic
  *
+ * follows
  * 1. server to client {@link ServerHandshakePacket}
  * 2. client to server {@link ClientHandshakePacket}
  * 3. server to client {@link ServerOkPacket}
+ * 4. client to server query... {@link ClientQueryPacket}
+ * 5. server to client {@link ServerOkPacket}
+ * 6. any....
  *
  * Initial Handshake starts with server sending the `Initial Handshake Packet` {@link ServerHandshakePacket}.
  * After this, optionally,
  * client can request an SSL connection to be established with `SSL Connection Request Packet` TODO ,
  * and then client sends the `Handshake Response Packet` {@link ClientHandshakePacket}.
  */
-public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<MysqlPacket,MysqlPacket> {
+public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientPacket,MysqlPacket> {
     protected static Pattern SETTINGS_PATTERN = Pattern.compile("@@(\\w+)\\sAS\\s(\\w+)");
     private int maxPacketSize;
     private Session session;
@@ -37,7 +41,7 @@ public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<MysqlPa
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, MysqlPacket msg) throws Exception {
+    protected void onMessageReceived(ChannelHandlerContext ctx, ClientPacket msg) throws Exception {
         if (msg instanceof ClientHandshakePacket) {
             onHandshake(ctx, (ClientHandshakePacket) msg);
         }
@@ -53,7 +57,7 @@ public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<MysqlPa
         onMysqlPacket(ctx, msg);
     }
 
-    protected void onMysqlPacket(ChannelHandlerContext ctx, MysqlPacket packet){
+    protected void onMysqlPacket(ChannelHandlerContext ctx, ClientPacket packet){
 
     }
 

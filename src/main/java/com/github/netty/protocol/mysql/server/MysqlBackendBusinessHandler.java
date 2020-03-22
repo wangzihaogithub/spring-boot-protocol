@@ -3,6 +3,7 @@ package com.github.netty.protocol.mysql.server;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.protocol.mysql.*;
 import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
+import com.github.netty.protocol.mysql.client.ClientQueryPacket;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -11,16 +12,20 @@ import java.util.Collection;
 /**
  * Here the user business logic
  *
+ * follows
  * 1. server to client {@link ServerHandshakePacket}
  * 2. client to server {@link ClientHandshakePacket}
  * 3. server to client {@link ServerOkPacket}
+ * 4. client to server query... {@link ClientQueryPacket}
+ * 5. server to client {@link ServerOkPacket}
+ * 6. any....
  *
  * Initial Handshake starts with server sending the `Initial Handshake Packet` {@link ServerHandshakePacket}.
  * After this, optionally,
  * client can request an SSL connection to be established with `SSL Connection Request Packet` TODO ,
  * and then client sends the `Handshake Response Packet` {@link ClientHandshakePacket}.
  */
-public class MysqlBackendBusinessHandler extends AbstractChannelHandler<MysqlPacket,MysqlPacket> {
+public class MysqlBackendBusinessHandler extends AbstractChannelHandler<ServerPacket,MysqlPacket> {
     private int maxPacketSize;
     private Session session;
     private ServerHandshakePacket lastHandshakePacket;
@@ -31,7 +36,7 @@ public class MysqlBackendBusinessHandler extends AbstractChannelHandler<MysqlPac
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, MysqlPacket msg) throws Exception {
+    protected void onMessageReceived(ChannelHandlerContext ctx, ServerPacket msg) throws Exception {
         if (msg instanceof ServerHandshakePacket) {
             this.lastHandshakePacket = (ServerHandshakePacket) msg;
             onHandshake(ctx, (ServerHandshakePacket) msg);
@@ -74,7 +79,7 @@ public class MysqlBackendBusinessHandler extends AbstractChannelHandler<MysqlPac
         }
     }
 
-    protected void onMysqlPacket(ChannelHandlerContext ctx, MysqlPacket packet){
+    protected void onMysqlPacket(ChannelHandlerContext ctx, ServerPacket packet){
 
     }
 

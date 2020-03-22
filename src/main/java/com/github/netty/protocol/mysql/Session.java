@@ -26,8 +26,7 @@ public class Session {
 	private MysqlCharacterSet clientCharacterSet;
 	private MysqlCharacterSet serverCharacterSet;
 
-	public Session() {
-	}
+	public Session() {}
 
 	public Session(String id) {
 		this.id = id;
