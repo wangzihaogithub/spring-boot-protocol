@@ -3,10 +3,14 @@ package com.github.netty.springboot.server;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.protocol.*;
-import com.github.netty.protocol.mysql.client.MysqlClientBusinessHandler;
-import com.github.netty.protocol.mysql.server.MysqlServerBusinessHandler;
+import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
+import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
+import com.github.netty.protocol.mysql.listener.WriterLogFilePacketListener;
+import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.ListableBeanFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,6 +18,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.AnnotationAwareOrderComparator;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 
 import java.net.InetSocketAddress;
@@ -109,26 +115,70 @@ public class NettyEmbeddedAutoConfiguration {
 
     /**
      * Add the MYSQL protocol registry
-     * @param factory BeanFactory
-     * @return MysqlServerProtocol
+     * @param beanFactory ListableBeanFactory
+     * @param mysqlPacketListeners MysqlPacketListener
+     * @return MysqlProtocol
      */
-    @Bean("mysqlServerProtocol")
+    @Bean("mysqlProtocol")
     @ConditionalOnMissingBean(MysqlProtocol.class)
     @ConditionalOnProperty(prefix = "server.netty.mysql", name = "enabled", matchIfMissing = false)
-    public MysqlProtocol mysqlServerProtocol(BeanFactory factory){
+    public MysqlProtocol mysqlServerProtocol(ListableBeanFactory beanFactory,
+                                             @Autowired(required = false) Collection<MysqlPacketListener> mysqlPacketListeners){
         NettyProperties.Mysql mysql = nettyProperties.getMysql();
-        Class<? extends MysqlClientBusinessHandler> clientBusinessHandler = mysql.getClientBusinessHandler();
-        Class<? extends MysqlServerBusinessHandler> serverBusinessHandler = mysql.getServerBusinessHandler();
-
-        Supplier<MysqlClientBusinessHandler> clientSupplier = clientBusinessHandler == MysqlClientBusinessHandler.class?
-                MysqlClientBusinessHandler::new : ()-> factory.getBean(clientBusinessHandler);
-        Supplier<MysqlServerBusinessHandler> serverSupplier = serverBusinessHandler == MysqlServerBusinessHandler.class?
-                MysqlServerBusinessHandler::new : ()-> factory.getBean(serverBusinessHandler);
-
-        MysqlProtocol protocol = new MysqlProtocol(serverSupplier,clientSupplier);
+        MysqlProtocol protocol = new MysqlProtocol(new InetSocketAddress(mysql.getMysqlHost(), mysql.getMysqlPort()));
         protocol.setMaxPacketSize(mysql.getPacketMaxLength());
-        protocol.setMysqlAddress(new InetSocketAddress(mysql.getMysqlHost(), mysql.getMysqlPort()));
+        if(mysqlPacketListeners != null) {
+            protocol.getMysqlPacketListeners().addAll(mysqlPacketListeners);
+        }
+        protocol.getMysqlPacketListeners().sort(AnnotationAwareOrderComparator.INSTANCE);
+
+        if(mysql.getFrontendBusinessHandler() != MysqlFrontendBusinessHandler.class){
+            String[] names = beanFactory.getBeanNamesForType(mysql.getFrontendBusinessHandler());
+            for (String name : names) {
+                if(beanFactory.isSingleton(name)) {
+                    throw new AssertionError("\nNettyProperties AssertionError(!isSingleton('"+name+"')) -> \n" +
+                            "Need is the prototype. please add  -> @org.springframework.context.annotation.Scope(\"prototype\").\n" +
+                            "server:\n" +
+                            "\tnetty:\n" +
+                            "\t\tmysql:\n" +
+                            "\t\t\tfrontendBusinessHandler: "+ mysql.getFrontendBusinessHandler().getName()+"\n");
+                }
+            }
+            protocol.setFrontendBusinessHandler(()-> beanFactory.getBean(mysql.getFrontendBusinessHandler()));
+        }
+
+        if(mysql.getBackendBusinessHandler() != MysqlBackendBusinessHandler.class){
+            String[] names = beanFactory.getBeanNamesForType(mysql.getBackendBusinessHandler());
+            for (String name : names) {
+                if(beanFactory.isSingleton(name)) {
+                    throw new AssertionError("\nNettyProperties AssertionError(!isSingleton('"+name+"')) -> \n" +
+                            "Need is the prototype. please add  -> @org.springframework.context.annotation.Scope(\"prototype\").\n" +
+                            "server:\n" +
+                            "\tnetty:\n" +
+                            "\t\tmysql:\n" +
+                            "\t\t\tbackendBusinessHandler: "+ mysql.getBackendBusinessHandler().getName()+"\n");
+                }
+            }
+            protocol.setBackendBusinessHandler(()-> beanFactory.getBean(mysql.getBackendBusinessHandler()));
+        }
         return protocol;
     }
 
+    /**
+     * mysql proxy WriterLogFilePacketListener
+     * @param environment Environment
+     * @return WriterLogFilePacketListener
+     */
+    @Bean("mysqlWriterLogFilePacketListener")
+    @ConditionalOnMissingBean(WriterLogFilePacketListener.class)
+    @ConditionalOnProperty(prefix = "server.netty.mysql", name = {"enabled"}, matchIfMissing = false)
+    public WriterLogFilePacketListener mysqlWriterLogFilePacketListener(Environment environment){
+        NettyProperties.Mysql mysql = nettyProperties.getMysql();
+        WriterLogFilePacketListener listener = new WriterLogFilePacketListener();
+        listener.setEnable(mysql.getProxyLog().isEnable());
+        listener.setLogFileName(environment.resolvePlaceholders(mysql.getProxyLog().getLogFileName()));
+        listener.setLogPath(environment.resolvePlaceholders(mysql.getProxyLog().getLogPath()));
+        listener.setLogWriteInterval(mysql.getProxyLog().getLogFlushInterval());
+        return listener;
+    }
 }

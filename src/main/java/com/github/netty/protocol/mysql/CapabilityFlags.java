@@ -70,22 +70,6 @@ public enum CapabilityFlags {
 				CapabilityFlags.CLIENT_TRANSACTIONS,
 				CapabilityFlags.CLIENT_SECURE_CONNECTION
 		);
-
-	}
-
-	private static final AttributeKey<EnumSet<CapabilityFlags>> capabilitiesKey = AttributeKey.newInstance(CapabilityFlags.class.getName());
-
-	public static EnumSet<CapabilityFlags> getCapabilitiesAttr(Channel channel) {
-		final Attribute<EnumSet<CapabilityFlags>> attr = channel.attr(capabilitiesKey);
-		if (attr.get() == null) {
-			attr.set(getImplicitCapabilities());
-		}
-		return attr.get();
-	}
-
-	public static void setCapabilitiesAttr(Channel channel, Set<CapabilityFlags> capabilities) {
-		final Attribute<EnumSet<CapabilityFlags>> attr = channel.attr(capabilitiesKey);
-		attr.set(EnumSet.copyOf(capabilities));
 	}
 
 }

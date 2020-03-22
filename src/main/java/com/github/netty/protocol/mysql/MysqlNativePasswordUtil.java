@@ -16,7 +16,7 @@
 
 package com.github.netty.protocol.mysql;
 
-import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
+import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
 import io.netty.buffer.ByteBuf;
 
 import java.security.MessageDigest;
@@ -37,7 +37,7 @@ public class MysqlNativePasswordUtil {
 	 * Calculates a hash of the user's password.
 	 *
 	 * @param password the user's password
-	 * @param salt     the salt send from the server in the {@link ServerHandshakePacket} packet.
+	 * @param salt     the salt send from the server in the {@link ClientHandshakePacket} packet.
 	 * @return the hashed password
 	 */
 	public static byte[] hashPassword(String password, byte[] salt) {

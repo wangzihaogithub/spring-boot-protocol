@@ -16,8 +16,6 @@
 
 package com.github.netty.protocol.mysql;
 
-import java.util.Optional;
-
 /**
  * see com.mysql.cj.protocol.a.NativeConstants
  */
@@ -71,12 +69,12 @@ public enum Command {
 		return commandCode;
 	}
 
-	public static Optional<Command> findByCommandCode(int code) {
+	public static Command findByCommandCode(int code) {
 		for (Command command : values()) {
 			if (command.getCommandCode() == code) {
-				return Optional.of(command);
+				return command;
 			}
 		}
-		return Optional.empty();
+		return null;
 	}
 }

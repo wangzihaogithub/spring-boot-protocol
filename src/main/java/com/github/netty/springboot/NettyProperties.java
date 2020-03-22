@@ -2,8 +2,8 @@ package com.github.netty.springboot;
 
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
-import com.github.netty.protocol.mysql.client.MysqlClientBusinessHandler;
-import com.github.netty.protocol.mysql.server.MysqlServerBusinessHandler;
+import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
+import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -33,7 +33,7 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端 - 第一个客户端包的超时时间 (毫秒)
      */
-    private long firstClientPacketReadTimeoutMs = 1000;
+    private long firstClientPacketReadTimeoutMs = 800;
     /**
      * 服务端 - tcp数据包日志等级(需要先开启tcp数据包日志)
      */
@@ -468,13 +468,19 @@ public class NettyProperties implements Serializable{
         private String mysqlHost = "localhost";
         private int mysqlPort = 3306;
         /**
-         * 用户可以处理MYSQL服务端的业务处理, 每次有链接进入时, 会从spring容器中获取实例, 可以是原型或单例
+         * 代理日志的配置
          */
-        private Class<?extends MysqlServerBusinessHandler> serverBusinessHandler = MysqlServerBusinessHandler.class;
+        @NestedConfigurationProperty
+        private final MysqlProxyLog proxyLog = new MysqlProxyLog();
+
         /**
-         * 用户可以处理MYSQL客户端的业务逻辑, 每次有链接进入时, 会从spring容器中获取实例, 可以是原型或单例
+         * 用户可以处理MYSQL后端的业务处理, 每次有链接进入时, 会从spring容器中获取实例, 不能是单例对象, 请使用原型实例
          */
-        private Class<?extends MysqlClientBusinessHandler> clientBusinessHandler = MysqlClientBusinessHandler.class;
+        private Class<?extends MysqlBackendBusinessHandler> backendBusinessHandler = MysqlBackendBusinessHandler.class;
+        /**
+         * 用户可以处理MYSQL前端的业务逻辑, 每次有链接进入时, 会从spring容器中获取实例, 不能是单例对象, 请使用原型实例
+         */
+        private Class<?extends MysqlFrontendBusinessHandler> frontendBusinessHandler = MysqlFrontendBusinessHandler.class;
 
         public boolean isEnabled() {
             return enabled;
@@ -482,6 +488,10 @@ public class NettyProperties implements Serializable{
 
         public void setEnabled(boolean enabled) {
             this.enabled = enabled;
+        }
+
+        public MysqlProxyLog getProxyLog() {
+            return proxyLog;
         }
 
         public int getPacketMaxLength() {
@@ -508,20 +518,76 @@ public class NettyProperties implements Serializable{
             this.mysqlPort = mysqlPort;
         }
 
-        public Class<? extends MysqlClientBusinessHandler> getClientBusinessHandler() {
-            return clientBusinessHandler;
+        public Class<? extends MysqlFrontendBusinessHandler> getFrontendBusinessHandler() {
+            return frontendBusinessHandler;
         }
 
-        public Class<? extends MysqlServerBusinessHandler> getServerBusinessHandler() {
-            return serverBusinessHandler;
+        public Class<? extends MysqlBackendBusinessHandler> getBackendBusinessHandler() {
+            return backendBusinessHandler;
         }
 
-        public void setClientBusinessHandler(Class<? extends MysqlClientBusinessHandler> clientBusinessHandler) {
-            this.clientBusinessHandler = clientBusinessHandler;
+        public void setFrontendBusinessHandler(Class<? extends MysqlFrontendBusinessHandler> frontendBusinessHandler) {
+            this.frontendBusinessHandler = frontendBusinessHandler;
         }
 
-        public void setServerBusinessHandler(Class<? extends MysqlServerBusinessHandler> serverBusinessHandler) {
-            this.serverBusinessHandler = serverBusinessHandler;
+        public void setBackendBusinessHandler(Class<? extends MysqlBackendBusinessHandler> backendBusinessHandler) {
+            this.backendBusinessHandler = backendBusinessHandler;
         }
     }
+
+    /**
+     * mysql代理日志的配置
+     */
+    public static class MysqlProxyLog{
+        /**
+         * 释放开启代理日志
+         */
+        private boolean enable = false;
+        /**
+         * 日志刷新写入间隔 (5000毫秒)
+         */
+        private int logFlushInterval = 5000;
+        /**
+         * 日志文件名
+         */
+        private String logFileName = "-packet.log";
+        /**
+         * 日志文件夹
+         */
+        private String logPath = "${user.dir}/netty-mysql";
+
+        public boolean isEnable() {
+            return enable;
+        }
+
+        public void setEnable(boolean enable) {
+            this.enable = enable;
+        }
+
+        public int getLogFlushInterval() {
+            return logFlushInterval;
+        }
+
+        public void setLogFlushInterval(int logFlushInterval) {
+            this.logFlushInterval = logFlushInterval;
+        }
+
+        public String getLogFileName() {
+            return logFileName;
+        }
+
+        public void setLogFileName(String logFileName) {
+            this.logFileName = logFileName;
+        }
+
+        public String getLogPath() {
+            return logPath;
+        }
+
+        public void setLogPath(String logPath) {
+            this.logPath = logPath;
+        }
+
+    }
+
 }

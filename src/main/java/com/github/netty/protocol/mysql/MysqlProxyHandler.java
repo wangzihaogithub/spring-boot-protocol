@@ -11,7 +11,7 @@ import io.netty.util.AttributeKey;
 import java.util.function.Supplier;
 
 public class MysqlProxyHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
-    private static final AttributeKey<ByteBuf> WAIT_WRITE_BYTE_BUFF_ATTR = AttributeKey.valueOf(MysqlProxyHandler.class+"#ByteBuf");
+    private static final AttributeKey<ByteBuf> READY_WRITE_PACKET_ATTR = AttributeKey.valueOf(MysqlProxyHandler.class+"#ByteBuf");
     private final Supplier<Channel> channelSupplier;
     public MysqlProxyHandler(Supplier<Channel> channelSupplier) {
         super(false);
@@ -27,8 +27,8 @@ public class MysqlProxyHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        // directly write getClientChannel data to getMysqlChannel real mysql connection
-        ByteBuf userByteBuf = msg.alloc().heapBuffer(msg.readableBytes());
+        // directly write getFrontendChannel data to getMysqlChannel real mysql connection
+        ByteBuf userByteBuf = ctx.alloc().heapBuffer(msg.readableBytes());
         msg.getBytes(0,userByteBuf);
 
         Channel channel = channelSupplier.get();
@@ -46,10 +46,10 @@ public class MysqlProxyHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
     }
 
     public static void setReadyWritePacket(Channel channel, ByteBuf byteBuf){
-        channel.attr(WAIT_WRITE_BYTE_BUFF_ATTR).set(byteBuf);
+        channel.attr(READY_WRITE_PACKET_ATTR).set(byteBuf);
     }
 
     public static ByteBuf getReadyWritePacket(Channel channel){
-        return channel.attr(WAIT_WRITE_BYTE_BUFF_ATTR).get();
+        return channel.attr(READY_WRITE_PACKET_ATTR).get();
     }
 }

@@ -17,7 +17,6 @@ import java.util.Set;
  *
  */
 public abstract class AbstractPacketDecoder extends ByteToMessageDecoder implements Constants {
-
 	private final int maxPacketSize;
 
 	public AbstractPacketDecoder(int maxPacketSize) {
@@ -28,16 +27,16 @@ public abstract class AbstractPacketDecoder extends ByteToMessageDecoder impleme
 	protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
 		if (in.isReadable(4)) {
 			in.markReaderIndex();
-			final int packetSize = in.readUnsignedMediumLE();
+			int packetSize = in.readUnsignedMediumLE();
 			if (packetSize > maxPacketSize) {
 				throw new TooLongFrameException("Received a packet of size " + packetSize + " but the maximum packet size is " + maxPacketSize);
 			}
-			final int sequenceId = in.readByte();
+			int sequenceId = in.readByte();
 			if (!in.isReadable(packetSize)) {
 				in.resetReaderIndex();
 				return;
 			}
-			final ByteBuf packet = in.readSlice(packetSize);
+			ByteBuf packet = in.readSlice(packetSize);
 
 			decodePacket(ctx, sequenceId, packet, out);
 		}
@@ -46,14 +45,14 @@ public abstract class AbstractPacketDecoder extends ByteToMessageDecoder impleme
 	protected abstract void decodePacket(ChannelHandlerContext ctx, int sequenceId, ByteBuf packet, List<Object> out);
 
 	protected ServerOkPacket decodeOkResponse(int sequenceId, ByteBuf packet, Set<CapabilityFlags> capabilities,
-                                              Charset charset) {
+											  MysqlCharacterSet charset) {
 
-		final ServerOkPacket.Builder builder = ServerOkPacket.builder()
+		ServerOkPacket.Builder builder = ServerOkPacket.builder()
 				.sequenceId(sequenceId)
 				.affectedRows(CodecUtils.readLengthEncodedInteger(packet))
 				.lastInsertId(CodecUtils.readLengthEncodedInteger(packet));
 
-		final EnumSet<ServerStatusFlag> statusFlags = CodecUtils.readShortEnumSet(packet, ServerStatusFlag.class);
+		EnumSet<ServerStatusFlag> statusFlags = CodecUtils.readShortEnumSet(packet, ServerStatusFlag.class);
 		if (capabilities.contains(CapabilityFlags.CLIENT_PROTOCOL_41)) {
 			builder
 					.addStatusFlags(statusFlags)
@@ -63,12 +62,12 @@ public abstract class AbstractPacketDecoder extends ByteToMessageDecoder impleme
 		}
 
 		if (capabilities.contains(CapabilityFlags.CLIENT_SESSION_TRACK)) {
-			builder.info(CodecUtils.readLengthEncodedString(packet, charset));
+			builder.info(CodecUtils.readLengthEncodedString(packet, charset.getCharset()));
 			if (statusFlags.contains(ServerStatusFlag.SESSION_STATE_CHANGED)) {
-				builder.sessionStateChanges(CodecUtils.readLengthEncodedString(packet, charset));
+				builder.sessionStateChanges(CodecUtils.readLengthEncodedString(packet, charset.getCharset()));
 			}
 		} else {
-			builder.info(CodecUtils.readFixedLengthString(packet, packet.readableBytes(), charset));
+			builder.info(CodecUtils.readFixedLengthString(packet, packet.readableBytes(), charset.getCharset()));
 		}
 		return builder.build();
 	}
@@ -84,14 +83,14 @@ public abstract class AbstractPacketDecoder extends ByteToMessageDecoder impleme
 		}
 	}
 
-	protected ServerErrorPacket decodeErrorResponse(int sequenceId, ByteBuf packet, Charset charset) {
-		final int errorNumber = packet.readUnsignedShortLE();
+	protected ServerErrorPacket decodeErrorResponse(int sequenceId, ByteBuf packet, MysqlCharacterSet charset) {
+		int errorNumber = packet.readUnsignedShortLE();
 
-		final byte[] sqlState;
+		byte[] sqlState;
 		sqlState = new byte[SQL_STATE_SIZE];
 		packet.readBytes(sqlState);
 
-		final String message = CodecUtils.readFixedLengthString(packet, packet.readableBytes(), charset);
+		String message = CodecUtils.readFixedLengthString(packet, packet.readableBytes(), charset.getCharset());
 
 		return new ServerErrorPacket(sequenceId, errorNumber, sqlState, message);
 	}

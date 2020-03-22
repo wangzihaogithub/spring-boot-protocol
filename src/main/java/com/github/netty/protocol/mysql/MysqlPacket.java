@@ -17,7 +17,7 @@
 package com.github.netty.protocol.mysql;
 
 public interface MysqlPacket {
-
+	long getTimestamp();
 	int getSequenceId();
 
 }

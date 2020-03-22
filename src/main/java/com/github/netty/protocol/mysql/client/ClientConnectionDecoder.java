@@ -1,13 +1,10 @@
 package com.github.netty.protocol.mysql.client;
 
-import com.github.netty.protocol.mysql.AbstractPacketDecoder;
-import com.github.netty.protocol.mysql.CapabilityFlags;
-import com.github.netty.protocol.mysql.CodecUtils;
-import com.github.netty.protocol.mysql.MysqlCharacterSet;
-import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
+import com.github.netty.protocol.mysql.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.DecoderException;
+import io.netty.handler.codec.TooLongFrameException;
 
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
@@ -17,38 +14,37 @@ import java.util.List;
  *
  */
 public class ClientConnectionDecoder extends AbstractPacketDecoder implements ClientDecoder {
+	private Session session;
 
-	public ClientConnectionDecoder() {
-		this(DEFAULT_MAX_PACKET_SIZE);
-	}
-
-	public ClientConnectionDecoder(int maxPacketSize) {
+	public ClientConnectionDecoder(Session session,int maxPacketSize) {
 		super(maxPacketSize);
+		this.session = session;
 	}
 
 	@Override
 	protected void decodePacket(ChannelHandlerContext ctx, int sequenceId, ByteBuf packet, List<Object> out) {
-		final EnumSet<CapabilityFlags> clientCapabilities = CodecUtils.readIntEnumSet(packet, CapabilityFlags.class);
+		EnumSet<CapabilityFlags> clientCapabilities = CodecUtils.readIntEnumSet(packet, CapabilityFlags.class);
 
 		if (!clientCapabilities.contains(CapabilityFlags.CLIENT_PROTOCOL_41)) {
 			throw new DecoderException("MySQL client protocol 4.1 support required");
 		}
 
-		final ServerHandshakePacket.Builder response = ServerHandshakePacket.create();
+		ClientHandshakePacket.Builder response = ClientHandshakePacket.create();
 		response.sequenceId(sequenceId);
 		response.addCapabilities(clientCapabilities)
 				.maxPacketSize((int)packet.readUnsignedIntLE());
-		final MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readByte());
+		MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readByte());
+
 		response.characterSet(characterSet);
 		packet.skipBytes(23);
 		if (packet.isReadable()) {
 			response.username(CodecUtils.readNullTerminatedString(packet, characterSet.getCharset()));
 
-			final EnumSet<CapabilityFlags> serverCapabilities = CapabilityFlags.getCapabilitiesAttr(ctx.channel());
-			final EnumSet<CapabilityFlags> capabilities = EnumSet.copyOf(clientCapabilities);
+			EnumSet<CapabilityFlags> serverCapabilities = session.getBackendCapabilities();
+			EnumSet<CapabilityFlags> capabilities = EnumSet.copyOf(clientCapabilities);
 			capabilities.retainAll(serverCapabilities);
 
-			final int authResponseLength;
+			int authResponseLength;
 			if (capabilities.contains(CapabilityFlags.CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA)) {
 				authResponseLength = (int)CodecUtils.readLengthEncodedInteger(packet);
 			} else if (capabilities.contains(CapabilityFlags.CLIENT_SECURE_CONNECTION)) {
@@ -67,7 +63,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 			}
 
 			if (capabilities.contains(CapabilityFlags.CLIENT_CONNECT_ATTRS)) {
-				final long keyValueLen = CodecUtils.readLengthEncodedInteger(packet);
+				long keyValueLen = CodecUtils.readLengthEncodedInteger(packet);
 				for (int i = 0; i < keyValueLen; i++) {
 					response.addAttribute(
 							CodecUtils.readLengthEncodedString(packet, StandardCharsets.UTF_8),

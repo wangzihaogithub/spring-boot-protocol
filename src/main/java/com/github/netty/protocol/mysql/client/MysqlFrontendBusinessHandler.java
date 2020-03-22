@@ -2,61 +2,88 @@ package com.github.netty.protocol.mysql.client;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.protocol.mysql.*;
-import com.github.netty.protocol.mysql.server.ServerHandshakePacket;
-import com.github.netty.protocol.mysql.server.ServerColumnDefinitionPacket;
-import com.github.netty.protocol.mysql.server.ServerEofPacket;
-import com.github.netty.protocol.mysql.server.ServerResultsetRowPacket;
+import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
+import com.github.netty.protocol.mysql.server.*;
 import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@ChannelHandler.Sharable
-public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPacket,MysqlPacket> {
+/**
+ * Here the user business logic
+ *
+ * 1. server to client {@link ServerHandshakePacket}
+ * 2. client to server {@link ClientHandshakePacket}
+ * 3. server to client {@link ServerOkPacket}
+ *
+ * Initial Handshake starts with server sending the `Initial Handshake Packet` {@link ServerHandshakePacket}.
+ * After this, optionally,
+ * client can request an SSL connection to be established with `SSL Connection Request Packet` TODO ,
+ * and then client sends the `Handshake Response Packet` {@link ClientHandshakePacket}.
+ */
+public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<MysqlPacket,MysqlPacket> {
     protected static Pattern SETTINGS_PATTERN = Pattern.compile("@@(\\w+)\\sAS\\s(\\w+)");
     private int maxPacketSize;
     private Session session;
-    public MysqlClientBusinessHandler() {
+    private Collection<MysqlPacketListener> mysqlPacketListeners;
+
+    public MysqlFrontendBusinessHandler() {
         super(false);
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        EnumSet<CapabilityFlags> clientCapabilities = CapabilityFlags.getImplicitCapabilities();
-        clientCapabilities.addAll(EnumSet.of(
-                CapabilityFlags.CLIENT_PLUGIN_AUTH,
-                CapabilityFlags.CLIENT_SECURE_CONNECTION,
-                CapabilityFlags.CLIENT_CONNECT_WITH_DB));
-        CapabilityFlags.setCapabilitiesAttr(ctx.channel(), clientCapabilities);
-        super.channelActive(ctx);
-    }
-
-    @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, ClientPacket msg) throws Exception {
-        if (msg instanceof ServerHandshakePacket) {
-            ctx.pipeline().replace(ClientConnectionDecoder.class,
-                    "ClientCommandDecoder", new ClientCommandDecoder(getMaxPacketSize()));
+    protected void onMessageReceived(ChannelHandlerContext ctx, MysqlPacket msg) throws Exception {
+        if (msg instanceof ClientHandshakePacket) {
+            onHandshake(ctx, (ClientHandshakePacket) msg);
+        }
+        if(mysqlPacketListeners != null && !mysqlPacketListeners.isEmpty()){
+            for (MysqlPacketListener mysqlPacketListener : mysqlPacketListeners) {
+                try {
+                    mysqlPacketListener.onMysqlPacket(msg, ctx, session, Constants.HANDLER_TYPE_FRONTEND);
+                }catch (Exception e){
+                    logger.warn("{} exception = {} ",mysqlPacketListener.toString(),e.toString(),e);
+                }
+            }
         }
         onMysqlPacket(ctx, msg);
     }
 
-    protected void onMysqlPacket(ChannelHandlerContext ctx, ClientPacket packet){
+    protected void onMysqlPacket(ChannelHandlerContext ctx, MysqlPacket packet){
 
     }
 
-    public ServerHandshakePacket newServerHandshakePacket(String user, String password, String database,
-                                                          ClientHandshakePacket clientHandshakePacket,
+    @Override
+    protected void onUserEventTriggered(ChannelHandlerContext ctx, Object evt) {
+        super.onUserEventTriggered(ctx, evt);
+        if(evt instanceof EventHandshakeSuccessful){
+            onHandshakeSuccessful(ctx,(EventHandshakeSuccessful) evt);
+        }
+    }
+
+    protected void onHandshake(ChannelHandlerContext ctx, ClientHandshakePacket packet){
+        session.setClientCharsetAttr(packet.getCharacterSet());
+        session.setFrontendCapabilities(packet.getCapabilities());
+    }
+
+    protected void onHandshakeSuccessful(ChannelHandlerContext ctx, EventHandshakeSuccessful event){
+        if(ctx.pipeline().context(ClientConnectionDecoder.class) != null) {
+            ctx.pipeline().replace(ClientConnectionDecoder.class,
+                    "ClientCommandDecoder", new ClientCommandDecoder(session,getMaxPacketSize()));
+        }
+    }
+
+    public ClientHandshakePacket newClientHandshakePacket(String user, String password, String database,
+                                                          ServerHandshakePacket serverHandshakePacket,
                                                           Set<CapabilityFlags> capabilities){
-        ServerHandshakePacket packet = ServerHandshakePacket.create()
+        ClientHandshakePacket packet = ClientHandshakePacket.create()
                 .addCapabilities(capabilities)
                 .username(user)
-                .addAuthData(MysqlNativePasswordUtil.hashPassword(password, clientHandshakePacket.getAuthPluginData()))
+                .addAuthData(MysqlNativePasswordUtil.hashPassword(password, serverHandshakePacket.getAuthPluginData()))
                 .database(database)
                 .authPluginName(Constants.MYSQL_NATIVE_PASSWORD)
                 .build();
@@ -187,4 +214,11 @@ public class MysqlClientBusinessHandler extends AbstractChannelHandler<ClientPac
         this.session = session;
     }
 
+    public Collection<MysqlPacketListener> getMysqlPacketListeners() {
+        return mysqlPacketListeners;
+    }
+
+    public void setMysqlPacketListeners(Collection<MysqlPacketListener> mysqlPacketListeners) {
+        this.mysqlPacketListeners = mysqlPacketListeners;
+    }
 }

@@ -26,7 +26,7 @@ public enum MysqlCharacterSet {
 	/**
 	 * Used to indicate that the server sent no field-level character set information, so the driver should use the connection-level character encoding instead.
 	 */
-	NO_CHARSET_INFO((byte) -1, "UTF-8"),
+//	NO_CHARSET_INFO((byte) -1, "UTF-8"),
 	BIG5_CHINESE_CI((byte) 1, "Big5"),
 	LATIN2_CZECH_CS((byte) 2, "ISO8859_2"),
 	DEC8_SWEDISH_CI((byte) 3, "ISO8859_1"),
@@ -169,12 +169,16 @@ public enum MysqlCharacterSet {
 	}
 
 	public static MysqlCharacterSet findById(int id) {
+		return findById(id,DEFAULT);
+	}
+
+	public static MysqlCharacterSet findById(int id,MysqlCharacterSet characterSet) {
 		for (MysqlCharacterSet charset : values()) {
 			if (charset.id == id) {
 				return charset;
 			}
 		}
-		return null;
+		return characterSet;
 	}
 
 	public Charset getCharset() {
@@ -185,21 +189,4 @@ public enum MysqlCharacterSet {
 		return id;
 	}
 
-	private static final AttributeKey<MysqlCharacterSet> SERVER_CHARSET_KEY = AttributeKey.newInstance(MysqlCharacterSet.class.getName() + "-server");
-	private static final AttributeKey<MysqlCharacterSet> CLIENT_CHARSET_KEY = AttributeKey.newInstance(MysqlCharacterSet.class.getName() + "-client");
-
-	public static MysqlCharacterSet getServerCharsetAttr(Channel channel) {
-		return getCharSetAttr(SERVER_CHARSET_KEY, channel);
-	}
-
-	public static MysqlCharacterSet getClientCharsetAttr(Channel channel) {
-		return getCharSetAttr(CLIENT_CHARSET_KEY, channel);
-	}
-
-	private static MysqlCharacterSet getCharSetAttr(AttributeKey<MysqlCharacterSet> key, Channel channel) {
-		if (channel.hasAttr(key)) {
-			return channel.attr(key).get();
-		}
-		return DEFAULT;
-	}
 }

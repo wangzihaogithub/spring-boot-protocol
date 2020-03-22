@@ -12,30 +12,27 @@ import java.util.Optional;
  *
  */
 public class ClientCommandDecoder extends AbstractPacketDecoder implements ClientDecoder {
-
-	public ClientCommandDecoder() {
-		this(Constants.DEFAULT_MAX_PACKET_SIZE);
-	}
-
-	public ClientCommandDecoder(int maxPacketSize) {
+	private Session session;
+	public ClientCommandDecoder(Session session,int maxPacketSize) {
 		super(maxPacketSize);
+		this.session = session;
 	}
 
 	@Override
 	protected void decodePacket(ChannelHandlerContext ctx, int sequenceId, ByteBuf packet, List<Object> out) {
-		final MysqlCharacterSet clientCharset = MysqlCharacterSet.getClientCharsetAttr(ctx.channel());
+		MysqlCharacterSet clientCharset = session.getClientCharset();
 
-		final byte commandCode = packet.readByte();
-		final Optional<Command> command = Command.findByCommandCode(commandCode);
-		if (!command.isPresent()) {
+		byte commandCode = packet.readByte();
+		Command command = Command.findByCommandCode(commandCode);
+		if (command == null) {
 			throw new DecoderException("Unknown command " + commandCode);
 		}
-		switch (command.get()) {
+		switch (command) {
 			case COM_QUERY:
 				out.add(new ClientQueryPacket(sequenceId, CodecUtils.readFixedLengthString(packet, packet.readableBytes(), clientCharset.getCharset())));
 				break;
 			default:
-				out.add(new ClientCommandPacket(sequenceId, command.get()));
+				out.add(new ClientCommandPacket(sequenceId, command));
 		}
 	}
 }

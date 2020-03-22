@@ -56,7 +56,7 @@ public final class CodecUtils {
 			return buf.readUnsignedMediumLE();
 		}
 		if (firstByte == LONG_VALUE) {
-			final long length = buf.readLongLE();
+			long length = buf.readLongLE();
 			if (length < 0) {
 				throw new CodecException("Received a length value too large to handle: " + Long.toHexString(length));
 			}
@@ -70,32 +70,32 @@ public final class CodecUtils {
 //    }
 //
 //    static String readLengthEncodedString(ByteBuf buf, int firstByte, Charset charset) {
-//        final long length = readLengthEncodedInteger(buf, firstByte);
+//        long length = readLengthEncodedInteger(buf, firstByte);
 //        return readFixedLengthString(buf, (int) length, charset);
 //    }
 //
 	public static AsciiString readNullTerminatedString(ByteBuf buf) {
-		final int len = findNullTermLen(buf);
+		int len = findNullTermLen(buf);
 		if (len < 0) {
 			return null;
 		}
-		final AsciiString s = readFixedLengthString(buf, len);
+		AsciiString s = readFixedLengthString(buf, len);
 		buf.readByte();
 		return s;
 	}
 
 	public static String readNullTerminatedString(ByteBuf buf, Charset charset) {
-		final int len = findNullTermLen(buf);
+		int len = findNullTermLen(buf);
 		if (len < 0) {
 			return null;
 		}
-		final String s = readFixedLengthString(buf, len, charset);
+		String s = readFixedLengthString(buf, len, charset);
 		buf.readByte();
 		return s;
 	}
 
 	public static int findNullTermLen(ByteBuf buf) {
-		final int termIdx = buf.indexOf(buf.readerIndex(), buf.capacity(), (byte) 0);
+		int termIdx = buf.indexOf(buf.readerIndex(), buf.capacity(), (byte) 0);
 		if (termIdx < 0) {
 			return -1;
 		}
@@ -103,7 +103,7 @@ public final class CodecUtils {
 	}
 
 	public static AsciiString readFixedLengthString(ByteBuf buf, int len) {
-		final byte[] bytes = new byte[len];
+		byte[] bytes = new byte[len];
 		buf.readBytes(bytes);
 		return new AsciiString(bytes);
 	}
@@ -112,18 +112,18 @@ public final class CodecUtils {
 		if (length < 0) {
 			return null;
 		}
-		final String s = buf.toString(buf.readerIndex(), length, charset);
+		String s = buf.toString(buf.readerIndex(), length, charset);
 		buf.readerIndex(buf.readerIndex() + length);
 		return s;
 	}
 
 	public static String readLengthEncodedString(ByteBuf buf, Charset charset) {
-		final long len = readLengthEncodedInteger(buf);
+		long len = readLengthEncodedInteger(buf);
 		return readFixedLengthString(buf, (int) len, charset);
 	}
 
 	public static String readLengthEncodedString(ByteBuf buf, int firstByte, Charset charset) {
-		final long len = readLengthEncodedInteger(buf, firstByte);
+		long len = readLengthEncodedInteger(buf, firstByte);
 		return readFixedLengthString(buf, (int) len, charset);
 	}
 
@@ -138,7 +138,7 @@ public final class CodecUtils {
 	public static <E extends Enum<E>> EnumSet<E> toEnumSet(Class<E> enumClass, long vector) {
 		EnumSet<E> set = EnumSet.noneOf(enumClass);
 		for (E e : enumClass.getEnumConstants()) {
-			final long mask = 1 << e.ordinal();
+			long mask = 1 << e.ordinal();
 			if ((mask & vector) != 0) {
 				set.add(e);
 			}
@@ -198,7 +198,7 @@ public final class CodecUtils {
 	}
 
 	public static void writeLengthEncodedString(ByteBuf buf, CharSequence sequence, Charset charset) {
-		final ByteBuf tmpBuf = Unpooled.buffer();
+		ByteBuf tmpBuf = Unpooled.buffer();
 		try {
 			tmpBuf.writeCharSequence(sequence, charset);
 			writeLengthEncodedInt(buf, (long) tmpBuf.readableBytes());

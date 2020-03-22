@@ -4,11 +4,14 @@ import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.SimpleNettyClient;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
+import com.github.netty.protocol.mysql.Constants;
 import com.github.netty.protocol.mysql.MysqlProxyHandler;
 import com.github.netty.protocol.mysql.Session;
 import com.github.netty.protocol.mysql.client.ClientConnectionDecoder;
-import com.github.netty.protocol.mysql.client.MysqlClientBusinessHandler;
-import com.github.netty.protocol.mysql.server.MysqlServerBusinessHandler;
+import com.github.netty.protocol.mysql.client.ClientPacketEncoder;
+import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
+import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
+import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import com.github.netty.protocol.mysql.server.ServerConnectionDecoder;
 import com.github.netty.protocol.mysql.server.ServerErrorPacket;
 import com.github.netty.protocol.mysql.server.ServerPacketEncoder;
@@ -18,6 +21,8 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler;
 
 import java.net.InetSocketAddress;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
 
@@ -37,14 +42,17 @@ import java.util.function.Supplier;
  * --------------------------------------------------------------------------------
  */
 public class MysqlProtocol extends AbstractProtocol {
-    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    protected final LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private InetSocketAddress mysqlAddress;
-    private int maxPacketSize;
-    private final Supplier<MysqlServerBusinessHandler> serverBusinessHandler;
-    private final Supplier<MysqlClientBusinessHandler> clientBusinessHandler;
-    public MysqlProtocol(Supplier<MysqlServerBusinessHandler> serverBusinessHandler, Supplier<MysqlClientBusinessHandler> clientBusinessHandler) {
-        this.serverBusinessHandler = serverBusinessHandler;
-        this.clientBusinessHandler = clientBusinessHandler;
+    private int maxPacketSize = Constants.DEFAULT_MAX_PACKET_SIZE;
+    private Supplier<MysqlBackendBusinessHandler> backendBusinessHandler = MysqlBackendBusinessHandler::new;
+    private Supplier<MysqlFrontendBusinessHandler> frontendBusinessHandler = MysqlFrontendBusinessHandler::new;
+    private final List<MysqlPacketListener> mysqlPacketListeners = new CopyOnWriteArrayList<>();
+
+    public MysqlProtocol() {}
+
+    public MysqlProtocol(InetSocketAddress mysqlAddress) {
+        this.mysqlAddress = mysqlAddress;
     }
 
     @Override
@@ -98,43 +106,54 @@ public class MysqlProtocol extends AbstractProtocol {
 //        }
     }
 
+    protected String newSessionId(InetSocketAddress frontendAddress,InetSocketAddress backendAddress){
+        String backendId = backendAddress.getHostString() + "_" + backendAddress.getPort();
+        String frontendId = frontendAddress.getHostString() + "_" + frontendAddress.getPort();
+        return backendId+"-"+frontendId;
+    }
+
     @Override
-    public void addPipeline(Channel clientChannel) throws Exception {
-        Session session = new Session();
-        session.setClientChannel(clientChannel);
+    public void addPipeline(Channel frontendChannel) throws Exception {
+        Session session = new Session(newSessionId((InetSocketAddress)frontendChannel.remoteAddress(),mysqlAddress));
+        session.setFrontendChannel(frontendChannel);
 
         SimpleNettyClient mysqlClient = new SimpleNettyClient("Mysql");
         mysqlClient.handlers(() -> {
-                MysqlServerBusinessHandler serverBusinessHandler = this.serverBusinessHandler.get();
-                serverBusinessHandler.setMaxPacketSize(maxPacketSize);
-                serverBusinessHandler.setSession(session);
+                MysqlBackendBusinessHandler backendBusinessHandler = this.backendBusinessHandler.get();
+                backendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
+                backendBusinessHandler.setMaxPacketSize(maxPacketSize);
+                backendBusinessHandler.setSession(session);
                 return new ChannelHandler[]{
-                        new MysqlProxyHandler(() -> clientChannel),
-                        new ServerConnectionDecoder(maxPacketSize),
-                        serverBusinessHandler};
+                        new MysqlProxyHandler(session::getFrontendChannel),
+                        new ServerConnectionDecoder(session,maxPacketSize),
+                        new ClientPacketEncoder(session),
+                        new ServerPacketEncoder(session),
+                        backendBusinessHandler};
             })
             .ioRatio(80)
             .ioThreadCount(1)
             .connect(mysqlAddress).get()
             .addListener((ChannelFutureListener) future -> {
                 if (future.isSuccess()) {
-                    session.setServerChannel(future.channel());
+                    session.setBackendChannel(future.channel());
                 } else {
                     ServerErrorPacket errorPacket = new ServerErrorPacket(
                             0,2003,
                             "#HY000".getBytes(), future.cause().toString());
-                    clientChannel.writeAndFlush(errorPacket);
+                    frontendChannel.writeAndFlush(errorPacket);
                 }
             });
 
-        MysqlClientBusinessHandler clientBusinessHandler = this.clientBusinessHandler.get();
-        clientBusinessHandler.setMaxPacketSize(maxPacketSize);
-        clientBusinessHandler.setSession(session);
-        clientChannel.pipeline().addLast(
-                new MysqlProxyHandler(mysqlClient::getChannel),
-                new ClientConnectionDecoder(maxPacketSize),
-                new ServerPacketEncoder(),
-                clientBusinessHandler);
+        MysqlFrontendBusinessHandler frontendBusinessHandler = this.frontendBusinessHandler.get();
+        frontendBusinessHandler.setMaxPacketSize(maxPacketSize);
+        frontendBusinessHandler.setSession(session);
+        frontendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
+        frontendChannel.pipeline().addLast(
+                new MysqlProxyHandler(session::getBackendChannel),
+                new ClientConnectionDecoder(session,maxPacketSize),
+                new ClientPacketEncoder(session),
+                new ServerPacketEncoder(session),
+                frontendBusinessHandler);
     }
 
     public void setMysqlAddress(InetSocketAddress mysqlAddress) {
@@ -145,4 +164,23 @@ public class MysqlProtocol extends AbstractProtocol {
         this.maxPacketSize = maxPacketSize;
     }
 
+    public void setBackendBusinessHandler(Supplier<MysqlBackendBusinessHandler> backendBusinessHandler) {
+        this.backendBusinessHandler = backendBusinessHandler;
+    }
+
+    public void setFrontendBusinessHandler(Supplier<MysqlFrontendBusinessHandler> frontendBusinessHandler) {
+        this.frontendBusinessHandler = frontendBusinessHandler;
+    }
+
+    public InetSocketAddress getMysqlAddress() {
+        return mysqlAddress;
+    }
+
+    public int getMaxPacketSize() {
+        return maxPacketSize;
+    }
+
+    public List<MysqlPacketListener> getMysqlPacketListeners() {
+        return mysqlPacketListeners;
+    }
 }

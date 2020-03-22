@@ -17,7 +17,6 @@
 package com.github.netty.protocol.mysql.server;
 
 import com.github.netty.protocol.mysql.*;
-import com.github.netty.protocol.mysql.client.ClientHandshakePacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
@@ -29,19 +28,23 @@ import java.util.EnumSet;
  *
  */
 public class ServerPacketEncoder extends AbstractPacketEncoder<ServerPacket> {
+	private Session session;
+	public ServerPacketEncoder(Session session) {
+		this.session = session;
+	}
 
 	@Override
 	protected void encodePacket(ChannelHandlerContext ctx, ServerPacket packet, ByteBuf buf) {
-		final EnumSet<CapabilityFlags> capabilities = CapabilityFlags.getCapabilitiesAttr(ctx.channel());
-		final Charset serverCharset = MysqlCharacterSet.getServerCharsetAttr(ctx.channel()).getCharset();
+		EnumSet<CapabilityFlags> capabilities = session.getFrontendCapabilities();
+		Charset serverCharset = session.getServerCharset().getCharset();
 		if (packet instanceof ServerColumnCountPacket) {
 			encodeColumnCount((ServerColumnCountPacket) packet, buf);
 		} else if (packet instanceof ServerColumnDefinitionPacket) {
 			encodeColumnDefinition(serverCharset, (ServerColumnDefinitionPacket) packet, buf);
 		} else if (packet instanceof ServerEofPacket) {
 			encodeEofResponse(capabilities, (ServerEofPacket) packet, buf);
-		} else if (packet instanceof ClientHandshakePacket) {
-			encodeHandshake((ClientHandshakePacket)packet, buf);
+		} else if (packet instanceof ServerHandshakePacket) {
+			encodeHandshake((ServerHandshakePacket)packet, buf);
 		} else if (packet instanceof ServerOkPacket) {
 			encodeOkResponse(capabilities, serverCharset, (ServerOkPacket) packet, buf);
 		} else if (packet instanceof ServerResultsetRowPacket) {
@@ -82,7 +85,7 @@ public class ServerPacketEncoder extends AbstractPacketEncoder<ServerPacket> {
 		}
 	}
 
-	protected void encodeHandshake(ClientHandshakePacket handshake, ByteBuf buf) {
+	protected void encodeHandshake(ServerHandshakePacket handshake, ByteBuf buf) {
 		buf.writeByte(handshake.getProtocolVersion())
 		   .writeBytes(handshake.getServerVersion().array())
 		   .writeByte(Constants.NUL_BYTE)
@@ -100,7 +103,7 @@ public class ServerPacketEncoder extends AbstractPacketEncoder<ServerPacket> {
 		}
 		buf.writeZero(Constants.HANDSHAKE_RESERVED_BYTES);
 		if (handshake.getCapabilities().contains(CapabilityFlags.CLIENT_SECURE_CONNECTION)) {
-			final int padding = Constants.AUTH_PLUGIN_DATA_PART2_MIN_LEN - handshake.getAuthPluginData().readableBytes();
+			int padding = Constants.AUTH_PLUGIN_DATA_PART2_MIN_LEN - handshake.getAuthPluginData().readableBytes();
 			buf.writeBytes(handshake.getAuthPluginData());
 			if (padding > 0) {
 				buf.writeZero(padding);

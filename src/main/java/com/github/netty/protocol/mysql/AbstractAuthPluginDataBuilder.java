@@ -19,12 +19,30 @@ package com.github.netty.protocol.mysql;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Set;
+
 /**
  *
  */
-public abstract class AbstractAuthPluginDataBuilder<B extends AbstractAuthPluginDataBuilder>
-		extends AbstractCapabilitiesBuilder<B> {
+public abstract class AbstractAuthPluginDataBuilder<B extends AbstractAuthPluginDataBuilder> {
 	public final ByteBuf authPluginData = Unpooled.buffer();
+	public final Set<CapabilityFlags> capabilities = CapabilityFlags.getImplicitCapabilities();
+
+	public B addCapabilities(CapabilityFlags... capabilities) {
+		Collections.addAll(this.capabilities, capabilities);
+		return (B) this;
+	}
+
+	public B addCapabilities(Collection<CapabilityFlags> capabilities) {
+		this.capabilities.addAll(capabilities);
+		return (B) this;
+	}
+
+	public boolean hasCapability(CapabilityFlags capability) {
+		return capabilities.contains(capability);
+	}
 
 	public B addAuthData(byte[] bytes) {
 		authPluginData.writeBytes(bytes);

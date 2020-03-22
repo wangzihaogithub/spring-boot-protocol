@@ -41,5 +41,9 @@ public interface Constants {
 	// Auth plugins
 	String MYSQL_NATIVE_PASSWORD = "mysql_native_password";
 
-	int DEFAULT_MAX_PACKET_SIZE = 1048576;
+	int DEFAULT_MAX_PACKET_SIZE = 16777216;//1048576
+
+	String HANDLER_TYPE_FRONTEND = "frontend";
+	String HANDLER_TYPE_BACKEND = "backend";
+
 }
