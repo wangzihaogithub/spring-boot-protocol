@@ -540,7 +540,7 @@ public class NettyProperties implements Serializable{
      */
     public static class MysqlProxyLog{
         /**
-         * 释放开启代理日志
+         * 是否开启代理日志
          */
         private boolean enable = false;
         /**
