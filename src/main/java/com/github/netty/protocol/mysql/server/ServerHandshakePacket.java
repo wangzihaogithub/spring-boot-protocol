@@ -125,7 +125,7 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 	}
 	@Override
 	public String toString() {
-		return "sequenceId="+getSequenceId()+","+getClass().getSimpleName();
+		return getClass().getSimpleName();
 	}
 	@Override
 	public int hashCode() {

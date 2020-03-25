@@ -39,6 +39,6 @@ public abstract class AbstractMySqlPacket implements MysqlPacket {
 
 	@Override
 	public String toString() {
-		return "sequenceId="+sequenceId+","+getClass().getSimpleName();
+		return getClass().getSimpleName();
 	}
 }
