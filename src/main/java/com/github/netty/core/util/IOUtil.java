@@ -175,7 +175,6 @@ public class IOUtil {
         long writeBeginIndex = append? outChannel.size() : 0L;
         FileLock lock = outChannel.lock(writeBeginIndex, Long.MAX_VALUE - writeBeginIndex, false);
         try{
-            long position = writeBeginIndex;
             while (dataIterator.hasNext()){
                 ByteBuffer buffer = dataIterator.next();
                 if(buffer == null) {
@@ -184,23 +183,7 @@ public class IOUtil {
                 if(!buffer.hasRemaining()){
                     buffer.flip();
                 }
-
-                int remaining = buffer.remaining();
-                position += outChannel.transferFrom(new ReadableByteChannel() {
-                    @Override
-                    public boolean isOpen() {
-                        return true;
-                    }
-
-                    @Override
-                    public void close() throws IOException {}
-
-                    @Override
-                    public int read(ByteBuffer dst) throws IOException {
-                        dst.put(buffer);
-                        return remaining;
-                    }
-                },position,Long.MAX_VALUE);
+                outChannel.write(buffer);
             }
         }finally {
             lock.release();
