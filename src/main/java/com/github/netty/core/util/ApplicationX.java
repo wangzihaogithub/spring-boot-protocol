@@ -9,8 +9,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.annotation.*;
 import java.lang.reflect.*;
-import java.net.URI;
-import java.net.URL;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -44,7 +43,9 @@ public class ApplicationX {
     private static final Map<Class,Boolean> FACTORY_METHOD_ANNOTATION_CACHE_MAP = newConcurrentReferenceMap(32);
     private static final Map<Class,PropertyDescriptor[]> PROPERTY_DESCRIPTOR_CACHE_MAP = newConcurrentReferenceMap(128);
     private static final Map<Class,Method[]> DECLARED_METHODS_CACHE_MAP = newConcurrentReferenceMap(128);
+    private static final OrderComparator COMPARATOR = new OrderComparator(new LinkedHashSet<>(Collections.singletonList(Order.class)));
 
+    private BiPredicate<ClassLoader,URL> resourceLoaderUrlFilter = (classLoader, url) -> !isJavaLib(url);
     private Supplier<ClassLoader> resourceLoader;
     private Function<BeanDefinition,String> beanNameGenerator = new DefaultBeanNameGenerator(this);
 
@@ -253,46 +254,173 @@ public class ApplicationX {
         }
     }
 
-    public ScannerResult scanner(ClassLoader classLoader){
-        ScannerResult result = new ScannerResult();
-        try {
-            for(String rootPackage : scanner.getRootPackages()){
-                scanner.doScan(rootPackage,classLoader,(className)->{
-                    try {
-                        Class clazz = Class.forName(className,false, classLoader);
-                        if (clazz.isAnnotation()) {
-                            return;
-                        }
-                        // TODO: 1月27日 027  doScan skip interface impl by BeanPostProcessor
-                        if(clazz.isInterface()){
-                            return;
-                        }
-                        if(!isExistAnnotation(clazz, scannerAnnotations, result.scannerAnnotationCacheMap)) {
-                            return;
-                        }
-                        BeanDefinition definition = newBeanDefinition(clazz);
-                        String beanName = beanNameGenerator.apply(definition);
-                        result.beanDefinitionMap.put(beanName,definition);
-                    } catch (ReflectiveOperationException | LinkageError e) {
-                        //skip
-                    }
-                });
+    private BiConsumer<URL,String> newScannerConsumer(ClassLoader classLoader,ScannerResult result){
+        return (url,className)->{
+            try {
+                result.classCount.incrementAndGet();
+                Class clazz = Class.forName(className,false, classLoader);
+                if (clazz.isAnnotation()) {
+                    return;
+                }
+                // TODO: 1月27日 027  doScan skip interface impl by BeanPostProcessor
+                if(clazz.isInterface()){
+                    return;
+                }
+                if(!isExistAnnotation(clazz, scannerAnnotations, result.scannerAnnotationCacheMap)) {
+                    return;
+                }
+                BeanDefinition definition = newBeanDefinition(clazz);
+                String beanName = beanNameGenerator.apply(definition);
+                result.beanDefinitionMap.put(beanName,definition);
+            } catch (ReflectiveOperationException | LinkageError e) {
+                //skip
+            }
+        };
+    }
+
+    public ScannerResult scanner(ClassLoader classLoader,boolean onlyInMyProject){
+        return scanner(classLoader,onlyInMyProject,new ScannerResult());
+    }
+
+    public ScannerResult scanner(ClassLoader classLoader,boolean onlyInMyProject,ScannerResult result){
+        ClassLoader systemClassLoader = ClassLoader.getSystemClassLoader();
+        //只在我的项目中搜索类
+        if(onlyInMyProject) {
+            result.classLoaders.add(classLoader);
+            BiConsumer<URL,String> consumer = newScannerConsumer(classLoader,result);
+            try {
+                for (String rootPackage : scanner.getRootPackages()) {
+                    scanner.doScan(rootPackage,classLoader,consumer);
+                }
+            }catch (IOException e){
+                throw new IllegalStateException("scanner classLoader="+classLoader+",error="+e,e);
             }
             return result;
-        } catch (Exception e) {
-            throw new IllegalStateException("scanner error="+e,e);
+        }
+
+        //获取用户自定义路径url
+        for (ClassLoader userLoader = classLoader; userLoader != null && userLoader != systemClassLoader; userLoader = userLoader.getParent()) {
+            if (!(userLoader instanceof URLClassLoader)) {
+                continue;
+            }
+            URL[] urls = ((URLClassLoader) userLoader).getURLs();
+            if(urls == null) {
+                continue;
+            }
+            for (URL url : urls) {
+                result.addClassUrl(userLoader,url);
+            }
+        }
+
+        //扫描所有用户自定义加载器jar包路径
+        for (URL url : result.tempUrls) {
+            BiConsumer<URL,String> consumer = newScannerConsumer(classLoader,result);
+            try {
+                for(String rootPackage : scanner.getRootPackages()) {
+                    scanner.doScan(rootPackage, null, url, consumer);
+                }
+            }catch (IOException e){
+                throw new IllegalStateException("scanner userClassLoader error. url="+url+",error="+e,e);
+            }
+        }
+        result.tempUrls.clear();
+
+        //扫描系统类加载器的jar包路径
+        String cp = System.getProperty("java.class.path");
+        if (cp != null) {
+            while (cp.length() > 0) {
+                int pathSepIdx = cp.indexOf(File.pathSeparatorChar);
+                String pathElem;
+                if (pathSepIdx < 0) {
+                    pathElem = cp;
+                    addClassURL(result,systemClassLoader,pathElem);
+                    break;
+                } else if (pathSepIdx > 0) {
+                    pathElem = cp.substring(0, pathSepIdx);
+                    addClassURL(result,systemClassLoader,pathElem);
+                }
+                cp = cp.substring(pathSepIdx + 1);
+            }
+            for (URL url : result.tempUrls) {
+                BiConsumer<URL,String> consumer = newScannerConsumer(systemClassLoader,result);
+                try {
+                    for(String rootPackage : scanner.getRootPackages()) {
+                        scanner.doScan(rootPackage, null, url, consumer);
+                    }
+                }catch (IOException e){
+                    throw new IllegalStateException("scanner systemClassLoader error. url="+url+",error="+e,e);
+                }
+            }
+            result.tempUrls.clear();
+        }
+        return result;
+    }
+
+    protected void addClassURL(ScannerResult result, ClassLoader loader, String path){
+        try {
+            URL url = new File(path).getCanonicalFile().toURI().toURL();
+            result.addClassUrl(loader,url);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
+    public BiPredicate<ClassLoader, URL> getResourceLoaderUrlFilter() {
+        return resourceLoaderUrlFilter;
+    }
+
+    public void setResourceLoaderUrlFilter(BiPredicate<ClassLoader, URL> resourceLoaderUrlFilter) {
+        this.resourceLoaderUrlFilter = resourceLoaderUrlFilter;
+    }
+
+    protected boolean isJavaLib(URL url){
+        String urlStr = url.toString();
+        String[] javaPaths = {"/jre/lib/"};
+        for (String javaPath : javaPaths) {
+            if(urlStr.contains(javaPath)){
+                return true;
+            }
+        }
+        return false;
+    }
+
     public ScannerResult scanner(String... rootPackage){
+        return scanner(false,rootPackage);
+    }
+
+    public ScannerResult scanner(boolean onlyInMyProject,String... rootPackage){
         addScanPackage(rootPackage);
         ClassLoader loader = resourceLoader.get();
-        return scanner(loader);
+        return scanner(loader,onlyInMyProject);
     }
 
     public class ScannerResult{
+        private final AtomicInteger classCount = new AtomicInteger();
+        private final Set<ClassLoader> classLoaders = new LinkedHashSet<>();
+        private final Set<URL> tempUrls = new LinkedHashSet<>();
+        private final Set<URL> classUrls = new LinkedHashSet<>();
         private final Map<String,BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>(64);
         private final Map<Class,Boolean> scannerAnnotationCacheMap = new ConcurrentHashMap<>(64);
+        public int getClassCount() {
+            return classCount.get();
+        }
+        public Set<ClassLoader> getClassLoaders() {
+            return classLoaders;
+        }
+        public Set<URL> getClassUrls() {
+            return classUrls;
+        }
+        public Map<String, BeanDefinition> getBeanDefinitionMap() {
+            return beanDefinitionMap;
+        }
+        public void addClassUrl(ClassLoader loader,URL url){
+            BiPredicate<ClassLoader, URL> filter = getResourceLoaderUrlFilter();
+            if(filter.test(loader,url)){
+                classLoaders.add(loader);
+                classUrls.add(url);
+                tempUrls.add(url);
+            }
+        }
         public int inject(){
             LinkedList<String> beanNameList = new LinkedList<>();
             for (Map.Entry<String,BeanDefinition> entry : beanDefinitionMap.entrySet()) {
@@ -414,7 +542,7 @@ public class ApplicationX {
             }
         }
         return getBean(beanName,args,required);
-     }
+    }
 
     public <T>T getBean(String beanNameOrAlias,Object[] args,boolean required){
         String beanName = getBeanName(beanNameOrAlias);
@@ -670,14 +798,42 @@ public class ApplicationX {
             return this.excludes;
         }
 
-        public void doScan(String basePackage,ClassLoader loader, Consumer<String> classConsumer) throws IOException {
+        public void doScan(String basePackage,String currentPackage, URL url, BiConsumer<URL,String> classConsumer) throws IOException {
+            StringBuilder buffer = new StringBuilder();
+            String splashPath = dotToSplash(basePackage);
+            if (url == null || existContains(url)) {
+                return;
+            }
+            String filePath = getRootPath(URLDecoder.decode(url.getFile(),"UTF-8"));
+            List<String> names;
+            if (isJarFile(filePath)) {
+                names = readFromJarFile(filePath, splashPath);
+            } else {
+                names = readFromDirectory(filePath);
+            }
+            for (String name : names) {
+                if (isClassFile(name)) {
+                    String className = toClassName(buffer, name, currentPackage);
+                    classConsumer.accept(url,className);
+                } else {
+                    String nextPackage;
+                    if(currentPackage == null || currentPackage.isEmpty()){
+                        nextPackage = name;
+                    }else {
+                        nextPackage = currentPackage + "." + name;
+                    }
+                    doScan(basePackage,nextPackage, new URL(url + "/" + name),classConsumer);
+                }
+            }
+        }
+        public void doScan(String basePackage,ClassLoader loader, BiConsumer<URL,String> classConsumer) throws IOException {
             StringBuilder buffer = new StringBuilder();
             String splashPath = dotToSplash(basePackage);
             URL url = loader.getResource(splashPath);
             if (url == null || existContains(url)) {
                 return;
             }
-            String filePath = getRootPath(url);
+            String filePath = getRootPath(url.getFile());
             List<String> names;
             if (isJarFile(filePath)) {
                 names = readFromJarFile(filePath, splashPath);
@@ -687,7 +843,7 @@ public class ApplicationX {
             for (String name : names) {
                 if (isClassFile(name)) {
                     String className = toClassName(buffer, name, basePackage);
-                    classConsumer.accept(className);
+                    classConsumer.accept(url,className);
                 } else {
                     doScan(basePackage + "." + name, loader,classConsumer);
                 }
@@ -729,7 +885,7 @@ public class ApplicationX {
             List<String> nameList = new ArrayList<>();
             while (null != entry) {
                 String name = entry.getName();
-                if (name.startsWith(splashedPackageName) && isClassFile(name)) {
+                if (!entry.isDirectory() && name.startsWith(splashedPackageName) && isClassFile(name)) {
                     nameList.add(name);
                 }
                 entry = jarIn.getNextJarEntry();
@@ -754,8 +910,7 @@ public class ApplicationX {
             return name.endsWith(".jar");
         }
 
-        private String getRootPath(URL url) {
-            String fileUrl = url.getFile();
+        private String getRootPath(String fileUrl) {
             int pos = fileUrl.indexOf('!');
             if (-1 == pos) {
                 return fileUrl;
@@ -1839,6 +1994,9 @@ public class ApplicationX {
         private final Collection<Class<? extends Annotation>> orderedAnnotations;
         public OrderComparator(Collection<Class<? extends Annotation>> orderedAnnotations) {
             this.orderedAnnotations = Objects.requireNonNull(orderedAnnotations);
+        }
+        public Collection<Class<? extends Annotation>> getOrderedAnnotations() {
+            return orderedAnnotations;
         }
         @Override
         public int compare(Object o1, Object o2) {
