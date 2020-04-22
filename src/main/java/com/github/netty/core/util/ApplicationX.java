@@ -254,7 +254,7 @@ public class ApplicationX {
         }
     }
 
-    private BiConsumer<URL,String> newScannerConsumer(ClassLoader classLoader,ScannerResult result){
+    protected BiConsumer<URL,String> newScannerConsumer(ClassLoader classLoader,ScannerResult result){
         return (url,className)->{
             try {
                 result.classCount.incrementAndGet();
@@ -401,8 +401,8 @@ public class ApplicationX {
         private final Set<URL> classUrls = new LinkedHashSet<>();
         private final Map<String,BeanDefinition> beanDefinitionMap = new ConcurrentHashMap<>(64);
         private final Map<Class,Boolean> scannerAnnotationCacheMap = new ConcurrentHashMap<>(64);
-        public int getClassCount() {
-            return classCount.get();
+        public AtomicInteger getClassCount() {
+            return classCount;
         }
         public Set<ClassLoader> getClassLoaders() {
             return classLoaders;
@@ -413,7 +413,10 @@ public class ApplicationX {
         public Map<String, BeanDefinition> getBeanDefinitionMap() {
             return beanDefinitionMap;
         }
-        public void addClassUrl(ClassLoader loader,URL url){
+        public Map<Class, Boolean> getScannerAnnotationCacheMap() {
+            return scannerAnnotationCacheMap;
+        }
+        public void addClassUrl(ClassLoader loader, URL url){
             BiPredicate<ClassLoader, URL> filter = getResourceLoaderUrlFilter();
             if(filter.test(loader,url)){
                 classLoaders.add(loader);
@@ -769,7 +772,7 @@ public class ApplicationX {
         return exist;
     }
 
-    private static boolean isExistAnnotation(Class clazz, Collection<Class<? extends Annotation>> finds,Map<Class,Boolean> cacheMap){
+    public static boolean isExistAnnotation(Class clazz, Collection<Class<? extends Annotation>> finds,Map<Class,Boolean> cacheMap){
         Boolean existAnnotation = cacheMap.get(clazz);
         if(existAnnotation == null){
             Map<Class,Boolean> tempCacheMap = new HashMap<>();
