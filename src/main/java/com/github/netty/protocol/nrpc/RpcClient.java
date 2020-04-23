@@ -3,18 +3,18 @@ package com.github.netty.protocol.nrpc;
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
-import com.github.netty.core.util.AnnotationMethodToParameterNamesFunction;
-import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.core.util.ReflectUtil;
-import com.github.netty.core.util.StringUtil;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
+import com.github.netty.protocol.nrpc.service.RpcCommandAsyncService;
 import com.github.netty.protocol.nrpc.service.RpcCommandService;
 import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
@@ -46,12 +46,15 @@ public class RpcClient extends AbstractNettyClient{
     private final Map<String, Sender> rpcInstanceMap = new HashMap<>(6);
     private int idleTime = 10;
     private RpcCommandService rpcCommandService;
+    private RpcCommandAsyncService rpcCommandAsyncService;
     private RpcDBService rpcDBService;
     private AtomicInteger requestIdIncr = new AtomicInteger();
+    private int maxSpinDelayConnectCount = SystemPropertyUtil.getInt("netty.nrpc.maxSpinDelayConnectCount",0);
+
     /**
      * Connection status
      */
-    private State state = State.DOWN;
+    private volatile State state = State.DOWN;
     /**
      * Automatic reconnect Future
      */
@@ -232,16 +235,74 @@ public class RpcClient extends AbstractNettyClient{
         SocketChannel socketChannel = super.getChannel();
         if(socketChannel == null){
             connect();
-            throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no connect");
+            spinDelayTryGetConnect(maxSpinDelayConnectCount);
+            if(state == State.UP) {
+                socketChannel = super.getChannel();
+            }else {
+                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no connect");
+            }
         }
         if(!socketChannel.isActive()){
+            setChannel(null);
             connect();
-            throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no active");
+            spinDelayTryGetConnect(maxSpinDelayConnectCount);
+            if(state == State.UP){
+                socketChannel = super.getChannel();
+            }else {
+                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no active");
+            }
         }
         if(!socketChannel.isWritable()){
             throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no writable");
         }
         return socketChannel;
+    }
+
+    protected int spinDelayTryGetConnect(int maxCount){
+        int count = 0;
+        while (connectIngFlag.get()){
+            if(count >= maxCount){
+                break;
+            }
+            Thread.yield();
+            count++;
+        }
+        return count;
+    }
+
+    @Override
+    public void setChannel(SocketChannel newChannel) {
+        if(newChannel == null){
+            SocketChannel oldChannel = super.getChannel();
+            if(oldChannel != null){
+                oldChannel.close();
+            }
+            state = State.DOWN;
+        }else {
+            super.setChannel(newChannel);
+            //The first initiative to send a package to ensure proper binding agreement
+            getRpcCommandAsyncService().ping().subscribe(new Subscriber<byte[]>() {
+                @Override
+                public void onSubscribe(Subscription s) {
+                    s.request(1);
+                }
+
+                @Override
+                public void onNext(byte[] bytes) {
+                    state = State.UP;
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    state = State.DOWN;
+                }
+
+                @Override
+                public void onComplete() {
+
+                }
+            });
+        }
     }
 
     @Override
@@ -319,6 +380,21 @@ public class RpcClient extends AbstractNettyClient{
             }
         }
         return rpcCommandService;
+    }
+
+    /**
+     * Get command async service
+     * @return RpcCommandAsyncService
+     */
+    public RpcCommandAsyncService getRpcCommandAsyncService() {
+        if(rpcCommandAsyncService == null){
+            synchronized (this) {
+                if(rpcCommandAsyncService == null) {
+                    rpcCommandAsyncService = newInstance(RpcCommandAsyncService.class);
+                }
+            }
+        }
+        return rpcCommandAsyncService;
     }
 
     /**

@@ -260,8 +260,11 @@ public class IOUtil {
             while ((line = reader.readLine()) != null) {
                 sb.append(line).append('\n');
             }
-            String value = sb.toString();
-            return value;
+            if(sb.length() > 0){
+                return sb.substring(0,sb.length() - 1);
+            }else {
+                return "";
+            }
         }catch (Exception e){
             return null;
         }finally {

@@ -1,10 +1,12 @@
 package com.github.netty.protocol.mysql;
 
 import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.protocol.mysql.exception.ProxyException;
 import com.github.netty.protocol.mysql.server.ServerErrorPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
 
@@ -20,9 +22,17 @@ public class MysqlProxyHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        ServerErrorPacket errorPacket = new ServerErrorPacket(
-                0,3000,"#HY000".getBytes(),cause.toString());
-        channelSupplier.get().writeAndFlush(errorPacket);
+        ServerErrorPacket errorPacket;
+        if(cause instanceof ProxyException){
+            int errorNumber = ((ProxyException) cause).getErrorNumber();
+            errorPacket = new ServerErrorPacket(
+                    0,errorNumber,"#HY000".getBytes(),cause.toString());
+        }else {
+            errorPacket = new ServerErrorPacket(
+                    0, ProxyException.ERROR_UNKOWN, "#HY000".getBytes(), cause.toString());
+        }
+        ctx.channel().writeAndFlush(errorPacket)
+                .addListener(ChannelFutureListener.CLOSE);
     }
 
     @Override

@@ -1,0 +1,6 @@
+server:
+  port: 8080
+  netty:
+    mqtt:
+      enabled: true
+      auto-flush-idle-time: 0

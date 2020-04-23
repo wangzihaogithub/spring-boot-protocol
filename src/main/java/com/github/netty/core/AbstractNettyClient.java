@@ -30,7 +30,7 @@ public abstract class AbstractNettyClient{
     protected InetSocketAddress remoteAddress;
     private boolean enableEpoll;
     private volatile SocketChannel channel;
-    private AtomicBoolean connectIngFlag = new AtomicBoolean(false);
+    protected final AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private AtomicBoolean running = new AtomicBoolean(false);
@@ -148,7 +148,7 @@ public abstract class AbstractNettyClient{
                     .addListener((ChannelFutureListener) future -> {
                         connectIngFlag.set(false);
                         if (future.isSuccess()) {
-                            AbstractNettyClient.this.channel = (SocketChannel) future.channel();
+                            setChannel((SocketChannel) future.channel());
                         } else {
                             future.channel().close();
                         }
@@ -160,6 +160,10 @@ public abstract class AbstractNettyClient{
 
     public SocketChannel getChannel() {
         return channel;
+    }
+
+    public void setChannel(SocketChannel channel) {
+        this.channel = channel;
     }
 
     public InetSocketAddress getRemoteAddress() {

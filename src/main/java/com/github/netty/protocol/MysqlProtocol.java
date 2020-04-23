@@ -10,6 +10,7 @@ import com.github.netty.protocol.mysql.Session;
 import com.github.netty.protocol.mysql.client.ClientConnectionDecoder;
 import com.github.netty.protocol.mysql.client.ClientPacketEncoder;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
+import com.github.netty.protocol.mysql.exception.ProxyException;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import com.github.netty.protocol.mysql.server.ServerConnectionDecoder;
@@ -137,10 +138,11 @@ public class MysqlProtocol extends AbstractProtocol {
                 if (future.isSuccess()) {
                     session.setBackendChannel(future.channel());
                 } else {
+                    String stackTrace = ProxyException.stackTraceToString(future.cause());
                     ServerErrorPacket errorPacket = new ServerErrorPacket(
-                            0,2003,
-                            "#HY000".getBytes(), future.cause().toString());
-                    frontendChannel.writeAndFlush(errorPacket);
+                            0,ProxyException.ERROR_BACKEND_CONNECT_FAIL,
+                            "#HY000".getBytes(), stackTrace);
+                    frontendChannel.writeAndFlush(errorPacket).addListener(ChannelFutureListener.CLOSE);
                 }
             });
 
@@ -149,11 +151,21 @@ public class MysqlProtocol extends AbstractProtocol {
         frontendBusinessHandler.setSession(session);
         frontendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
         frontendChannel.pipeline().addLast(
-                new MysqlProxyHandler(session::getBackendChannel),
+                new MysqlProxyHandler(newBackendChannelSupplier(session)),
                 new ClientConnectionDecoder(session,maxPacketSize),
                 new ClientPacketEncoder(session),
                 new ServerPacketEncoder(session),
                 frontendBusinessHandler);
+    }
+
+    protected Supplier<Channel> newBackendChannelSupplier(Session session){
+        return ()-> {
+            Channel backendChannel = session.getBackendChannel();
+            if (backendChannel == null) {
+                throw new ProxyException(ProxyException.ERROR_BACKEND_NO_CONNECTION,"cannot find a backendChannel");
+            }
+            return backendChannel;
+        };
     }
 
     public void setMysqlAddress(InetSocketAddress mysqlAddress) {

@@ -1,0 +1,8 @@
+server:
+  port: 8081
+  netty:
+    nrpc:
+      client-auto-reconnect: true
+spring:
+  application:
+    name: nrpc-client

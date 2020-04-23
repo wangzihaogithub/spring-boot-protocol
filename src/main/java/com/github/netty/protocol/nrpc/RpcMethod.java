@@ -72,6 +72,26 @@ public class RpcMethod<INSTANCE> {
         return genericReturnType;
     }
 
+    @Override
+    public boolean equals(Object obj) {
+        if(!(obj instanceof RpcMethod)){
+           return false;
+        }
+        RpcMethod that = (RpcMethod) obj;
+        if(this.parameterNames.length != that.parameterNames.length){
+            return false;
+        }
+        if(this.parameterTypes.length != that.parameterTypes.length){
+            return false;
+        }
+        for (int i = 0; i < this.parameterTypes.length; i++) {
+            if(this.parameterTypes[i] != that.parameterTypes[i]){
+                return false;
+            }
+        }
+        return true;
+    }
+
     public Method getMethod() {
         return method;
     }
@@ -86,10 +106,11 @@ public class RpcMethod<INSTANCE> {
         Class[] interfaceClasses = ReflectUtil.getInterfaces(source);
         if(isRpcInterface(interfaceClasses)){
             for(Class interfaceClass : interfaceClasses) {
-                initMethod(instance,interfaceClass,methodToParameterNamesFunction,methodMap);
+                initMethod(instance,interfaceClass,methodToParameterNamesFunction,methodMap,true);
             }
+            initMethod(instance,source,methodToParameterNamesFunction,methodMap,true);
         }else {
-            initMethod(instance,source,methodToParameterNamesFunction,methodMap);
+            initMethod(instance,source,methodToParameterNamesFunction,methodMap,false);
         }
         return methodMap;
     }
@@ -105,7 +126,7 @@ public class RpcMethod<INSTANCE> {
         return false;
     }
 
-    private static <INSTANCE>void initMethod(INSTANCE instance,Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod<INSTANCE>> methodMap){
+    private static <INSTANCE>void initMethod(INSTANCE instance,Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod<INSTANCE>> methodMap,boolean overwrite){
         for(Method method : source.getMethods()) {
             Class declaringClass = method.getDeclaringClass();
             //It must be its own method
@@ -119,14 +140,23 @@ public class RpcMethod<INSTANCE> {
                 LOGGERX.warn("skip init method. source={}, method={}, cause={}",source.getSimpleName(),method,e.toString());
                 continue;
             }
-
+            if(method.getParameterCount() != parameterNames.length){
+                continue;
+            }
             boolean isReturnTypeJdk9Publisher = JDK9_PUBLISHER_CLASS != null && JDK9_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
             boolean isReturnTypeReactivePublisher = REACTIVE_PUBLISHER_CLASS != null && REACTIVE_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
             RpcMethod<INSTANCE> rpcMethod = new RpcMethod<>(instance,method,parameterNames,isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher);
             RpcMethod<INSTANCE> oldMethod = methodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
             if(oldMethod != null){
-                throw new IllegalStateException("Exposed methods of the same class cannot have the same name, " +
-                        "class=["+source.getSimpleName()+"], method=["+method.getName()+"]");
+                String message = "Exposed methods of the same class cannot have the same name, " +
+                        "class=["+source.getSimpleName()+"], method=["+method.getName()+"]";
+                if(overwrite){
+                    if(!Objects.equals(rpcMethod,oldMethod)){
+                        LOGGERX.warn(message);
+                    }
+                }else {
+                    throw new IllegalStateException(message);
+                }
             }
         }
     }
