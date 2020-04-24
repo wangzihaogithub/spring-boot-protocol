@@ -41,7 +41,7 @@ public class RecyclableUtil {
             try {
                 int refCnt = counted.refCnt();
                 if (refCnt > 0) {
-                    counted.release(refCnt);
+                    counted.release();
                     return true;
                 }else {
                     return false;

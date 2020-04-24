@@ -145,4 +145,8 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
         return mappingSet;
     }
 
+    @Override
+    public String toString() {
+        return getName();
+    }
 }

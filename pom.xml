@@ -128,7 +128,13 @@
             <version>8.0.19</version>
             <scope>test</scope>
         </dependency>
-
+        <!-- 测试mqtt用的,mqtt客户端-->
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-mqtt</artifactId>
+            <version>3.9.0</version>
+            <scope>test</scope>
+        </dependency>
         <!--<dependency>-->
             <!--<groupId>io.moquette</groupId>-->
             <!--<artifactId>moquette-broker</artifactId>-->

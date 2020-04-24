@@ -366,7 +366,9 @@ class MqttSession {
 
     public void receivedPubRelQos2(int messageID) {
         final MqttPublishMessage removedMsg = qos2Receiving.remove(messageID);
-        removedMsg.release();
+        if(removedMsg.refCnt() > 0) {
+            removedMsg.release();
+        }
     }
 
     Optional<InetSocketAddress> remoteAddress() {

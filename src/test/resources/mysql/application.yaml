@@ -5,7 +5,7 @@ server:
       enabled: true
       mysql-host: 192.168.101.189
       mysql-port: 3306
-      backend-business-handler: com.github.netty.mysql.handler.MysqlBackendHandler
-      frontend-business-handler: com.github.netty.mysql.handler.MysqlFrontendHandler
+      backend-business-handler: com.github.netty.mysql.example.MysqlBackendHandler
+      frontend-business-handler: com.github.netty.mysql.example.MysqlFrontendHandler
       proxy-log:
         enable: true

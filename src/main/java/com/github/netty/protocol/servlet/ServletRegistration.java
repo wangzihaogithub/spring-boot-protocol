@@ -177,4 +177,9 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     public void setAsyncSupported(boolean isAsyncSupported) {
         this.asyncSupported = isAsyncSupported;
     }
+
+    @Override
+    public String toString() {
+        return getName();
+    }
 }
