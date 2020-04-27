@@ -14,7 +14,7 @@ public @interface NettyRpcClient {
      * example value "service-provider"
      * @return serviceName
      */
-    String serviceImplName();
+    String serviceName();
 
 //    Class<?> fallback() default void.class;
 

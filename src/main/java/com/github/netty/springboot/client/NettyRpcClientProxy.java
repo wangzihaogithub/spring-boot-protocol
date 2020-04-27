@@ -40,14 +40,16 @@ import java.util.function.Supplier;
  */
 public class NettyRpcClientProxy implements InvocationHandler {
     private String serviceName;
-    private String requestMappingName;
-    private Class<?> interfaceClass;
-    private String rpcInstanceKey;
-    private String version;
+    private final String requestMappingName;
+    private final Class<?> interfaceClass;
+    private final String rpcInstanceKey;
+    private final String version;
     private int timeout;
     private NettyProperties properties;
     private Supplier<NettyRpcLoadBalanced> loadBalancedSupplier;
-
+    private final List<Class<?extends Annotation>> parameterAnnotationClassList = new ArrayList<>(Arrays.asList(
+            Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
+            PathVariable.class,CookieValue.class, RequestPart.class));
     private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new ConcurrentHashMap<>(64);
     private static final FastThreadLocal<DefaultNettyRpcRequest> REQUEST_THREAD_LOCAL = new FastThreadLocal<DefaultNettyRpcRequest>(){
         @Override
@@ -71,18 +73,6 @@ public class NettyRpcClientProxy implements InvocationHandler {
         this.version = RpcServerInstance.getVersion(interfaceClass,properties.getNrpc().getClientDefaultVersion());
         this.rpcInstanceKey = RpcClient.getClientInstanceKey(interfaceClass,this.requestMappingName,version);
         this.timeout = properties.getNrpc().getClientServerResponseTimeout();
-    }
-
-    public static NettyRpcRequest getRequest(){
-        return REQUEST_THREAD_LOCAL.get();
-    }
-
-    public static NettyRpcFilter.FilterChain getFilterChain(){
-        return FILTER_CHAIN_THREAD_LOCAL.get();
-    }
-
-    public static Map<InetSocketAddress, RpcClient> getClientMap() {
-        return CLIENT_MAP;
     }
 
     @Override
@@ -118,7 +108,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
 
             RpcClient.Sender sender = rpcClient.getRpcInstance(rpcInstanceKey);
             if (sender == null) {
-                List<Class<? extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClasses();
+                List<Class<? extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClassList();
                 sender = rpcClient.newRpcInstance(interfaceClass, timeout,
                         version, requestMappingName,
                         new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses),
@@ -172,13 +162,11 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
     }
 
-    protected List<Class<?extends Annotation>> getParameterAnnotationClasses(){
-        return Arrays.asList(
-                Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
-                PathVariable.class,CookieValue.class, RequestPart.class);
+    public List<Class<?extends Annotation>> getParameterAnnotationClassList(){
+        return parameterAnnotationClassList;
     }
 
-    protected String getRequestMappingName(Class objectType){
+    public String getRequestMappingName(Class objectType){
         String requestMappingName = RpcServerChannelHandler.getRequestMappingName(objectType);
         if(StringUtil.isNotEmpty(requestMappingName)) {
             return requestMappingName;
@@ -208,7 +196,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
      * Get the RPC client (from the current thread, if not, create it automatically)
      * @return RpcClient
      */
-    private RpcClient getClient(InetSocketAddress address){
+    public RpcClient getClient(InetSocketAddress address){
         RpcClient rpcClient = CLIENT_MAP.get(address);
         if(rpcClient == null) {
             synchronized (CLIENT_MAP){
@@ -231,7 +219,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         return rpcClient;
     }
 
-    private InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){
+    public InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){
         InetSocketAddress address;
         try {
             address = loadBalancedSupplier.get().chooseAddress(request);
@@ -265,6 +253,16 @@ public class NettyRpcClientProxy implements InvocationHandler {
         @Override
         public String getRpcInstanceKey() {
             return clientProxy.rpcInstanceKey;
+        }
+
+        @Override
+        public NettyRpcClientProxy getClientProxy() {
+            return clientProxy;
+        }
+
+        @Override
+        public Supplier<NettyRpcLoadBalanced> getLoadBalancedSupplier() {
+            return clientProxy.loadBalancedSupplier;
         }
 
         @Override
@@ -398,6 +396,54 @@ public class NettyRpcClientProxy implements InvocationHandler {
             doneFlag = false;
             responseGetFlag.set(false);
         }
+    }
+
+    public static NettyRpcRequest getRequest(){
+        return REQUEST_THREAD_LOCAL.get();
+    }
+
+    public static NettyRpcFilter.FilterChain getFilterChain(){
+        return FILTER_CHAIN_THREAD_LOCAL.get();
+    }
+
+    public static Map<InetSocketAddress, RpcClient> getClientMap() {
+        return CLIENT_MAP;
+    }
+
+    public String getRequestMappingName() {
+        return requestMappingName;
+    }
+
+    public String getVersion() {
+        return version;
+    }
+
+    public Class<?> getInterfaceClass() {
+        return interfaceClass;
+    }
+
+    public String getRpcInstanceKey() {
+        return rpcInstanceKey;
+    }
+
+    public String getServiceName() {
+        return serviceName;
+    }
+
+    public NettyProperties getProperties() {
+        return properties;
+    }
+
+    public Supplier<NettyRpcLoadBalanced> getLoadBalancedSupplier() {
+        return loadBalancedSupplier;
+    }
+
+    public void setLoadBalancedSupplier(Supplier<NettyRpcLoadBalanced> loadBalancedSupplier) {
+        this.loadBalancedSupplier = loadBalancedSupplier;
+    }
+
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 
     @Override

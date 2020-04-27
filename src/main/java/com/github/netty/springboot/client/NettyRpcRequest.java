@@ -7,6 +7,7 @@ import com.github.netty.springboot.NettyProperties;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Information about the RPC request
@@ -18,8 +19,9 @@ public interface NettyRpcRequest {
      * @return rpcInstanceKey
      */
     String getRpcInstanceKey();
-
     Object getProxy();
+    NettyRpcClientProxy getClientProxy();
+    Supplier<NettyRpcLoadBalanced> getLoadBalancedSupplier();
 
     /**
      * The method to call this time

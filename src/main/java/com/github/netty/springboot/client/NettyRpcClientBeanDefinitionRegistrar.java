@@ -108,7 +108,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
             throw new BeanCreationException("NettyRpcClientsRegistrar failure! notfound class",e);
         }
 
-        String serviceName = resolve((String) nettyRpcClientAttributes.get("serviceImplName"));
+        String serviceName = resolve((String) nettyRpcClientAttributes.get("serviceName"));
         beanDefinition.setLazyInit(lazyAttributes == null || Boolean.TRUE.equals(lazyAttributes.get("value")));
         ((AbstractBeanDefinition)beanDefinition).setAutowireMode(AbstractBeanDefinition.AUTOWIRE_BY_TYPE);
         ((AbstractBeanDefinition)beanDefinition).setInstanceSupplier(newInstanceSupplier(beanClass,serviceName,(int)nettyRpcClientAttributes.get("timeout")));
