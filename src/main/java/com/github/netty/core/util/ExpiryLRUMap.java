@@ -19,8 +19,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     private final Map<K, Node<K,V>> map;
     private final AtomicBoolean removeIfExpiryIngFlag = new AtomicBoolean(false);
     private boolean replaceNullValueFlag = false;
-    private static final TransferQueue<ExpiryLRUMap.Node> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
-    public static final Set<ExpiryLRUMap> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
+    private static final TransferQueue<ExpiryLRUMap.Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
+    private static final Set<ExpiryLRUMap<?,?>> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
     /**
      * 默认过期时间 2分钟
      */
@@ -53,9 +53,20 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             }
         };
         //init static block. thread scheduled.
-        INSTANCE_SET.add(this);
-        ExpiresScan.onNewInstance(this);
-        ExpiresNotify.onNewInstance(this);
+        synchronized (INSTANCE_SET) {
+            INSTANCE_SET.add(this);
+            if(ExpiresScan.SCHEDULED_FUTURE == null){
+                ExpiresScan.scheduleAtFixedRate();
+            }
+        }
+    }
+
+    public static Set<ExpiryLRUMap> getInstanceSet(){
+        return Collections.unmodifiableSet(INSTANCE_SET);
+    }
+
+    public static TransferQueue<ExpiryLRUMap.Node<?,?>> getExpiryNotifyQueue(){
+        return EXPIRY_NOTIFY_QUEUE;
     }
 
     public long getMissCount() {
@@ -325,6 +336,13 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     }
 
     public boolean removeIfExpiry(){
+        return removeIfExpiry(EXPIRY_NOTIFY_QUEUE::offer);
+    }
+
+    public boolean removeIfExpiry(Consumer<Node<K,V>> removeConsumer){
+        if(map.isEmpty()){
+            return false;
+        }
         //去掉多线程下, 多余的执行.
         if(removeIfExpiryIngFlag.compareAndSet(false,true)){
             try {
@@ -333,10 +351,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
                     Iterator<Entry<K, Node<K,V>>> iterator = map.entrySet().iterator();
                     while (iterator.hasNext()){
                         Entry<K, Node<K,V>> next = iterator.next();
-                        Node value = next.getValue();
+                        Node<K,V> value = next.getValue();
                         if(value.isExpiry()){
                             iterator.remove();
-                            EXPIRY_NOTIFY_QUEUE.offer(value);
+                            removeConsumer.accept(value);
                             remove = true;
                         }
                     }
@@ -440,10 +458,9 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             long timeout = System.currentTimeMillis() - node.getCreateTimestamp();
             System.out.println("expiry event. expiry = " + expiry+", timeout="+timeout);
         });
-
         while (i++ < 100) {
             expiryLRUMap.put(i+"",i,1000);
-            Set<ExpiryLRUMap> set = ExpiryLRUMap.INSTANCE_SET;
+            Set<ExpiryLRUMap<?,?>> set = ExpiryLRUMap.INSTANCE_SET;
             System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
             Thread.sleep(1000);
         }
@@ -511,15 +528,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         }
     }
 
-    private static class ExpiresNotify extends Thread {
-        private static final ExpiresNotify INSTANCE = new ExpiresNotify();
-        static {
-            INSTANCE.setName("ExpiryLRUMap-ExpiresNotify");
-            INSTANCE.start();
-        }
-        public static void onNewInstance(ExpiryLRUMap expiryLRUMap){
-
-        }
+    public static class ExpiresNotify extends Thread {
         @Override
         public void run() {
             while (true){
@@ -541,40 +550,57 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         }
     }
 
-    private static class ExpiresScan implements Runnable{
-        public static final ScheduledExecutorService SCHEDULED;
-        public static final ExpiresScan INSTANCE = new ExpiresScan();
-        public static final ScheduledFuture<?> SCHEDULED_FUTURE;
-        private static final AtomicInteger incr = new AtomicInteger();
-
+    public static class ExpiresScan implements Runnable{
+        static final ExpiresScan INSTANCE = new ExpiresScan();
+        public static final ExpiresNotify NOTIFY_INSTANCE = new ExpiresNotify();
+        public static ScheduledFuture<?> SCHEDULED_FUTURE;
+        static final AtomicInteger INCR = new AtomicInteger();
+        static final ScheduledExecutorService SCHEDULED = Executors.newScheduledThreadPool(1, runnable -> {
+            Thread thread = new Thread(runnable, "ExpiryLRUMap-ExpiresScan" + INCR.getAndIncrement());
+            thread.setPriority(Thread.MIN_PRIORITY);
+            return thread;
+        });
         static {
-            SCHEDULED = Executors.newScheduledThreadPool(1, runnable -> {
-                Thread thread = new Thread(runnable, "ExpiryLRUMap-ExpiresScan"+incr.getAndIncrement());
-                thread.setPriority(Thread.MIN_PRIORITY);
-                return thread;
-            });
+            NOTIFY_INSTANCE.setName("ExpiryLRUMap-ExpiresNotify");
+            NOTIFY_INSTANCE.start();
+        }
+
+        static long getScheduleInterval(){
             String intervalMillisecond = System.getProperty("ExpiryLRUMap-ExpiresScan.interval");
             long intervalLong = 100;
             if(intervalMillisecond != null && !intervalMillisecond.isEmpty()){
                 try {
-                    intervalLong = Long.valueOf(intervalMillisecond);
+                    intervalLong = Long.parseLong(intervalMillisecond);
                 }catch (Exception e){
                     //skip
                 }
             }
+            return intervalLong;
+        }
+
+        static void scheduleAtFixedRate(){
+            long intervalLong = getScheduleInterval();
             SCHEDULED_FUTURE = SCHEDULED.scheduleAtFixedRate(INSTANCE, intervalLong, intervalLong, TimeUnit.MICROSECONDS);
         }
-        public static void onNewInstance(ExpiryLRUMap expiryLRUMap){
 
-        }
         @Override
         public void run() {
-            for (ExpiryLRUMap expiryLRUMap : INSTANCE_SET) {
+            if(INSTANCE_SET.isEmpty()){
+                synchronized (INSTANCE_SET) {
+                    if(INSTANCE_SET.isEmpty()) {
+                        ScheduledFuture<?> scheduledFuture = SCHEDULED_FUTURE;
+                        scheduledFuture.cancel(false);
+                        SCHEDULED_FUTURE = null;
+                    }
+                }
+                return;
+            }
+            for (ExpiryLRUMap<?,?> expiryLRUMap : INSTANCE_SET) {
                 if(expiryLRUMap == null){
                     continue;
                 }
                 try {
-                    expiryLRUMap.removeIfExpiry();
+                    expiryLRUMap.removeIfExpiry(EXPIRY_NOTIFY_QUEUE::offer);
                 }catch (Exception e){
                     e.printStackTrace();
                 }

@@ -51,6 +51,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     private String lazyCanonicalName = Lazy.class.getCanonicalName();
 	private Supplier<NettyRpcLoadBalanced> nettyRpcLoadBalancedSupplier;
 	private Supplier<NettyProperties> nettyPropertiesSupplier;
+    private BeanFactory beanFactory;
 
     public NettyRpcClientBeanDefinitionRegistrar() {}
 
@@ -200,13 +201,17 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+        this.beanFactory = beanFactory;
 	    this.nettyRpcLoadBalancedSupplier = ()->beanFactory.getBean(NettyRpcLoadBalanced.class);
 	    this.nettyPropertiesSupplier = ()->beanFactory.getBean(NettyProperties.class);
     }
 
     @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        nettyPropertiesSupplier.get().getApplication().addInstance(bean, beanName, false);
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if(beanFactory.containsBean(beanName) && beanFactory.isSingleton(beanName)) {
+            nettyPropertiesSupplier.get().getApplication()
+                    .addSingletonBeanDefinition(bean, beanName, false);
+        }
         return bean;
     }
 }

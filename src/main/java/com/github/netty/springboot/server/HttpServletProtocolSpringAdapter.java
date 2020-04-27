@@ -10,6 +10,8 @@ import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.web.server.*;
@@ -33,9 +35,11 @@ import static org.springframework.util.ClassUtils.getMethod;
  * @author wangzihao
  * 2018/11/12/012
  */
-public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor {
+public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor, BeanFactoryAware {
     private NettyProperties properties;
     private ApplicationX application;
+    private BeanFactory beanFactory;
+
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
         super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
@@ -44,13 +48,10 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     }
 
     @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        application.addInstance(bean,beanName,false);
-        return bean;
-    }
-
-    @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if(beanFactory.containsBean(beanName) && beanFactory.isSingleton(beanName)) {
+            application.addSingletonBeanDefinition(bean, beanName, false);
+        }
         if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
             try {
                 configurableServletContext((AbstractServletWebServerFactory) bean);
@@ -69,8 +70,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
         //Injection into the spring object
         ServletContext servletContext = getServletContext();
-        application.addInstance(servletContext);
-        application.addInstance(servletContext.getSessionService());
+        application.addSingletonBeanDefinition(servletContext);
+        application.addSingletonBeanDefinition(servletContext.getSessionService());
 
 //        application.scanner("com.github.netty").inject();
     }
@@ -254,4 +255,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         return store;
     }
 
+    @Override
+    public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+        this.beanFactory = beanFactory;
+    }
 }
