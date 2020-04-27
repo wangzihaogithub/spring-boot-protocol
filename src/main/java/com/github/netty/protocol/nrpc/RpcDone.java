@@ -14,6 +14,14 @@ public interface RpcDone {
     void done(RpcPacket.ResponsePacket rpcResponse);
 
     /**
+     * on timeout
+     * @param requestId requestId
+     * @param createTimestamp createTimestamp
+     * @param expiryTimestamp expiryTimestamp
+     */
+    void doneTimeout(int requestId,long createTimestamp,long expiryTimestamp);
+
+    /**
      * If an exception state is returned, an exception is thrown
      * All response states above 400 are in error
      * @param response response

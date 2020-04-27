@@ -1,10 +1,14 @@
 package com.github.netty.springboot.client;
 
+import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.*;
+import org.springframework.beans.factory.BeanClassLoaderAware;
+import org.springframework.beans.factory.BeanCreationException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -25,7 +29,6 @@ import org.springframework.util.StringUtils;
 
 import java.beans.Introspector;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Proxy;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -117,12 +120,13 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     public <T> Supplier<T> newInstanceSupplier(Class<T> beanClass, String serviceName,int timeout) {
         return ()->{
             NettyProperties nettyProperties = nettyPropertiesSupplier.get();
-
             NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceName,null,
                     beanClass,nettyProperties,
 		            nettyRpcLoadBalancedSupplier::get);
-            nettyRpcClientProxy.setTimeout(timeout);
-            Object instance = Proxy.newProxyInstance(classLoader,new Class[]{beanClass},nettyRpcClientProxy);
+            if(timeout > 0){
+                nettyRpcClientProxy.setTimeout(timeout);
+            }
+            Object instance = java.lang.reflect.Proxy.newProxyInstance(classLoader,new Class[]{beanClass, RpcClient.Proxy.class},nettyRpcClientProxy);
             return (T) instance;
         };
     }

@@ -334,23 +334,131 @@ public class NettyProperties implements Serializable{
         private int clientIoRatio = 100;
 
         /**
-         * RPC客户端-是否RPC开启心跳日志
+         * RPC客户端-建立链接超时（毫秒）. 首次建立通道最大等待时间，建立后就是长连接
+         */
+        private int clientConnectTimeout = 1000;
+
+        /**
+         * RPC客户端-服务端响应超时（毫秒）.一次业务请求的最大等待时间
+         */
+        private int clientServerResponseTimeout = 1000;
+
+        /**
+         * RPC客户端- 心跳间隔（毫秒）. 用于监测健康的心跳包. 小于等于0则为不启用心跳
+         */
+        private int clientHeartIntervalTimeMs = -1;
+
+        /**
+         * RPC客户端-是否开启断线重连的定时任务（true=开启,false=关闭）. 默认关闭,因为即使断线不重连,服务端可用的情况下,下次请求也是可以正常使用. 断线重连只是提前预热了三次握手的环节.
+         */
+        private boolean clientReconnectScheduledTaskEnable = false;
+
+        /**
+         * RPC客户端-断线重连的定时任务的检测间隔（毫秒）.
+         */
+        private int clientReconnectScheduledIntervalMs = 5000;
+
+        /**
+         * RPC客户端-是否开启心跳日志
          */
         private boolean clientEnableHeartLog = false;
 
         /**
-         * RPC客户端 - 自动重连
+         * RPC客户端 - 同名方法检查（因为泛化调用的参数允许不一致， 所以保证每个类的方法名称都是唯一的）
          */
-        private boolean clientAutoReconnect = true;
+        private boolean clientMethodOverwriteCheck = false;
 
         /**
-         * RPC客户端 - 心跳间隔时间(秒)
+         * RPC服务端 - 同名方法检查（因为泛化调用的参数允许不一致， 所以保证每个类的方法名称都是唯一的）
          */
-        private int clientHeartInterval = 20;
+        private boolean serverMethodOverwriteCheck = true;
+
         /**
          * RPC服务端 - 每次消息最大长度 (默认10M)
          */
         private int serverMessageMaxLength = 10 * 1024 * 1024;
+
+        /**
+         * RPC客户端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.Protocol.RpcService#version() }
+         */
+        private String clientDefaultVersion = "";
+
+        /**
+         * RPC服务端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.Protocol.RpcService#version() }
+         */
+        private String serverDefaultVersion = "";
+
+        public boolean isClientReconnectScheduledTaskEnable() {
+            return clientReconnectScheduledTaskEnable;
+        }
+
+        public void setClientReconnectScheduledTaskEnable(boolean clientReconnectScheduledTaskEnable) {
+            this.clientReconnectScheduledTaskEnable = clientReconnectScheduledTaskEnable;
+        }
+
+        public String getServerDefaultVersion() {
+            return serverDefaultVersion;
+        }
+
+        public void setClientReconnectScheduledIntervalMs(int clientReconnectScheduledIntervalMs) {
+            this.clientReconnectScheduledIntervalMs = clientReconnectScheduledIntervalMs;
+        }
+
+        public int getClientReconnectScheduledIntervalMs() {
+            return clientReconnectScheduledIntervalMs;
+        }
+
+        public void setServerDefaultVersion(String serverDefaultVersion) {
+            this.serverDefaultVersion = serverDefaultVersion;
+        }
+
+        public int getClientServerResponseTimeout() {
+            return clientServerResponseTimeout;
+        }
+
+        public void setClientServerResponseTimeout(int clientServerResponseTimeout) {
+            this.clientServerResponseTimeout = clientServerResponseTimeout;
+        }
+
+        public boolean isServerMethodOverwriteCheck() {
+            return serverMethodOverwriteCheck;
+        }
+
+        public void setServerMethodOverwriteCheck(boolean serverMethodOverwriteCheck) {
+            this.serverMethodOverwriteCheck = serverMethodOverwriteCheck;
+        }
+
+        public boolean isClientMethodOverwriteCheck() {
+            return clientMethodOverwriteCheck;
+        }
+
+        public void setClientMethodOverwriteCheck(boolean clientMethodOverwriteCheck) {
+            this.clientMethodOverwriteCheck = clientMethodOverwriteCheck;
+        }
+
+        public int getClientHeartIntervalTimeMs() {
+            return clientHeartIntervalTimeMs;
+        }
+
+        public void setClientHeartIntervalTimeMs(int clientHeartIntervalTimeMs) {
+            this.clientHeartIntervalTimeMs = clientHeartIntervalTimeMs;
+        }
+
+        public int getClientConnectTimeout() {
+            return clientConnectTimeout;
+        }
+
+        public void setClientConnectTimeout(int clientConnectTimeout) {
+            this.clientConnectTimeout = clientConnectTimeout;
+        }
+
+        public String getClientDefaultVersion() {
+            return clientDefaultVersion;
+        }
+
+        public void setClientDefaultVersion(String clientDefaultVersion) {
+            this.clientDefaultVersion = clientDefaultVersion;
+        }
 
         public int getClientIoThreads() {
             return clientIoThreads;
@@ -374,22 +482,6 @@ public class NettyProperties implements Serializable{
 
         public void setClientEnableHeartLog(boolean clientEnableHeartLog) {
             this.clientEnableHeartLog = clientEnableHeartLog;
-        }
-
-        public boolean isClientAutoReconnect() {
-            return clientAutoReconnect;
-        }
-
-        public void setClientAutoReconnect(boolean clientAutoReconnect) {
-            this.clientAutoReconnect = clientAutoReconnect;
-        }
-
-        public int getClientHeartInterval() {
-            return clientHeartInterval;
-        }
-
-        public void setClientHeartInterval(int clientHeartInterval) {
-            this.clientHeartInterval = clientHeartInterval;
         }
 
         public int getServerMessageMaxLength() {

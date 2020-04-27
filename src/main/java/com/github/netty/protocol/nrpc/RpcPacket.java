@@ -85,6 +85,7 @@ public class RpcPacket implements Recyclable {
         private static final Recycler<RequestPacket> RECYCLER = new Recycler<>(RequestPacket::new);
         private int requestId;
         private String requestMappingName;
+        private String version;
         private String methodName;
 
         public static RequestPacket newInstance() {
@@ -119,6 +120,14 @@ public class RpcPacket implements Recyclable {
             this.methodName = methodName;
         }
 
+        public String getVersion() {
+            return version;
+        }
+
+        public void setVersion(String version) {
+            this.version = version;
+        }
+
         @Override
         public void recycle() {
 //            RECYCLER.recycleInstance(this);
@@ -128,6 +137,7 @@ public class RpcPacket implements Recyclable {
         public void toStringAppend(StringJoiner joiner) {
             joiner.add("\"requestId\":"+requestId);
             joiner.add("\"requestMappingName\":\""+requestMappingName+"\"");
+            joiner.add("\"version\":\""+version+"\"");
             joiner.add("\"methodName\":\""+methodName+"\"");
             joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
         }
@@ -145,9 +155,9 @@ public class RpcPacket implements Recyclable {
         //正常返回
         public static final int OK = 200;
         //找不到方法
-        public static final int NO_SUCH_METHOD = 400;
+        public static final int NO_SUCH_METHOD = 404;
         //找不到服务
-        public static final int NO_SUCH_SERVICE = 401;
+        public static final int NO_SUCH_SERVICE = 406;
         //服务器错误
         public static final int SERVER_ERROR = 500;
 

@@ -65,6 +65,14 @@ public abstract class AbstractNettyServer implements Runnable{
         this.ioThreadCount = ioThreadCount;
     }
 
+    public int getIoRatio() {
+        return ioRatio;
+    }
+
+    public int getIoThreadCount() {
+        return ioThreadCount;
+    }
+
     protected abstract ChannelHandler newWorkerChannelHandler();
 
     protected ChannelHandler newBossChannelHandler(){
@@ -96,6 +104,14 @@ public abstract class AbstractNettyServer implements Runnable{
             jdkBoss.setIoRatio(ioRatio);
             boss = jdkBoss;
         }
+        return boss;
+    }
+
+    public EventLoopGroup getWorker() {
+        return worker;
+    }
+
+    public EventLoopGroup getBoss() {
         return boss;
     }
 
@@ -156,6 +172,14 @@ public abstract class AbstractNettyServer implements Runnable{
 
     public ServerSocketChannel getServerChannel() {
         return serverChannel;
+    }
+
+    public boolean isEnableEpoll() {
+        return enableEpoll;
+    }
+
+    public InetSocketAddress getServerAddress() {
+        return serverAddress;
     }
 
     public String getName() {

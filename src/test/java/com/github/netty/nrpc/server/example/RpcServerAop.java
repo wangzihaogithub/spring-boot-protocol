@@ -1,4 +1,4 @@
-package com.github.netty.nrpc.server;
+package com.github.netty.nrpc.server.example;
 
 import com.github.netty.protocol.NRpcProtocol;
 import com.github.netty.protocol.nrpc.RpcContext;

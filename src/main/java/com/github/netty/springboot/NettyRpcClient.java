@@ -22,6 +22,6 @@ public @interface NettyRpcClient {
      * Timeout time (milliseconds)
      * @return timeout
      */
-    int timeout() default 2000;
+    int timeout() default -1;
 
 }

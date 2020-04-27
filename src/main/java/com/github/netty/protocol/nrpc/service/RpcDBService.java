@@ -10,13 +10,13 @@ import java.util.List;
  * @author wangzihao
  * 2018/8/20/020
  */
-@Protocol.RpcService(value = "/hrpc/db",timeout = 1000 * 10)
+@Protocol.RpcService(value = "/_nrpc/db",timeout = 1500)
 public interface RpcDBService {
 
     /**
-     * 存在key
+     * exist key
      * @param key key
-     * @param group 分组
+     * @param group group
      * @return boolean
      */
     boolean exist2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);

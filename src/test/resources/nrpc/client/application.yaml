@@ -2,7 +2,13 @@ server:
   port: 8081
   netty:
     nrpc:
-      client-auto-reconnect: true
+      client-default-version: my1.0
+      client-enable-heart-log: true
+      client-heart-interval-time-ms: -1
+      client-connect-timeout: 1000
+      client-server-response-timeout: 1000
+      client-reconnect-scheduled-task-enable: false
+      client-reconnect-scheduled-interval-ms: 5000
 spring:
   application:
     name: nrpc-client

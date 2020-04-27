@@ -8,7 +8,7 @@ import com.github.netty.annotation.Protocol;
  * @author wangzihao
  * 2018/8/20/020
  */
-@Protocol.RpcService(value = "/hrpc/command",timeout = 1000 * 10)
+@Protocol.RpcService(value = "/_nrpc/command",timeout = 600)
 public interface RpcCommandService {
 
     /**

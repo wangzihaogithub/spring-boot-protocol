@@ -1,4 +1,4 @@
-package com.github.netty.nrpc;
+package com.github.netty.nrpc.server;
 
 import com.github.netty.springboot.EnableNettyEmbedded;
 import org.springframework.boot.SpringApplication;

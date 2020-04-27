@@ -1,12 +1,10 @@
 package com.github.netty.core;
 
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.socket.SocketChannel;
 
 import java.net.InetSocketAddress;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -55,15 +53,4 @@ public class SimpleNettyClient extends AbstractNettyClient{
         return this;
     }
 
-    @Override
-    public Optional<ChannelFuture> connect() {
-        run();
-        return super.connect();
-    }
-
-    @Override
-    public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress) {
-        run();
-        return super.connect(remoteAddress);
-    }
 }

@@ -90,8 +90,11 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
                 //Request ID
                 packet.setRequestId(msg.readInt());
 
-                //Request service
+                //Request service name
                 packet.setRequestMappingName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
+
+                //Request service version
+                packet.setVersion(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());
 
                 //Request method
                 packet.setMethodName(msg.readCharSequence(msg.readUnsignedByte(), RPC_CHARSET).toString());

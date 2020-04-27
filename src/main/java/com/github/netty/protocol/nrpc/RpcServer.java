@@ -49,17 +49,19 @@ public class RpcServer extends AbstractNettyServer{
      * @param instance instance
      */
     public void addInstance(Object instance){
-        addInstance(instance,getRequestMappingName(instance.getClass()),new ClassFileMethodToParameterNamesFunction());
+        String version = RpcServerInstance.getVersion(instance.getClass(), "");
+        addInstance(instance,getRequestMappingName(instance.getClass()),version,new ClassFileMethodToParameterNamesFunction());
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
      * @param requestMappingName requestMappingName
+     * @param version version
      * @param methodToParameterNamesFunction  methodToParameterNamesFunction
      */
-    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
-        instanceMap.put(instance,new Instance(instance,requestMappingName,methodToParameterNamesFunction));
+    public void addInstance(Object instance,String requestMappingName,String version,Function<Method,String[]> methodToParameterNamesFunction){
+        instanceMap.put(instance,new Instance(instance,requestMappingName,version,methodToParameterNamesFunction));
     }
 
     public boolean existInstance(Object instance){
@@ -77,7 +79,7 @@ public class RpcServer extends AbstractNettyServer{
             protected void initChannel(Channel ch) throws Exception {
                 RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
                 for (Instance instance : instanceMap.values()) {
-                    rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.methodToParameterNamesFunction);
+                    rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.version,instance.methodToParameterNamesFunction,true);
                 }
 
                 ChannelPipeline pipeline = ch.pipeline();
@@ -102,10 +104,12 @@ public class RpcServer extends AbstractNettyServer{
     static class Instance{
         Object instance;
         String requestMappingName;
+        String version;
         Function<Method,String[]> methodToParameterNamesFunction;
-        Instance(Object instance, String requestMappingName, Function<Method, String[]> methodToParameterNamesFunction) {
+        Instance(Object instance, String requestMappingName, String version,Function<Method, String[]> methodToParameterNamesFunction) {
             this.instance = instance;
             this.requestMappingName = requestMappingName;
+            this.version = version;
             this.methodToParameterNamesFunction = methodToParameterNamesFunction;
         }
     }

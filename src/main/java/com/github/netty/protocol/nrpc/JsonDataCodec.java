@@ -122,7 +122,9 @@ public class JsonDataCodec implements DataCodec {
                 Class<?> type = parameterTypes[i];
                 String name = parameterNames[i];
                 Object value = parameterMap.get(name);
-
+                if(value == null && !parameterMap.containsKey(name)){
+                    value = parameterMap.get("arg" + i);
+                }
                 if (isNeedCast(value, type)) {
                     value = cast(value, type);
                 }

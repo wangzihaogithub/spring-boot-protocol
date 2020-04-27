@@ -32,11 +32,11 @@ public class SessionCompositeServiceImpl implements SessionService {
     }
 
     public void enableRemoteRpcSession(InetSocketAddress address,int rpcClientIoRatio, int rpcClientIoThreads,
-                                       boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond){
+                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond,int reconnectIntervalMillSeconds){
         removeSessionService();
         this.sessionService = new SessionRemoteRpcServiceImpl(address,
-                rpcClientIoRatio,rpcClientIoThreads,enablesAutoReconnect,
-                enableRpcHeartLog,rpcClientHeartIntervalSecond);
+                rpcClientIoRatio,rpcClientIoThreads,
+                enableRpcHeartLog,rpcClientHeartIntervalMillSecond,reconnectIntervalMillSeconds);
     }
 
     public void enableLocalFileSession(ResourceManager resourceManager){

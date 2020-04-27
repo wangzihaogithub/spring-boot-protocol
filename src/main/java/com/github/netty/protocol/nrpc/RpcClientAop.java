@@ -14,6 +14,7 @@ public interface RpcClientAop {
     default void onConnectAfter(RpcClient rpcClient){}
     default void onDisconnectAfter(RpcClient rpcClient){}
     default void onEncodeRequestBefore(RpcContext<RpcClient> rpcContext, Map<String,Object> params){}
+    default void onTimeout(RpcContext<RpcClient> rpcContext){}
     default void onResponseAfter(RpcContext<RpcClient> rpcContext){}
     default void onStateUpdate(RpcContext<RpcClient> rpcContext){}
 

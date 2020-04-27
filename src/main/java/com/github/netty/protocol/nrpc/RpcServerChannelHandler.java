@@ -115,7 +115,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         rpcContext.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
         rpcContext.setLocalAddress((InetSocketAddress) ctx.channel().localAddress());
         rpcContext.setRequest(request);
-        RpcServerInstance rpcInstance = serviceInstanceMap.get(request.getRequestMappingName());
+        String serverInstanceKey = RpcServerInstance.getServerInstanceKey(request.getRequestMappingName(), request.getVersion());
+        RpcServerInstance rpcInstance = serviceInstanceMap.get(serverInstanceKey);
         if(rpcInstance == null) {
             if(request.getAck() == ACK_YES) {
                 ResponsePacket response = ResponsePacket.newInstance();
@@ -125,7 +126,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
                     response.setRequestId(request.getRequestId());
                     response.setEncode(BINARY);
                     response.setStatus(ResponsePacket.NO_SUCH_SERVICE);
-                    response.setMessage("not found service " + request.getRequestMappingName());
+                    response.setMessage("not found service " + serverInstanceKey);
 
                     ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                     release = false;
@@ -151,31 +152,36 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @param instance The implementation class
      */
     public void addInstance(Object instance){
-        addInstance(instance,getRequestMappingName(instance.getClass()));
+        addInstance(instance,getRequestMappingName(instance.getClass()),true);
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
      * @param requestMappingName requestMappingName
+     * @param methodOverwriteCheck methodOverwriteCheck
      */
-    public void addInstance(Object instance,String requestMappingName){
-        addInstance(instance,requestMappingName,new ClassFileMethodToParameterNamesFunction());
+    public void addInstance(Object instance,String requestMappingName,boolean methodOverwriteCheck){
+        String version = RpcServerInstance.getVersion(instance.getClass(), "");
+        addInstance(instance,requestMappingName,version,new ClassFileMethodToParameterNamesFunction(),methodOverwriteCheck);
     }
 
     /**
      * Increase the instance
      * @param instance The implementation class
      * @param requestMappingName requestMappingName
+     * @param version version
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodOverwriteCheck methodOverwriteCheck
      */
-    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
+    public void addInstance(Object instance,String requestMappingName,String version,Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
         if(requestMappingName == null || requestMappingName.isEmpty()){
             requestMappingName = generateRequestMappingName(instance.getClass());
         }
+        String serverInstanceKey = RpcServerInstance.getServerInstanceKey(requestMappingName, version);
         synchronized (serviceInstanceMap) {
-            RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction);
-            RpcServerInstance oldServerInstance = serviceInstanceMap.put(requestMappingName,rpcServerInstance);
+            RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction,methodOverwriteCheck);
+            RpcServerInstance oldServerInstance = serviceInstanceMap.put(serverInstanceKey,rpcServerInstance);
 
             if (oldServerInstance != null) {
                 Object oldInstance = oldServerInstance.getInstance();
@@ -186,7 +192,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
         }
 
         logger.trace("addInstance({}, {}, {})",
-                requestMappingName,
+                serverInstanceKey,
                 instance.getClass().getSimpleName(),
                 methodToParameterNamesFunction.getClass().getSimpleName());
     }

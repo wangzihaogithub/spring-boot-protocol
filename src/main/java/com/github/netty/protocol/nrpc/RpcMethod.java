@@ -1,9 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.Protocol;
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
-import com.github.netty.core.util.ReflectUtil;
+import com.github.netty.core.util.*;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -11,6 +9,8 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Rpc Method
@@ -31,6 +31,8 @@ public class RpcMethod<INSTANCE> {
     private final boolean returnTypeJdk9PublisherFlag;
     private final boolean returnTypeReactivePublisherFlag;
     private final boolean innerMethodFlag;
+    private final String methodDescriptorName;
+    private final String parameterTypeDescriptorName;
 
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,
                       boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag) {
@@ -45,11 +47,15 @@ public class RpcMethod<INSTANCE> {
         }else {
             this.genericReturnType = method.getGenericReturnType();
         }
-        this.innerMethodFlag = method.getDeclaringClass().getPackage().getName().startsWith(getClass().getPackage().getName());
+        this.innerMethodFlag = RpcServerInstance.isRpcInnerClass(method.getDeclaringClass());
+        this.parameterTypeDescriptorName = Stream.of(parameterTypes)
+                .map(Class::getSimpleName)
+                .collect(Collectors.joining(","));
+        this.methodDescriptorName = getMethodDescriptorName(method);
     }
 
-    public static Collection<Class<? extends Annotation>> getRpcInterfaceAnnotations() {
-        return RPC_INTERFACE_ANNOTATION_LIST;
+    public static String getMethodDescriptorName(Method method){
+        return method.getName();
     }
 
     public boolean isInnerMethodFlag() {
@@ -78,9 +84,6 @@ public class RpcMethod<INSTANCE> {
            return false;
         }
         RpcMethod that = (RpcMethod) obj;
-        if(this.parameterNames.length != that.parameterNames.length){
-            return false;
-        }
         if(this.parameterTypes.length != that.parameterTypes.length){
             return false;
         }
@@ -89,48 +92,45 @@ public class RpcMethod<INSTANCE> {
                 return false;
             }
         }
+        if(this.parameterNames.length != that.parameterNames.length){
+            return false;
+        }
         return true;
+    }
+
+    public String getMethodDescriptorName(){
+        return methodDescriptorName;
     }
 
     public Method getMethod() {
         return method;
     }
 
+    public String getParameterTypeDescriptorName(){
+        return parameterTypeDescriptorName;
+    }
+
     public String[] getParameterNames() {
         return parameterNames;
     }
 
-    public static <INSTANCE>Map<String,RpcMethod<INSTANCE>> getMethodMap(INSTANCE instance,Class source, Function<Method,String[]> methodToParameterNamesFunction){
+    public static <INSTANCE>Map<String,RpcMethod<INSTANCE>> getMethodMap(INSTANCE instance,Class source, Function<Method,String[]> methodToParameterNamesFunction,boolean overwriteCheck) throws UnsupportedOperationException{
         Map<String,RpcMethod<INSTANCE>> methodMap = new HashMap<>(6);
-
         Class[] interfaceClasses = ReflectUtil.getInterfaces(source);
-        if(isRpcInterface(interfaceClasses)){
-            for(Class interfaceClass : interfaceClasses) {
-                initMethod(instance,interfaceClass,methodToParameterNamesFunction,methodMap,true);
-            }
-            initMethod(instance,source,methodToParameterNamesFunction,methodMap,true);
-        }else {
-            initMethod(instance,source,methodToParameterNamesFunction,methodMap,false);
+        for(Class interfaceClass : interfaceClasses) {
+            initMethodsMap(instance, interfaceClass, methodMap,methodToParameterNamesFunction,overwriteCheck);
+        }
+        if(!source.isInterface()){
+            initMethodsMap(instance, source, methodMap, new ClassFileMethodToParameterNamesFunction(),overwriteCheck);
         }
         return methodMap;
     }
 
-    private static boolean isRpcInterface(Class[] classes){
-        for (Class clazz : classes) {
-            for (Class<? extends Annotation> annotation : RPC_INTERFACE_ANNOTATION_LIST) {
-                if(ReflectUtil.findAnnotation(clazz, annotation) != null){
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static <INSTANCE>void initMethod(INSTANCE instance,Class source,Function<Method,String[]> methodToParameterNamesFunction,Map<String,RpcMethod<INSTANCE>> methodMap,boolean overwrite){
-        for(Method method : source.getMethods()) {
-            Class declaringClass = method.getDeclaringClass();
-            //It must be its own method
-            if(declaringClass != source || declaringClass == Object.class){
+    private static <INSTANCE> void initMethodsMap(INSTANCE instance, Class source, Map<String, RpcMethod<INSTANCE>> methodMap, Function<Method,String[]> methodToParameterNamesFunction,boolean overwriteCheck) throws UnsupportedOperationException{
+        Method[] methods = source.isInterface()? source.getDeclaredMethods() : source.getMethods();
+        for(Method method : methods) {
+            Class<?> declaringClass = method.getDeclaringClass();
+            if(declaringClass == Object.class){
                 continue;
             }
             String[] parameterNames;
@@ -145,18 +145,13 @@ public class RpcMethod<INSTANCE> {
             }
             boolean isReturnTypeJdk9Publisher = JDK9_PUBLISHER_CLASS != null && JDK9_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
             boolean isReturnTypeReactivePublisher = REACTIVE_PUBLISHER_CLASS != null && REACTIVE_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
-            RpcMethod<INSTANCE> rpcMethod = new RpcMethod<>(instance,method,parameterNames,isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher);
-            RpcMethod<INSTANCE> oldMethod = methodMap.put(rpcMethod.getMethod().getName(),rpcMethod);
-            if(oldMethod != null){
-                String message = "Exposed methods of the same class cannot have the same name, " +
-                        "class=["+source.getSimpleName()+"], method=["+method.getName()+"]";
-                if(overwrite){
-                    if(!Objects.equals(rpcMethod,oldMethod)){
-                        LOGGERX.warn(message);
-                    }
-                }else {
-                    throw new IllegalStateException(message);
-                }
+            RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance,method,parameterNames,isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher);
+            RpcMethod<INSTANCE> oldMethod = methodMap.put(newMethod.getMethodDescriptorName(),newMethod);
+            boolean existOverwrite = oldMethod != null;
+            if(existOverwrite && overwriteCheck && !Objects.equals(oldMethod,newMethod)){
+                String message = "Please rename method！ In the non-rigorous public method calls, public method name needs to be unique. You can change to any non public method." +
+                        "\n"+method.getDeclaringClass().getName()+", old="+oldMethod+", new="+newMethod;
+                throw new UnsupportedOperationException(message);
             }
         }
     }
@@ -167,7 +162,7 @@ public class RpcMethod<INSTANCE> {
             return ((ParameterizedType) genericReturnType).getActualTypeArguments()[0];
         }
         throw new IllegalStateException("If the method returns the type of Publisher class, you must add generics " +
-                "class=["+method.getDeclaringClass().getSimpleName()+"], method=["+method.getName()+"]");
+                method.getDeclaringClass().getSimpleName()+"], method=["+method.getName()+"]");
     }
 
     public INSTANCE getInstance() {
@@ -176,7 +171,7 @@ public class RpcMethod<INSTANCE> {
 
     @Override
     public String toString() {
-        return "RpcMethod{" +method +'}';
+        return "RpcMethod{public " +getMethodDescriptorName()+"("+getParameterTypeDescriptorName()+")" +'}';
     }
 
     static {

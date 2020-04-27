@@ -57,7 +57,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             }
             super.run();
         } catch (Exception e) {
-            throw new WebServerException(e.getMessage(),e);
+            throw new WebServerException("tcp server start fail.. cause = " + e,e);
         }
     }
 

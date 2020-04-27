@@ -33,7 +33,7 @@ public abstract class AbstractNettyClient{
     protected final AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private int ioThreadCount = 0;
     private int ioRatio = 100;
-    private AtomicBoolean running = new AtomicBoolean(false);
+    private AtomicBoolean initFlag = new AtomicBoolean(false);
 
     public AbstractNettyClient() {
         this("",null);
@@ -105,31 +105,31 @@ public abstract class AbstractNettyClient{
         return channelFactory;
     }
 
+    protected AbstractNettyClient init() {
+        this.bootstrap = newClientBootstrap();
+        this.worker = newWorkerEventLoopGroup();
+        ChannelFactory<?extends Channel> channelFactory = newClientChannelFactory();
+        ChannelHandler bossChannelHandler = newBossChannelHandler();
 
-    public final AbstractNettyClient run() {
-        if(running.compareAndSet(false,true)){
-            this.bootstrap = newClientBootstrap();
-            this.worker = newWorkerEventLoopGroup();
-            ChannelFactory<?extends Channel> channelFactory = newClientChannelFactory();
-            ChannelHandler bossChannelHandler = newBossChannelHandler();
-
-            this.bootstrap
-                    .group(worker)
-                    .channelFactory(channelFactory)
-                    .handler(bossChannelHandler)
-                    .remoteAddress(remoteAddress)
-                    //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
+        this.bootstrap
+                .group(worker)
+                .channelFactory(channelFactory)
+                .handler(bossChannelHandler)
+                .remoteAddress(remoteAddress)
+                //用于构造服务端套接字ServerSocket对象，标识当服务器请求处理线程全满时，用于临时存放已完成三次握手的请求的队列的最大长度
 //                    .option(ChannelOption.SO_BACKLOG, 1024) // determining the number of connections queued
-                    //netty boos的默认内存分配器
+                //netty boos的默认内存分配器
 //                    .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE)
-                    //禁用Nagle算法，即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
-                    .option(ChannelOption.TCP_NODELAY, true)
-                    //开启TCP/IP协议实现的心跳机制
-                    .option(ChannelOption.SO_KEEPALIVE, true)
-                    //netty的默认内存分配器
-                    .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
-        }
+                //禁用Nagle算法，即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
+                .option(ChannelOption.TCP_NODELAY, true)
+                //开启TCP/IP协议实现的心跳机制
+                .option(ChannelOption.SO_KEEPALIVE, true)
+                //netty的默认内存分配器
+                .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
+        return this;
+    }
 
+    public AbstractNettyClient config(Bootstrap bootstrap){
         return this;
     }
 
@@ -143,14 +143,20 @@ public abstract class AbstractNettyClient{
 
     public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress){
         if(connectIngFlag.compareAndSet(false,true)) {
+            if(initFlag.compareAndSet(false,true)) {
+                init();
+            }
             this.remoteAddress = remoteAddress == null? (InetSocketAddress) bootstrap.config().remoteAddress() : remoteAddress;
             return Optional.of(bootstrap.connect(this.remoteAddress)
                     .addListener((ChannelFutureListener) future -> {
-                        connectIngFlag.set(false);
-                        if (future.isSuccess()) {
-                            setChannel((SocketChannel) future.channel());
-                        } else {
-                            future.channel().close();
+                        try {
+                            if (future.isSuccess()) {
+                                setChannel((SocketChannel) future.channel());
+                            } else {
+                                future.channel().close();
+                            }
+                        }finally {
+                            connectIngFlag.set(false);
                         }
                         connectAfter(future);
                     }));
@@ -170,16 +176,39 @@ public abstract class AbstractNettyClient{
         return remoteAddress;
     }
 
+    public EventLoopGroup getWorker() {
+        return worker;
+    }
+
+    public int getIoRatio() {
+        return ioRatio;
+    }
+
+    public int getIoThreadCount() {
+        return ioThreadCount;
+    }
+
+    public boolean isConnectIng() {
+        return connectIngFlag.get();
+    }
+
+    public boolean isEnableEpoll() {
+        return enableEpoll;
+    }
+
+    public Bootstrap getBootstrap() {
+        return bootstrap;
+    }
+
     public ChannelFuture stop() {
         if(channel == null) {
             throw new IllegalStateException("channel is null");
         }
-
         return channel.close().addListener((ChannelFutureListener) future -> {
             AbstractNettyClient.this.bootstrap = null;
             AbstractNettyClient.this.worker.shutdownGracefully();
             AbstractNettyClient.this.worker= null;
-            AbstractNettyClient.this.running.set(false);
+            AbstractNettyClient.this.initFlag.set(false);
             AbstractNettyClient.this.channel = null;
             stopAfter(future);
         });
@@ -213,7 +242,7 @@ public abstract class AbstractNettyClient{
     @Override
     public String toString() {
         return name + "{" +
-                "activeSocketChannelCount=" + getActiveSocketChannelCount() +
+                "channel=" + channel +
                 ", remoteAddress=" + remoteAddress.getHostName() + ":" + remoteAddress.getPort() + "}";
     }
 

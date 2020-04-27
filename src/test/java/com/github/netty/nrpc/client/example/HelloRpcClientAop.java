@@ -1,4 +1,4 @@
-package com.github.netty.nrpc.client;
+package com.github.netty.nrpc.client.example;
 
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcContext;
@@ -11,7 +11,7 @@ import java.util.Map;
  * @author wangzihao 2020-04-24
  */
 @Component
-public class RpcClientAop implements com.github.netty.protocol.nrpc.RpcClientAop {
+public class HelloRpcClientAop implements com.github.netty.protocol.nrpc.RpcClientAop {
 
     @Override
     public void onInitAfter(RpcClient rpcClient) {
@@ -35,6 +35,11 @@ public class RpcClientAop implements com.github.netty.protocol.nrpc.RpcClientAop
 
     @Override
     public void onResponseAfter(RpcContext<RpcClient> rpcContext) {
+
+    }
+
+    @Override
+    public void onTimeout(RpcContext<RpcClient> rpcContext) {
 
     }
 

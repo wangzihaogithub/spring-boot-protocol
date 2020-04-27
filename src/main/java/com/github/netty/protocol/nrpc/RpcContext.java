@@ -91,6 +91,10 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.rpcMethod = rpcMethod;
     }
 
+    public boolean isInnerMethod(){
+        return rpcMethod.isInnerMethodFlag();
+    }
+
     @Override
     public void recycle() {
         this.request = null;
@@ -117,7 +121,8 @@ public class RpcContext<INSTANCE> implements Recyclable {
         WRITE_ING,
         WRITE_FINISH,
         READ_ING,
-        READ_FINISH
+        READ_FINISH,
+        TIMEOUT
     }
 
 }

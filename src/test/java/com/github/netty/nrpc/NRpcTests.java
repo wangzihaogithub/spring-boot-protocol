@@ -1,6 +1,8 @@
 package com.github.netty.nrpc;
 
 import com.github.netty.core.util.IOUtil;
+import com.github.netty.nrpc.client.NRpcClientBootstrap;
+import com.github.netty.nrpc.server.NRpcServerBootstrap;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,6 +16,8 @@ import java.util.Objects;
 
 /**
  * rpc test
+ * 先启动客户端， 再启动服务端， 然后测试异步接口
+ *
  * start app {@link NRpcClientBootstrap}
  * start app {@link NRpcServerBootstrap}
  * @author wangzihaogithub
@@ -23,11 +27,19 @@ import java.util.Objects;
 public class NRpcTests {
 
     @Test
-    public void test() throws IOException {
+    public void sayHello() throws IOException {
         URL url = new URL("http://localhost:8081/sayHello?name=xiaowang");
         InputStream inputStream = url.openStream();
         String responseBody = IOUtil.readInput(inputStream);
         Assert.assertEquals("hi! xiaowang", responseBody);
+    }
+
+    @Test
+    public void sayHelloAsync() throws IOException {
+        URL url = new URL("http://localhost:8081/sayHelloAsync?name=xiaowang");
+        InputStream inputStream = url.openStream();
+        String responseBody = IOUtil.readInput(inputStream);
+        Assert.assertEquals("async", responseBody);
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {

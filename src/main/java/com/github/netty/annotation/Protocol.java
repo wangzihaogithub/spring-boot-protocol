@@ -35,6 +35,13 @@ public class Protocol {
          */
         @AliasFor(annotation = Controller.class)
         String value() default "";
+
+        /**
+         * service version
+         * @return any str
+         */
+        String version() default "";
+
         /**
          * Timeout time (milliseconds)
          * @return timeout

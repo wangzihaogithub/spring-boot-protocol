@@ -14,7 +14,6 @@ import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Remote session service
@@ -30,9 +29,9 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     private InetSocketAddress address;
     private int ioRatio;
     private int ioThreadCount;
-    private boolean enablesAutoReconnect;
     private boolean enableRpcHeartLog;
-    private int rpcClientHeartIntervalSecond;
+    private int rpcClientHeartIntervalMillSecond;
+    private int reconnectIntervalMillSeconds;
     private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>(){
         @Override
         protected RpcClient initialValue() throws Exception {
@@ -40,27 +39,26 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             rpcClient.setIoRatio(ioRatio);
             rpcClient.setIoThreadCount(ioThreadCount);
 //            rpcClient.setSocketChannelCount(clientChannels);
-            rpcClient.run();
-            if(enablesAutoReconnect) {
-                rpcClient.enableAutoReconnect(rpcClientHeartIntervalSecond, TimeUnit.SECONDS,null,enableRpcHeartLog);
-            }
+            rpcClient.setIdleTimeMs(rpcClientHeartIntervalMillSecond);
+            rpcClient.setReconnectScheduledIntervalMs(reconnectIntervalMillSeconds);
+            rpcClient.setEnableRpcHeartLog(enableRpcHeartLog);
             return rpcClient;
         }
     };
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address) {
-        this(address,100,0,true,false,20);
+        this(address,100,0,false,20,20);
     }
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address,
                                        int rpcClientIoRatio, int rpcClientIoThreads,
-                                       boolean enablesAutoReconnect, boolean enableRpcHeartLog, int rpcClientHeartIntervalSecond) {
+                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond,int reconnectIntervalMillSeconds) {
         this.address = address;
         this.ioRatio = rpcClientIoRatio;
         this.ioThreadCount = rpcClientIoThreads;
-        this.enablesAutoReconnect = enablesAutoReconnect;
         this.enableRpcHeartLog = enableRpcHeartLog;
-        this.rpcClientHeartIntervalSecond = rpcClientHeartIntervalSecond;
+        this.rpcClientHeartIntervalMillSecond = rpcClientHeartIntervalMillSecond;
+        this.reconnectIntervalMillSeconds = reconnectIntervalMillSeconds;
     }
 
     @Override

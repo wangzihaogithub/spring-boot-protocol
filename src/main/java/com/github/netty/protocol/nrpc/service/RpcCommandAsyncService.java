@@ -8,7 +8,7 @@ import org.reactivestreams.Publisher;
  * @author wangzihao
  * 2020/4/23/020
  */
-@Protocol.RpcService(value = "/hrpc/command")
+@Protocol.RpcService(value = "/_nrpc/command",timeout = 600)
 public interface RpcCommandAsyncService {
 
     Publisher<byte[]> ping();

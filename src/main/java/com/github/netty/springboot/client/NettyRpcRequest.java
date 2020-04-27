@@ -1,14 +1,26 @@
 package com.github.netty.springboot.client;
 
+import com.github.netty.core.util.ApplicationX;
+import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.springboot.NettyProperties;
 
 import java.lang.reflect.Method;
+import java.net.InetSocketAddress;
+import java.util.Map;
 
 /**
  * Information about the RPC request
  * @author wangzihao
  */
 public interface NettyRpcRequest {
+    /**
+     * rpcInstanceKey {@link RpcClient#getRpcInstance(String)}
+     * @return rpcInstanceKey
+     */
+    String getRpcInstanceKey();
+
+    Object getProxy();
+
     /**
      * The method to call this time
      * @return Method
@@ -29,11 +41,35 @@ public interface NettyRpcRequest {
      * @return requestMappingName
      */
     String getRequestMappingName();
+
+    /**
+     * you rpc service version {@link com.github.netty.annotation.Protocol.RpcService#version()}
+     * @return any string
+     */
+    String getVersion();
+
+    /**
+     * setting once request timeout. unit is millSecond
+     * @param timeout timeout
+     */
+    void setTimeout(int timeout);
+    int getTimeout();
+
     /**
      * Yml configuration file
      * @return NettyProperties
      */
     NettyProperties getNettyProperties();
+    /**
+     * Application bean container
+     * @return ApplicationX
+     */
+    ApplicationX getApplication();
+    /**
+     * address mapping client instance
+     * @return clients
+     */
+    Map<InetSocketAddress, RpcClient> getClientMap();
     /**
      * Get interface class
      * @return interfaceClass

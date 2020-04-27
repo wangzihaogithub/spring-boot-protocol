@@ -1,6 +1,6 @@
 package com.github.netty.websocket;
 
-import com.github.netty.nrpc.NRpcClientBootstrap;
+import com.github.netty.nrpc.client.NRpcClientBootstrap;
 import com.github.netty.springboot.EnableNettyEmbedded;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

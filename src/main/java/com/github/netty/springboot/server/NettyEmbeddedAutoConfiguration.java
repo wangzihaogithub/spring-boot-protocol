@@ -72,6 +72,8 @@ public class NettyEmbeddedAutoConfiguration {
     public NRpcProtocol nRpcProtocol(){
         HRpcProtocolSpringAdapter protocol = new HRpcProtocolSpringAdapter(nettyProperties.getApplication());
         protocol.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
+        protocol.setMethodOverwriteCheck(nettyProperties.getNrpc().isServerMethodOverwriteCheck());
+        protocol.setServerDefaultVersion(nettyProperties.getNrpc().getServerDefaultVersion());
         return protocol;
     }
 

@@ -7,6 +7,7 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.AttributeKey;
 
+import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -61,7 +62,9 @@ public class ServletChannelHandler extends AbstractChannelHandler<Object,Object>
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        logger.error("servlet handler exception. case={}, channel={}",cause.toString(),ctx.channel(),cause);
+        if(cause.getClass() != IOException.class){
+            logger.error("servlet handler exception. case={}, channel={}",cause.toString(),ctx.channel(),cause);
+        }
         ctx.close();
     }
 

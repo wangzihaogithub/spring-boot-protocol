@@ -141,8 +141,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             compositeSessionService.enableRemoteRpcSession(address,
                     80,
                     1,
-                    true,properties.getNrpc().isClientEnableHeartLog(),
-                    properties.getNrpc().getClientHeartInterval());
+                    properties.getNrpc().isClientEnableHeartLog(),
+                    properties.getNrpc().getClientHeartIntervalTimeMs(),
+                    properties.getNrpc().getClientReconnectScheduledIntervalMs());
             sessionService = compositeSessionService;
         }else if(properties.getHttpServlet().isEnablesLocalFileSession()){
             //Enable session file storage

@@ -39,7 +39,7 @@ public class AnnotationMethodToParameterNamesFunction implements Function<Method
                 break;
             }
             if(notFound){
-                parameterNames.add(null);
+                parameterNames.add(parameter.getName());
             }
         }
         return parameterNames.toArray(new String[0]);

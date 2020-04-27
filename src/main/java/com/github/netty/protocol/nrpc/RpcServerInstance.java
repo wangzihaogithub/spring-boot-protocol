@@ -1,5 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.annotation.Protocol;
+import com.github.netty.core.util.ReflectUtil;
+
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.function.Function;
@@ -22,14 +25,38 @@ public class RpcServerInstance {
      * @param instance The implementation class
      * @param dataCodec Data encoding and decoding
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodOverwriteCheck methodOverwriteCheck
      */
-    protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction) {
+    protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck) {
         this.instance = instance;
         this.dataCodec = dataCodec;
-        this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction);
+        this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction,methodOverwriteCheck);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
+    }
+
+    public static boolean isRpcInnerClass(Class clazz){
+        return clazz.getPackage().getName().startsWith(RpcVersion.class.getPackage().getName());
+    }
+
+    public static String getVersion(Class clazz,String defaultReturnVersion){
+        Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(clazz, Protocol.RpcService.class);
+        String version;
+        if (rpcInterfaceAnn != null) {
+            version = rpcInterfaceAnn.version();
+        }else {
+            version = null;
+        }
+        if(version == null || version.isEmpty()){
+            return isRpcInnerClass(clazz)? version : defaultReturnVersion;
+        }else {
+            return version;
+        }
+    }
+
+    public static String getServerInstanceKey(String requestMappingName,String version){
+        return requestMappingName + ":" + version;
     }
 
     public ResponsePacket invoke(RequestPacket rpcRequest,RpcContext<RpcServerInstance> rpcContext){

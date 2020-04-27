@@ -40,9 +40,9 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
     public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
     /**
      * Fixed request length (note : Not including the total length.)
-     * (Request ID)4B + (service length)1B + (method length)1B + (data length)4B
+     * (Request ID)4B + (service name length)1B + (service version length)1B + (method length)1B + (data length)4B
      */
-    private static final int FIXED_REQUEST_LENGTH = INT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + INT_LENGTH;
+    private static final int FIXED_REQUEST_LENGTH = INT_LENGTH + BYTE_LENGTH + BYTE_LENGTH + BYTE_LENGTH + INT_LENGTH;
     /**
      * Fixed response length (note : Not including the total length.)
      * (Request ID)4B + (status)2B + (message length)1B + (encode)1B + (data length)4B
@@ -114,7 +114,15 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.writerIndex(out.writerIndex() + BYTE_LENGTH);
         writeCurrentLength = out.writeCharSequence(packet.getRequestMappingName(), RPC_CHARSET);
 
-        //(1 byte Unsigned) service length
+        //(1 byte Unsigned) service name length
+        out.setByte(out.writerIndex() - writeCurrentLength - BYTE_LENGTH,writeCurrentLength);
+        writeTotalLength += writeCurrentLength;
+
+        //(length byte) service version
+        out.writerIndex(out.writerIndex() + BYTE_LENGTH);
+        writeCurrentLength = out.writeCharSequence(packet.getVersion(), RPC_CHARSET);
+
+        //(1 byte Unsigned) service version length
         out.setByte(out.writerIndex() - writeCurrentLength - BYTE_LENGTH,writeCurrentLength);
         writeTotalLength += writeCurrentLength;
 

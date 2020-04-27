@@ -6,6 +6,7 @@ import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
+import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 import com.github.netty.protocol.nrpc.service.RpcCommandAsyncService;
 import com.github.netty.protocol.nrpc.service.RpcCommandService;
@@ -13,23 +14,20 @@ import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.internal.PlatformDependent;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
-import java.lang.reflect.Proxy;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
@@ -43,25 +41,33 @@ import static com.github.netty.protocol.nrpc.RpcPacket.*;
  *  2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient{
-    private final Map<String, Sender> rpcInstanceMap = new HashMap<>(6);
-    private int idleTime = 10;
-    private RpcCommandService rpcCommandService;
-    private RpcCommandAsyncService rpcCommandAsyncService;
+    private int idleTimeMs = 5000;
+    private int reconnectScheduledIntervalMs = 5000;
+    private long connectTimeout = 1000;
     private RpcDBService rpcDBService;
-    private AtomicInteger requestIdIncr = new AtomicInteger();
-    private int maxSpinDelayConnectCount = SystemPropertyUtil.getInt("netty.nrpc.maxSpinDelayConnectCount",0);
+    private RpcCommandService rpcCommandService;
+    private final Map<String, Sender> rpcInstanceMap = new HashMap<>(6);
+    private final AtomicInteger requestIdIncr = new AtomicInteger();
+    private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
+    private final RpcCommandAsyncService rpcCommandAsyncService;
 
     /**
      * Connection status
      */
     private volatile State state = State.DOWN;
     /**
-     * Automatic reconnect Future
+     * reconnectScheduleFuture
      */
-    private ScheduledFuture<?> autoReconnectScheduledFuture;
-
+    private ScheduledFuture<?> reconnectScheduleFuture;
+    /**
+     * reconnectTaskSuccessConsumer Callback method after successful reconnect
+     */
+    private BiConsumer<Long,RpcClient> reconnectTaskSuccessConsumer;
+    private boolean enableRpcHeartLog = true;
+    private boolean enableReconnectScheduledTask = false;
+    private long reconnectCount = 0;
     protected final DataCodec dataCodec;
-    protected final Map<Integer, RpcDone> rpcDoneMap;
+    protected final ExpiryLRUMap<Integer, RpcDone> rpcDoneMap = new ExpiryLRUMap<>(512,0.75F,false,Long.MAX_VALUE);
     private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
 
     public RpcClient(String remoteHost, int remotePort) {
@@ -85,16 +91,10 @@ public class RpcClient extends AbstractNettyClient{
                 aop.onEncodeRequestBefore(rpcContext,params);
             }
         });
-
-        Map<Integer,RpcDone> futureMap;
-        try {
-            futureMap = INT_OBJECT_MAP_CONSTRUCTOR != null?
-                    INT_OBJECT_MAP_CONSTRUCTOR.newInstance(64):
-                    new HashMap<>(64);
-        } catch (Exception e) {
-            futureMap = new HashMap<>(64);
-        }
-        this.rpcDoneMap = futureMap;
+        rpcDoneMap.setOnExpiryConsumer(node -> {
+            node.getData().doneTimeout(node.getKey(),node.getCreateTimestamp(),node.getExpiryTimestamp());
+        });
+        this.rpcCommandAsyncService = newInstance(RpcCommandAsyncService.class);
     }
 
     public DataCodec getDataCodec() {
@@ -111,26 +111,44 @@ public class RpcClient extends AbstractNettyClient{
         }
     }
 
-    public void setIdleTime(int idleTime) {
-        this.idleTime = idleTime;
+    public boolean isEnableReconnectScheduledTask() {
+        return enableReconnectScheduledTask;
     }
 
-    /**
-     * Enable automatic reconnection
-     */
-    public void enableAutoReconnect(){
-        enableAutoReconnect(20,TimeUnit.SECONDS,null,true);
+    public void setEnableReconnectScheduledTask(boolean enableReconnectScheduledTask) {
+        this.enableReconnectScheduledTask = enableReconnectScheduledTask;
     }
 
-    /**
-     * Enable automatic reconnection
-     * @param heartIntervalSecond The interval at which heartbeat tasks are placed on the queue
-     * @param timeUnit Unit of time
-     * @param reconnectSuccessHandler Callback method after successful reconnect
-     * @param isLogHeartEvent Whether heartbeat event logging is enabled
-     */
-    public void enableAutoReconnect(int heartIntervalSecond, TimeUnit timeUnit, Consumer<RpcClient> reconnectSuccessHandler, boolean isLogHeartEvent){
-        autoReconnectScheduledFuture = RpcClientHeartbeatTask.schedule(heartIntervalSecond,timeUnit,reconnectSuccessHandler,this,isLogHeartEvent);
+    public void setConnectTimeout(long connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
+
+    public void setIdleTimeMs(int idleTimeMs) {
+        this.idleTimeMs = idleTimeMs;
+    }
+
+    public BiConsumer<Long,RpcClient> getReconnectTaskSuccessConsumer() {
+        return reconnectTaskSuccessConsumer;
+    }
+
+    public void setReconnectTaskSuccessConsumer(BiConsumer<Long,RpcClient> reconnectTaskSuccessConsumer) {
+        this.reconnectTaskSuccessConsumer = reconnectTaskSuccessConsumer;
+    }
+
+    public boolean isEnableRpcHeartLog() {
+        return enableRpcHeartLog;
+    }
+
+    public void setEnableRpcHeartLog(boolean enableRpcHeartLog) {
+        this.enableRpcHeartLog = enableRpcHeartLog;
+    }
+
+    public int getReconnectScheduledIntervalMs() {
+        return reconnectScheduledIntervalMs;
+    }
+
+    public void setReconnectScheduledIntervalMs(int reconnectScheduledIntervalMs) {
+        this.reconnectScheduledIntervalMs = reconnectScheduledIntervalMs;
     }
 
     /**
@@ -142,70 +160,81 @@ public class RpcClient extends AbstractNettyClient{
     public <T>T newInstance(Class<T> clazz){
         int timeout = Protocol.RpcService.DEFAULT_TIME_OUT;
         String requestMappingName = "";
-
+        String version = "";
         Protocol.RpcService rpcInterfaceAnn = ReflectUtil.findAnnotation(clazz, Protocol.RpcService.class);
         if (rpcInterfaceAnn != null) {
             timeout = rpcInterfaceAnn.timeout();
             requestMappingName = rpcInterfaceAnn.value();
+            version = rpcInterfaceAnn.version();
         }
         if(requestMappingName.isEmpty()){
             requestMappingName = "/"+StringUtil.firstLowerCase(clazz.getSimpleName());
         }
-        return newInstance(clazz,timeout,requestMappingName);
+        return newInstance(clazz,timeout,version,requestMappingName,false);
     }
 
     /**
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
+     * @param version version
      * @param requestMappingName requestMappingName
+     * @param methodOverwriteCheck methodOverwriteCheck
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz,int timeout,String requestMappingName){
-        return newInstance(clazz,timeout,requestMappingName, new AnnotationMethodToParameterNamesFunction(Arrays.asList(Protocol.RpcParam.class)));
+    public <T>T newInstance(Class<T> clazz,int timeout,String version,String requestMappingName,boolean methodOverwriteCheck){
+        return newInstance(clazz,timeout,version,requestMappingName, new AnnotationMethodToParameterNamesFunction(Collections.singletonList(Protocol.RpcParam.class)),methodOverwriteCheck);
     }
 
     /**
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
+     * @param version version
      * @param requestMappingName requestMappingName
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodOverwriteCheck methodOverwriteCheck
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz, int timeout, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction){
-        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,requestMappingName,methodToParameterNamesFunction);
-        Object instance = Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, rpcInstance);
+    public <T>T newInstance(Class<T> clazz, int timeout, String version,String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
+        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,version,requestMappingName,methodToParameterNamesFunction,methodOverwriteCheck);
+        Object instance = java.lang.reflect.Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz, Proxy.class}, rpcInstance);
         return (T) instance;
     }
 
+    public static String getClientInstanceKey(Class interfaceClass, String requestMappingName, String version){
+        return interfaceClass.getName() + version + requestMappingName;
+    }
+
     /**
      * New implementation class
      * @param clazz  interface
      * @param timeout timeout
+     * @param version version
      * @param requestMappingName requestMappingName
      * @param  methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodOverwriteCheck methodOverwriteCheck
      * @return Interface implementation class
      */
-    public InvocationHandler newRpcInstance(Class clazz, int timeout, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction){
-        Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction);
+    public Sender newRpcInstance(Class clazz, int timeout,String version, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
+        Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction,methodOverwriteCheck);
         if (rpcMethodMap.isEmpty()) {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
         }
-        Sender rpcInstance = new Sender(timeout, requestMappingName,rpcMethodMap);
-        rpcInstanceMap.put(requestMappingName,rpcInstance);
+        Sender rpcInstance = new Sender(this,timeout, requestMappingName,version,rpcMethodMap);
+        rpcInstanceMap.put(getClientInstanceKey(clazz,requestMappingName,version),rpcInstance);
         return rpcInstance;
     }
 
     /**
      * Gets the implementation class
-     * @param requestMappingName requestMappingName
+     * @param rpcInstanceKey rpcInstanceKey
      * @return RpcClientInstance
      */
-    public InvocationHandler getRpcInstance(String requestMappingName) {
-        return rpcInstanceMap.get(requestMappingName);
+    public Sender getRpcInstance(String rpcInstanceKey) {
+        return rpcInstanceMap.get(rpcInstanceKey);
     }
 
     /**
@@ -221,8 +250,7 @@ public class RpcClient extends AbstractNettyClient{
             @Override
             protected void initChannel(Channel channel) throws Exception {
                 ChannelPipeline pipeline = channel.pipeline();
-
-                pipeline.addLast(new IdleStateHandler(idleTime, 0, 0));
+                pipeline.addLast(new IdleStateHandler(idleTimeMs, 0, 0,TimeUnit.MILLISECONDS));
                 pipeline.addLast(new RpcEncoder());
                 pipeline.addLast(new RpcDecoder());
                 pipeline.addLast(new ReceiverChannelHandler());
@@ -230,79 +258,147 @@ public class RpcClient extends AbstractNettyClient{
         };
     }
 
+    public boolean scheduleReconnectTask(long reconnectIntervalMillSeconds, TimeUnit timeUnit){
+        if(this.scheduleReconnectTaskIngFlag.compareAndSet(false,true)){
+            this.reconnectScheduleFuture = getWorker().scheduleWithFixedDelay(() -> {
+                if(state == State.UP){
+                    cancelScheduleReconnectTask();
+                }else {
+                    reconnectCount++;
+                    connect();
+                }
+            }, reconnectIntervalMillSeconds,reconnectIntervalMillSeconds, timeUnit);
+            return true;
+        }
+        return false;
+    }
+
+    public void cancelScheduleReconnectTask(){
+        ScheduledFuture scheduledFuture = this.reconnectScheduleFuture;
+        if(scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
+        BiConsumer<Long,RpcClient> reconnectSuccessHandler = this.reconnectTaskSuccessConsumer;
+        if(reconnectSuccessHandler != null){
+            reconnectSuccessHandler.accept(reconnectCount,this);
+        }
+        this.reconnectScheduleFuture = null;
+        this.reconnectCount = 0;
+        this.scheduleReconnectTaskIngFlag.set(false);
+    }
+
+    public boolean isScheduleReconnectTaskIng() {
+        return scheduleReconnectTaskIngFlag.get();
+    }
+
+    public ExpiryLRUMap<Integer, RpcDone> getRpcDoneMap() {
+        return rpcDoneMap;
+    }
+
     @Override
     public SocketChannel getChannel() throws RpcConnectException{
         SocketChannel socketChannel = super.getChannel();
         if(socketChannel == null){
-            connect();
-            spinDelayTryGetConnect(maxSpinDelayConnectCount);
+            long timestamp = System.currentTimeMillis();
+            connect().ifPresent(future -> waitGetConnect(future,connectTimeout));
             if(state == State.UP) {
                 socketChannel = super.getChannel();
             }else {
-                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no connect");
+                if(enableReconnectScheduledTask) {
+                    scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+                }
+                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no connect. maxConnectTimeout=["+connectTimeout+"], connectTimeout=["+(System.currentTimeMillis() - timestamp)+"]");
             }
         }
-        if(!socketChannel.isActive()){
-            setChannel(null);
-            connect();
-            spinDelayTryGetConnect(maxSpinDelayConnectCount);
-            if(state == State.UP){
+
+        if(!super.isConnectIng() && !socketChannel.isActive()){
+            socketChannel.close();
+            long timestamp = System.currentTimeMillis();
+            connect().ifPresent(future -> waitGetConnect(future,connectTimeout));
+            if(state == State.UP) {
                 socketChannel = super.getChannel();
             }else {
-                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no active");
+                if(enableReconnectScheduledTask) {
+                    scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+                }
+                throw new RpcConnectException("The [" + socketChannel + "] channel no active. maxConnectTimeout=["+connectTimeout+"], connectTimeout=["+(System.currentTimeMillis() - timestamp)+"]");
             }
         }
-        if(!socketChannel.isWritable()){
-            throw new RpcConnectException("The ["+getRemoteAddress()+"] channel no writable");
+
+        int yieldCount = 0;
+        while (!socketChannel.isWritable()){
+            socketChannel.flush();
+            if(!socketChannel.eventLoop().inEventLoop()) {
+                Thread.yield();
+                yieldCount++;
+            }
+        }
+        if(yieldCount != 0 && enableRpcHeartLog) {
+            logger.info("RpcClient waitWritable... yieldCount={}", yieldCount);
         }
         return socketChannel;
     }
 
-    protected int spinDelayTryGetConnect(int maxCount){
-        int count = 0;
-        while (connectIngFlag.get()){
-            if(count >= maxCount){
-                break;
+    protected void waitGetConnect(ChannelFuture future, long connectTimeout){
+        try {
+            long timestamp = System.currentTimeMillis();
+            future.await(connectTimeout,TimeUnit.MILLISECONDS);
+            //Wake up before the timeout, indicating a successful link,
+            //but the state does not necessarily immediately channel with the success of the assignment,
+            //to wait for state to UP
+            if(System.currentTimeMillis() - timestamp < connectTimeout
+                    && !future.channel().eventLoop().inEventLoop()){
+                int yieldCount = 0;
+                long timeoutTimestamp = timestamp + connectTimeout;
+                while (state != State.UP && System.currentTimeMillis() < timeoutTimestamp){
+                    yieldCount++;
+                    Thread.yield();
+                }
+                if(enableRpcHeartLog) {
+                    logger.info("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+                }
             }
-            Thread.yield();
-            count++;
+        } catch (InterruptedException e) {
+            PlatformDependent.throwException(e);
         }
-        return count;
     }
 
     @Override
     public void setChannel(SocketChannel newChannel) {
-        if(newChannel == null){
-            SocketChannel oldChannel = super.getChannel();
-            if(oldChannel != null){
-                oldChannel.close();
-            }
-            state = State.DOWN;
-        }else {
-            super.setChannel(newChannel);
-            //The first initiative to send a package to ensure proper binding agreement
-            getRpcCommandAsyncService().ping().subscribe(new Subscriber<byte[]>() {
-                @Override
-                public void onSubscribe(Subscription s) {
-                    s.request(1);
-                }
+        super.setChannel(newChannel);
+        state = State.UP;
+        //The first initiative to send a package to ensure proper binding agreement
+        getRpcCommandAsyncService().ping().subscribe(pingSubscriber);
+    }
 
-                @Override
-                public void onNext(byte[] bytes) {
-                    state = State.UP;
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    state = State.DOWN;
-                }
-
-                @Override
-                public void onComplete() {
-
-                }
-            });
+    private final Subscriber<byte[]> pingSubscriber = new Subscriber<byte[]>() {
+        @Override
+        public void onSubscribe(Subscription s) {
+            s.request(1);
         }
+
+        @Override
+        public void onNext(byte[] bytes) {
+
+        }
+
+        @Override
+        public void onError(Throwable t) {
+
+        }
+
+        @Override
+        public void onComplete() {
+
+        }
+    };
+
+    public int getIdleTimeMs() {
+        return idleTimeMs;
+    }
+
+    public long getConnectTimeout() {
+        return connectTimeout;
     }
 
     @Override
@@ -324,26 +420,30 @@ public class RpcClient extends AbstractNettyClient{
 
     @Override
     protected void connectAfter(ChannelFuture future) {
-        if(future.isSuccess()){
-            state = State.UP;
+        if(future.isSuccess()) {
+            if(enableRpcHeartLog) {
+                logger.info("RpcClient connect success... {}", future.channel());
+            }
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onConnectAfter(this);
+            }
         }else {
-            state = State.DOWN;
-        }
-        for (RpcClientAop aop : nettyRpcClientAopList) {
-            aop.onConnectAfter(this);
+            if(enableRpcHeartLog){
+                logger.info("RpcClient connect fail... {}", future.channel());
+            }
         }
     }
 
     @Override
     protected void stopAfter(ChannelFuture future) {
-        state = State.DOWN;
         rpcInstanceMap.clear();
         rpcCommandService = null;
         rpcDBService = null;
 
-        if(autoReconnectScheduledFuture != null){
-            autoReconnectScheduledFuture.cancel(false);
+        if(reconnectScheduleFuture != null){
+            reconnectScheduleFuture.cancel(false);
         }
+        scheduleReconnectTaskIngFlag.set(false);
         if(future.cause() != null){
             logger.error(future.cause().getMessage(),future.cause());
         }
@@ -387,13 +487,6 @@ public class RpcClient extends AbstractNettyClient{
      * @return RpcCommandAsyncService
      */
     public RpcCommandAsyncService getRpcCommandAsyncService() {
-        if(rpcCommandAsyncService == null){
-            synchronized (this) {
-                if(rpcCommandAsyncService == null) {
-                    rpcCommandAsyncService = newInstance(RpcCommandAsyncService.class);
-                }
-            }
-        }
         return rpcCommandAsyncService;
     }
 
@@ -422,13 +515,17 @@ public class RpcClient extends AbstractNettyClient{
         UP
     }
 
+    /**
+     * proxy flag
+     */
+    public interface Proxy {}
+
     @Override
     public String toString() {
         return super.toString()+"{" +
                 "state=" + state +
                 '}';
     }
-
 
     class ReceiverChannelHandler extends AbstractChannelHandler<RpcPacket,Object> {
         ReceiverChannelHandler() {
@@ -454,21 +551,95 @@ public class RpcClient extends AbstractNettyClient{
         @Override
         protected void onReaderIdle(ChannelHandlerContext ctx) {
             //heart beat
-            RpcPacket packet = new RpcPacket(RpcPacket.TYPE_PING);
-            packet.setAck(RpcPacket.ACK_YES);
-            ctx.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+            getRpcCommandAsyncService().ping().subscribe(readerIdlePingHandler);
         }
+
+        @Override
+        public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            state = State.UP;
+        }
+
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            state = State.DOWN;
+            if(enableReconnectScheduledTask) {
+                scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+            }
+        }
+
+        private final Subscriber<byte[]> readerIdlePingHandler = new Subscriber<byte[]>() {
+            @Override
+            public void onSubscribe(Subscription s) {
+                s.request(1);
+            }
+
+            @Override
+            public void onNext(byte[] bytes) {
+                if(state != State.UP) {
+                    state = State.UP;
+                }
+                if(enableRpcHeartLog){
+                    logger.info("RpcClient heart UP by readerIdle {}...{}", new String(bytes),RpcClient.super.getChannel());
+                }
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                if(state != State.DOWN) {
+                    state = State.DOWN;
+                }
+                SocketChannel channel = RpcClient.super.getChannel();
+                if(channel != null) {
+                    channel.close();
+                }
+                if(enableRpcHeartLog){
+                    logger.info("RpcClient heart DOWN by readerIdle ...{} {}", RpcClient.super.getChannel(),t.toString());
+                }
+            }
+
+            @Override
+            public void onComplete() {}
+        };
+
     }
 
-    class Sender implements InvocationHandler {
+    public static class Sender implements InvocationHandler {
+        private static final LoggerX logger = LoggerFactoryX.getLogger(Sender.class);
         private int timeout;
-        private String requestMappingName;
-        private Map<String, RpcMethod<RpcClient>> rpcMethodMap;
-
-        Sender(int timeout, String requestMappingName, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
+        private final String requestMappingName;
+        private final String version;
+        private final Map<String, RpcMethod<RpcClient>> rpcMethodMap;
+        private final RpcClient rpcClient;
+        private Sender(RpcClient rpcClient,int timeout, String requestMappingName,String version, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
+            this.rpcClient = rpcClient;
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
+            this.version = version;
             this.requestMappingName = requestMappingName;
+        }
+
+        public void setTimeout(int timeout) {
+            this.timeout = timeout;
+        }
+
+        public Map<String, RpcMethod<RpcClient>> getRpcMethodMap() {
+            return rpcMethodMap;
+        }
+
+        public String getRequestMappingName() {
+            return requestMappingName;
+        }
+
+        public int getTimeout() {
+            return timeout;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public RpcClient getRpcClient() {
+            return rpcClient;
         }
 
         /**
@@ -497,7 +668,8 @@ public class RpcClient extends AbstractNettyClient{
                 return this.equals(args[0]);
             }
 
-            RpcMethod<RpcClient> rpcMethod = rpcMethodMap.get(methodName);
+            String rpcMethodName = RpcMethod.getMethodDescriptorName(method);
+            RpcMethod<RpcClient> rpcMethod = rpcMethodMap.get(rpcMethodName);
             if (rpcMethod == null) {
                 return null;
             }
@@ -507,7 +679,7 @@ public class RpcClient extends AbstractNettyClient{
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
                 rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientReactivePublisher(rpcContext,requestMappingName);
+                result = new RpcClientReactivePublisher(rpcContext,requestMappingName,version,timeout);
             }else if(rpcMethod.isReturnTypeJdk9PublisherFlag()){
                 throw new UnsupportedOperationException("now version no support return type java.util.concurrent.Flow.Publisher. The future version will support. ");
 //                RpcContext<RpcClient> rpcContext = new RpcContext<>();
@@ -534,34 +706,36 @@ public class RpcClient extends AbstractNettyClient{
             return result;
         }
 
-        Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
-            Method method = rpcContext.getRpcMethod().getMethod();
-            Class<?> returnType = method.getReturnType();
+        private Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
+            RpcMethod method = rpcContext.getRpcMethod();
+            Class<?> returnType = method.getMethod().getReturnType();
             byte ackFlag = returnType == void.class? ACK_NO : ACK_YES;
 
-            int requestId = newRequestId();
+            int requestId = rpcClient.newRequestId();
             RequestPacket rpcRequest = RequestPacket.newInstance();
             rpcRequest.setRequestId(requestId);
             rpcRequest.setRequestMappingName(requestMappingName);
-            rpcRequest.setMethodName(method.getName());
+            rpcRequest.setVersion(version);
+            rpcRequest.setMethodName(method.getMethodDescriptorName());
             rpcRequest.setAck(ackFlag);
 
             rpcContext.setRequest(rpcRequest);
             rpcContext.setState(INIT);
-            onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext);
 
-            rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
+            rpcRequest.setData(rpcClient.dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
             rpcContext.setState(WRITE_ING);
-            onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext);
 
-            RpcClientFuture future = RpcClientFuture.newInstance();
-            if (ackFlag == ACK_YES) {
-                rpcDoneMap.put(requestId, future);
-            }
+            RpcClientFuture future = null;
             try {
-                SocketChannel channel = getChannel();
+                SocketChannel channel = rpcClient.getChannel();
                 rpcContext.setRemoteAddress(channel.remoteAddress());
                 rpcContext.setLocalAddress(channel.localAddress());
+                if (ackFlag == ACK_YES) {
+                    future = RpcClientFuture.newInstance(rpcContext);
+                    rpcClient.rpcDoneMap.put(requestId, future);
+                }
                 channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) channelFuture -> {
                     if(rpcContext.getState() == INIT){
                         logger.warn("on timeout after. write event. isSuccess={},channel={}",
@@ -572,9 +746,9 @@ public class RpcClient extends AbstractNettyClient{
                     try {
                         if (channelFuture.isSuccess()) {
                             rpcContext.setState(WRITE_FINISH);
-                            onStateUpdate(rpcContext);
+                            rpcClient.onStateUpdate(rpcContext);
                         } else {
-                            channelFuture.channel().close().addListener(f -> connect());
+                            channelFuture.channel().close().addListener(f -> rpcClient.connect());
                             rpcContext.setThrowable(channelFuture.cause());
                         }
                     }finally {
@@ -594,50 +768,51 @@ public class RpcClient extends AbstractNettyClient{
                 }else if(throwable != null) {
                     throw new RpcWriteException("rpc write exception. " + throwable, throwable);
                 }
-                if (ackFlag == ACK_YES) {
+                if (future != null) {
                     rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
                     rpcContext.setResponse(rpcResponse);
                     rpcContext.setState(READ_ING);
-                    onStateUpdate(rpcContext);
+                    rpcClient.onStateUpdate(rpcContext);
 
                     //If the server is not encoded, return directly
                     if (rpcResponse.getEncode() == BINARY) {
                         result = rpcResponse.getData();
                     } else {
-                        result = dataCodec.decodeResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
+                        result = rpcClient.dataCodec.decodeResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
                     }
                     rpcContext.setResult(result);
                     rpcContext.setState(READ_FINISH);
-                    onStateUpdate(rpcContext);
+                    rpcClient.onStateUpdate(rpcContext);
                 }
             }catch (Throwable e){
+                if(e instanceof RpcTimeoutException){
+                    rpcContext.setState(TIMEOUT);
+                }
                 rpcContext.setThrowable(e);
                 throw e;
             }finally {
-                rpcDoneMap.remove(requestId);
+                if(future != null) {
+                    rpcClient.rpcDoneMap.remove(requestId);
+                }
                 try {
-                    for (RpcClientAop aop : nettyRpcClientAopList) {
-                        aop.onResponseAfter(rpcContext);
+                    boolean isTimeout = rpcContext.getState() == TIMEOUT;
+                    for (RpcClientAop aop : rpcClient.nettyRpcClientAopList) {
+                        if(isTimeout){
+                            aop.onTimeout(rpcContext);
+                        }else {
+                            aop.onResponseAfter(rpcContext);
+                        }
                     }
                 }finally {
                     RecyclableUtil.release(rpcResponse);
-                    future.recycle();
+                    if(future != null) {
+                        future.recycle();
+                    }
                     rpcContext.recycle();
                 }
             }
             return result;
         }
-    }
-
-    private static final Constructor<Map> INT_OBJECT_MAP_CONSTRUCTOR;
-    static {
-        Constructor<Map> intObjectHashMapConstructor;
-        try {
-            intObjectHashMapConstructor = (Constructor<Map>) Class.forName("io.netty.util.collection.IntObjectHashMap").getConstructor(int.class);;
-        } catch (Exception e) {
-            intObjectHashMapConstructor = null;
-        }
-        INT_OBJECT_MAP_CONSTRUCTOR = intObjectHashMapConstructor;
     }
 
     public static long getTotalInvokeCount() {
