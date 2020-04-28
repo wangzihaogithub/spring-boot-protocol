@@ -19,6 +19,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     private final Map<K, Node<K,V>> map;
     private final AtomicBoolean removeIfExpiryIngFlag = new AtomicBoolean(false);
     private boolean replaceNullValueFlag = false;
+    private static ScheduledFuture<?> SCHEDULED_FUTURE;
     private static final TransferQueue<ExpiryLRUMap.Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
     private static final Set<ExpiryLRUMap<?,?>> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
     /**
@@ -55,8 +56,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         //init static block. thread scheduled.
         synchronized (INSTANCE_SET) {
             INSTANCE_SET.add(this);
-            if(ExpiresScan.SCHEDULED_FUTURE == null){
-                ExpiresScan.scheduleAtFixedRate();
+            if(SCHEDULED_FUTURE == null){
+                SCHEDULED_FUTURE = ExpiresScan.scheduleAtFixedRate();
             }
         }
     }
@@ -551,9 +552,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     }
 
     public static class ExpiresScan implements Runnable{
-        static final ExpiresScan INSTANCE = new ExpiresScan();
         public static final ExpiresNotify NOTIFY_INSTANCE = new ExpiresNotify();
-        public static ScheduledFuture<?> SCHEDULED_FUTURE;
+        private static final ExpiresScan INSTANCE = new ExpiresScan();
         static final AtomicInteger INCR = new AtomicInteger();
         static final ScheduledExecutorService SCHEDULED = Executors.newScheduledThreadPool(1, runnable -> {
             Thread thread = new Thread(runnable, "ExpiryLRUMap-ExpiresScan" + INCR.getAndIncrement());
@@ -578,9 +578,9 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             return intervalLong;
         }
 
-        static void scheduleAtFixedRate(){
+        public static ScheduledFuture<?> scheduleAtFixedRate(){
             long intervalLong = getScheduleInterval();
-            SCHEDULED_FUTURE = SCHEDULED.scheduleAtFixedRate(INSTANCE, intervalLong, intervalLong, TimeUnit.MICROSECONDS);
+            return SCHEDULED.scheduleAtFixedRate(INSTANCE, intervalLong, intervalLong, TimeUnit.MICROSECONDS);
         }
 
         @Override
