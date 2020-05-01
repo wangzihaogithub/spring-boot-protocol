@@ -34,10 +34,11 @@ public class RpcMethod<INSTANCE> {
     private final String methodDescriptorName;
     private final String parameterTypeDescriptorName;
     private final MethodHandle methodHandle;
+    private final int parameterCount;
     private FastThreadLocal<Object[]> methodHandleArgsLocal = new FastThreadLocal<Object[]>(){
         @Override
         protected Object[] initialValue() throws Exception {
-            return new Object[parameterTypes.length + 1];
+            return new Object[parameterCount + 1];
         }
     };
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,
@@ -58,13 +59,28 @@ public class RpcMethod<INSTANCE> {
                 .map(Class::getSimpleName)
                 .collect(Collectors.joining(","));
         this.methodDescriptorName = getMethodDescriptorName(method);
+        this.parameterCount = method.getParameterCount();
+        MethodHandle methodHandle;
         try {
             MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();
             MethodType methodType = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
-            this.methodHandle = publicLookup.findVirtual(method.getDeclaringClass(), method.getName(), methodType);
+            methodHandle = publicLookup.findVirtual(method.getDeclaringClass(), method.getName(), methodType);
         } catch (NoSuchMethodException | IllegalAccessException e) {
-            this.methodHandle = null;
+            methodHandle = null;
         }
+        this.methodHandle = methodHandle;
+    }
+
+    public int getParameterCount() {
+        return parameterCount;
+    }
+
+    public Method getMethod() {
+        return method;
+    }
+
+    public MethodHandle getMethodHandle() {
+        return methodHandle;
     }
 
     public static String getMethodDescriptorName(Method method){

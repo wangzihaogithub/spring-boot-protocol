@@ -298,6 +298,10 @@ public class RpcClient extends AbstractNettyClient{
         return rpcDoneMap;
     }
 
+    public SocketChannel channel() {
+        return super.getChannel();
+    }
+
     @Override
     public SocketChannel getChannel() throws RpcConnectException{
         SocketChannel socketChannel = super.getChannel();
@@ -818,6 +822,17 @@ public class RpcClient extends AbstractNettyClient{
                 }
             }
             return result;
+        }
+
+        @Override
+        public String toString() {
+            return "Sender{" +
+                    "requestMappingName='" + requestMappingName + '\'' +
+                    ", version='" + version + '\'' +
+                    ", timeout=" + timeout +
+                    ", state=" + rpcClient.getState() +
+                    ", channel=" + rpcClient.channel() +
+                    '}';
         }
     }
 

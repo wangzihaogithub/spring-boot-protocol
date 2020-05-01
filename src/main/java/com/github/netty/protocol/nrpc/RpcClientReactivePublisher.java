@@ -124,7 +124,6 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         CONTEXT_LOCAL.set(rpcContext);
         int requestId = rpcClient.newRequestId();
         try {
-            boolean existChannel = rpcClient.isConnect();
             SocketChannel channel = rpcClient.getChannel();
             rpcContext.setRemoteAddress(channel.remoteAddress());
             rpcContext.setLocalAddress(channel.localAddress());
@@ -144,8 +143,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcContext.setState(WRITE_ING);
             rpcClient.onStateUpdate(rpcContext);
 
-            long doneTimeout = existChannel? timeout : timeout + rpcClient.getConnectTimeout();
-            rpcClient.rpcDoneMap.put(requestId, this,doneTimeout);
+            rpcClient.rpcDoneMap.put(requestId, this,timeout);
             channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) future -> {
                 CONTEXT_LOCAL.set(rpcContext);
                 try {
