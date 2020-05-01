@@ -56,7 +56,7 @@ public abstract class AbstractNettyServer implements Runnable{
         if(worker instanceof NioEventLoopGroup){
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
         }else if(worker instanceof EpollEventLoopGroup){
-            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
         }
         this.ioRatio = ioRatio;
     }
@@ -97,7 +97,7 @@ public abstract class AbstractNettyServer implements Runnable{
         EventLoopGroup boss;
         if(enableEpoll){
             EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1,new ThreadFactoryX("Epoll","Server-Boss"));
-            epollBoss.setIoRatio(ioRatio);
+//            epollBoss.setIoRatio(ioRatio);
             boss = epollBoss;
         }else {
             NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("NIO","Server-Boss"));

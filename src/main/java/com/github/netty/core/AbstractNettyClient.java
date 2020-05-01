@@ -66,7 +66,7 @@ public abstract class AbstractNettyClient{
         if(worker instanceof NioEventLoopGroup){
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
         }else if(worker instanceof EpollEventLoopGroup){
-            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
         }
         this.ioRatio = ioRatio;
     }
@@ -85,7 +85,7 @@ public abstract class AbstractNettyClient{
         EventLoopGroup worker;
         if(enableEpoll){
             EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll",namePre+"Client-Worker"));
-            epollWorker.setIoRatio(ioRatio);
+//            epollWorker.setIoRatio(ioRatio);
             worker = epollWorker;
         }else {
             NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO",namePre+"Client-Worker"));

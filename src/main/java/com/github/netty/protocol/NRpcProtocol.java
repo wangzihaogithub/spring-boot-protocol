@@ -2,23 +2,17 @@ package com.github.netty.protocol;
 
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractProtocol;
-import com.github.netty.core.util.ApplicationX;
-import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.*;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.timeout.IdleStateHandler;
 
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestMappingName;
 
@@ -62,6 +56,7 @@ public class NRpcProtocol extends AbstractProtocol {
     private boolean methodOverwriteCheck = true;
     private Map<Object,Instance> instanceMap = new HashMap<>();
     private String serverDefaultVersion;
+    private final List<RpcServerAop> rpcServerAopList = new ArrayList<>();
 
     public NRpcProtocol(ApplicationX application) {
         this.application = application;
@@ -92,7 +87,7 @@ public class NRpcProtocol extends AbstractProtocol {
             return;
         }
         String version = RpcServerInstance.getVersion(instance.getClass(), serverDefaultVersion);
-        instanceMap.put(instance,new Instance(instance,requestMappingName,version,methodToParameterNamesFunction));
+        instanceMap.put(instance, new Instance(instance,requestMappingName,version,methodToParameterNamesFunction,methodOverwriteCheck));
         logger.info("addInstance({}, {}, {})",
                 RpcServerInstance.getServerInstanceKey(requestMappingName,version),
                 instance.getClass().getSimpleName(),
@@ -116,11 +111,11 @@ public class NRpcProtocol extends AbstractProtocol {
     @Override
     public void addPipeline(Channel channel) throws Exception {
         RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
-        rpcServerHandler.getAopList().addAll(application.getBeanForType(RpcServerAop.class));
+        rpcServerHandler.getAopList().addAll(rpcServerAopList);
         for (Instance instance : instanceMap.values()) {
-            rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.version,instance.methodToParameterNamesFunction,methodOverwriteCheck);
+            rpcServerHandler.addRpcServerInstance(instance.requestMappingName,instance.version,
+                    instance.checkGetRpcServerInstance());
         }
-
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RpcDecoder(messageMaxLength));
         pipeline.addLast(new RpcEncoder());
@@ -135,6 +130,9 @@ public class NRpcProtocol extends AbstractProtocol {
     @Override
     public void onServerStart() throws Exception {
         Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
+        rpcServerAopList.clear();
+        rpcServerAopList.addAll(application.getBeanForType(RpcServerAop.class));
+
         for(Object serviceImpl : list){
             if(existInstance(serviceImpl)){
                 continue;
@@ -142,25 +140,22 @@ public class NRpcProtocol extends AbstractProtocol {
             addInstance(serviceImpl);
         }
         addInstancePlugins();
-        for (RpcServerAop rpcServerAop : application.getBeanForType(RpcServerAop.class)) {
+        for (RpcServerAop rpcServerAop : rpcServerAopList) {
             rpcServerAop.onInitAfter(this);
         }
         if(methodOverwriteCheck){
-            List<UnsupportedOperationException> exceptionList = new ArrayList<>();
+            List<Exception> exceptionList = new ArrayList<>();
             for (Instance instance : instanceMap.values()) {
                 try {
-                    RpcMethod.getMethodMap(instance.instance,
-                            instance.instance.getClass(),
-                            instance.methodToParameterNamesFunction,
-                            true);
-                }catch (UnsupportedOperationException e){
+                    instance.checkGetRpcServerInstance();
+                }catch (Exception e){
                     exceptionList.add(e);
                 }
             }
             if(!exceptionList.isEmpty()){
                 StringJoiner joiner = new StringJoiner("\n\n");
                 int i = 1;
-                for (UnsupportedOperationException exception : exceptionList) {
+                for (Exception exception : exceptionList) {
                     joiner.add("["+i+"] "+exception.getLocalizedMessage());
                     i++;
                 }
@@ -197,15 +192,26 @@ public class NRpcProtocol extends AbstractProtocol {
     }
 
     static class Instance{
-        Object instance;
-        String requestMappingName;
-        String version;
-        Function<Method,String[]> methodToParameterNamesFunction;
-        Instance(Object instance, String requestMappingName, String version,Function<Method, String[]> methodToParameterNamesFunction) {
-            this.instance = instance;
+        private String requestMappingName;
+        private String version;
+        private RpcServerInstance rpcServerInstance;
+        private Exception rpcServerInstanceException;
+        Instance(Object instance, String requestMappingName, String version,Function<Method, String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck) {
             this.requestMappingName = requestMappingName;
             this.version = version;
-            this.methodToParameterNamesFunction = methodToParameterNamesFunction;
+            try {
+                this.rpcServerInstance = new RpcServerInstance(instance, null, methodToParameterNamesFunction, methodOverwriteCheck);
+            }catch (Exception e){
+                rpcServerInstanceException = e;
+            }
         }
+
+        public RpcServerInstance checkGetRpcServerInstance() throws Exception{
+            if(rpcServerInstanceException != null){
+                throw rpcServerInstanceException;
+            }
+            return rpcServerInstance;
+        }
+
     }
 }

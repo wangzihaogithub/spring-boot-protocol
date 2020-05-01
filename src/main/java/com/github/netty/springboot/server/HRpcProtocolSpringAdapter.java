@@ -17,6 +17,9 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class HRpcProtocolSpringAdapter extends NRpcProtocol {
+    private final ClassFileMethodToParameterNamesFunction classFileMethodToParameterNamesFunction =
+            new ClassFileMethodToParameterNamesFunction();
+
     public HRpcProtocolSpringAdapter(ApplicationX application) {
         super(application);
     }
@@ -46,7 +49,7 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
         if(ReflectUtil.hasParameterAnnotation(serviceImpl.getClass(),parameterAnnotationClasses)){
             return new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses);
         }else {
-            return new ClassFileMethodToParameterNamesFunction();
+            return classFileMethodToParameterNamesFunction;
         }
     }
 

@@ -2,8 +2,7 @@ package com.github.netty.core.util;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -38,7 +37,7 @@ public class Recycler<T> {
     }
 
     public Recycler(int instanceCount, Supplier<T> supplier) {
-        this.supplier = Objects.requireNonNull(supplier);
+        this.supplier = supplier;
         this.queue = new Queue<>();
         RECYCLER_LIST.add(this);
         this.formThread = Thread.currentThread();
@@ -100,15 +99,13 @@ public class Recycler<T> {
      * Queue of instances
      * @param <E> type
      */
-    private static class Queue<E> extends ConcurrentLinkedDeque<E> {
-         @Override
+    private static class Queue<E> extends ConcurrentLinkedQueue<E> {
          public void push(E e) {
-             super.addLast(e);
+             super.offer(e);
          }
 
-         @Override
          public E pop() {
-             return super.pollFirst();
+             return super.poll();
          }
      }
 }

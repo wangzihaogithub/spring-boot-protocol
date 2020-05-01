@@ -1,9 +1,11 @@
 package com.github.netty.protocol.nrpc;
 
-import com.github.netty.annotation.Protocol;
 import com.github.netty.core.util.*;
+import io.netty.util.concurrent.FastThreadLocal;
 
-import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -18,8 +20,6 @@ import java.util.stream.Stream;
  */
 public class RpcMethod<INSTANCE> {
     private static final LoggerX LOGGERX = LoggerFactoryX.getLogger(RpcMethod.class);
-    private static final Collection<Class<?extends Annotation>> RPC_INTERFACE_ANNOTATION_LIST = new LinkedHashSet<>(
-            Collections.singletonList(Protocol.RpcService.class));
     private static final Class<?> JDK9_PUBLISHER_CLASS;
     private static final Class<?> REACTIVE_PUBLISHER_CLASS;
 
@@ -33,7 +33,13 @@ public class RpcMethod<INSTANCE> {
     private final boolean innerMethodFlag;
     private final String methodDescriptorName;
     private final String parameterTypeDescriptorName;
-
+    private final MethodHandle methodHandle;
+    private FastThreadLocal<Object[]> methodHandleArgsLocal = new FastThreadLocal<Object[]>(){
+        @Override
+        protected Object[] initialValue() throws Exception {
+            return new Object[parameterTypes.length + 1];
+        }
+    };
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,
                       boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag) {
         this.instance = instance;
@@ -52,6 +58,13 @@ public class RpcMethod<INSTANCE> {
                 .map(Class::getSimpleName)
                 .collect(Collectors.joining(","));
         this.methodDescriptorName = getMethodDescriptorName(method);
+        try {
+            MethodHandles.Lookup publicLookup = MethodHandles.publicLookup();
+            MethodType methodType = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
+            this.methodHandle = publicLookup.findVirtual(method.getDeclaringClass(), method.getName(), methodType);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            this.methodHandle = null;
+        }
     }
 
     public static String getMethodDescriptorName(Method method){
@@ -78,6 +91,10 @@ public class RpcMethod<INSTANCE> {
         return genericReturnType;
     }
 
+    public boolean isReturnVoid() {
+        return genericReturnType == void.class || genericReturnType == Void.class;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if(!(obj instanceof RpcMethod)){
@@ -102,8 +119,27 @@ public class RpcMethod<INSTANCE> {
         return methodDescriptorName;
     }
 
-    public Method getMethod() {
-        return method;
+    public Class<?> getReturnType() {
+        return method.getReturnType();
+    }
+
+    public String getMethodName() {
+        return method.getName();
+    }
+
+    public Object invoke(Object instance,Object[] args) throws Throwable {
+        if(methodHandle != null) {
+            Object[] methodHandleArgs = methodHandleArgsLocal.get();
+            try {
+                methodHandleArgs[0] = instance;
+                System.arraycopy(args, 0, methodHandleArgs, 1, args.length);
+                return methodHandle.invokeWithArguments(methodHandleArgs);
+            } finally {
+                Arrays.fill(methodHandleArgs, null);
+            }
+        }else {
+            return method.invoke(instance, args);
+        }
     }
 
     public String getParameterTypeDescriptorName(){

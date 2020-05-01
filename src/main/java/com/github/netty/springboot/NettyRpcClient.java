@@ -24,4 +24,6 @@ public @interface NettyRpcClient {
      */
     int timeout() default -1;
 
+//    int retry() default -1;
+
 }

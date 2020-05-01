@@ -4,8 +4,8 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.nrpc.api.HelloRequest;
 import com.github.netty.nrpc.api.HelloResponse;
-import com.github.netty.nrpc.client.example.HelloRpcClientAop;
 import com.github.netty.protocol.nrpc.RpcClient;
+import com.github.netty.protocol.nrpc.RpcClientAop;
 import com.github.netty.protocol.nrpc.RpcContext;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -42,7 +42,7 @@ public class HttpController {
 
             @Override
             public void onNext(HelloResponse result) {
-                RpcContext<RpcClient> rpcContext = HelloRpcClientAop.CONTEXT_LOCAL.get();
+                RpcContext<RpcClient> rpcContext = RpcClientAop.CONTEXT_LOCAL.get();
                 Object[] args = rpcContext.getArgs();
                 String name = (String) args[0];
                 int id = (int) args[1];
@@ -52,7 +52,9 @@ public class HttpController {
 
             @Override
             public void onError(Throwable t) {
-                logger.error("onError = " + t);
+                RpcContext<RpcClient> rpcContext = RpcClientAop.CONTEXT_LOCAL.get();
+                long time = rpcContext.getRpcBeginTimestamp() - rpcContext.getRpcEndTimestamp();
+                logger.error("time={}, onError = ",time, t.toString(),t);
             }
 
             @Override

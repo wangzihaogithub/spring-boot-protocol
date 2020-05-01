@@ -14,7 +14,8 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class ClassFileMethodToParameterNamesFunction implements Function<Method,String[]> {
-    private final Map<Class<?>, Map<java.lang.reflect.Member, String[]>> parameterNamesCache = new HashMap<>(16);
+    private final Map<Class<?>, Map<java.lang.reflect.Member, String[]>> parameterNamesCache = new ConcurrentReferenceHashMap<>(
+            16, ConcurrentReferenceHashMap.ReferenceType.WEAK);
     private static final String[] EMPTY = {};
 
     @Override

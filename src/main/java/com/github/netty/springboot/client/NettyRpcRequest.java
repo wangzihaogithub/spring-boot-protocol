@@ -54,8 +54,8 @@ public interface NettyRpcRequest {
      * setting once request timeout. unit is millSecond
      * @param timeout timeout
      */
-    void setTimeout(int timeout);
-    int getTimeout();
+    void setTimeout(long timeout);
+    long getTimeout();
 
     /**
      * Yml configuration file

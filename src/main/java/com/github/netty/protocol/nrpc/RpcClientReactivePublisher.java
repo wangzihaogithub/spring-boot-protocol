@@ -10,10 +10,6 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.State.*;
@@ -35,7 +31,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     private final String version;
     private long timeout;
 
-    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName,String version,int timeout) {
+    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName,String version,long timeout) {
         this.rpcContext = rpcContext;
         this.rpcClient = rpcContext.getRpcMethod().getInstance();
         this.dataCodec = rpcClient.getDataCodec();
@@ -50,6 +46,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             RecyclableUtil.release(rpcResponse);
             return;
         }
+        rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
         CONTEXT_LOCAL.set(rpcContext);
         try {
             rpcContext.setResponse(rpcResponse);
@@ -89,6 +86,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
 
     @Override
     public void doneTimeout(int requestId,long createTimestamp, long expiryTimestamp) {
+        rpcContext.setRpcEndTimestamp(expiryTimestamp);
         RpcTimeoutException timeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + (expiryTimestamp - createTimestamp)+
                 "], timeout = ["+(System.currentTimeMillis() - createTimestamp) +"], [" + toString() + "]", true,
                 createTimestamp,expiryTimestamp);
@@ -120,6 +118,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         if(cancelFlag){
             return;
         }
+        rpcContext.setRpcBeginTimestamp(System.currentTimeMillis());
         currentRequestCount += n;
 
         CONTEXT_LOCAL.set(rpcContext);
@@ -134,7 +133,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setRequestId(requestId);
             rpcRequest.setRequestMappingName(requestMappingName);
             rpcRequest.setVersion(version);
-            rpcRequest.setMethodName(rpcContext.getRpcMethod().getMethod().getName());
+            rpcRequest.setMethodName(rpcContext.getRpcMethod().getMethodName());
             rpcRequest.setAck(ACK_YES);
 
             rpcContext.setRequest(rpcRequest);

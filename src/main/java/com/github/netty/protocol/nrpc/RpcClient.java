@@ -50,7 +50,10 @@ public class RpcClient extends AbstractNettyClient{
     private final AtomicInteger requestIdIncr = new AtomicInteger();
     private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
     private final RpcCommandAsyncService rpcCommandAsyncService;
-
+    /**
+     * Connecting timeout timestamp
+     */
+    private volatile long connectTimeoutTimestamp;
     /**
      * Connection status
      */
@@ -183,7 +186,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz,int timeout,String version,String requestMappingName,boolean methodOverwriteCheck){
+    public <T>T newInstance(Class<T> clazz,long timeout,String version,String requestMappingName,boolean methodOverwriteCheck){
         return newInstance(clazz,timeout,version,requestMappingName, new AnnotationMethodToParameterNamesFunction(Collections.singletonList(Protocol.RpcParam.class)),methodOverwriteCheck);
     }
 
@@ -198,7 +201,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz, int timeout, String version,String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
+    public <T>T newInstance(Class<T> clazz, long timeout, String version,String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
         InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,version,requestMappingName,methodToParameterNamesFunction,methodOverwriteCheck);
         Object instance = java.lang.reflect.Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz, Proxy.class}, rpcInstance);
         return (T) instance;
@@ -218,7 +221,7 @@ public class RpcClient extends AbstractNettyClient{
      * @param methodOverwriteCheck methodOverwriteCheck
      * @return Interface implementation class
      */
-    public Sender newRpcInstance(Class clazz, int timeout,String version, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
+    public Sender newRpcInstance(Class clazz, long timeout,String version, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
         Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction,methodOverwriteCheck);
         if (rpcMethodMap.isEmpty()) {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
@@ -298,30 +301,14 @@ public class RpcClient extends AbstractNettyClient{
     @Override
     public SocketChannel getChannel() throws RpcConnectException{
         SocketChannel socketChannel = super.getChannel();
-        if(socketChannel == null){
+        if(socketChannel == null || !socketChannel.isActive()){
             long timestamp = System.currentTimeMillis();
-            connect().ifPresent(future -> waitGetConnect(future,connectTimeout));
-            if(state == State.UP) {
-                socketChannel = super.getChannel();
-            }else {
+            socketChannel = waitGetConnect(connect(),connectTimeout);
+            if(!socketChannel.isActive()) {
                 if(enableReconnectScheduledTask) {
                     scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
                 }
-                throw new RpcConnectException("The [" + getRemoteAddress() + "] channel no connect. maxConnectTimeout=["+connectTimeout+"], connectTimeout=["+(System.currentTimeMillis() - timestamp)+"]");
-            }
-        }
-
-        if(!super.isConnectIng() && !socketChannel.isActive()){
-            socketChannel.close();
-            long timestamp = System.currentTimeMillis();
-            connect().ifPresent(future -> waitGetConnect(future,connectTimeout));
-            if(state == State.UP) {
-                socketChannel = super.getChannel();
-            }else {
-                if(enableReconnectScheduledTask) {
-                    scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
-                }
-                throw new RpcConnectException("The [" + socketChannel + "] channel no active. maxConnectTimeout=["+connectTimeout+"], connectTimeout=["+(System.currentTimeMillis() - timestamp)+"]");
+                throw new RpcConnectException("The [" + socketChannel + "] channel no connect. maxConnectTimeout=["+connectTimeout+"], connectTimeout=["+(System.currentTimeMillis() - timestamp)+"]");
             }
         }
 
@@ -339,27 +326,42 @@ public class RpcClient extends AbstractNettyClient{
         return socketChannel;
     }
 
-    protected void waitGetConnect(ChannelFuture future, long connectTimeout){
-        try {
-            long timestamp = System.currentTimeMillis();
-            future.await(connectTimeout,TimeUnit.MILLISECONDS);
-            //Wake up before the timeout, indicating a successful link,
-            //but the state does not necessarily immediately channel with the success of the assignment,
-            //to wait for state to UP
-            if(System.currentTimeMillis() - timestamp < connectTimeout
-                    && !future.channel().eventLoop().inEventLoop()){
-                int yieldCount = 0;
-                long timeoutTimestamp = timestamp + connectTimeout;
-                while (state != State.UP && System.currentTimeMillis() < timeoutTimestamp){
+    protected SocketChannel waitGetConnect(Optional<ChannelFuture> optional, long connectTimeout){
+        if(optional.isPresent()){
+            connectTimeoutTimestamp = System.currentTimeMillis();
+            ChannelFuture future = optional.get();
+            try {
+                future.await(connectTimeout,TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                PlatformDependent.throwException(e);
+            }finally {
+                connectTimeoutTimestamp = 0;
+            }
+            return (SocketChannel) future.channel();
+        }else {
+            int yieldCount = 0;
+            long timeoutTimestamp = connectTimeoutTimestamp;
+            long waitTime;
+            while (timeoutTimestamp != 0 && (waitTime = timeoutTimestamp - System.currentTimeMillis()) > 0){
+                if(waitTime > 200){
+                    try {
+                        Thread.sleep(50);
+                    } catch (InterruptedException e) {
+                        PlatformDependent.throwException(e);
+                    }
+                }else {
                     yieldCount++;
                     Thread.yield();
                 }
-                if(enableRpcHeartLog) {
-                    logger.info("RpcClient waitGetConnect... yieldCount={}", yieldCount);
-                }
             }
-        } catch (InterruptedException e) {
-            PlatformDependent.throwException(e);
+            while (state != State.UP) {
+                yieldCount++;
+                Thread.yield();
+            }
+            if(enableRpcHeartLog) {
+                logger.info("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+            }
+            return super.getChannel();
         }
     }
 
@@ -605,12 +607,12 @@ public class RpcClient extends AbstractNettyClient{
 
     public static class Sender implements InvocationHandler {
         private static final LoggerX logger = LoggerFactoryX.getLogger(Sender.class);
-        private int timeout;
+        private long timeout;
         private final String requestMappingName;
         private final String version;
         private final Map<String, RpcMethod<RpcClient>> rpcMethodMap;
         private final RpcClient rpcClient;
-        private Sender(RpcClient rpcClient,int timeout, String requestMappingName,String version, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
+        private Sender(RpcClient rpcClient,long timeout, String requestMappingName,String version, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
             this.rpcClient = rpcClient;
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
@@ -618,7 +620,7 @@ public class RpcClient extends AbstractNettyClient{
             this.requestMappingName = requestMappingName;
         }
 
-        public void setTimeout(int timeout) {
+        public void setTimeout(long timeout) {
             this.timeout = timeout;
         }
 
@@ -630,7 +632,7 @@ public class RpcClient extends AbstractNettyClient{
             return requestMappingName;
         }
 
-        public int getTimeout() {
+        public long getTimeout() {
             return timeout;
         }
 
@@ -696,6 +698,7 @@ public class RpcClient extends AbstractNettyClient{
                     rpcContext.recycle();
                 }
                 try {
+                    rpcContext.setRpcBeginTimestamp(System.currentTimeMillis());
                     rpcContext.setArgs(args);
                     rpcContext.setRpcMethod(rpcMethod);
                     result = requestSync(rpcContext);
@@ -708,8 +711,7 @@ public class RpcClient extends AbstractNettyClient{
 
         private Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
             RpcMethod method = rpcContext.getRpcMethod();
-            Class<?> returnType = method.getMethod().getReturnType();
-            byte ackFlag = returnType == void.class? ACK_NO : ACK_YES;
+            byte ackFlag = method.isReturnVoid()? ACK_NO : ACK_YES;
 
             int requestId = rpcClient.newRequestId();
             RequestPacket rpcRequest = RequestPacket.newInstance();
@@ -769,7 +771,11 @@ public class RpcClient extends AbstractNettyClient{
                     throw new RpcWriteException("rpc write exception. " + throwable, throwable);
                 }
                 if (future != null) {
-                    rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+                    try {
+                        rpcResponse = future.get(timeout, TimeUnit.MILLISECONDS);
+                    }finally {
+                        rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
+                    }
                     rpcContext.setResponse(rpcResponse);
                     rpcContext.setState(READ_ING);
                     rpcClient.onStateUpdate(rpcContext);

@@ -19,6 +19,7 @@ public class RpcServerInstance {
     private Object instance;
     private Map<String,RpcMethod<RpcServerInstance>> rpcMethodMap;
     private DataCodec dataCodec;
+    private Function<Method,String[]> methodToParameterNamesFunction;
 
     /**
      * A constructor
@@ -26,14 +27,20 @@ public class RpcServerInstance {
      * @param dataCodec Data encoding and decoding
      * @param methodToParameterNamesFunction Method to a function with a parameter name
      * @param methodOverwriteCheck methodOverwriteCheck
+     * @throws IllegalStateException An RPC service must have at least one method
      */
-    protected RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck) {
+    public RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck) throws IllegalStateException {
         this.instance = instance;
         this.dataCodec = dataCodec;
+        this.methodToParameterNamesFunction = methodToParameterNamesFunction;
         this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction,methodOverwriteCheck);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }
+    }
+
+    public Function<Method, String[]> getMethodToParameterNamesFunction() {
+        return methodToParameterNamesFunction;
     }
 
     public static boolean isRpcInnerClass(Class clazz){
@@ -62,7 +69,6 @@ public class RpcServerInstance {
     public ResponsePacket invoke(RequestPacket rpcRequest,RpcContext<RpcServerInstance> rpcContext){
         ResponsePacket rpcResponse = ResponsePacket.newInstance();
         rpcContext.setResponse(rpcResponse);
-
         rpcResponse.setRequestId(rpcRequest.getRequestId());
         RpcMethod<RpcServerInstance> rpcMethod = rpcMethodMap.get(rpcRequest.getMethodName());
         rpcContext.setRpcMethod(rpcMethod);
@@ -77,7 +83,7 @@ public class RpcServerInstance {
         try {
             Object[] args = dataCodec.decodeRequestData(rpcRequest.getData(),rpcMethod);
             rpcContext.setArgs(args);
-            Object result = rpcMethod.getMethod().invoke(instance, args);
+            Object result = rpcMethod.invoke(instance, args);
             rpcContext.setResult(result);
             //Whether to code or not
             if(result instanceof byte[]){
@@ -116,6 +122,14 @@ public class RpcServerInstance {
                 return cause;
             }
         }
+    }
+
+    public DataCodec getDataCodec() {
+        return dataCodec;
+    }
+
+    public void setDataCodec(DataCodec dataCodec) {
+        this.dataCodec = dataCodec;
     }
 
     private String getMessage(Throwable t){

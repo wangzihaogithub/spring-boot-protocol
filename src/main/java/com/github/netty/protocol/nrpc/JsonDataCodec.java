@@ -11,6 +11,7 @@ import com.alibaba.fastjson.util.TypeUtils;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Type;
+import java.nio.charset.CharsetDecoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +44,25 @@ public class JsonDataCodec implements DataCodec {
             return new HashMap<>(32);
         }
     };
+    private static final FastThreadLocal<CharsetDecoder> CHARSET_DECODER_LOCAL = new FastThreadLocal<CharsetDecoder>(){
+        @Override
+        protected CharsetDecoder initialValue() throws Exception {
+            return CHARSET_UTF8.newDecoder();
+        }
+    };
     private ParserConfig parserConfig;
     private List<Consumer<Map<String,Object>>> encodeRequestConsumerList = new CopyOnWriteArrayList<>();
     private List<Consumer<Map<String,Object>>> decodeRequestConsumerList = new CopyOnWriteArrayList<>();
+    static {
+        try {
+            Class.forName("com.alibaba.fastjson.util.TypeUtils");
+            Class.forName("com.alibaba.fastjson.JSON");
+            Class.forName("com.alibaba.fastjson.util.ASMClassLoader");
+            Class.forName("com.alibaba.fastjson.util.IOUtils");
+        } catch (ClassNotFoundException e) {
+            //
+        }
+    }
 
     public JsonDataCodec() {
         this(new ParserConfig());
@@ -106,7 +123,7 @@ public class JsonDataCodec implements DataCodec {
     public Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod) {
         Map parameterMap;
         if(data != null && data.length != 0){
-            parameterMap = (Map) JSON.parse(data,0,data.length,CHARSET_UTF8.newDecoder(),FEATURE_MASK);
+            parameterMap = (Map) JSON.parse(data,0,data.length,CHARSET_DECODER_LOCAL.get(),FEATURE_MASK);
         }else {
             parameterMap = PARAMETER_MAP_LOCAL.get();
         }

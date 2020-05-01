@@ -44,7 +44,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private final Class<?> interfaceClass;
     private final String rpcInstanceKey;
     private final String version;
-    private int timeout;
+    private long timeout;
     private NettyProperties properties;
     private Supplier<NettyRpcLoadBalanced> loadBalancedSupplier;
     private final List<Class<?extends Annotation>> parameterAnnotationClassList = new ArrayList<>(Arrays.asList(
@@ -152,11 +152,11 @@ public class NettyRpcClientProxy implements InvocationHandler {
             nettyRpcFilterList = null;
         }
     }
-    public int getTimeout() {
+    public long getTimeout() {
         return timeout;
     }
 
-    public void setTimeout(int timeout) {
+    public void setTimeout(long timeout) {
         if(timeout > 0) {
             this.timeout = timeout;
         }
@@ -240,7 +240,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         private Method method;
         private Object[] args;
         private NettyRpcClientProxy clientProxy;
-        private int timeout;
+        private long timeout;
         private Object proxy;
         private RpcClient rpcClient;
         private InetSocketAddress remoteAddress;
@@ -296,12 +296,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
 
         @Override
-        public void setTimeout(int timeout) {
+        public void setTimeout(long timeout) {
             this.timeout = timeout;
         }
 
         @Override
-        public int getTimeout() {
+        public long getTimeout() {
             return timeout;
         }
 

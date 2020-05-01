@@ -23,7 +23,7 @@ public class RpcClientFuture implements Future<ResponsePacket>,RpcDone,Recyclabl
     /** Total number of calls */
     public static final LongAdder TOTAL_COUNT = new LongAdder();
     public static final LongAdder TOTAL_SUCCESS_COUNT = new LongAdder();
-    public static int SPIN_LOCK_COUNT = SystemPropertyUtil.getInt("netty.rpcClientFuture.spinLockCount",0);
+    public static int SPIN_LOCK_COUNT = SystemPropertyUtil.getInt("netty-rpc.clientFuture.spinLockCount",0);
     private static final Recycler<RpcClientFuture> RECYCLER = new Recycler<>(RpcClientFuture::new);
     private final Lock lock = new ReentrantLock();
     private final Condition done = lock.newCondition();
