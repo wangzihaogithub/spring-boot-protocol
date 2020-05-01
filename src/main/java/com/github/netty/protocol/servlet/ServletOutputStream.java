@@ -126,9 +126,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void close() {
         ServletHttpExchange exchange = servletHttpExchange;
-        if(exchange != null) {
-            exchange.touch(this);
-        }
+//        if(exchange != null) {
+//            exchange.touch(this);
+//        }
         if (isClosed.compareAndSet(false,true)) {
             CompositeByteBufX content = getBuffer();
             if (content != null && exchange != null) {

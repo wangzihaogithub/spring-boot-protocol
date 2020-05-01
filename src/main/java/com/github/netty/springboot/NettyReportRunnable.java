@@ -41,22 +41,22 @@ public class NettyReportRunnable implements Runnable{
 
             long totalTime = System.currentTimeMillis() - beginTime;
 
-            long servletQueryCount = NettyMessageToServletRunnable.SERVLET_QUERY_COUNT.get();
-            long servletAndFilterTime = NettyMessageToServletRunnable.SERVLET_AND_FILTER_TIME.get();
-            long servletTime = ServletFilterChain.SERVLET_TIME.get();
-            long filterTime = ServletFilterChain.FILTER_TIME.get();
+//            long servletQueryCount = NettyMessageToServletRunnable.SERVLET_QUERY_COUNT.get();
+//            long servletAndFilterTime = NettyMessageToServletRunnable.SERVLET_AND_FILTER_TIME.get();
+//            long servletTime = ServletFilterChain.SERVLET_TIME.get();
+//            long filterTime = ServletFilterChain.FILTER_TIME.get();
 
-            double servletAndFilterAvgRuntime = servletQueryCount == 0? 0:(double)servletAndFilterTime/(double)servletQueryCount;
-            double servletAvgRuntime = servletQueryCount ==0? 0:(double)servletTime/(double)servletQueryCount;
-            double filterAvgRuntime = servletQueryCount ==0? 0:(double)filterTime/(double)servletQueryCount;
+//            double servletAndFilterAvgRuntime = servletQueryCount == 0? 0:(double)servletAndFilterTime/(double)servletQueryCount;
+//            double servletAvgRuntime = servletQueryCount ==0? 0:(double)servletTime/(double)servletQueryCount;
+//            double filterAvgRuntime = servletQueryCount ==0? 0:(double)filterTime/(double)servletQueryCount;
 
-            StringJoiner filterJoin = new StringJoiner(", ");
-            for(Filter filter : ServletFilterChain.FILTER_SET){
+//            StringJoiner filterJoin = new StringJoiner(", ");
+//            for(Filter filter : ServletFilterChain.FILTER_SET){
 //                    double filterAvgTime = (double)e.getValue().get() / (double)servletQueryCount;
-                filterJoin.add(
-                        filter.getClass().getSimpleName()
-                );
-            }
+//                filterJoin.add(
+//                        filter.getClass().getSimpleName()
+//                );
+//            }
 
             StringJoiner joiner = new StringJoiner(", ");
             joiner.add("\r\n第"+reportCount.incrementAndGet()+"次统计 ");
@@ -67,14 +67,14 @@ public class NettyReportRunnable implements Runnable{
             joiner.add("自旋成功率=" + formatRate(rateSpinResponseCount,2)+ "%, ");
             joiner.add("调用成功率=" + formatRate(rate,2)+"%, ");
 //            joiner.add("超时api="+ timeoutApis);
-            joiner.add("servlet执行次数="+ servletQueryCount);
-            joiner.add("servlet+filter平均时间="+ formatRate(servletAndFilterAvgRuntime,4)+"ms,");
-            joiner.add("servlet平均时间="+ formatRate(servletAvgRuntime,4)+"ms, ");
-            joiner.add("filter平均时间="+ formatRate(filterAvgRuntime,4)+"ms, ");
-            joiner.add("\r\n "+filterJoin.toString());
+//            joiner.add("servlet执行次数="+ servletQueryCount);
+//            joiner.add("servlet+filter平均时间="+ formatRate(servletAndFilterAvgRuntime,4)+"ms,");
+//            joiner.add("servlet平均时间="+ formatRate(servletAvgRuntime,4)+"ms, ");
+//            joiner.add("filter平均时间="+ formatRate(filterAvgRuntime,4)+"ms, ");
+//            joiner.add("\r\n "+filterJoin.toString());
 
-            int recyclerTotal = Recycler.TOTAL_COUNT.get();
-            int recyclerHit = Recycler.HIT_COUNT.get();
+            long recyclerTotal = Recycler.TOTAL_COUNT.sum();
+            long recyclerHit = Recycler.HIT_COUNT.sum();
             double hitRate = (double) recyclerHit/(double) recyclerTotal;
             joiner.add("\r\n获取实例次数="+ recyclerTotal+"次");
             joiner.add("实例命中="+ recyclerHit+"次");

@@ -27,10 +27,10 @@ public class ServletFilterChain implements FilterChain,Recyclable {
     private ServletContext servletContext;
     private int pos;
 
-    public static final Set<Filter> FILTER_SET = new HashSet<>();
-    public static final AtomicLong SERVLET_TIME = new AtomicLong();
-    public static final AtomicLong FILTER_TIME = new AtomicLong();
-    private long beginTime;
+//    public static final Set<Filter> FILTER_SET = new HashSet<>();
+//    public static final AtomicLong SERVLET_TIME = new AtomicLong();
+//    public static final AtomicLong FILTER_TIME = new AtomicLong();
+//    private long beginTime;
 
     private static final Recycler<ServletFilterChain> RECYCLER = new Recycler<>(ServletFilterChain::new);
 
@@ -40,7 +40,7 @@ public class ServletFilterChain implements FilterChain,Recyclable {
         ServletFilterChain instance = RECYCLER.getInstance();
         instance.servletContext = servletContext;
         instance.servletRegistration = servletRegistration;
-        instance.beginTime = System.currentTimeMillis();
+//        instance.beginTime = System.currentTimeMillis();
         return instance;
     }
 
@@ -73,15 +73,15 @@ public class ServletFilterChain implements FilterChain,Recyclable {
             Filter filter = filterRegistration.getFilter();
             filter.doFilter(request, response, this);
 
-            FILTER_SET.add(filter);
+//            FILTER_SET.add(filter);
         }else {
             try {
-                long filterEndTime = System.currentTimeMillis();
-                FILTER_TIME.addAndGet(filterEndTime - beginTime);
+//                long filterEndTime = System.currentTimeMillis();
+//                FILTER_TIME.addAndGet(filterEndTime - beginTime);
 
                 servletRegistration.getServlet().service(request, response);
 
-                SERVLET_TIME.addAndGet(System.currentTimeMillis() - filterEndTime);
+//                SERVLET_TIME.addAndGet(System.currentTimeMillis() - filterEndTime);
             }finally {
                 if(listenerManager.hasServletRequestListener()) {
                     listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext,request));

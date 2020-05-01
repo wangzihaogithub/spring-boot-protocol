@@ -58,7 +58,7 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
      * @return ChannelFuture. IO once after the callback method
      */
     private ChannelFuture flushAsync(ChannelFutureListener listener) {
-        getServletHttpExchange().touch(this);
+//        getServletHttpExchange().touch(this);
         ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
         ChannelPromise promise = context.newPromise();
 

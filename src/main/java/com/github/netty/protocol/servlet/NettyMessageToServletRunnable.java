@@ -11,7 +11,7 @@ import javax.servlet.ReadListener;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
-import java.util.concurrent.atomic.AtomicLong;
+//import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * NettyMessageToServletRunnable
@@ -19,8 +19,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class NettyMessageToServletRunnable implements MessageToRunnable {
     private static final Recycler<HttpRunnable> RECYCLER = new Recycler<>(HttpRunnable::new);
-    public static final AtomicLong SERVLET_AND_FILTER_TIME = new AtomicLong();
-    public static final AtomicLong SERVLET_QUERY_COUNT = new AtomicLong();
+//    public static final AtomicLong SERVLET_AND_FILTER_TIME = new AtomicLong();
+//    public static final AtomicLong SERVLET_QUERY_COUNT = new AtomicLong();
 
     private ServletContext servletContext;
 
@@ -62,7 +62,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             ServletHttpServletResponse httpServletResponse = servletHttpExchange.getResponse();
             Throwable realThrowable = null;
 
-            long beginTime = System.currentTimeMillis();
+//            long beginTime = System.currentTimeMillis();
             try {
                 ServletRequestDispatcher dispatcher = servletHttpExchange.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {
@@ -70,7 +70,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     RecyclableUtil.release(httpServletRequest);
                     return;
                 }
-                servletHttpExchange.touch(this);
+//                servletHttpExchange.touch(this);
                 dispatcher.dispatch(httpServletRequest, httpServletResponse);
 
                 if(httpServletRequest.isAsync()){
@@ -84,8 +84,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             }catch (Throwable throwable){
                 realThrowable = throwable;
             }finally {
-                long totalTime = System.currentTimeMillis() - beginTime;
-                SERVLET_AND_FILTER_TIME.addAndGet(totalTime);
+//                long totalTime = System.currentTimeMillis() - beginTime;
+//                SERVLET_AND_FILTER_TIME.addAndGet(totalTime);
 
                 /*
                  * Error pages are obtained according to two types: 1. By exception type; 2. By status code
@@ -140,7 +140,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 }
 
                 recycle();
-                SERVLET_QUERY_COUNT.incrementAndGet();
+//                SERVLET_QUERY_COUNT.incrementAndGet();
             }
         }
 
