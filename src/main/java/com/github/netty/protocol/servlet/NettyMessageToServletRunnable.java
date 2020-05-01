@@ -126,10 +126,13 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     ServletAsyncContext asyncContext = httpServletRequest.getAsyncContext();
                     //If the asynchronous execution completes, recycle
                     if(asyncContext.isComplete()){
-                        servletHttpExchange.recycle();
+                        asyncContext.recycle();
                     }else {
                         //Marks the end of execution for the main thread
                         httpServletRequest.getAsyncContext().markIoThreadOverFlag();
+                        if(asyncContext.isComplete()) {
+                            asyncContext.recycle();
+                        }
                     }
                 }else {
                     //Not asynchronous direct collection
