@@ -430,9 +430,6 @@ public class RpcClient extends AbstractNettyClient{
             if(enableRpcHeartLog) {
                 logger.info("RpcClient connect success... {}", future.channel());
             }
-            for (RpcClientAop aop : nettyRpcClientAopList) {
-                aop.onConnectAfter(this);
-            }
         }else {
             if(enableRpcHeartLog){
                 logger.info("RpcClient connect fail... {}", future.channel());
@@ -452,9 +449,6 @@ public class RpcClient extends AbstractNettyClient{
         scheduleReconnectTaskIngFlag.set(false);
         if(future.cause() != null){
             logger.error(future.cause().getMessage(),future.cause());
-        }
-        for (RpcClientAop aop : nettyRpcClientAopList) {
-            aop.onDisconnectAfter(this);
         }
     }
 
@@ -563,6 +557,9 @@ public class RpcClient extends AbstractNettyClient{
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             state = State.UP;
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onConnectAfter(RpcClient.this);
+            }
         }
 
         @Override
@@ -570,6 +567,9 @@ public class RpcClient extends AbstractNettyClient{
             state = State.DOWN;
             if(enableReconnectScheduledTask) {
                 scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+            }
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onDisconnectAfter(RpcClient.this);
             }
         }
 
