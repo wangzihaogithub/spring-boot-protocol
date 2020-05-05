@@ -8,8 +8,8 @@ import io.netty.bootstrap.ServerBootstrap;
  */
 public interface ServerListener extends Ordered{
 
-    default void onServerStart() throws Exception{}
-    default void onServerStop() throws Exception{}
+    default <T extends AbstractNettyServer> void onServerStart(T server) throws Exception{}
+    default <T extends AbstractNettyServer> void onServerStop(T server) throws Exception{}
     default void config(ServerBootstrap bootstrap) throws Exception{}
 
     /**

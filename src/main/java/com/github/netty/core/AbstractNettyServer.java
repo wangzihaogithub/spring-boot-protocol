@@ -15,6 +15,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 /**
@@ -28,11 +29,13 @@ public abstract class AbstractNettyServer implements Runnable{
     private ServerSocketChannel serverChannel;
     private EventLoopGroup boss;
     private EventLoopGroup worker;
+    private ServerBootstrap bootstrap;
     private InetSocketAddress serverAddress;
     private final boolean enableEpoll;
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private boolean running = false;
+    private AtomicBoolean initFlag = new AtomicBoolean(false);
 
     public AbstractNettyServer(int port) {
         this(new InetSocketAddress(port));
@@ -125,27 +128,36 @@ public abstract class AbstractNettyServer implements Runnable{
         return channelFactory;
     }
 
-    @Override
-    public final void run() {
-        try {
-            if(running){
-                return;
-            }
+    public ServerBootstrap getBootstrap() {
+        return bootstrap;
+    }
 
-            ServerBootstrap bootstrap = newServerBootstrap();
+    public void init() throws Exception {
+        if(initFlag.compareAndSet(false,true)) {
+            this.bootstrap = newServerBootstrap();
             this.boss = newBossEventLoopGroup();
             this.worker = newWorkerEventLoopGroup();
             ChannelFactory<? extends ServerChannel> channelFactory = newServerChannelFactory();
             ChannelHandler bossChannelHandler = newBossChannelHandler();
             ChannelHandler workerChannelHandler = newWorkerChannelHandler();
 
-            if(bossChannelHandler != null){
+            if (bossChannelHandler != null) {
                 bootstrap.handler(bossChannelHandler);
             }
             bootstrap.group(boss, worker)
                     .channelFactory(channelFactory)
                     .childHandler(workerChannelHandler);
-	        config(bootstrap);
+            config(bootstrap);
+        }
+    }
+
+    @Override
+    public final void run() {
+        try {
+            if(running){
+                return;
+            }
+            init();
             ChannelFuture channelFuture = bootstrap.bind(serverAddress).addListener((ChannelFutureListener) this::startAfter);
             this.serverChannel = (ServerSocketChannel) channelFuture.channel();
             this.running = true;

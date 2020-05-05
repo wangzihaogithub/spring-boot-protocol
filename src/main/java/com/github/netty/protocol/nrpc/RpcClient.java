@@ -95,7 +95,11 @@ public class RpcClient extends AbstractNettyClient{
             }
         });
         rpcDoneMap.setOnExpiryConsumer(node -> {
-            node.getData().doneTimeout(node.getKey(),node.getCreateTimestamp(),node.getExpiryTimestamp());
+            try {
+                node.getData().doneTimeout(node.getKey(), node.getCreateTimestamp(), node.getExpiryTimestamp());
+            }catch (Exception e){
+                logger.warn("doneTimeout exception. client = {}, message = {}.",this,e.toString(),e);
+            }
         });
         this.rpcCommandAsyncService = newInstance(RpcCommandAsyncService.class);
     }

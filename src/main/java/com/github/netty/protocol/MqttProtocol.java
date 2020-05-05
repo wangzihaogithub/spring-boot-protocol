@@ -1,5 +1,6 @@
 package com.github.netty.protocol;
 
+import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
@@ -115,7 +116,7 @@ public class MqttProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onServerStart() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         IAuthorizatorPolicy authorizatorPolicy = initializeAuthorizatorPolicy();
 
         ISubscriptionsDirectory subscriptions = new CTrieSubscriptionDirectory(new MemorySubscriptionsRepository());
@@ -125,7 +126,7 @@ public class MqttProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onServerStop() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStop(T server) throws Exception {
         if(interceptor != null) {
             interceptor.stop();
         }

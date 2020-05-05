@@ -1,6 +1,7 @@
 package com.github.netty.protocol;
 
 import com.github.netty.annotation.Protocol;
+import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.*;
@@ -128,7 +129,7 @@ public class NRpcProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onServerStart() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
         rpcServerAopList.clear();
         rpcServerAopList.addAll(application.getBeanForType(RpcServerAop.class));
@@ -165,7 +166,7 @@ public class NRpcProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onServerStop() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStop(T server) throws Exception {
 
     }
 

@@ -87,11 +87,6 @@ public class ServletFilterChain implements FilterChain,Recyclable {
                     listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext,request));
                 }
 
-                //Reclaim asynchronous requests
-                if(request instanceof ServletHttpAsyncRequest){
-                    ((ServletHttpAsyncRequest)request).getAsyncContext().recycle();
-                }
-
                 //Recycling itself
                 recycle();
             }

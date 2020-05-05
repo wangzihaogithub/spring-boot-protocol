@@ -1,6 +1,7 @@
 package com.github.netty.nrpc.client;
 
 import com.github.netty.nrpc.client.example.HelloNettyRpcLoadBalanced;
+import com.github.netty.springboot.EnableNettyEmbedded;
 import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.client.NettyRpcLoadBalanced;
 import org.springframework.boot.SpringApplication;

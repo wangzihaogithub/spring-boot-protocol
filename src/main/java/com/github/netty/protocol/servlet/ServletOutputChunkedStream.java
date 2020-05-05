@@ -9,6 +9,7 @@ import io.netty.handler.stream.ChunkedInput;
 import io.netty.handler.stream.ChunkedWriteHandler;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -117,9 +118,15 @@ public class ServletOutputChunkedStream extends ServletOutputStream {
             }else {
                 Object discardPacket = chunkedInput.readChunk(channel.alloc());
                 if(discardPacket != null) {
+                    String discardPacketToString;
+                    if(discardPacket instanceof ByteBuf){
+                        discardPacketToString = ((ByteBuf) discardPacket).toString(Charset.defaultCharset());
+                    }else {
+                        discardPacketToString = discardPacket.toString();
+                    }
                     LOGGER.warn("on sendChunkedResponse channel inactive. channel={}, discardPacket={}, packetType={}",
                             channel,
-                            discardPacket,
+                            discardPacketToString,
                             discardPacket.getClass().getName());
                 }
                 endFuture = promise;

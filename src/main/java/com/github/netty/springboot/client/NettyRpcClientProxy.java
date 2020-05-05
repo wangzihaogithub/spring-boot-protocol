@@ -194,6 +194,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
 
     /**
      * Get the RPC client (from the current thread, if not, create it automatically)
+     * @param address InetSocketAddress
      * @return RpcClient
      */
     public RpcClient getClient(InetSocketAddress address){

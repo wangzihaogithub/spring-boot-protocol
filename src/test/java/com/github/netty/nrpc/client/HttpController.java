@@ -12,6 +12,7 @@ import org.reactivestreams.Subscription;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.async.DeferredResult;
 
 @RestController
 @RequestMapping
@@ -23,17 +24,18 @@ public class HttpController {
     private HelloAsyncClient helloAsyncClient;
 
     @RequestMapping("/sayHello")
-    public String sayHello(String name){
+    public HelloResponse sayHello(String name){
         HelloRequest request = new HelloRequest();
         request.setId(1);
         request.setName("wang");
         HelloResponse helloResponse = helloClient.sayHello(name, 1, false,request);
-        return helloResponse.getSay();
+        return helloResponse;
     }
 
     @RequestMapping("/sayHelloAsync")
-    public String sayHelloAsync(String name){
-        Subscriber<HelloResponse> handler = new Subscriber<HelloResponse>() {
+    public DeferredResult<HelloResponse> sayHelloAsync(String name){
+        DeferredResult<HelloResponse> deferredResult = new DeferredResult<>();
+        Subscriber<HelloResponse> rpcHandler = new Subscriber<HelloResponse>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(1);
@@ -46,15 +48,18 @@ public class HttpController {
                 Object[] args = rpcContext.getArgs();
                 String name = (String) args[0];
                 int id = (int) args[1];
-                args[1] = ++id;
                 logger.info("onNext = " + result);
+                deferredResult.setResult(result);
             }
 
             @Override
             public void onError(Throwable t) {
                 RpcContext<RpcClient> rpcContext = RpcClientAop.CONTEXT_LOCAL.get();
-                long time = rpcContext.getRpcBeginTimestamp() - rpcContext.getRpcEndTimestamp();
+                long time = rpcContext.getRpcEndTimestamp() - rpcContext.getRpcBeginTimestamp();
                 logger.error("time={}, onError = ",time, t.toString(),t);
+                HelloResponse timeoutResult = new HelloResponse();
+                timeoutResult.setSay("rpc error =" + t);
+                deferredResult.setResult(timeoutResult);
             }
 
             @Override
@@ -62,9 +67,7 @@ public class HttpController {
                 logger.info("onComplete");
             }
         };
-
-        helloAsyncClient.sayHello(name,1)
-                .subscribe(handler);
-        return "async";
+        helloAsyncClient.sayHello(name,1).subscribe(rpcHandler);
+        return deferredResult;
     }
 }

@@ -1,6 +1,7 @@
 package com.github.netty.springboot.server;
 
 import com.github.netty.annotation.Protocol;
+import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.NRpcProtocol;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +26,7 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
     }
 
     @Override
-    public void onServerStart() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         Collection list = super.getApplication().getBeanForAnnotation(Protocol.RpcService.class);
         for(Object serviceImpl : list){
             if(super.existInstance(serviceImpl)){
@@ -41,7 +42,7 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
                 super.addInstance(serviceImpl);
             }
         }
-        super.onServerStart();
+        super.onServerStart(server);
     }
 
     protected Function<Method,String[]> getMethodToParameterNamesFunction(Object serviceImpl){

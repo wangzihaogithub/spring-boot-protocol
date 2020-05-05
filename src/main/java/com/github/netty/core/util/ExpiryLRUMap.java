@@ -108,10 +108,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     }
 
     /**
-     * @param key
-     * @param value
+     * @param key key
+     * @param value value
      * @param expiryTime 键值对有效期 毫秒(Long.MAX_VALUE 表示永不过期)
-     * @return
+     * @return 旧值
      */
     public V put(K key, V value, long expiryTime) {
         if(replaceNullValueFlag && value == null){

@@ -1,5 +1,6 @@
 package com.github.netty.springboot.server;
 
+import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.HttpServletProtocol;
@@ -26,6 +27,7 @@ import java.net.URL;
 import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 import static org.springframework.util.ClassUtils.getMethod;
@@ -39,7 +41,6 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private NettyProperties properties;
     private ApplicationX application;
     private BeanFactory beanFactory;
-
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
         super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
@@ -65,11 +66,20 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     }
 
     @Override
-    public void onServerStart() throws Exception {
-        super.onServerStart();
+    public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
+        super.onServerStart(server);
 
-        //Injection into the spring object
         ServletContext servletContext = getServletContext();
+
+        Class<? extends ExecutorService> asyncExecutorServiceClass = properties.getHttpServlet().getAsyncExecutorService();
+        ExecutorService asyncExecutorService;
+        if(asyncExecutorServiceClass != null){
+            asyncExecutorService = beanFactory.getBean(asyncExecutorServiceClass);
+        }else {
+            asyncExecutorService = server.getWorker();
+        }
+        servletContext.setAsyncExecutorService(asyncExecutorService);
+
         application.addSingletonBeanDefinition(servletContext);
         application.addSingletonBeanDefinition(servletContext.getSessionService());
 
@@ -87,6 +97,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
         servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
+        servletContext.setAsyncSwitchThread(properties.getHttpServlet().isAsyncSwitchThread());
         //Session timeout
         servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));

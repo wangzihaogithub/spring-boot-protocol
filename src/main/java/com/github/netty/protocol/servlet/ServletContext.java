@@ -69,6 +69,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
     private boolean enableLookupFlag = false;
+    private boolean asyncSwitchThread = true;
     private String serverHeader;
     private String contextPath;
     private String requestCharacterEncoding;
@@ -79,6 +80,14 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
+    }
+
+    public void setAsyncSwitchThread(boolean asyncSwitchThread) {
+        this.asyncSwitchThread = asyncSwitchThread;
+    }
+
+    public boolean isAsyncSwitchThread() {
+        return asyncSwitchThread;
     }
 
     public boolean isEnableLookupFlag() {
@@ -114,6 +123,10 @@ public class ServletContext implements javax.servlet.ServletContext {
             }
         }
         return asyncExecutorService;
+    }
+
+    public void setAsyncExecutorService(ExecutorService asyncExecutorService) {
+        this.asyncExecutorService = asyncExecutorService;
     }
 
     public HttpDataFactory getHttpDataFactory(Charset charset){

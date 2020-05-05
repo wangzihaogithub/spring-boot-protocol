@@ -31,7 +31,7 @@ public class NRpcTests {
         URL url = new URL("http://localhost:8081/sayHello?name=xiaowang");
         InputStream inputStream = url.openStream();
         String responseBody = IOUtil.readInput(inputStream);
-        Assert.assertEquals("hi! xiaowang", responseBody);
+        Assert.assertEquals("{\"say\":\"hi! xiaowang\"}", responseBody);
     }
 
     @Test
@@ -39,7 +39,7 @@ public class NRpcTests {
         URL url = new URL("http://localhost:8081/sayHelloAsync?name=xiaowang");
         InputStream inputStream = url.openStream();
         String responseBody = IOUtil.readInput(inputStream);
-        Assert.assertEquals("async", responseBody);
+        Assert.assertEquals("{\"say\":\"hi! xiaowang\"}", responseBody);
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -47,11 +47,11 @@ public class NRpcTests {
         int total = 0;
         while (true) {
             Thread.sleep(1000);
-            URL url = new URL("http://localhost:8081/sayHello?name=xiaowang");
+            URL url = new URL("http://localhost:8081/sayHelloAsync?name=xiaowang");
             try {
                 InputStream inputStream = url.openStream();
                 String responseBody = IOUtil.readInput(inputStream);
-                if(!Objects.equals("hi! xiaowang", responseBody)){
+                if(!Objects.equals("{\"say\":\"hi! xiaowang\"}", responseBody)){
                     error++;
                 }
             }catch (IOException e){

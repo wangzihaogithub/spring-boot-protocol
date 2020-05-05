@@ -52,8 +52,9 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         try{
             super.setIoRatio(properties.getServerIoRatio());
             super.setIoThreadCount(properties.getServerIoThreads());
+            super.init();
             for(ServerListener serverListener : serverListeners){
-                serverListener.onServerStart();
+                serverListener.onServerStart(this);
             }
             super.run();
         } catch (Exception e) {
@@ -65,7 +66,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
     public void stop() throws WebServerException {
         for(ServerListener serverListener : serverListeners){
             try {
-	            serverListener.onServerStop();
+	            serverListener.onServerStop(this);
             }catch (Throwable t){
                 logger.error("case by stop event [" + t.getMessage()+"]",t);
             }

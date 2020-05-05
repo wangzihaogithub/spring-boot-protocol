@@ -1,5 +1,6 @@
 package com.github.netty.protocol;
 
+import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.rtsp.RtspServerChannelHandler;
@@ -69,12 +70,12 @@ public class RtspProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void onServerStart() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
 
     }
 
     @Override
-    public void onServerStop() throws Exception {
+    public <T extends AbstractNettyServer> void onServerStop(T server) throws Exception {
 
     }
 }

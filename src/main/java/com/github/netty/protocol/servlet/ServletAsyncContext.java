@@ -1,5 +1,6 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.ExpiryLRUMap;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.Recyclable;
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 
 /**
@@ -122,16 +124,17 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     @Override
     public void complete() {
         status.set(STATUS_COMPLETE);
-        //Notify the end
-        notifyEvent(listenerWrapper -> {
-            try {
-                AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
-                listenerWrapper.asyncListener.onComplete(event);
-            } catch (Exception e) {
-                logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
+        //Notify the complete
+        if(asyncListenerWrapperList != null) {
+            for (ServletAsyncListenerWrapper listenerWrapper : asyncListenerWrapperList) {
+                AsyncEvent event = new AsyncEvent(this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
+                try {
+                    listenerWrapper.asyncListener.onComplete(event);
+                } catch (IOException e) {
+                    logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
+                }
             }
-        });
-
+        }
         //If the handler has finished, recycle it yourself
         if(ioThreadExecuteOverFlag.get()) {
             recycle();
@@ -157,8 +160,12 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
     public void start(Runnable runnable) {
         start();
         if(status.compareAndSet(STATUS_START,STATUS_RUNNING)){
-            Runnable task = newTaskWrapper(runnable);
-            executorService.execute(task);
+            TaskWrapper wrapper = new TaskWrapper(runnable,this);
+            if(servletContext.isAsyncSwitchThread()){
+                executorService.execute(wrapper);
+            }else {
+                wrapper.run();
+            }
         }
     }
 
@@ -166,49 +173,90 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         status.compareAndSet(STATUS_INIT,STATUS_START);
     }
 
-    private Runnable newTaskWrapper(Runnable run){
-        return () -> {
-            Future future = executorService.submit(run);
+    private static class TaskWrapper implements Runnable{
+        private static final AtomicInteger TASK_ID_INCR = new AtomicInteger();
+        private static final ExpiryLRUMap<Integer,TaskWrapper> TIMEOUT_TASK_MAP = new ExpiryLRUMap<>(512,0.75F,false,Long.MAX_VALUE);
+        static {
+            TIMEOUT_TASK_MAP.setOnExpiryConsumer(node -> {
+                //Notice the timeout
+                TaskWrapper taskWrapper = node.getData();
+                ServletAsyncContext asyncContext = taskWrapper.asyncContext;
+                if(taskWrapper.eventFlag.compareAndSet(false,true)){
+                    if(asyncContext.asyncListenerWrapperList == null) {
+                        return;
+                    }
+                    asyncContext.executorService.execute(()->{
+                        for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
+                            try {
+                                AsyncEvent event = new AsyncEvent(asyncContext, listenerWrapper.servletRequest, listenerWrapper.servletResponse, null);
+                                listenerWrapper.asyncListener.onTimeout(event);
+                            } catch (Exception ex) {
+                                logger.error("asyncContext notifyEvent.onTimeout() error={}", ex.toString(), ex);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        private final Runnable runnable;
+        private final ServletAsyncContext asyncContext;
+        private final AtomicBoolean eventFlag = new AtomicBoolean(false);
+        public TaskWrapper(Runnable runnable, ServletAsyncContext asyncContext) {
+            this.runnable = runnable;
+            this.asyncContext = asyncContext;
+        }
+        @Override
+        public void run() {
+            int taskId = TASK_ID_INCR.getAndIncrement();
+            TIMEOUT_TASK_MAP.put(taskId,this,asyncContext.getTimeout());
             try {
                 //Notify the start
-                notifyEvent(listenerWrapper -> {
-                    AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
-                    try {
-                        listenerWrapper.asyncListener.onStartAsync(event);
-                    } catch (IOException e) {
-                        logger.error("asyncContext notifyEvent.onStartAsync() error={}",e.toString(),e);
+                if(asyncContext.asyncListenerWrapperList != null) {
+                    for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
+                        AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
+                        try {
+                            listenerWrapper.asyncListener.onStartAsync(event);
+                        } catch (IOException e) {
+                            logger.error("asyncContext notifyEvent.onStartAsync() error={}",e.toString(),e);
+                        }
                     }
-                });
-
-                future.get(getTimeout(), TimeUnit.MILLISECONDS);
-
-            } catch (TimeoutException e) {
-                //Notice the timeout
-                notifyEvent(listenerWrapper -> {
-                    try {
-                        AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
-                        listenerWrapper.asyncListener.onTimeout(event);
-                    } catch (Exception ex) {
-                        logger.error("asyncContext notifyEvent.onTimeout() error={}",ex.toString(),ex);
+                }
+                //running
+                runnable.run();
+                if(eventFlag.compareAndSet(false,true)){
+                    TIMEOUT_TASK_MAP.remove(taskId);
+                    //Notify the complete
+                    if(asyncContext.asyncListenerWrapperList != null) {
+                        for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
+                            AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse, null);
+                            try {
+                                listenerWrapper.asyncListener.onComplete(event);
+                            } catch (Exception e) {
+                                logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
+                            }
+                        }
                     }
-                });
+                }
             }catch (Throwable throwable){
                 if(throwable instanceof AsyncRuntimeException){
                     throwable = throwable.getCause();
                 }
-                setThrowable(throwable);
-
+                asyncContext.setThrowable(throwable);
                 //Notify the throwable
-                notifyEvent(listenerWrapper -> {
-                    AsyncEvent event = new AsyncEvent(ServletAsyncContext.this,listenerWrapper.servletRequest,listenerWrapper.servletResponse, getThrowable());
-                    try {
-                        listenerWrapper.asyncListener.onError(event);
-                    } catch (Exception e) {
-                        logger.error("asyncContext notifyEvent.onError() error={}",e.toString(),e);
+                if(asyncContext.asyncListenerWrapperList != null) {
+                    for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
+                        AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse, throwable);
+                        try {
+                            listenerWrapper.asyncListener.onError(event);
+                        } catch (Exception e) {
+                            logger.error("asyncContext notifyEvent.onError() error={}",e.toString(),e);
+                        }
                     }
-                });
+                }
+            }finally {
+                asyncContext.recycle();
             }
-        };
+        }
     }
 
     @Override
@@ -258,13 +306,6 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
         return status.get() == STATUS_COMPLETE;
     }
 
-    private void notifyEvent(Consumer<ServletAsyncListenerWrapper> consumer){
-        if(asyncListenerWrapperList != null) {
-            for (ServletAsyncListenerWrapper listenerWrapper : asyncListenerWrapperList){
-                consumer.accept(listenerWrapper);
-            }
-        }
-    }
 
     private class ServletAsyncListenerWrapper{
         AsyncListener asyncListener;

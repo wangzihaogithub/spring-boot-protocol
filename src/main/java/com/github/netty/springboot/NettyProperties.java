@@ -12,6 +12,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import java.io.File;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 /**
  * You can configure it here
@@ -214,7 +215,15 @@ public class NettyProperties implements Serializable{
          * 服务端 - servlet线程执行器
          */
         private Class<?extends Executor> serverHandlerExecutor = null;
-
+        /**
+         * 服务端 - servlet3异步特性。 异步dispatch的线程执行器 (默认用的是netty的IO线程) {@link #serverIoThreads}
+         */
+        private Class<?extends ExecutorService> asyncExecutorService = null;
+        /**
+         * 服务端 - servlet3的异步特性。 异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
+         * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
+         */
+        private boolean asyncSwitchThread = true;
         /**
          * session存储 - 是否开启本地文件存储
          */
@@ -239,6 +248,22 @@ public class NettyProperties implements Serializable{
          * 是否开启DNS地址查询. true=开启 {@link javax.servlet.ServletRequest#getRemoteHost}
          */
         private boolean enableLookup = false;
+
+        public boolean isAsyncSwitchThread() {
+            return asyncSwitchThread;
+        }
+
+        public void setAsyncSwitchThread(boolean asyncSwitchThread) {
+            this.asyncSwitchThread = asyncSwitchThread;
+        }
+
+        public Class<? extends ExecutorService> getAsyncExecutorService() {
+            return asyncExecutorService;
+        }
+
+        public void setAsyncExecutorService(Class<? extends ExecutorService> asyncExecutorService) {
+            this.asyncExecutorService = asyncExecutorService;
+        }
 
         public boolean isEnableLookup() {
             return enableLookup;
