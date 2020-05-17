@@ -739,6 +739,7 @@ public class RpcClient extends AbstractNettyClient{
 
             RpcClientFuture future = null;
             try {
+                rpcContext.setRemoteAddress(rpcClient.getRemoteAddress());
                 SocketChannel channel = rpcClient.getChannel();
                 rpcContext.setRemoteAddress(channel.remoteAddress());
                 rpcContext.setLocalAddress(channel.localAddress());

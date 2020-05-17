@@ -57,9 +57,9 @@ public class HttpController {
                 RpcContext<RpcClient> rpcContext = RpcClientAop.CONTEXT_LOCAL.get();
                 long time = rpcContext.getRpcEndTimestamp() - rpcContext.getRpcBeginTimestamp();
                 logger.error("time={}, onError = ",time, t.toString(),t);
-                HelloResponse timeoutResult = new HelloResponse();
-                timeoutResult.setSay("rpc error =" + t);
-                deferredResult.setResult(timeoutResult);
+                HelloResponse errorResult = new HelloResponse();
+                errorResult.setSay("rpc error =" + t);
+                deferredResult.setResult(errorResult);
             }
 
             @Override

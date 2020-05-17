@@ -124,6 +124,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         CONTEXT_LOCAL.set(rpcContext);
         int requestId = rpcClient.newRequestId();
         try {
+            rpcContext.setRemoteAddress(rpcClient.getRemoteAddress());
             SocketChannel channel = rpcClient.getChannel();
             rpcContext.setRemoteAddress(channel.remoteAddress());
             rpcContext.setLocalAddress(channel.localAddress());
@@ -167,6 +168,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     }
 
     private void handlerRpcWriterException(RpcException rpcException,int requestId){
+        rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
         rpcClient.rpcDoneMap.remove(requestId);
         rpcContext.setThrowable(rpcException);
         subscriber.onError(rpcException);
