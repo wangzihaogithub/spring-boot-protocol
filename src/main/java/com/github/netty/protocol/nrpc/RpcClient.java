@@ -685,11 +685,16 @@ public class RpcClient extends AbstractNettyClient{
             }
 
             Object result;
-            if(rpcMethod.isReturnTypeReactivePublisherFlag()){
+            if(rpcMethod.isReturnRxjava3ObservableFlag()) {
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
                 rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientReactivePublisher(rpcContext,requestMappingName,version,timeout);
+                result = new RpcClientRxjava3Observable(new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
+            }else if(rpcMethod.isReturnRxjava3FlowableFlag()) {
+                RpcContext<RpcClient> rpcContext = new RpcContext<>();
+                rpcContext.setArgs(args);
+                rpcContext.setRpcMethod(rpcMethod);
+                result = new RpcClientRxjava3Flowable(new RpcClientReactivePublisher(rpcContext,requestMappingName,version,timeout));
             }else if(rpcMethod.isReturnTypeJdk9PublisherFlag()){
                 throw new UnsupportedOperationException("now version no support return type java.util.concurrent.Flow.Publisher. The future version will support. ");
 //                RpcContext<RpcClient> rpcContext = new RpcContext<>();
@@ -697,6 +702,11 @@ public class RpcClient extends AbstractNettyClient{
 //                rpcContext.setRpcMethod(rpcMethod);
 //                rpcContext.setState(INIT);
 //                result = new RpcClientJdk9Publisher(rpcContext,requestMappingName);
+            }else if(rpcMethod.isReturnTypeReactivePublisherFlag()) {
+                RpcContext<RpcClient> rpcContext = new RpcContext<>();
+                rpcContext.setArgs(args);
+                rpcContext.setRpcMethod(rpcMethod);
+                result = new RpcClientReactivePublisher(rpcContext,requestMappingName,version,timeout);
             }else {
                 RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
                 if(rpcContext == null){

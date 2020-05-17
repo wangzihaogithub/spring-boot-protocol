@@ -22,12 +22,15 @@ public class RpcMethod<INSTANCE> {
     private static final LoggerX LOGGERX = LoggerFactoryX.getLogger(RpcMethod.class);
     private static final Class<?> JDK9_PUBLISHER_CLASS;
     private static final Class<?> REACTIVE_PUBLISHER_CLASS;
-
+    private static final Class<?> RXJAVA3_OBSERVABLE_CLASS;
+    private static final Class<?> RXJAVA3_FLOWABLE_CLASS;
     private final Method method;
     private final Class<?>[] parameterTypes;
     private final String[] parameterNames;
     private final Type genericReturnType;
     private final INSTANCE instance;
+    private final boolean returnRxjava3FlowableFlag;
+    private final boolean returnRxjava3ObservableFlag;
     private final boolean returnTypeJdk9PublisherFlag;
     private final boolean returnTypeReactivePublisherFlag;
     private final boolean innerMethodFlag;
@@ -42,15 +45,19 @@ public class RpcMethod<INSTANCE> {
         }
     };
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,
-                      boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag) {
+                      boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag,
+                      boolean returnRxjava3ObservableFlag, boolean returnRxjava3FlowableFlag) {
         this.instance = instance;
         this.method = method;
         this.parameterNames = parameterNames;
         this.returnTypeJdk9PublisherFlag = returnTypeJdk9PublisherFlag;
         this.returnTypeReactivePublisherFlag = returnTypeReactivePublisherFlag;
+        this.returnRxjava3ObservableFlag = returnRxjava3ObservableFlag;
+        this.returnRxjava3FlowableFlag = returnRxjava3FlowableFlag;
         this.parameterTypes = method.getParameterTypes();
-        if(returnTypeJdk9PublisherFlag || returnTypeReactivePublisherFlag){
-            this.genericReturnType = getPublisherReturnType(method);
+        if(returnTypeJdk9PublisherFlag || returnTypeReactivePublisherFlag
+                || returnRxjava3ObservableFlag || returnRxjava3FlowableFlag){
+            this.genericReturnType = getParameterizedType(method);
         }else {
             this.genericReturnType = method.getGenericReturnType();
         }
@@ -89,6 +96,14 @@ public class RpcMethod<INSTANCE> {
 
     public boolean isInnerMethodFlag() {
         return innerMethodFlag;
+    }
+
+    public boolean isReturnRxjava3FlowableFlag() {
+        return returnRxjava3FlowableFlag;
+    }
+
+    public boolean isReturnRxjava3ObservableFlag() {
+        return returnRxjava3ObservableFlag;
     }
 
     public boolean isReturnTypeJdk9PublisherFlag() {
@@ -195,9 +210,13 @@ public class RpcMethod<INSTANCE> {
             if(method.getParameterCount() != parameterNames.length){
                 continue;
             }
-            boolean isReturnTypeJdk9Publisher = JDK9_PUBLISHER_CLASS != null && JDK9_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
-            boolean isReturnTypeReactivePublisher = REACTIVE_PUBLISHER_CLASS != null && REACTIVE_PUBLISHER_CLASS.isAssignableFrom(method.getReturnType());
-            RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance,method,parameterNames,isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher);
+            boolean isReturnTypeJdk9Publisher = isReturnType(JDK9_PUBLISHER_CLASS,method);
+            boolean isReturnTypeReactivePublisher = isReturnType(REACTIVE_PUBLISHER_CLASS,method);
+            boolean isReturnRxjava3ObservableFlag = isReturnType(RXJAVA3_OBSERVABLE_CLASS,method);
+            boolean isReturnRxjava3FlowableFlag = isReturnType(RXJAVA3_FLOWABLE_CLASS,method);
+            RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance,method,parameterNames,
+                    isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher,
+                    isReturnRxjava3ObservableFlag,isReturnRxjava3FlowableFlag);
             RpcMethod<INSTANCE> oldMethod = methodMap.put(newMethod.getMethodDescriptorName(),newMethod);
             boolean existOverwrite = oldMethod != null;
             if(existOverwrite && overwriteCheck && !Objects.equals(oldMethod,newMethod)){
@@ -208,7 +227,11 @@ public class RpcMethod<INSTANCE> {
         }
     }
 
-    private static Type getPublisherReturnType(Method method){
+    private static boolean isReturnType(Class<?> type,Method method){
+        return Objects.equals(type,method.getReturnType());
+    }
+
+    private static Type getParameterizedType(Method method){
         Type genericReturnType = method.getGenericReturnType();
         if(genericReturnType instanceof ParameterizedType){
             return ((ParameterizedType) genericReturnType).getActualTypeArguments()[0];
@@ -227,20 +250,20 @@ public class RpcMethod<INSTANCE> {
     }
 
     static {
-        Class<?> jdk9PublisherClass;
-        try{
-            jdk9PublisherClass = Class.forName("java.util.concurrent.Flow.Publisher");
-        }catch (ClassNotFoundException e){
-            jdk9PublisherClass = null;
-        }
-        JDK9_PUBLISHER_CLASS = jdk9PublisherClass;
-
-        Class<?> publisherClass;
-        try{
-            publisherClass = Class.forName("org.reactivestreams.Publisher");
-        }catch (ClassNotFoundException e){
-            publisherClass = null;
-        }
-        REACTIVE_PUBLISHER_CLASS = publisherClass;
+        JDK9_PUBLISHER_CLASS = classForName("java.util.concurrent.Flow.Publisher");
+        REACTIVE_PUBLISHER_CLASS = classForName("org.reactivestreams.Publisher");
+        RXJAVA3_OBSERVABLE_CLASS = classForName("io.reactivex.rxjava3.core.Observable");
+        RXJAVA3_FLOWABLE_CLASS = classForName("io.reactivex.rxjava3.core.Flowable");
     }
+
+    private static Class<?> classForName(String className){
+        Class<?> clazz;
+        try{
+            clazz = Class.forName(className);
+        }catch (ClassNotFoundException e){
+            clazz = null;
+        }
+        return clazz;
+    }
+
 }

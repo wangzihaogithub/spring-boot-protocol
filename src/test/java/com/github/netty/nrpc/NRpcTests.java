@@ -42,6 +42,14 @@ public class NRpcTests {
         Assert.assertEquals("{\"say\":\"hi! xiaowang\"}", responseBody);
     }
 
+    @Test
+    public void sayHelloRxjava3Async() throws IOException {
+        URL url = new URL("http://localhost:8081/sayHelloRxjava3Async?name=xiaowang");
+        InputStream inputStream = url.openStream();
+        String responseBody = IOUtil.readInput(inputStream);
+        Assert.assertEquals("{\"say\":\"hi! xiaowang\"}", responseBody);
+    }
+
     public static void main(String[] args) throws IOException, InterruptedException {
         int error = 0;
         int total = 0;

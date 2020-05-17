@@ -1,6 +1,6 @@
 package com.github.netty.nrpc.api;
 
-public class HelloResponse {
+public class HelloData {
     private String say;
 
     public String getSay() {

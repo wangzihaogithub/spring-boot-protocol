@@ -200,4 +200,12 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         return "RpcClientReactivePublisher@"+super.hashCode()+"{state="+rpcContext.getState()+","
                 + requestMappingName +":"+ version + '/' + (request == null? "" : request.getMethodName())+"}";
     }
+
+    public boolean isCancel() {
+        return cancelFlag;
+    }
+
+    public RpcContext<RpcClient> getRpcContext() {
+        return rpcContext;
+    }
 }

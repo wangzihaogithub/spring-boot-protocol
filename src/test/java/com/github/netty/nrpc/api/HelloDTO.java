@@ -1,6 +1,6 @@
 package com.github.netty.nrpc.api;
 
-public class HelloRequest {
+public class HelloDTO {
     private String name;
     private Integer id;
 
