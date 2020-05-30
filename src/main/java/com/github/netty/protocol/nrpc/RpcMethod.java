@@ -10,6 +10,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -24,11 +27,15 @@ public class RpcMethod<INSTANCE> {
     private static final Class<?> REACTIVE_PUBLISHER_CLASS;
     private static final Class<?> RXJAVA3_OBSERVABLE_CLASS;
     private static final Class<?> RXJAVA3_FLOWABLE_CLASS;
+    private final String methodName;
     private final Method method;
     private final Class<?>[] parameterTypes;
     private final String[] parameterNames;
     private final Type genericReturnType;
     private final INSTANCE instance;
+    private final boolean returnCompletionStageFlag;
+    private final boolean returnFutureFlag;
+    private final boolean returnCompletableFutureFlag;
     private final boolean returnRxjava3FlowableFlag;
     private final boolean returnRxjava3ObservableFlag;
     private final boolean returnTypeJdk9PublisherFlag;
@@ -44,19 +51,24 @@ public class RpcMethod<INSTANCE> {
             return new Object[parameterCount + 1];
         }
     };
-    private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,
+    private RpcMethod(INSTANCE instance, Method method, String[] parameterNames,String methodName,
                       boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag,
                       boolean returnRxjava3ObservableFlag, boolean returnRxjava3FlowableFlag) {
         this.instance = instance;
         this.method = method;
+        this.methodName = methodName;
         this.parameterNames = parameterNames;
         this.returnTypeJdk9PublisherFlag = returnTypeJdk9PublisherFlag;
         this.returnTypeReactivePublisherFlag = returnTypeReactivePublisherFlag;
         this.returnRxjava3ObservableFlag = returnRxjava3ObservableFlag;
         this.returnRxjava3FlowableFlag = returnRxjava3FlowableFlag;
+        this.returnCompletableFutureFlag = CompletableFuture.class.isAssignableFrom(method.getReturnType());
+        this.returnCompletionStageFlag = CompletionStage.class.isAssignableFrom(method.getReturnType());
+        this.returnFutureFlag = Future.class.isAssignableFrom(method.getReturnType());
         this.parameterTypes = method.getParameterTypes();
         if(returnTypeJdk9PublisherFlag || returnTypeReactivePublisherFlag
-                || returnRxjava3ObservableFlag || returnRxjava3FlowableFlag){
+                || returnRxjava3ObservableFlag || returnRxjava3FlowableFlag
+                || returnCompletableFutureFlag || returnCompletionStageFlag || returnFutureFlag){
             this.genericReturnType = getParameterizedType(method);
         }else {
             this.genericReturnType = method.getGenericReturnType();
@@ -96,6 +108,18 @@ public class RpcMethod<INSTANCE> {
 
     public boolean isInnerMethodFlag() {
         return innerMethodFlag;
+    }
+
+    public boolean isReturnCompletableFutureFlag() {
+        return returnCompletableFutureFlag;
+    }
+
+    public boolean isReturnCompletionStageFlag() {
+        return returnCompletionStageFlag;
+    }
+
+    public boolean isReturnFutureFlag() {
+        return returnFutureFlag;
     }
 
     public boolean isReturnRxjava3FlowableFlag() {
@@ -155,7 +179,7 @@ public class RpcMethod<INSTANCE> {
     }
 
     public String getMethodName() {
-        return method.getName();
+        return methodName;
     }
 
     public Object invoke(Object instance,Object[] args) throws Throwable {
@@ -181,19 +205,19 @@ public class RpcMethod<INSTANCE> {
         return parameterNames;
     }
 
-    public static <INSTANCE>Map<String,RpcMethod<INSTANCE>> getMethodMap(INSTANCE instance,Class source, Function<Method,String[]> methodToParameterNamesFunction,boolean overwriteCheck) throws UnsupportedOperationException{
+    public static <INSTANCE>Map<String,RpcMethod<INSTANCE>> getMethodMap(INSTANCE instance,Class source, Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean overwriteCheck) throws UnsupportedOperationException{
         Map<String,RpcMethod<INSTANCE>> methodMap = new HashMap<>(6);
         Class[] interfaceClasses = ReflectUtil.getInterfaces(source);
         for(Class interfaceClass : interfaceClasses) {
-            initMethodsMap(instance, interfaceClass, methodMap,methodToParameterNamesFunction,overwriteCheck);
+            initMethodsMap(instance, interfaceClass, methodMap,methodToParameterNamesFunction,methodToNameFunction,overwriteCheck);
         }
         if(!source.isInterface()){
-            initMethodsMap(instance, source, methodMap, new ClassFileMethodToParameterNamesFunction(),overwriteCheck);
+            initMethodsMap(instance, source, methodMap, new ClassFileMethodToParameterNamesFunction(),methodToNameFunction,overwriteCheck);
         }
         return methodMap;
     }
 
-    private static <INSTANCE> void initMethodsMap(INSTANCE instance, Class source, Map<String, RpcMethod<INSTANCE>> methodMap, Function<Method,String[]> methodToParameterNamesFunction,boolean overwriteCheck) throws UnsupportedOperationException{
+    private static <INSTANCE> void initMethodsMap(INSTANCE instance, Class source, Map<String, RpcMethod<INSTANCE>> methodMap, Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean overwriteCheck) throws UnsupportedOperationException{
         Method[] methods = source.isInterface()? source.getDeclaredMethods() : source.getMethods();
         for(Method method : methods) {
             Class<?> declaringClass = method.getDeclaringClass();
@@ -210,11 +234,13 @@ public class RpcMethod<INSTANCE> {
             if(method.getParameterCount() != parameterNames.length){
                 continue;
             }
+
+            String methodName = methodToNameFunction.apply(method);
             boolean isReturnTypeJdk9Publisher = isReturnType(JDK9_PUBLISHER_CLASS,method);
             boolean isReturnTypeReactivePublisher = isReturnType(REACTIVE_PUBLISHER_CLASS,method);
             boolean isReturnRxjava3ObservableFlag = isReturnType(RXJAVA3_OBSERVABLE_CLASS,method);
             boolean isReturnRxjava3FlowableFlag = isReturnType(RXJAVA3_FLOWABLE_CLASS,method);
-            RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance,method,parameterNames,
+            RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance,method,parameterNames,methodName,
                     isReturnTypeJdk9Publisher,isReturnTypeReactivePublisher,
                     isReturnRxjava3ObservableFlag,isReturnRxjava3FlowableFlag);
             RpcMethod<INSTANCE> oldMethod = methodMap.put(newMethod.getMethodDescriptorName(),newMethod);
@@ -223,6 +249,10 @@ public class RpcMethod<INSTANCE> {
                 String message = "Please rename method！ In the non-rigorous public method calls, public method name needs to be unique. You can change to any non public method." +
                         "\n"+method.getDeclaringClass().getName()+", old="+oldMethod+", new="+newMethod;
                 throw new UnsupportedOperationException(message);
+            }
+
+            if(!Objects.equals(methodName,newMethod.getMethodDescriptorName())){
+                methodMap.put(methodName,newMethod);
             }
         }
     }

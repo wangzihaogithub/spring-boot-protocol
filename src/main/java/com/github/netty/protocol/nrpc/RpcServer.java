@@ -1,6 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractNettyServer;
+import com.github.netty.core.util.AnnotationMethodToMethodNameFunction;
 import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
@@ -10,8 +12,7 @@ import io.netty.channel.ChannelPipeline;
 
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestMappingName;
@@ -22,7 +23,9 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
  *  2018/8/18/018
  */
 public class RpcServer extends AbstractNettyServer{
-    private Map<Object, Instance> instanceMap = new HashMap<>();
+    private final Map<Object, Instance> instanceMap = new HashMap<>();
+    private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class);
+
     /**
      * Maximum message length per pass
      */
@@ -42,6 +45,10 @@ public class RpcServer extends AbstractNettyServer{
         addInstance(new RpcCommandServiceImpl());
         //Enabled DB service by default
         addInstance(new RpcDBServiceImpl());
+    }
+
+    public AnnotationMethodToMethodNameFunction getAnnotationMethodToMethodNameFunction() {
+        return annotationMethodToMethodNameFunction;
     }
 
     /**
@@ -79,7 +86,7 @@ public class RpcServer extends AbstractNettyServer{
             protected void initChannel(Channel ch) throws Exception {
                 RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
                 for (Instance instance : instanceMap.values()) {
-                    rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.version,instance.methodToParameterNamesFunction,true);
+                    rpcServerHandler.addInstance(instance.instance,instance.requestMappingName,instance.version,instance.methodToParameterNamesFunction,annotationMethodToMethodNameFunction,true);
                 }
 
                 ChannelPipeline pipeline = ch.pipeline();

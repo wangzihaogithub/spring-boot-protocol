@@ -26,14 +26,15 @@ public class RpcServerInstance {
      * @param instance The implementation class
      * @param dataCodec Data encoding and decoding
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodToNameFunction Method of extracting remote call method name
      * @param methodOverwriteCheck methodOverwriteCheck
      * @throws IllegalStateException An RPC service must have at least one method
      */
-    public RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck) throws IllegalStateException {
+    public RpcServerInstance(Object instance, DataCodec dataCodec, Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean methodOverwriteCheck) throws IllegalStateException {
         this.instance = instance;
         this.dataCodec = dataCodec;
         this.methodToParameterNamesFunction = methodToParameterNamesFunction;
-        this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction,methodOverwriteCheck);
+        this.rpcMethodMap = RpcMethod.getMethodMap(this,instance.getClass(), methodToParameterNamesFunction,methodToNameFunction,methodOverwriteCheck);
         if(rpcMethodMap.isEmpty()){
             throw new IllegalStateException("An RPC service must have at least one method, class=["+instance.getClass().getSimpleName()+"]");
         }

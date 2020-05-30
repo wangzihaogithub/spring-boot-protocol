@@ -21,6 +21,9 @@ public class ClassFileMethodToParameterNamesFunction implements Function<Method,
     @Override
     public String[] apply(Method method) {
         Class<?> declaringClass = method.getDeclaringClass();
+        if(declaringClass.isInterface()){
+            return EMPTY;
+        }
         Map<java.lang.reflect.Member, String[]> memberMap = parameterNamesCache.get(declaringClass);
         if(memberMap == null){
             memberMap = readParameterNameMap(declaringClass);

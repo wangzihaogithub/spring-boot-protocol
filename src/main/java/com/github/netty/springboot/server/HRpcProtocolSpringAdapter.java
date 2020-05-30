@@ -10,6 +10,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Function;
 
@@ -18,8 +19,10 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class HRpcProtocolSpringAdapter extends NRpcProtocol {
-    private final ClassFileMethodToParameterNamesFunction classFileMethodToParameterNamesFunction =
-            new ClassFileMethodToParameterNamesFunction();
+    private final ClassFileMethodToParameterNamesFunction classFileMethodToParameterNamesFunction = new ClassFileMethodToParameterNamesFunction();
+    private final AnnotationMethodToParameterNamesFunction annotationMethodToParameterNamesFunction = new AnnotationMethodToParameterNamesFunction(
+            Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
+            PathVariable.class,CookieValue.class, RequestPart.class);
 
     public HRpcProtocolSpringAdapter(ApplicationX application) {
         super(application);
@@ -28,6 +31,8 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
     @Override
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         Collection list = super.getApplication().getBeanForAnnotation(Protocol.RpcService.class);
+        getAnnotationMethodToMethodNameFunction().getMethodNameAnnotationClasses().add(RequestMapping.class);
+
         for(Object serviceImpl : list){
             if(super.existInstance(serviceImpl)){
                 continue;
@@ -46,9 +51,8 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
     }
 
     protected Function<Method,String[]> getMethodToParameterNamesFunction(Object serviceImpl){
-        List<Class<?extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClasses();
-        if(ReflectUtil.hasParameterAnnotation(serviceImpl.getClass(),parameterAnnotationClasses)){
-            return new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses);
+        if(ReflectUtil.hasParameterAnnotation(serviceImpl.getClass(),annotationMethodToParameterNamesFunction.getParameterAnnotationClasses())){
+            return annotationMethodToParameterNamesFunction;
         }else {
             return classFileMethodToParameterNamesFunction;
         }
@@ -71,10 +75,8 @@ public class HRpcProtocolSpringAdapter extends NRpcProtocol {
         return requestMappingName;
     }
 
-    protected List<Class<?extends Annotation>> getParameterAnnotationClasses(){
-        return Arrays.asList(
-                Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
-                PathVariable.class,CookieValue.class, RequestPart.class);
+    public AnnotationMethodToParameterNamesFunction getAnnotationMethodToParameterNamesFunction() {
+        return annotationMethodToParameterNamesFunction;
     }
 
     protected RequestMapping getRequestMapping(Object serviceImpl){

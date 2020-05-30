@@ -11,9 +11,19 @@ import java.lang.annotation.*;
  */
 public class Protocol {
     /**
+     * RPC method
+     */
+    @Target({ElementType.METHOD,ElementType.ANNOTATION_TYPE})
+    @Retention(RetentionPolicy.RUNTIME)
+    @Documented
+    public @interface RpcMethod{
+        String value() default "";
+    }
+
+    /**
      * RPC parameter note :(used on the client interface, not required on the server)
      */
-    @Target({ElementType.PARAMETER})
+    @Target({ElementType.PARAMETER,ElementType.ANNOTATION_TYPE})
     @Retention(RetentionPolicy.RUNTIME)
     @Documented
     public @interface RpcParam{
@@ -23,7 +33,7 @@ public class Protocol {
     /**
      * RPC service note :(to use RPC, the interface or class can be configured with or without annotations, the default is the class name of the interface)
      */
-    @Target(ElementType.TYPE)
+    @Target({ElementType.TYPE,ElementType.ANNOTATION_TYPE})
     @Retention(RetentionPolicy.RUNTIME)
     @Documented
     @Controller

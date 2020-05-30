@@ -191,7 +191,9 @@ public class RpcClient extends AbstractNettyClient{
      * @return Interface implementation class
      */
     public <T>T newInstance(Class<T> clazz,long timeout,String version,String requestMappingName,boolean methodOverwriteCheck){
-        return newInstance(clazz,timeout,version,requestMappingName, new AnnotationMethodToParameterNamesFunction(Collections.singletonList(Protocol.RpcParam.class)),methodOverwriteCheck);
+        return newInstance(clazz,timeout,version,requestMappingName, new AnnotationMethodToParameterNamesFunction(Protocol.RpcParam.class),
+                new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class),
+                methodOverwriteCheck);
     }
 
     /**
@@ -201,12 +203,13 @@ public class RpcClient extends AbstractNettyClient{
      * @param version version
      * @param requestMappingName requestMappingName
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodToNameFunction Method of extracting remote call method name
      * @param methodOverwriteCheck methodOverwriteCheck
      * @param <T> type
      * @return Interface implementation class
      */
-    public <T>T newInstance(Class<T> clazz, long timeout, String version,String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
-        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,version,requestMappingName,methodToParameterNamesFunction,methodOverwriteCheck);
+    public <T>T newInstance(Class<T> clazz, long timeout, String version,String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean methodOverwriteCheck){
+        InvocationHandler rpcInstance = newRpcInstance(clazz,timeout,version,requestMappingName,methodToParameterNamesFunction,methodToNameFunction,methodOverwriteCheck);
         Object instance = java.lang.reflect.Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz, Proxy.class}, rpcInstance);
         return (T) instance;
     }
@@ -222,11 +225,12 @@ public class RpcClient extends AbstractNettyClient{
      * @param version version
      * @param requestMappingName requestMappingName
      * @param  methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodToNameFunction Method of extracting remote call method name
      * @param methodOverwriteCheck methodOverwriteCheck
      * @return Interface implementation class
      */
-    public Sender newRpcInstance(Class clazz, long timeout,String version, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
-        Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction,methodOverwriteCheck);
+    public Sender newRpcInstance(Class clazz, long timeout,String version, String requestMappingName, Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean methodOverwriteCheck){
+        Map<String, RpcMethod<RpcClient>> rpcMethodMap = RpcMethod.getMethodMap(this,clazz, methodToParameterNamesFunction,methodToNameFunction,methodOverwriteCheck);
         if (rpcMethodMap.isEmpty()) {
             throw new IllegalStateException("The RPC service interface must have at least one method, class=[" + clazz.getSimpleName() + "]");
         }
@@ -706,7 +710,12 @@ public class RpcClient extends AbstractNettyClient{
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
                 rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientReactivePublisher(rpcContext,requestMappingName,version,timeout);
+                result = new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout);
+            }else if(rpcMethod.isReturnCompletableFutureFlag() || rpcMethod.isReturnFutureFlag() || rpcMethod.isReturnCompletionStageFlag()){
+                RpcContext<RpcClient> rpcContext = new RpcContext<>();
+                rpcContext.setArgs(args);
+                rpcContext.setRpcMethod(rpcMethod);
+                result = new RpcClientCompletableFuture(new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
             }else {
                 RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
                 if(rpcContext == null){
@@ -736,7 +745,7 @@ public class RpcClient extends AbstractNettyClient{
             rpcRequest.setRequestId(requestId);
             rpcRequest.setRequestMappingName(requestMappingName);
             rpcRequest.setVersion(version);
-            rpcRequest.setMethodName(method.getMethodDescriptorName());
+            rpcRequest.setMethodName(method.getMethodName());
             rpcRequest.setAck(ackFlag);
 
             rpcContext.setRequest(rpcRequest);

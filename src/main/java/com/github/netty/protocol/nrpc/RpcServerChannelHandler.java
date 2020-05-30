@@ -2,10 +2,7 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.Protocol;
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
-import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.core.util.ReflectUtil;
-import com.github.netty.core.util.StringUtil;
+import com.github.netty.core.util.*;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -192,7 +189,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      */
     public void addInstance(Object instance,String requestMappingName,boolean methodOverwriteCheck){
         String version = RpcServerInstance.getVersion(instance.getClass(), "");
-        addInstance(instance,requestMappingName,version,new ClassFileMethodToParameterNamesFunction(),methodOverwriteCheck);
+        addInstance(instance,requestMappingName,version,new ClassFileMethodToParameterNamesFunction(),new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class),methodOverwriteCheck);
     }
 
     /**
@@ -201,10 +198,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket,Ob
      * @param requestMappingName requestMappingName
      * @param version version
      * @param methodToParameterNamesFunction Method to a function with a parameter name
+     * @param methodToNameFunction Method of extracting remote call method name
      * @param methodOverwriteCheck methodOverwriteCheck
      */
-    public void addInstance(Object instance,String requestMappingName,String version,Function<Method,String[]> methodToParameterNamesFunction,boolean methodOverwriteCheck){
-        RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction,methodOverwriteCheck);
+    public void addInstance(Object instance,String requestMappingName,String version,Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean methodOverwriteCheck){
+        RpcServerInstance rpcServerInstance = new RpcServerInstance(instance,dataCodec,methodToParameterNamesFunction,methodToNameFunction,methodOverwriteCheck);
         addRpcServerInstance(requestMappingName,version,rpcServerInstance);
     }
 

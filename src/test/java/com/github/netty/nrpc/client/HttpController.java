@@ -7,13 +7,17 @@ import com.github.netty.nrpc.api.HelloData;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcClientAop;
 import com.github.netty.protocol.nrpc.RpcContext;
-import io.reactivex.rxjava3.functions.Consumer;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 @RestController
 @RequestMapping
@@ -31,12 +35,13 @@ public class HttpController {
         HelloDTO request = new HelloDTO();
         request.setId(1);
         request.setName("wang");
-        HelloData helloResponse = helloClient.sayHello(name, 1, false,request);
-        return helloResponse;
+//        HelloData helloResponse = helloClient.sayHello(name, 1, false,request);
+//        return helloResponse;
+        return new HelloData();
     }
 
     @RequestMapping("/sayHelloAsync")
-    public DeferredResult<HelloData> sayHelloAsync(String name){
+    public DeferredResult<HelloData> sayHelloAsync(String name) throws ExecutionException, InterruptedException {
         DeferredResult<HelloData> deferredResult = new DeferredResult<>();
         Subscriber<HelloData> rpcHandler = new Subscriber<HelloData>() {
             @Override
@@ -65,7 +70,16 @@ public class HttpController {
                 logger.info("onComplete");
             }
         };
-        helloAsyncClient.sayHello(name,1).subscribe(rpcHandler);
+
+        helloAsyncClient.sayHelloByTest(name,1).subscribe(rpcHandler);
+        HelloData helloData = helloAsyncClient.sayHello1(name, 1).get();
+
+        helloAsyncClient.sayHello1(name,1).thenAcceptAsync( data->{
+            logger.info(" data = " + data);
+        }, command -> {
+            logger.info(" command = " + command);
+            command.run();
+        });
         return deferredResult;
     }
 

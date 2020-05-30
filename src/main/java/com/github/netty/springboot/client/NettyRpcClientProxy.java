@@ -47,9 +47,11 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private long timeout;
     private NettyProperties properties;
     private Supplier<NettyRpcLoadBalanced> loadBalancedSupplier;
-    private final List<Class<?extends Annotation>> parameterAnnotationClassList = new ArrayList<>(Arrays.asList(
+    private final AnnotationMethodToParameterNamesFunction annotationMethodToParameterNamesFunction = new AnnotationMethodToParameterNamesFunction(
             Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
-            PathVariable.class,CookieValue.class, RequestPart.class));
+            PathVariable.class,CookieValue.class, RequestPart.class);
+    private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(
+            Protocol.RpcMethod.class,RequestMapping.class);
     private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new ConcurrentHashMap<>(64);
     private static final FastThreadLocal<DefaultNettyRpcRequest> REQUEST_THREAD_LOCAL = new FastThreadLocal<DefaultNettyRpcRequest>(){
         @Override
@@ -108,10 +110,10 @@ public class NettyRpcClientProxy implements InvocationHandler {
 
             RpcClient.Sender sender = rpcClient.getRpcInstance(rpcInstanceKey);
             if (sender == null) {
-                List<Class<? extends Annotation>> parameterAnnotationClasses = getParameterAnnotationClassList();
                 sender = rpcClient.newRpcInstance(interfaceClass, timeout,
                         version, requestMappingName,
-                        new AnnotationMethodToParameterNamesFunction(parameterAnnotationClasses),
+                        annotationMethodToParameterNamesFunction,
+                        annotationMethodToMethodNameFunction,
                         properties.getNrpc().isClientMethodOverwriteCheck());
             }
             request.sender = sender;
@@ -124,6 +126,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
             filterChain.recycle();
         }
     }
+
 
     public List<NettyRpcFilter> getNettyRpcFilterList(){
         List<NettyRpcFilter> nettyRpcFilterList = properties.getApplication().getBeanForType(NettyRpcFilter.class);
@@ -162,8 +165,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
     }
 
-    public List<Class<?extends Annotation>> getParameterAnnotationClassList(){
-        return parameterAnnotationClassList;
+    public AnnotationMethodToMethodNameFunction getAnnotationMethodToMethodNameFunction() {
+        return annotationMethodToMethodNameFunction;
+    }
+
+    public AnnotationMethodToParameterNamesFunction getAnnotationMethodToParameterNamesFunction() {
+        return annotationMethodToParameterNamesFunction;
     }
 
     public String getRequestMappingName(Class objectType){
