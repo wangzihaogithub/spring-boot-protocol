@@ -349,14 +349,21 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             try {
                 synchronized (map) {
                     boolean remove = false;
-                    Iterator<Entry<K, Node<K,V>>> iterator = map.entrySet().iterator();
-                    while (iterator.hasNext()){
-                        Entry<K, Node<K,V>> next = iterator.next();
-                        Node<K,V> value = next.getValue();
-                        if(value.isExpiry()){
-                            iterator.remove();
-                            removeConsumer.accept(value);
-                            remove = true;
+                    int retryCount = 3;
+                    for (int i = 0; i < retryCount; i++) {
+                        Iterator<Entry<K, Node<K,V>>> iterator = map.entrySet().iterator();
+                        try {
+                            while (iterator.hasNext()) {
+                                Entry<K, Node<K, V>> next = iterator.next();
+                                Node<K, V> value = next.getValue();
+                                if (value.isExpiry()) {
+                                    iterator.remove();
+                                    removeConsumer.accept(value);
+                                    remove = true;
+                                }
+                            }
+                            return remove;
+                        }catch (ConcurrentModificationException e){
                         }
                     }
                     return remove;
