@@ -38,14 +38,14 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     private transient volatile Consumer<Node<K, V>> onEvictionConsumer = this::onEviction;
 
     /**
-     * 默认过期时间 2分钟
+     * 默认永不过期 (相当于普通的 ConcurrentMap)
      */
     public ExpiryLRUMap(){
-        this(1000*60*2);
+        this(Long.MAX_VALUE);
     }
 
     public ExpiryLRUMap(long defaultExpiryTime){
-        this(512,Long.MAX_VALUE, defaultExpiryTime,null);
+        this(256,Long.MAX_VALUE, defaultExpiryTime,null);
     }
 
     public ExpiryLRUMap(int initialCapacity, long maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher){
