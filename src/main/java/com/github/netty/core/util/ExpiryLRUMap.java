@@ -5,15 +5,15 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.*;
 
 /**
  * 定时过期Map 会自动过期删除
+ * 支持项 ：定时过期(过期通知), LRU淘汰机制(淘汰通知), Map操作, 并发操作(线程安全)
  * 常用场景 ： localCache
  * @author wangzihao
  */
-public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
+public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K,V>{
     public static final Object NULL = new Object(){
         @Override
         public String toString() {
@@ -27,18 +27,19 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     private final transient LongAdder hitCount = new LongAdder();
     private final AtomicBoolean removeIfExpiryIngFlag = new AtomicBoolean(false);
     private final ConcurrentLinkedHashMap<K, Node<K,V>> map;
-    /**
-     * 默认过期时间 2分钟
-     */
     private long defaultExpiryTime;
+    /** null值替换, 防止缓存提击穿. 需要设置成true后, 取值后需要判断是否 data == ExpiryLRUMap.NULL */
     private boolean replaceNullValueFlag = false;
     private transient Collection<V> values;
     private transient EntrySet entrySet;
-    /*超过时间的 过期通知*/
+    /** 超过时间的 过期通知 */
     private transient volatile Consumer<Node<K,V>> onExpiryConsumer = this::onExpiry;
-    /*超过上限的 淘汰通知*/
+    /** 超过上限的 淘汰通知 */
     private transient volatile Consumer<Node<K, V>> onEvictionConsumer = this::onEviction;
 
+    /**
+     * 默认过期时间 2分钟
+     */
     public ExpiryLRUMap(){
         this(1000*60*2);
     }
@@ -141,7 +142,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         if(old == null){
             return null;
         }
-        return old.getDataIfExpiry();
+        return old.getData();
     }
 
     @Override
@@ -233,8 +234,177 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         return es;
     }
 
+    @Override
+    public V getOrDefault(Object key, V defaultValue) {
+        V v;
+        return ((v = get(key)) != null) ? v : defaultValue;
+    }
+
+    @Override
+    public void forEach(BiConsumer<? super K, ? super V> action) {
+        Objects.requireNonNull(action);
+        for (Entry<K, V> entry : entrySet()) {
+            K k;
+            V v;
+            try {
+                k = entry.getKey();
+                v = entry.getValue();
+            } catch(IllegalStateException ise) {
+                // this usually means the entry is no longer in the map.
+                continue;
+            }
+            action.accept(k, v);
+        }
+    }
+
+    @Override
+    public boolean remove(Object key, Object value) {
+        Node<K,V> old = map.get(key);
+        if(old != null && Objects.equals(old.getData(),value)){
+            map.remove(key);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public V replace(K key, V newValue) {
+        Node<K,V> old = map.get(key);
+        if(old != null){
+            map.put(key, new Node<>(old.expiryTime, key, newValue, this));
+            return old.getData();
+        }
+        return null;
+    }
+
+    @Override
+    public boolean replace(K key, V oldValue, V newValue) {
+        Node<K,V> old = map.get(key);
+        if(old != null && Objects.equals(old.getData(),oldValue)){
+            map.put(key, new Node<>(old.expiryTime, key, newValue, this));
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+        Objects.requireNonNull(function);
+        for (Entry<K, Node<K, V>> entry : map.entrySet()) {
+            Node<K,V> old = entry.getValue();
+            K key = entry.getKey();
+            V value = old.getData();
+            V newValue = function.apply(key, value);
+            entry.setValue(new Node<>(old.expiryTime, key, newValue, this));
+        }
+    }
+
+    @Override
+    public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+        Objects.requireNonNull(mappingFunction);
+        V v, newValue;
+        return ((v = get(key)) == null &&
+                (newValue = mappingFunction.apply(key)) != null &&
+                (v = putIfAbsent(key, newValue)) == null) ? newValue : v;
+    }
+
+    @Override
+    public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+        V oldValue;
+        while((oldValue = get(key)) != null) {
+            V newValue = remappingFunction.apply(key, oldValue);
+            if (newValue != null) {
+                if (replace(key, oldValue, newValue)) {
+                    return newValue;
+                }
+            } else if (remove(key, oldValue)) {
+                return null;
+            }
+        }
+        return oldValue;
+    }
+
+    @Override
+    public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+        V oldValue = get(key);
+        for(;;) {
+            V newValue = remappingFunction.apply(key, oldValue);
+            if (newValue == null) {
+                // delete mapping
+                if (oldValue != null || containsKey(key)) {
+                    // something to remove
+                    if (remove(key, oldValue)) {
+                        // removed the old value as expected
+                        return null;
+                    }
+
+                    // some other value replaced old value. try again.
+                    oldValue = get(key);
+                } else {
+                    // nothing to do. Leave things as they were.
+                    return null;
+                }
+            } else {
+                // add or replace old mapping
+                if (oldValue != null) {
+                    // replace
+                    if (replace(key, oldValue, newValue)) {
+                        // replaced as expected.
+                        return newValue;
+                    }
+
+                    // some other value replaced old value. try again.
+                    oldValue = get(key);
+                } else {
+                    // add (replace if oldValue was null)
+                    if ((oldValue = putIfAbsent(key, newValue)) == null) {
+                        // replaced
+                        return newValue;
+                    }
+
+                    // some other value replaced old value. try again.
+                }
+            }
+        }
+    }
+
+    @Override
+    public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+        Objects.requireNonNull(value);
+        V oldValue = get(key);
+        for (;;) {
+            if (oldValue != null) {
+                V newValue = remappingFunction.apply(oldValue, value);
+                if (newValue != null) {
+                    if (replace(key, oldValue, newValue)) {
+                        return newValue;
+                    }
+                } else if (remove(key, oldValue)) {
+                    return null;
+                }
+                oldValue = get(key);
+            } else {
+                if ((oldValue = putIfAbsent(key, value)) == null) {
+                    return value;
+                }
+            }
+        }
+    }
+
+    @Override
+    public V putIfAbsent(K key, V value){
+        V v = get(key);
+        if (v == null) {
+            v = put(key, value);
+        }
+        return v;
+    }
+
     class Values extends AbstractCollection<V>{
-        private Collection<Node<K,V>> values;
+        private final Collection<Node<K,V>> values;
         Values(Collection<Node<K,V>> values) {
             this.values = values;
         }
@@ -266,7 +436,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     }
 
     class EntrySet extends AbstractSet<Entry<K,V>>{
-        private Set<Entry<K, Node<K,V>>> entries;
+        private final Set<Entry<K, Node<K,V>>> entries;
         EntrySet(Set<Entry<K, Node<K,V>>> entries) {
             this.entries = entries;
         }
@@ -298,11 +468,12 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
                         @Override
                         public V setValue(V value) {
-                            Node<K,V> node = next.setValue(new Node<>(defaultExpiryTime, key,value, ExpiryLRUMap.this));
-                            if(node == null){
+                            Node<K, V> old = next.getValue();
+                            if(old == null){
                                 return null;
                             }else {
-                                return node.getDataIfExpiry();
+                                next.setValue(new Node<>(old.expiryTime, key,value, ExpiryLRUMap.this));
+                                return old.getData();
                             }
                         }
 
@@ -440,11 +611,13 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         private final ExpiryLRUMap<KEY,VALUE> expiryLRUMap;
         private final long createTimestamp = System.currentTimeMillis();
         private final long expiryTimestamp;
+        private final long expiryTime;
         private final VALUE data;
         private final KEY key;
 
         Node(long expiryTime, KEY key, VALUE value, ExpiryLRUMap<KEY, VALUE> expiryLRUMap) {
             long expiryTimestamp;
+            this.expiryTime = expiryTime;
             if(expiryTime == Long.MAX_VALUE){
                 expiryTimestamp = Long.MAX_VALUE;
             }else {
@@ -462,6 +635,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
         public ExpiryLRUMap<KEY, VALUE> getExpiryLRUMap() {
             return expiryLRUMap;
+        }
+
+        public long getExpiryTime() {
+            return expiryTime;
         }
 
         public VALUE getDataIfExpiry() {
