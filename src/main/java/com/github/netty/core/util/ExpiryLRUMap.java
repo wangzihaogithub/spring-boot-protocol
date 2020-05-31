@@ -14,7 +14,12 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
-    public static final Object NULL = new Object();
+    public static final Object NULL = new Object(){
+        @Override
+        public String toString() {
+            return "ExpiryLRUMap.NULL";
+        }
+    };
     private static volatile ScheduledFuture<?> SCHEDULED_FUTURE;
     private static final TransferQueue<Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
     private static final Set<ExpiryLRUMap<?,?>> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
@@ -128,7 +133,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
      * @return 旧值
      */
     public V put(K key, V value, long expiryTime) {
-        if(replaceNullValueFlag && value == null){
+        if(value == null){
             value = (V) NULL;
         }
         Node<K,V> old;
@@ -156,7 +161,12 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean containsValue(Object value) {
-        return map.containsValue(value);
+        for (Node<K, V> node : map.values()) {
+            if(Objects.equals(node.getData(),value)){
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -167,11 +177,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         }else {
             return old.getData();
         }
-    }
-
-    @Override
-    public boolean remove(Object key, Object value) {
-        return map.remove(key,value);
     }
 
     public V atomicGet(K key, Supplier<V> supplier) {
@@ -463,12 +468,16 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             if(isExpiry()) {
                 return null;
             }else {
-                return this.data;
+                return getData();
             }
         }
 
         public VALUE getData() {
-            return data;
+            if(expiryLRUMap.isReplaceNullValueFlag()){
+                return this.data;
+            }else {
+                return this.data == NULL? null : this.data;
+            }
         }
 
         public KEY getKey() {
@@ -489,6 +498,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
         @Override
         public String toString() {
+            VALUE data = getData();
             return data == null ? "null" : data.toString();
         }
     }
