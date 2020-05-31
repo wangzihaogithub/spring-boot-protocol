@@ -6,53 +6,56 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * 定时过期Map 会自动过期删除
  * 常用场景 ： localCache
- * @author acer01
+ * @author wangzihao
  */
 public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     public static final Object NULL = new Object();
-    private final Map<K, Node<K,V>> map;
-    private final AtomicBoolean removeIfExpiryIngFlag = new AtomicBoolean(false);
-    private boolean replaceNullValueFlag = false;
-    private static ScheduledFuture<?> SCHEDULED_FUTURE;
-    private static final TransferQueue<ExpiryLRUMap.Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
+    private static volatile ScheduledFuture<?> SCHEDULED_FUTURE;
+    private static final TransferQueue<Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
     private static final Set<ExpiryLRUMap<?,?>> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
+    private final transient LongAdder missCount = new LongAdder();
+    private final transient LongAdder hitCount = new LongAdder();
+    private final AtomicBoolean removeIfExpiryIngFlag = new AtomicBoolean(false);
+    private final ConcurrentLinkedHashMap<K, Node<K,V>> map;
     /**
      * 默认过期时间 2分钟
      */
     private long defaultExpiryTime;
+    private boolean replaceNullValueFlag = false;
     private transient Collection<V> values;
     private transient EntrySet entrySet;
-    private transient Function<Entry<K,Node<K,V>>,Boolean> removeEldestEntryFunction = this::removeEldestEntry;
-    private transient Consumer<Node<K,V>> onExpiryConsumer = this::onExpiry;
-    private final transient LongAdder missCount = new LongAdder();
-    private final transient LongAdder hitCount = new LongAdder();
+    /*超过时间的 过期通知*/
+    private transient volatile Consumer<Node<K,V>> onExpiryConsumer = this::onExpiry;
+    /*超过上限的 淘汰通知*/
+    private transient volatile Consumer<Node<K, V>> onEvictionConsumer = this::onEviction;
 
     public ExpiryLRUMap(){
-        this(512,0.75F,true,1000*60*2);
+        this(1000*60*2);
     }
 
     public ExpiryLRUMap(long defaultExpiryTime){
-        this(512,0.75F,true,defaultExpiryTime);
+        this(512,Integer.MAX_VALUE, defaultExpiryTime,null);
     }
 
-    public ExpiryLRUMap(int initialCapacity, float loadFactor, boolean accessOrder, long defaultExpiryTime){
+    public ExpiryLRUMap(int initialCapacity, int maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher){
         this.defaultExpiryTime = defaultExpiryTime < 0 ? -1 : defaultExpiryTime;
-        this.map = new LinkedHashMap<K, Node<K,V>>(initialCapacity,loadFactor,accessOrder){
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<K,Node<K,V>> eldest) {
-                if(removeEldestEntryFunction != null){
-                    return removeEldestEntryFunction.apply(eldest);
-                }else {
-                    return false;
-                }
-            }
-        };
+        this.map = new ConcurrentLinkedHashMap.Builder<K,Node<K,V>>()
+                .initialCapacity(initialCapacity)
+                .maximumWeightedCapacity(maxCacheSize)
+                .weigher(weigher == null? ConcurrentLinkedHashMap.Weighers.singleton() : weigher)
+                .listener((key, value) -> {
+                    Consumer<Node<K,V>> onEvictionConsumer = ExpiryLRUMap.this.onEvictionConsumer;
+                    if(onEvictionConsumer != null) {
+                        onEvictionConsumer.accept(value);
+                    }
+                })
+//                .catchup()
+                .build();
         //init static block. thread scheduled.
         synchronized (INSTANCE_SET) {
             INSTANCE_SET.add(this);
@@ -61,13 +64,32 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             }
         }
     }
+    public long weightedSize() {
+        return map.weightedSize();
+    }
+
+    public long getMaxCacheSize() {
+        return map.capacity();
+    }
+
+    public void setMaxCacheSize(long maxCacheSize) {
+        this.map.setCapacity(maxCacheSize);
+    }
 
     public static Set<ExpiryLRUMap> getInstanceSet(){
         return Collections.unmodifiableSet(INSTANCE_SET);
     }
 
-    public static TransferQueue<ExpiryLRUMap.Node<?,?>> getExpiryNotifyQueue(){
+    public static TransferQueue<Node<?,?>> getExpiryNotifyQueue(){
         return EXPIRY_NOTIFY_QUEUE;
+    }
+
+    public Consumer<Node<K, V>> getOnEvictionConsumer() {
+        return onEvictionConsumer;
+    }
+
+    public void setOnEvictionConsumer(Consumer<Node<K, V>> onEvictionConsumer) {
+        this.onEvictionConsumer = onEvictionConsumer;
     }
 
     public long getMissCount() {
@@ -76,10 +98,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     public long getHitCount() {
         return hitCount.sum();
-    }
-
-    public void setRemoveEldestEntryFunction(Function<Entry<K, Node<K,V>>, Boolean> removeEldestEntryFunction) {
-        this.removeEldestEntryFunction = removeEldestEntryFunction;
     }
 
     public void setReplaceNullValueFlag(boolean replaceNullValueFlag) {
@@ -98,10 +116,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         return replaceNullValueFlag;
     }
 
-    protected boolean removeEldestEntry(Entry<K, Node<K,V>> eldest) {
-        return false;
-    }
-
     @Override
     public V put(K key, V value) {
         return put(key,value,defaultExpiryTime);
@@ -118,10 +132,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
             value = (V) NULL;
         }
         Node<K,V> old;
-        synchronized (map) {
-            old = map.put(key, new Node<>(expiryTime,key, value,this));
-//            removeIfExpiry();
-        }
+        old = map.put(key, new Node<>(expiryTime,key, value,this));
         if(old == null){
             return null;
         }
@@ -130,7 +141,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean containsKey(Object key) {
-//        setNullIfExpiry();
         return map.containsKey(key);
     }
 
@@ -146,16 +156,12 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean containsValue(Object value) {
-//        setNullIfExpiry();
         return map.containsValue(value);
     }
 
     @Override
     public V remove(Object key) {
-        Node<K,V> old;
-        synchronized (map) {
-            old = map.remove(key);
-        }
+        Node<K,V> old = map.remove(key);
         if(old == null){
             return null;
         }else {
@@ -165,30 +171,25 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean remove(Object key, Object value) {
-        synchronized (map) {
-            map.remove(key);
-            return true;
-        }
+        return map.remove(key,value);
     }
 
     public V atomicGet(K key, Supplier<V> supplier) {
-        synchronized (map){
-            Node<K,V> old = map.get(key);
-            if(old == null){
-                missCount.increment();
-                V value = supplier.get();
-                put(key,value);
-                return value;
-            }else {
-                hitCount.increment();
-                return old.getData();
-            }
+        /* todo atomicGet */
+        Node<K,V> old = map.get(key);
+        if(old == null){
+            missCount.increment();
+            V value = supplier.get();
+            put(key,value);
+            return value;
+        }else {
+            hitCount.increment();
+            return old.getData();
         }
     }
 
     @Override
     public V get(Object key) {
-//        setNullIfExpiry();
         Node<K,V> old = map.get(key);
         if(old == null){
             missCount.increment();
@@ -201,7 +202,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public Set<K> keySet() {
-//        setNullIfExpiry();
         return map.keySet();
     }
 
@@ -212,7 +212,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public Collection<V> values() {
-//        setNullIfExpiry();
         Collection<V> vs = values;
         if (vs == null) {
             vs = values = new Values(map.values());
@@ -222,7 +221,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public Set<Entry<K, V>> entrySet() {
-//        setNullIfExpiry();
         Set<Entry<K,V>> es = entrySet;
         if(entrySet == null){
             es = entrySet = new EntrySet(map.entrySet());
@@ -295,7 +293,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
                         @Override
                         public V setValue(V value) {
-                            Node<K,V> node = next.setValue(new Node<>(defaultExpiryTime, key,value,ExpiryLRUMap.this));
+                            Node<K,V> node = next.setValue(new Node<>(defaultExpiryTime, key,value, ExpiryLRUMap.this));
                             if(node == null){
                                 return null;
                             }else {
@@ -347,27 +345,18 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         //去掉多线程下, 多余的执行.
         if(removeIfExpiryIngFlag.compareAndSet(false,true)){
             try {
-                synchronized (map) {
-                    boolean remove = false;
-                    int retryCount = 3;
-                    for (int i = 0; i < retryCount; i++) {
-                        Iterator<Entry<K, Node<K,V>>> iterator = map.entrySet().iterator();
-                        try {
-                            while (iterator.hasNext()) {
-                                Entry<K, Node<K, V>> next = iterator.next();
-                                Node<K, V> value = next.getValue();
-                                if (value.isExpiry()) {
-                                    iterator.remove();
-                                    removeConsumer.accept(value);
-                                    remove = true;
-                                }
-                            }
-                            return remove;
-                        }catch (ConcurrentModificationException e){
-                        }
+                boolean remove = false;
+                Iterator<Entry<K, Node<K,V>>> iterator = map.entrySet().iterator();
+                while (iterator.hasNext()) {
+                    Entry<K, Node<K, V>> next = iterator.next();
+                    Node<K, V> value = next.getValue();
+                    if (value.isExpiry()) {
+                        iterator.remove();
+                        removeConsumer.accept(value);
+                        remove = true;
                     }
-                    return remove;
                 }
+                return remove;
             }finally {
                 removeIfExpiryIngFlag.set(false);
             }
@@ -384,7 +373,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         this.defaultExpiryTime = defaultExpiryTime;
     }
 
-    public boolean isExpiry(Node node) {
+    public static boolean isExpiry(Node node) {
         if(node.expiryTimestamp == Long.MAX_VALUE){
             return false;
         }
@@ -428,50 +417,18 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
 
     }
 
+    public void onEviction(Node<K,V> node){
+
+    }
+
     @Override
     public boolean equals(Object o) {
-        return super.equals(o);
+        return this == o;
     }
 
     @Override
     public int hashCode() {
-        return super.hashCode();
-    }
-
-    private static void localVarTest() throws InterruptedException {
-        ExpiryLRUMap lruMap = new ExpiryLRUMap();
-        lruMap.put("data","123",5000);
-        System.out.println("初始化 new ExpiryLRUMap() set = " + ExpiryLRUMap.INSTANCE_SET);
-        while (true) {
-            Object aa = lruMap.get("data");
-            System.out.println("data = " + aa);
-            Thread.sleep(1000);
-            if(aa == null){
-                return;
-            }
-        }
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-        System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
-        localVarTest();
-        System.out.println("gc 前 set = " + ExpiryLRUMap.INSTANCE_SET);
-        System.gc();
-        System.out.println("gc 后 set = " + ExpiryLRUMap.INSTANCE_SET);
-
-        int i=0;
-        ExpiryLRUMap<String,Object> expiryLRUMap = new ExpiryLRUMap<>();
-        expiryLRUMap.setOnExpiryConsumer(node -> {
-            long expiry = node.getExpiryTimestamp() - node.getCreateTimestamp();
-            long timeout = System.currentTimeMillis() - node.getCreateTimestamp();
-            System.out.println("expiry event. expiry = " + expiry+", timeout="+timeout);
-        });
-        while (i++ < 100) {
-            expiryLRUMap.put(i+"",i,1000);
-            Set<ExpiryLRUMap<?,?>> set = ExpiryLRUMap.INSTANCE_SET;
-            System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
-            Thread.sleep(1000);
-        }
+        return System.identityHashCode(this);
     }
 
     public static class Node<KEY,VALUE> {
@@ -481,7 +438,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         private final VALUE data;
         private final KEY key;
 
-        Node(long expiryTime, KEY key,VALUE value,ExpiryLRUMap<KEY, VALUE> expiryLRUMap) {
+        Node(long expiryTime, KEY key, VALUE value, ExpiryLRUMap<KEY, VALUE> expiryLRUMap) {
             long expiryTimestamp;
             if(expiryTime == Long.MAX_VALUE){
                 expiryTimestamp = Long.MAX_VALUE;
@@ -527,7 +484,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
         }
 
         public boolean isExpiry(){
-            return expiryLRUMap.isExpiry(this);
+            return ExpiryLRUMap.isExpiry(this);
         }
 
         @Override
@@ -546,7 +503,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
                 } catch (InterruptedException e) {
                     return;
                 }
-                Consumer<ExpiryLRUMap.Node> consumer = node.expiryLRUMap.onExpiryConsumer;
+                Consumer<Node> consumer = node.expiryLRUMap.onExpiryConsumer;
                 if(consumer != null){
                     try {
                         consumer.accept(node);
@@ -612,6 +569,48 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
                     e.printStackTrace();
                 }
             }
+        }
+    }
+
+    private static void localVarTest() throws InterruptedException {
+        ExpiryLRUMap lruMap = new ExpiryLRUMap();
+        lruMap.put("data","123",5000);
+        System.out.println("初始化 new ExpiryLRUMap() set = " + ExpiryLRUMap.INSTANCE_SET);
+        while (true) {
+            Object aa = lruMap.get("data");
+            System.out.println("data = " + aa);
+            Thread.sleep(1000);
+            if(aa == null){
+                return;
+            }
+        }
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
+        localVarTest();
+        System.out.println("gc 前 set = " + ExpiryLRUMap.INSTANCE_SET);
+        System.gc();
+        System.out.println("gc 后 set = " + ExpiryLRUMap.INSTANCE_SET);
+
+        int i=0;
+        ExpiryLRUMap<String,Object> expiryLRUMap = new ExpiryLRUMap<>(1,2,
+                Integer.MAX_VALUE,null
+        );
+        expiryLRUMap.setOnEvictionConsumer(node -> {
+            long expiry = node.getExpiryTimestamp() - node.getCreateTimestamp();
+            long timeout = System.currentTimeMillis() - node.getCreateTimestamp();
+            System.out.println("eviction event. expiry = " + expiry+", timeout="+timeout);
+        });
+        expiryLRUMap.setOnExpiryConsumer(node -> {
+            long expiry = node.getExpiryTimestamp() - node.getCreateTimestamp();
+            long timeout = System.currentTimeMillis() - node.getCreateTimestamp();
+            System.out.println("expiry event. expiry = " + expiry+", timeout="+timeout);
+        });
+        while (i++ < 3) {
+            expiryLRUMap.put(i+"",i,1000);
+            Set<ExpiryLRUMap<?,?>> set = ExpiryLRUMap.INSTANCE_SET;
+            System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
         }
     }
 
