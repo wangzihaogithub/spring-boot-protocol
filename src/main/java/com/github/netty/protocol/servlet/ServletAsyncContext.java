@@ -175,7 +175,7 @@ public class ServletAsyncContext implements AsyncContext,Recyclable {
 
     private static class TaskWrapper implements Runnable{
         private static final AtomicInteger TASK_ID_INCR = new AtomicInteger();
-        private static final ExpiryLRUMap<Integer,TaskWrapper> TIMEOUT_TASK_MAP = new ExpiryLRUMap<>(512,0.75F,false,Long.MAX_VALUE);
+        private static final ExpiryLRUMap<Integer,TaskWrapper> TIMEOUT_TASK_MAP = new ExpiryLRUMap<>(256,Long.MAX_VALUE,Long.MAX_VALUE,null);
         static {
             TIMEOUT_TASK_MAP.setOnExpiryConsumer(node -> {
                 //Notice the timeout

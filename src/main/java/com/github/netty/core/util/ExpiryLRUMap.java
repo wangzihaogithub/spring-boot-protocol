@@ -39,10 +39,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> {
     }
 
     public ExpiryLRUMap(long defaultExpiryTime){
-        this(512,Integer.MAX_VALUE, defaultExpiryTime,null);
+        this(512,Long.MAX_VALUE, defaultExpiryTime,null);
     }
 
-    public ExpiryLRUMap(int initialCapacity, int maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher){
+    public ExpiryLRUMap(int initialCapacity, long maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher){
         this.defaultExpiryTime = defaultExpiryTime < 0 ? -1 : defaultExpiryTime;
         this.map = new ConcurrentLinkedHashMap.Builder<K,Node<K,V>>()
                 .initialCapacity(initialCapacity)

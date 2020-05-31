@@ -1482,6 +1482,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * @param initialCapacity the initial capacity used to size the hash table
          *     to accommodate this many entries.
          * @throws IllegalArgumentException if the initialCapacity is negative
+         * @return Builder
          */
         public Builder<K, V> initialCapacity(int initialCapacity) {
             checkArgument(initialCapacity >= 0);
@@ -1496,6 +1497,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * @param capacity the weighted threshold to bound the map by
          * @throws IllegalArgumentException if the maximumWeightedCapacity is
          *     negative
+         * @return Builder
          */
         public Builder<K, V> maximumWeightedCapacity(long capacity) {
             checkArgument(capacity >= 0);
@@ -1512,6 +1514,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          *     threads
          * @throws IllegalArgumentException if the concurrencyLevel is less than or
          *     equal to zero
+         * @return Builder
          */
         public Builder<K, V> concurrencyLevel(int concurrencyLevel) {
             checkArgument(concurrencyLevel > 0);
@@ -1525,6 +1528,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          *
          * @param listener the object to forward evicted entries to
          * @throws NullPointerException if the listener is null
+         * @return Builder
          */
         public Builder<K, V> listener(EvictionListener<K, V> listener) {
             checkNotNull(listener);
@@ -1539,6 +1543,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          *
          * @param weigher the algorithm to determine a value's weight
          * @throws NullPointerException if the weigher is null
+         * @return Builder
          */
         public Builder<K, V> weigher(Weigher<? super V> weigher) {
             this.weigher = (weigher == Weighers.singleton())
@@ -1554,6 +1559,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          *
          * @param weigher the algorithm to determine a entry's weight
          * @throws NullPointerException if the weigher is null
+         * @return Builder
          */
         public Builder<K, V> weigher(EntryWeigher<? super K, ? super V> weigher) {
             this.weigher = (weigher == Weighers.entrySingleton())
@@ -1567,6 +1573,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          *
          * @throws IllegalStateException if the maximum weighted capacity was
          *     not set
+         * @return ConcurrentLinkedHashMap
          */
         public ConcurrentLinkedHashMap<K, V> build() {
             checkState(capacity >= 0);
@@ -1972,19 +1979,27 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
         /**
          * Retrieves the previous element or <tt>null</tt> if either the element is
          * unlinked or the first element on the deque.
+         * @return previous
          */
         T getPrevious();
 
-        /** Sets the previous element or <tt>null</tt> if there is no link. */
+        /**
+         * Sets the previous element or <tt>null</tt> if there is no link.
+         * @param prev prev
+         */
         void setPrevious(T prev);
 
         /**
          * Retrieves the next element or <tt>null</tt> if either the element is
          * unlinked or the last element on the deque.
+         * @return Next
          */
         T getNext();
 
-        /** Sets the next element or <tt>null</tt> if there is no link. */
+        /**
+         * Sets the next element or <tt>null</tt> if there is no link.
+         * @param next next
+         */
         void setNext(T next);
     }
     
@@ -2022,7 +2037,8 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
         /**
          * A entry weigher backed by the specified weigher. The weight of the value
          * determines the weight of the entry.
-         *
+         * @param <K> key
+         * @param <V> value
          * @param weigher the weigher to be "wrapped" in a entry weigher.
          * @return A entry weigher view of the specified weigher.
          */
@@ -2037,7 +2053,8 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * A weigher where an entry has a weight of <tt>1</tt>. A map bounded with
          * this weigher will evict when the number of key-value pairs exceeds the
          * capacity.
-         *
+         * @param <K> key
+         * @param <V> value
          * @return A weigher where a value takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2049,7 +2066,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * A weigher where a value has a weight of <tt>1</tt>. A map bounded with
          * this weigher will evict when the number of key-value pairs exceeds the
          * capacity.
-         *
+         * @param <V> value
          * @return A weigher where a value takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2087,7 +2104,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * with this weight can occur then the caller should eagerly evaluate the
          * value and treat it as a removal operation. Alternatively, a custom weigher
          * may be specified on the map to assign an empty value a positive weight.
-         *
+         * @param <E> element
          * @return A weigher where each element takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2105,7 +2122,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * with this weight can occur then the caller should eagerly evaluate the
          * value and treat it as a removal operation. Alternatively, a custom weigher
          * may be specified on the map to assign an empty value a positive weight.
-         *
+         * @param <E> element
          * @return A weigher where each element takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2123,7 +2140,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * with this weight can occur then the caller should eagerly evaluate the
          * value and treat it as a removal operation. Alternatively, a custom weigher
          * may be specified on the map to assign an empty value a positive weight.
-         *
+         * @param <E> element
          * @return A weigher where each element takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2141,7 +2158,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * with this weight can occur then the caller should eagerly evaluate the
          * value and treat it as a removal operation. Alternatively, a custom weigher
          * may be specified on the map to assign an empty value a positive weight.
-         *
+         * @param <E> element
          * @return A weigher where each element takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})
@@ -2159,7 +2176,8 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          * with this weight can occur then the caller should eagerly evaluate the
          * value and treat it as a removal operation. Alternatively, a custom weigher
          * may be specified on the map to assign an empty value a positive weight.
-         *
+         * @param <A> KEY
+         * @param <B> VALUE
          * @return A weigher where each entry takes one unit of capacity.
          */
         @SuppressWarnings({"cast", "unchecked"})

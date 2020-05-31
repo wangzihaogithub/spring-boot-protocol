@@ -85,7 +85,7 @@ public class RpcDBServiceImpl implements RpcDBService {
 
 	@Override
 	public void setMaxSize2(Integer maxSize,String group) {
-		getMemExpiryMap(group).setMaxSize(maxSize);
+		getMemExpiryMap(group).setMaxCacheSize(maxSize);
 	}
 
 	@Override
@@ -128,17 +128,8 @@ public class RpcDBServiceImpl implements RpcDBService {
     }
 
     private static class RpcDBExpiryLRUMap<K,V> extends ExpiryLRUMap<K,V>{
-	    private int maxSize = -1;
 	    RpcDBExpiryLRUMap(long defaultExpiryTime) {
 		    super(defaultExpiryTime);
-	    }
-        @Override
-        protected boolean removeEldestEntry(Entry<K, Node<K, V>> eldest) {
-            return size() > maxSize;
-        }
-
-        public void setMaxSize(int maxSize) {
-		    this.maxSize = maxSize;
 	    }
     }
 }

@@ -70,7 +70,7 @@ public class RpcClient extends AbstractNettyClient{
     private boolean enableReconnectScheduledTask = false;
     private long reconnectCount = 0;
     protected final DataCodec dataCodec;
-    protected final ExpiryLRUMap<Integer, RpcDone> rpcDoneMap = new ExpiryLRUMap<>(512,0.75F,false,Long.MAX_VALUE);
+    protected final ExpiryLRUMap<Integer, RpcDone> rpcDoneMap = new ExpiryLRUMap<>(512,Long.MAX_VALUE,Long.MAX_VALUE,null);
     private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
 
     public RpcClient(String remoteHost, int remotePort) {
