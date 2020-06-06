@@ -53,6 +53,7 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     @Override
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
+        servletContext.setServerAddress(server.getServerAddress());
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if(listenerManager.hasServletContextListener()){
             listenerManager.onServletContextInitialized(new ServletContextEvent(servletContext));
