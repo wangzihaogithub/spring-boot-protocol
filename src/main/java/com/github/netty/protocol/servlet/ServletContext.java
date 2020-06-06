@@ -297,6 +297,9 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
         UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
+        if(element == null){
+            return null;
+        }
         ServletRegistration servletRegistration = element.getObject();
         if(servletRegistration == null){
             return null;

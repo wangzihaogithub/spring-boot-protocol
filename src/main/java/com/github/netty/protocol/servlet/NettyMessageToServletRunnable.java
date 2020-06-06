@@ -2,7 +2,6 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Recycler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -67,7 +66,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 ServletRequestDispatcher dispatcher = servletHttpExchange.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {
                     httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
-                    RecyclableUtil.release(httpServletRequest);
                     return;
                 }
 //                servletHttpExchange.touch(this);

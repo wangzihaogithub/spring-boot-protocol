@@ -138,11 +138,11 @@ public class UrlMapper<T> {
 	        if("default".equals(element.objectName)){
 		        continue;
 	        }
-            if('/' == element.pattern.charAt(0)
-                    || '*' == element.pattern.charAt(0)
+            if("/".equals(element.pattern)
+                    || "*".equals(element.pattern)
                     || "/*".equals(element.pattern)
                     || "/**".equals(element.pattern)){
-            	return element;
+                return element;
             }
         }
 	    for(int i=0; i<size; i++){
