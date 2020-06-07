@@ -45,17 +45,23 @@ import java.util.*;
  */
 public class UrlMapper<T> {
 	private String rootPath;
+    private Collection<Element<T>> elementList = new TreeSet<>();
     private final boolean singlePattern;
-    private List<Element<T>> elementList = new ArrayList<>();
-    private AntPathMatcher antPathMatcher = new AntPathMatcher();
+    private final AntPathMatcher antPathMatcher = new AntPathMatcher();
 
     public UrlMapper(boolean singlePattern) {
         this.singlePattern = singlePattern;
+        this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
 	public void setRootPath(String rootPath) {
+        while (rootPath.startsWith("/")){
+            rootPath = rootPath.substring(1);
+        }
+        rootPath = "/" + rootPath;
+
 		this.rootPath = rootPath;
-		List<Element<T>> elementList = new ArrayList<>();
+        Collection<Element<T>> elementList = new TreeSet<>();
 		for(Element<T> element : this.elementList){
 			elementList.add(new Element<>(rootPath,element.originalPattern,element.object,element.objectName));
 		}
@@ -73,16 +79,13 @@ public class UrlMapper<T> {
         Objects.requireNonNull(urlPattern);
         Objects.requireNonNull(object);
         Objects.requireNonNull(objectName);
-	    List<Element<T>> elementList = this.elementList;
+	    Collection<Element<T>> elementList = this.elementList;
 
         for (Element element : elementList) {
             if(singlePattern) {
                 if(element.objectName.equals(objectName)) {
                     throw new IllegalArgumentException("The [" + objectName + "] mapping exist!");
                 }
-                element.objectName = objectName;
-                element.object = object;
-                return;
             }
         }
         elementList.add(new Element<>(rootPath,urlPattern,object,objectName));
@@ -108,10 +111,8 @@ public class UrlMapper<T> {
      * @return servlet path
      */
     public String getServletPath(String absoluteUri) {
-	    List<Element<T>> elementList = this.elementList;
-        int size = elementList.size();
-        for(int i=0; i<size; i++){
-            Element element = elementList.get(i);
+        Collection<Element<T>> elementList = this.elementList;
+        for (Element<T> element : elementList) {
             if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
                 return element.servletPath;
             }
@@ -125,32 +126,15 @@ public class UrlMapper<T> {
      * @return T object
      */
     public Element<T> getMappingObjectByUri(String absoluteUri) {
-	    List<Element<T>> elementList = this.elementList;
-        int size = elementList.size();
-        for(int i=0; i<size; i++){
-            Element<T> element = elementList.get(i);
+        if(!absoluteUri.isEmpty() && absoluteUri.charAt(absoluteUri.length() - 1) == '/'){
+            absoluteUri = absoluteUri.substring(0,absoluteUri.length()-1);
+        }
+	    Collection<Element<T>> elementList = this.elementList;
+        for (Element<T> element : elementList) {
             if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
                 return element;
             }
         }
-        for(int i=0; i<size; i++){
-            Element<T> element = elementList.get(i);
-	        if("default".equals(element.objectName)){
-		        continue;
-	        }
-            if("/".equals(element.pattern)
-                    || "*".equals(element.pattern)
-                    || "/*".equals(element.pattern)
-                    || "/**".equals(element.pattern)){
-                return element;
-            }
-        }
-	    for(int i=0; i<size; i++){
-		    Element<T> element = elementList.get(i);
-		    if("default".equals(element.objectName)){
-			    return element;
-		    }
-	    }
         return null;
     }
 
@@ -160,20 +144,18 @@ public class UrlMapper<T> {
      * @param absoluteUri An absolute path
      */
     public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
-	    List<Element<T>> elementList = this.elementList;
-        for(int i=0,size = elementList.size(); i<size; i++){
-            Element<T> element = elementList.get(i);
-            if("/*".equals(element.pattern)
-                    ||(absoluteUri.length() == 1 && '/' == absoluteUri.charAt(0) && '/' == element.pattern.charAt(0))
-                    || '*' == element.pattern.charAt(0)
-                    || "/**".equals(element.pattern)
-                    || antPathMatcher.match(element.pattern,absoluteUri,"*")){
+        if(!absoluteUri.isEmpty() && absoluteUri.charAt(absoluteUri.length() - 1) == '/'){
+            absoluteUri = absoluteUri.substring(0,absoluteUri.length()-1);
+        }
+        Collection<Element<T>> elementList = this.elementList;
+        for (Element<T> element : elementList) {
+            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
                 list.add(element.object);
             }
         }
     }
 
-    public static class Element<T> {
+    public static class Element<T> implements Comparable<Element<T>>{
         String pattern;
 	    String originalPattern;
         T object;
@@ -181,12 +163,27 @@ public class UrlMapper<T> {
         String servletPath;
         String rootPath;
         boolean wildcardPatternFlag;
+        boolean allPatternFlag;
+        boolean defaultFlag;
+        int sort;
+
         Element(String rootPath,String originalPattern, T object, String objectName) {
+            this.allPatternFlag = "/".equals(originalPattern)
+                    || "/*".equals(originalPattern)
+                    || "*".equals(originalPattern)
+                    || "/**".equals(originalPattern);
         	if(rootPath != null){
                 this.pattern = rootPath.concat(originalPattern);
 	        }else {
         		this.pattern = originalPattern;
 	        }
+        	if(pattern.endsWith("/")){
+        	    do {
+                    pattern = pattern.substring(0,pattern.length() -1);
+                }while(pattern.endsWith("/"));
+                pattern = pattern + "/*";
+            }
+
         	this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
@@ -203,7 +200,15 @@ public class UrlMapper<T> {
 	            }
             	joiner.add(path);
             }
+            this.defaultFlag = "default".equals(this.objectName);
             this.servletPath = joiner.toString();
+            if(this.defaultFlag){
+                this.sort = 300;
+            }else if(this.allPatternFlag){
+                this.sort = 200;
+            }else {
+                this.sort = 100;
+            }
         }
 
         public boolean isWildcardPatternFlag() {
@@ -221,6 +226,45 @@ public class UrlMapper<T> {
         public String getServletPath() {
             return servletPath;
         }
+
+        @Override
+        public boolean equals(Object obj) {
+            return this == obj;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(this);
+        }
+
+        @Override
+        public String toString() {
+            return "Element{" +
+                    "pattern='" + pattern + '\'' +
+                    ", objectName='" + objectName + '\'' +
+                    '}';
+        }
+
+        @Override
+        public int compareTo(Element<T> o) {
+            return this.sort < o.sort ? -1 : 1;
+        }
     }
 
+    public static void main(String[] args) {
+        UrlMapper<Object> urlMapper = new UrlMapper<>(false);
+        urlMapper.addMapping("/t/","","default");
+        urlMapper.addMapping("/t/","","1");
+        urlMapper.addMapping("/t/","","2");
+        urlMapper.addMapping("/*","","3");
+        urlMapper.addMapping("/*.do","","4");
+
+//        urlMapper.setRootPath("test");
+
+        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
+        assert Objects.equals("1", e1.objectName);
+
+        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
+        assert Objects.equals("3", e2.objectName);
+    }
 }

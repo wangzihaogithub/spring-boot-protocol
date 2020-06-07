@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author wangzihao
  *  2018/7/15/015
  */
-public class ServletHttpSession implements HttpSession,Wrapper<Session>{
+public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletHttpSession.class);
     private ServletContext servletContext;
     private String id;

@@ -13,6 +13,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.internal.PlatformDependent;
 import org.springframework.boot.web.server.WebServer;
@@ -107,6 +108,15 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
                 SystemPropertyUtil.get("io.netty.leakDetection.level") == null){
             ResourceLeakDetector.setLevel(properties.getResourceLeakDetectorLevel());
         }
+
+        if(SystemPropertyUtil.get("io.netty.maxDirectMemory") == null){
+            long maxDirectMemory = -1;
+            System.setProperty("io.netty.maxDirectMemory", String.valueOf(maxDirectMemory));
+        }
+        bootstrap.childOption(ChannelOption.WRITE_SPIN_COUNT,Integer.MAX_VALUE);
+        bootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024,Integer.MAX_VALUE));
+        bootstrap.childOption(ChannelOption.AUTO_CLOSE,true);
+
         bootstrap.childOption(ChannelOption.TCP_NODELAY, properties.isTcpNodelay());
         for (ServerListener serverListener : serverListeners) {
             serverListener.config(bootstrap);

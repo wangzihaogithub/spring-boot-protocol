@@ -15,6 +15,8 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionIdListener;
 import javax.servlet.http.HttpSessionListener;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
@@ -45,11 +47,11 @@ public class ServletContext implements javax.servlet.ServletContext {
     private long uploadMinSize = 4096 * 16;
     private Map<String,Object> attributeMap = new HashMap<>(16);
     private Map<String,String> initParamMap = new HashMap<>(16);
-    private Map<String,ServletRegistration> servletRegistrationMap = new HashMap<>(8);
-    private Map<String,ServletFilterRegistration> filterRegistrationMap = new HashMap<>(8);
-    private FastThreadLocal<Map<Charset,HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset,HttpDataFactory>>(){
+    private Map<String, ServletRegistration> servletRegistrationMap = new HashMap<>(8);
+    private Map<String, ServletFilterRegistration> filterRegistrationMap = new HashMap<>(8);
+    private FastThreadLocal<Map<Charset, HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, HttpDataFactory>>(){
         @Override
-        protected Map<Charset,HttpDataFactory> initialValue() throws Exception {
+        protected Map<Charset, HttpDataFactory> initialValue() throws Exception {
             return new HashMap<>(5);
         }
     };
@@ -65,21 +67,26 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     private ResourceManager resourceManager;
     private ExecutorService asyncExecutorService;
-    private SessionService sessionService;
+    private SessionService sessionService = new SessionLocalMemoryServiceImpl();
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
     private boolean enableLookupFlag = false;
     private boolean asyncSwitchThread = true;
     private String serverHeader;
-    private String contextPath;
+    private String contextPath = "";
     private String requestCharacterEncoding;
     private String responseCharacterEncoding;
     private String servletContextName;
     private InetSocketAddress serverAddress;
     private ClassLoader classLoader;
 
+    public ServletContext() {
+        this(null);
+    }
+
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
+        setDocBase(createTempDir("netty-docbase").getAbsolutePath());
     }
 
     public void setAsyncSwitchThread(boolean asyncSwitchThread) {
@@ -113,6 +120,21 @@ public class ServletContext implements javax.servlet.ServletContext {
         DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
     }
 
+    protected static File createTempDir(String prefix) {
+        try {
+            File tempDir = File.createTempFile(prefix + ".", "");
+            tempDir.delete();
+            tempDir.mkdir();
+            tempDir.deleteOnExit();
+            return tempDir;
+        }catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Unable to create tempDir. java.io.tmpdir is set to "
+                            + System.getProperty("java.io.tmpdir"),
+                    ex);
+        }
+    }
+
     public ExecutorService getAsyncExecutorService() {
         if(asyncExecutorService == null) {
             synchronized (this){
@@ -130,7 +152,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public HttpDataFactory getHttpDataFactory(Charset charset){
-        Map<Charset,HttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
+        Map<Charset, HttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
         HttpDataFactory factory = httpDataFactoryMap.get(charset);
         if(factory == null){
             factory = new DefaultHttpDataFactory(uploadMinSize,charset);

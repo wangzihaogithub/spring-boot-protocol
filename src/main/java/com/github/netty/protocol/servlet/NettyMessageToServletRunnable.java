@@ -44,7 +44,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     /**
      * http task
      */
-    public static class HttpRunnable implements Runnable,Recyclable {
+    public static class HttpRunnable implements Runnable, Recyclable {
         private ServletHttpExchange servletHttpExchange;
 
         public ServletHttpExchange getServletHttpExchange() {

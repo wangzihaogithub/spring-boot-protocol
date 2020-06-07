@@ -13,20 +13,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Consumer;
 
 /**
  * Context for asynchronous processing
  * @author wangzihao
  *  2018/7/15/015
  */
-public class ServletAsyncContext implements AsyncContext,Recyclable {
+public class ServletAsyncContext implements AsyncContext, Recyclable {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletAsyncContext.class);
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;

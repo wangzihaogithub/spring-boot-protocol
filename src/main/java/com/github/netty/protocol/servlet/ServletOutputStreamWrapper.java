@@ -3,9 +3,13 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Wrapper;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelProgressivePromise;
+import io.netty.handler.stream.ChunkedInput;
 
-import javax.servlet.*;
+import javax.servlet.WriteListener;
+import java.io.File;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
 /**
@@ -13,7 +17,7 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream
-        implements Wrapper<ServletOutputStream>,Recyclable{
+        implements Wrapper<ServletOutputStream>, Recyclable,NettyOutputStream {
     /**
      * The source data
      */
@@ -43,6 +47,21 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
      */
     public boolean isSuspendFlag() {
         return suspendFlag;
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ChunkedInput input) throws IOException {
+        return source.write(input);
+    }
+
+    @Override
+    public ChannelProgressivePromise write(FileChannel fileChannel, long position, long count) throws IOException {
+        return source.write(fileChannel,position,count);
+    }
+
+    @Override
+    public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
+        return source.write(file,position,count);
     }
 
     @Override

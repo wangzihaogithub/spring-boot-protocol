@@ -2,7 +2,10 @@ package com.github.netty.protocol.servlet.util;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -649,7 +652,7 @@ public class MediaType {
 
     static class MediaTypeCache {
 
-        private final ConcurrentCache<String,MediaType> cache;
+        private final ConcurrentCache<String, MediaType> cache;
 
         public MediaTypeCache(int size) {
             cache = new ConcurrentCache<>(size);

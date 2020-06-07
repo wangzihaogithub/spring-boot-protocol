@@ -16,7 +16,7 @@ import java.lang.reflect.Method;
  * @author wangzihao
  * 2018/7/28/028
  */
-public class NettyHttpResponse implements HttpResponse,Recyclable {
+public class NettyHttpResponse implements HttpResponse, Recyclable {
     public static final HttpResponseStatus DEFAULT_STATUS = HttpResponseStatus.OK;
 
     private DecoderResult decoderResult;

@@ -25,7 +25,7 @@ public class ServletTextPart implements Part {
     private ResourceManager resourceManager;
     private Map<String,String> headerMap;
 
-    public ServletTextPart(Attribute attribute,ResourceManager resourceManager) {
+    public ServletTextPart(Attribute attribute, ResourceManager resourceManager) {
         this.attribute = attribute;
         this.resourceManager = resourceManager;
     }

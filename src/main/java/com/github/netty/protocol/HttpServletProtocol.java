@@ -2,6 +2,7 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
+import com.github.netty.core.util.ChunkedWriteHandler;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
@@ -13,14 +14,15 @@ import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.handler.stream.ChunkedWriteHandler;
 
 import javax.net.ssl.SSLEngine;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -39,6 +41,11 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int maxInitialLineLength = 4096;
     private int maxHeaderSize = 8192;
     private int maxChunkSize = 5 * 1024 * 1024;
+    /**
+     * output stream maxBufferBytes
+     * Each buffer accumulate the maximum number of bytes (default 1M)
+     */
+    private long maxBufferBytes = 1024 * 1024;
     private boolean enableContentCompression = false;
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
@@ -223,12 +230,20 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
 
         //Block transfer
-        if(enableContentCompression) {
-            pipeline.addLast( "ChunkedWrite",new ChunkedWriteHandler());
-        }
+        ChunkedWriteHandler chunkedWriteHandler = new ChunkedWriteHandler();
+        chunkedWriteHandler.setMaxBufferBytes(maxBufferBytes);
+        pipeline.addLast("ChunkedWrite",chunkedWriteHandler);
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);
+    }
+
+    public long getMaxBufferBytes() {
+        return maxBufferBytes;
+    }
+
+    public void setMaxBufferBytes(long maxBufferBytes) {
+        this.maxBufferBytes = maxBufferBytes;
     }
 
     @Override

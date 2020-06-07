@@ -1,7 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.CompositeByteBufX;
-import com.github.netty.core.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.HttpConstants;
@@ -25,7 +23,7 @@ import java.util.function.Consumer;
  * @author wangzihao
  *  2018/7/15/015
  */
-public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse,Recyclable {
+public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse, Recyclable {
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
 
     private ServletHttpExchange servletHttpExchange;
@@ -53,8 +51,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
          * https://github.com/wangzihaogithub/spring-boot-protocol/issues/2
          */
         instance.outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
-        //try if changeToChunkStream
-        instance.changeToChunkStream();
         //------------------------
 
         return instance;
@@ -159,44 +155,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     private HttpHeaders getNettyHeaders(){
         return nettyResponse.headers();
-    }
-
-    /**
-     * Change to block transfer stream
-     */
-    public void changeToChunkStream() {
-        //If the client does not accept block transfers, no switch is made
-        if(!HttpHeaderUtil.isAcceptTransferChunked(servletHttpExchange.getRequest().getNettyHeaders())){
-            return;
-        }
-
-        synchronized (outputStream) {
-            ServletOutputStream oldOut = outputStream.unwrap();
-            if(oldOut instanceof ServletOutputChunkedStream){
-                return;
-            }
-
-            ServletOutputStream newOut = new ServletOutputChunkedStream();
-            newOut.setServletHttpExchange(servletHttpExchange);
-            if (oldOut == null) {
-                outputStream.wrap(newOut);
-                return;
-            }
-
-            try {
-                oldOut.lock();
-                CompositeByteBufX content = oldOut.getBuffer();
-                if (content != null) {
-                    oldOut.setBuffer(null);
-                    newOut.setBuffer(content);
-                }
-                newOut.setServletHttpExchange(oldOut.getServletHttpExchange());
-                outputStream.wrap(newOut);
-            } finally {
-                oldOut.unlock();
-                oldOut.destroy();
-            }
-        }
     }
 
     @Override
@@ -502,7 +460,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      * Listen for closed flow
      * Optimize the number of lambda instances to reduce gc times
      */
-    private class CloseListener implements ChannelFutureListener{
+    private class CloseListener implements ChannelFutureListener {
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
             nettyResponse.recycle();

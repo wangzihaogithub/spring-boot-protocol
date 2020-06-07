@@ -6,42 +6,40 @@ import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultLastHttpContent;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.stream.ChunkedInput;
+import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.WriteListener;
 import javax.servlet.http.Cookie;
+import java.io.File;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
  * Servlet OutputStream
  * @author wangzihao
  */
-public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable  {
+public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable,NettyOutputStream {
     public static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
 
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     private ServletHttpExchange servletHttpExchange;
-    private CompositeByteBufX buffer;
-    private Lock bufferReadWriterLock;
     private WriteListener writeListener;
     private CloseListener closeListenerWrapper = new CloseListener();
     private int responseWriterChunkMaxHeapByteLength;
+    protected AtomicBoolean isSendResponse = new AtomicBoolean(false);
+    protected AtomicBoolean isSettingResponse = new AtomicBoolean(false);
 
     protected ServletOutputStream() {}
 
@@ -49,7 +47,56 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         ServletOutputStream instance = RECYCLER.getInstance();
         instance.setServletHttpExchange(servletHttpExchange);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
+        instance.isSendResponse.set(false);
+        instance.isSettingResponse.set(false);
+        instance.isClosed.set(false);
         return instance;
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ChunkedInput input) throws IOException {
+        checkClosed();
+
+        writeResponseHeaderIfNeed();
+
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+        ChannelProgressivePromise promise = context.newProgressivePromise();
+        context.write(input,promise);
+        return promise;
+    }
+
+    @Override
+    public ChannelProgressivePromise write(FileChannel fileChannel, long position, long count) throws IOException {
+        checkClosed();
+
+        writeResponseHeaderIfNeed();
+
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+        ChannelProgressivePromise promise = context.newProgressivePromise();
+        context.write(new DefaultFileRegion(fileChannel,position,count),promise);
+        return promise;
+    }
+
+    @Override
+    public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
+        checkClosed();
+
+        writeResponseHeaderIfNeed();
+
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+        ChannelProgressivePromise promise = context.newProgressivePromise();
+        context.write(new DefaultFileRegion(file,position,count),promise);
+        return promise;
+    }
+
+
+    private void writeResponseHeaderIfNeed(){
+        if(isSendResponse.compareAndSet(false,true)){
+            ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
+            NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
+            ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+            context.write(nettyResponse);
+        }
     }
 
     @Override
@@ -59,19 +106,14 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             return;
         }
 
-        try {
-            lock();
-            CompositeByteBufX content = getBuffer();
-            if (content == null) {
-                content = newContent();
-                setBuffer(content);
-            }
-            ByteBuf ioByteBuf = allocByteBuf(content.alloc(), len);
-            ioByteBuf.writeBytes(b, off, len);
-            content.addComponent(ioByteBuf);
-        }finally {
-            unlock();
-        }
+        writeResponseHeaderIfNeed();
+
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+        ByteBuf ioByteBuf = allocByteBuf(context.alloc(), len);
+        ioByteBuf.writeBytes(b, off, len);
+        IOUtil.writerModeToReadMode(ioByteBuf);
+
+        context.write(ioByteBuf);
     }
 
     @Override
@@ -111,6 +153,23 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void flush() throws IOException {
         checkClosed();
+        flush0();
+    }
+
+    protected void flush0(){
+        if(isSendResponse.compareAndSet(false,true)){
+            ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+            ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
+            NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
+            context.write(nettyResponse);
+        }
+
+        if(isSettingResponse.compareAndSet(false,true)){
+            settingResponse();
+        }
+        ServletHttpExchange exchange = getServletHttpExchange();
+        ChannelHandlerContext context = exchange.getChannelHandlerContext();
+        context.flush();
     }
 
     /**
@@ -124,33 +183,25 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * ■AsyncContext.complete Method called
      */
     @Override
-    public void close() {
-        ServletHttpExchange exchange = servletHttpExchange;
-//        if(exchange != null) {
-//            exchange.touch(this);
-//        }
-        if (isClosed.compareAndSet(false,true)) {
-            CompositeByteBufX content = getBuffer();
-            if (content != null && exchange != null) {
-                exchange.getResponse()
-                        .getNettyResponse()
-                        .setContent(content);
-            }
+    public void close() throws IOException{
+        if(isClosed()){
+            return;
+        }
 
-            LastHttpContent lastHttpContent = content == null?
-                    LastHttpContent.EMPTY_LAST_CONTENT : new DefaultLastHttpContent(content);
-            sendResponse().addListener((ChannelFutureListener) future ->
-                    future.channel()
-                    .writeAndFlush(lastHttpContent)
-                    .addListener(getCloseListener()));
+        if(isClosed.compareAndSet(false,true)){
+            flush0();
+            ServletHttpExchange exchange = getServletHttpExchange();
+            ChannelHandlerContext context = exchange.getChannelHandlerContext();
+
+            context.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+                    .addListener(closeListenerWrapper);
         }
     }
 
     /**
      * Send a response
      */
-    protected ChannelFuture sendResponse(){
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+    protected void settingResponse(){
         //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
         ServletHttpServletRequest servletRequest = servletHttpExchange.getRequest();
         ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
@@ -160,7 +211,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
         IOUtil.writerModeToReadMode(nettyResponse.content());
         settingResponseHeader(isKeepAlive, nettyResponse, servletRequest, servletResponse, sessionCookieConfig);
-        return context.writeAndFlush(nettyResponse);
     }
 
     /**
@@ -184,17 +234,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * @throws ClosedChannelException
      */
     protected void checkClosed() throws IOException {
-        if(isClosed.get()){
+        if(isClosed()){
             throw new IOException("Stream closed");
         }
-    }
-
-    /**
-     * Create a new buffer
-     * @return CompositeByteBufX
-     */
-    protected CompositeByteBufX newContent(){
-        return new CompositeByteBufX();
     }
 
     /**
@@ -203,10 +245,14 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * @param len The required byte length
      * @return ByteBuf
      */
-    protected ByteBuf allocByteBuf(ByteBufAllocator allocator,int len){
+    protected ByteBuf allocByteBuf(ByteBufAllocator allocator, int len){
         ByteBuf ioByteBuf;
         if(len > responseWriterChunkMaxHeapByteLength){
-            ioByteBuf = allocator.directBuffer(len);
+            if(PlatformDependent.usedDirectMemory() + len >= PlatformDependent.maxDirectMemory() * 0.8F){
+                ioByteBuf = allocator.heapBuffer(len);
+            }else {
+                ioByteBuf = allocator.directBuffer(len);
+            }
         }else {
             ioByteBuf = allocator.heapBuffer(len);
         }
@@ -219,46 +265,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public void destroy(){
         this.servletHttpExchange = null;
         this.isClosed = null;
-        this.buffer = null;
-    }
-
-    /**
-     * lock buffer
-     */
-    public void lock(){
-        if(bufferReadWriterLock == null){
-            synchronized (this) {
-                if(bufferReadWriterLock == null) {
-                    bufferReadWriterLock = new ReentrantLock();
-                }
-            }
-        }
-        bufferReadWriterLock.lock();
-    }
-
-    /**
-     * Releases the lock on the buffer
-     */
-    public void unlock(){
-        if(bufferReadWriterLock != null) {
-            bufferReadWriterLock.unlock();
-        }
-    }
-
-    /**
-     * Get buffer
-     * @return CompositeByteBufX
-     */
-    protected CompositeByteBufX getBuffer() {
-        return buffer;
-    }
-
-    /**
-     * Set buffer
-     * @param buffer CompositeByteBufX buffer
-     */
-    protected void setBuffer(CompositeByteBufX buffer) {
-        this.buffer = buffer;
     }
 
     /**
@@ -268,14 +274,15 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (isClosed()) {
             return;
         }
-
-        try {
-            lock();
-            if(RecyclableUtil.release(getBuffer())) {
-                this.buffer = null;
+        ServletHttpExchange exchange = getServletHttpExchange();
+        ChannelHandlerContext channelHandlerContext = exchange.getChannelHandlerContext();
+        ChannelHandlerContext context = channelHandlerContext.pipeline().context(ChunkedWriteHandler.class);
+        if(context != null) {
+            ChunkedWriteHandler handler = (ChunkedWriteHandler) context.handler();
+            int unWriteSize = handler.unWriteSize();
+            if(unWriteSize > 0) {
+                handler.discard(new ServletResetBufferIOException());
             }
-        }finally {
-            unlock();
         }
     }
 
@@ -320,8 +327,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * @param sessionCookieConfig sessionCookieConfig
      */
     private static void settingResponseHeader(boolean isKeepAlive, NettyHttpResponse nettyResponse,
-                                       ServletHttpServletRequest servletRequest, ServletHttpServletResponse servletResponse,
-                                       ServletSessionCookieConfig sessionCookieConfig) {
+                                              ServletHttpServletRequest servletRequest, ServletHttpServletResponse servletResponse,
+                                              ServletSessionCookieConfig sessionCookieConfig) {
         HttpHeaderUtil.setKeepAlive(nettyResponse, isKeepAlive);
         HttpHeaders headers = nettyResponse.headers();
 
@@ -330,6 +337,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if(contentLength >= 0) {
             headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
             headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
+        }else {
+            nettyResponse.enableTransferEncodingChunked();
         }
 
         // Time and date response header
@@ -397,13 +406,20 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public <T> void recycle(Consumer<T> consumer) {
         this.closeListenerWrapper.addRecycleConsumer(consumer);
-        close();
+        if(isClosed()){
+            return;
+        }
+        try {
+            close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Closing the listening wrapper class (for data collection)
      */
-    public class CloseListener implements ChannelFutureListener{
+    public class CloseListener implements ChannelFutureListener {
         private ChannelFutureListener closeListener;
         private final Queue<Consumer> recycleConsumerQueue = new LinkedList<>();
 
@@ -440,8 +456,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 recycleConsumer.accept(ServletOutputStream.this);
             }
 
-            buffer = null;
-            isClosed.set(false);
             writeListener = null;
             servletHttpExchange = null;
             this.closeListener = null;

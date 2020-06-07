@@ -1,22 +1,19 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 
 import javax.servlet.*;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * The servlet filter chain
  * @author wangzihao
  */
-public class ServletFilterChain implements FilterChain,Recyclable {
+public class ServletFilterChain implements FilterChain, Recyclable {
 
     /**
      * Consider that each request is handled by only one thread, and that the ServletContext will create a new SimpleFilterChain object on each request

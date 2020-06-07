@@ -18,7 +18,6 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.security.Principal;
 import java.text.DateFormat;
@@ -31,7 +30,7 @@ import java.util.*;
  * @author wangzihao
  *  2018/7/15/015
  */
-public class ServletHttpServletRequest implements javax.servlet.http.HttpServletRequest,Recyclable {
+public class ServletHttpServletRequest implements HttpServletRequest, Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
     private static final String RFC1123_DATE = "EEE, dd MMM yyyy HH:mm:ss zzz";
@@ -40,7 +39,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
             new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.ENGLISH),
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
-    private static final Map<String,ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
+    private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
 	private SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
@@ -83,7 +82,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
 		    for (Entry<String,List<String>> entry : entries) {
 			    List<String> value = entry.getValue();
 			    String[] valueArr = value != null? value.toArray(new String[value.size()]): null;
-			    result.add(new AbstractMap.SimpleImmutableEntry<>(entry.getKey(),valueArr));
+			    result.add(new SimpleImmutableEntry<>(entry.getKey(),valueArr));
 		    }
 		    return result;
 	    }
@@ -1114,7 +1113,7 @@ public class ServletHttpServletRequest implements javax.servlet.http.HttpServlet
     }
 
     @Override
-    public boolean authenticate(javax.servlet.http.HttpServletResponse response) throws IOException, ServletException {
+    public boolean authenticate(HttpServletResponse response) throws IOException, ServletException {
         // TODO: 10-16/0016  Authentication interface
         return true;
     }

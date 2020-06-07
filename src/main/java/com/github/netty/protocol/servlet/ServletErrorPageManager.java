@@ -69,7 +69,7 @@ public class ServletErrorPageManager {
      * @param httpServletRequest httpServletRequest
      * @param httpServletResponse httpServletResponse
      */
-    public void handleErrorPage(ServletErrorPage errorPage,Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse){
+    public void handleErrorPage(ServletErrorPage errorPage, Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse){
         if(errorPage == null){
             return;
         }

@@ -17,32 +17,32 @@ public interface SessionService {
      * @param sessionId sessionId
      * @return Session
      */
-    Session getSession(@Protocol.RpcParam("sessionId")String sessionId);
+    Session getSession(@Protocol.RpcParam("sessionId") String sessionId);
 
     /**
      * Save the session
      * @param session session
      */
-    void saveSession(@Protocol.RpcParam("session")Session session);
+    void saveSession(@Protocol.RpcParam("session") Session session);
 
     /**
      * Delete session
      * @param sessionId sessionId
      */
-    void removeSession(@Protocol.RpcParam("sessionId")String sessionId);
+    void removeSession(@Protocol.RpcParam("sessionId") String sessionId);
 
     /**
      * Delete session (batch)
      * @param sessionIdList sessionIdList
      */
-    void removeSessionBatch(@Protocol.RpcParam("sessionIdList")List<String> sessionIdList);
+    void removeSessionBatch(@Protocol.RpcParam("sessionIdList") List<String> sessionIdList);
 
     /**
      * Change the sessionId
      * @param oldSessionId oldSessionId
      * @param newSessionId newSessionId
      */
-    void changeSessionId(@Protocol.RpcParam("oldSessionId")String oldSessionId, @Protocol.RpcParam("newSessionId")String newSessionId);
+    void changeSessionId(@Protocol.RpcParam("oldSessionId") String oldSessionId, @Protocol.RpcParam("newSessionId") String newSessionId);
 
     /**
      * Get the number of sessions

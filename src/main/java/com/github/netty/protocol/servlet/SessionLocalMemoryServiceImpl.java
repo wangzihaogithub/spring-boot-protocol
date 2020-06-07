@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class SessionLocalMemoryServiceImpl implements SessionService {
     private String name = NamespaceUtil.newIdName(getClass());
-    private Map<String,Session> sessionMap;
+    private Map<String, Session> sessionMap;
     private SessionInvalidThread sessionInvalidThread;
 
     public SessionLocalMemoryServiceImpl() {

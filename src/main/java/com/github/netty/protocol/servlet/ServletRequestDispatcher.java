@@ -1,7 +1,7 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.util.UrlMapper;
 
@@ -15,7 +15,7 @@ import java.io.IOException;
  * @author wangzihao
  *  2018/7/14/014
  */
-public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
+public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
     /**
      * Scheduling path (mutually exclusive with name field)
      */
@@ -111,8 +111,6 @@ public class ServletRequestDispatcher implements RequestDispatcher,Recyclable {
             throw new UnsupportedOperationException("Not found Original Request");
         }
 
-        //Switch to block transport stream
-        httpResponse.changeToChunkStream();
         // ServletHttpIncludeResponse. The class will prohibit operation data
         ServletHttpIncludeResponse includeResponse = new ServletHttpIncludeResponse(httpResponse);
         // ServletHttpIncludeRequest. The class will be passed on new data

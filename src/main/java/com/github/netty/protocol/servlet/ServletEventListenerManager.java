@@ -3,8 +3,8 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 
-import javax.servlet.*;
 import javax.servlet.ServletContext;
+import javax.servlet.*;
 import javax.servlet.http.*;
 import java.util.ArrayList;
 import java.util.LinkedList;
