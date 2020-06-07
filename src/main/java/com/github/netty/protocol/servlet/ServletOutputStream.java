@@ -157,18 +157,11 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     protected void flush0(){
-        if(isSendResponse.compareAndSet(false,true)){
-            ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-            ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
-            NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
-            context.write(nettyResponse);
-        }
-
+        writeResponseHeaderIfNeed();
         if(isSettingResponse.compareAndSet(false,true)){
             settingResponse();
         }
-        ServletHttpExchange exchange = getServletHttpExchange();
-        ChannelHandlerContext context = exchange.getChannelHandlerContext();
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
         context.flush();
     }
 
