@@ -3,6 +3,9 @@ package com.github.netty.core.util;
 import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
+import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -189,7 +192,15 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
         // The data store and its maximum capacity
         concurrencyLevel = builder.concurrencyLevel;
         capacity = new AtomicLong(Math.min(builder.capacity, MAXIMUM_CAPACITY));
-        data = new ConcurrentHashMap<>(builder.initialCapacity, 0.75f, concurrencyLevel);
+        if(builder.referenceType == WeakReference.class){
+            data = new ConcurrentReferenceHashMap<>(builder.initialCapacity, 0.75f, concurrencyLevel,
+                    ConcurrentReferenceHashMap.ReferenceType.WEAK);
+        }else if(builder.referenceType == SoftReference.class){
+            data = new ConcurrentReferenceHashMap<>(builder.initialCapacity, 0.75f, concurrencyLevel,
+                    ConcurrentReferenceHashMap.ReferenceType.SOFT);
+        }else {
+            data = new ConcurrentHashMap<>(builder.initialCapacity, 0.75f, concurrencyLevel);
+        }
 
         // The eviction support
         weigher = builder.weigher;
@@ -1464,6 +1475,12 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
         int concurrencyLevel;
         int initialCapacity;
         long capacity;
+        /**
+         * null is FinalReference
+         * {@link WeakReference}
+         * {@link SoftReference}
+         */
+        Class<? extends Reference> referenceType;
 
         @SuppressWarnings("unchecked")
         public Builder() {
@@ -1472,6 +1489,11 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
             initialCapacity = DEFAULT_INITIAL_CAPACITY;
             concurrencyLevel = DEFAULT_CONCURRENCY_LEVEL;
             listener = (EvictionListener<K, V>) DiscardingListener.INSTANCE;
+        }
+
+        public Builder<K, V> referenceType(Class<? extends Reference> referenceType) {
+            this.referenceType = referenceType;
+            return this;
         }
 
         /**

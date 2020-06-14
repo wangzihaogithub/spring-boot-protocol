@@ -1,5 +1,6 @@
 package com.github.netty.core.util;
 
+import java.lang.ref.Reference;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -9,11 +10,19 @@ import java.util.function.*;
 
 /**
  * 定时过期Map 会自动过期删除
- * 支持项 ：定时过期(过期通知), LRU淘汰机制(淘汰通知), Map操作, 并发操作(线程安全)
+ *
+ * 支持项 ：    1.定时过期(过期事件通知) {@link #setOnExpiryConsumer(Consumer)} {@link #onExpiry(Node)}
+ *            2. LRU淘汰机制(淘汰事件通知) {@link #setOnEvictionConsumer(Consumer)} {@link #onEviction(Node)}
+ *            3. Map操作
+ *            4. 并发操作(线程安全) {@link ConcurrentMap}
+ *            5. gc回收 Reference(Weak,Soft,strong). {@link #ExpiryLRUMap(int, long, long, ConcurrentLinkedHashMap.Weigher, Class)}
+ *            6. 统计功能(miss, hit) {@link #getHitCount()} {@link #getMissCount()}
+ *            7. null值替换, 防止缓存击穿 {@link #setReplaceNullValueFlag(boolean)} {@link #NULL} if(data == ExpiryLRUMap.NULL)
+ *
  * 常用场景 ： localCache
  * @author wangzihao
  */
-public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K,V>{
+public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentMap<K,V> {
     public static final Object NULL = new Object(){
         @Override
         public String toString() {
@@ -45,14 +54,29 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     }
 
     public ExpiryLRUMap(long defaultExpiryTime){
-        this(256,Long.MAX_VALUE, defaultExpiryTime,null);
+        this(256, Long.MAX_VALUE, defaultExpiryTime,null);
     }
 
-    public ExpiryLRUMap(int initialCapacity, long maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher){
+    public ExpiryLRUMap(int initialCapacity, long maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher) {
+        this(initialCapacity,maxCacheSize,defaultExpiryTime,weigher,null);
+    }
+
+    /**
+     *
+     * @param initialCapacity initialCapacity
+     * @param maxCacheSize maxCacheSize
+     * @param defaultExpiryTime defaultExpiryTime
+     * @param weigher weigher
+     * @param referenceType null is FinalReference.
+     *                      else if {@link java.lang.ref.WeakReference}
+     *                      else if {@link java.lang.ref.SoftReference}
+     */
+    public ExpiryLRUMap(int initialCapacity, long maxCacheSize, long defaultExpiryTime, ConcurrentLinkedHashMap.Weigher<Node<K,V>> weigher, Class<? extends Reference> referenceType){
         this.defaultExpiryTime = defaultExpiryTime < 0 ? -1 : defaultExpiryTime;
         this.map = new ConcurrentLinkedHashMap.Builder<K,Node<K,V>>()
                 .initialCapacity(initialCapacity)
                 .maximumWeightedCapacity(maxCacheSize)
+                .referenceType(referenceType)
                 .weigher(weigher == null? ConcurrentLinkedHashMap.Weighers.singleton() : weigher)
                 .listener((key, value) -> {
                     Consumer<Node<K,V>> onEvictionConsumer = ExpiryLRUMap.this.onEvictionConsumer;
@@ -403,7 +427,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         return v;
     }
 
-    class Values extends AbstractCollection<V>{
+    class Values extends AbstractCollection<V> {
         private final Collection<Node<K,V>> values;
         Values(Collection<Node<K,V>> values) {
             this.values = values;
@@ -435,7 +459,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         }
     }
 
-    class EntrySet extends AbstractSet<Entry<K,V>>{
+    class EntrySet extends AbstractSet<Entry<K,V>> {
         private final Set<Entry<K, Node<K,V>>> entries;
         EntrySet(Set<Entry<K, Node<K,V>>> entries) {
             this.entries = entries;
@@ -482,7 +506,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
                             if (this == o) {
                                 return true;
                             }
-                            if (!(o instanceof Entry)) {
+                            if (!(o instanceof Map.Entry)) {
                                 return false;
                             }
                             Entry node = (Entry) o;
@@ -702,7 +726,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         }
     }
 
-    public static class ExpiresScan implements Runnable{
+    public static class ExpiresScan implements Runnable {
         public static final ExpiresNotify NOTIFY_INSTANCE = new ExpiresNotify();
         private static final ExpiresScan INSTANCE = new ExpiresScan();
         static final AtomicInteger INCR = new AtomicInteger();
@@ -781,7 +805,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         System.out.println("gc 后 set = " + ExpiryLRUMap.INSTANCE_SET);
 
         int i=0;
-        ExpiryLRUMap<String,Object> expiryLRUMap = new ExpiryLRUMap<>(1,2,
+        ExpiryLRUMap<String, Object> expiryLRUMap = new ExpiryLRUMap<>(1,2,
                 Integer.MAX_VALUE,null
         );
         expiryLRUMap.setOnEvictionConsumer(node -> {
