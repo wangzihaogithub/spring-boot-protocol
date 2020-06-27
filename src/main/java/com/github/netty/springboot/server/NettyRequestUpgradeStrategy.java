@@ -30,10 +30,7 @@ import javax.websocket.Endpoint;
 import javax.websocket.Extension;
 import javax.websocket.server.ServerEndpointConfig;
 import java.security.Principal;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Websocket version number: the version number of draft 8 to draft 12 is 8, and the version number of draft 13 and later is the same as the draft number
@@ -68,7 +65,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
 
         WebSocketServerContainer serverContainer = getContainer(servletRequest);
         Principal principal = request.getPrincipal();
-        Map<String, String> pathParams = new HashMap<>(3);
+        Map<String, String> pathParams = new LinkedHashMap<>(3);
 
         ServerEndpointRegistration endpointConfig = new ServerEndpointRegistration(servletRequest.getRequestURI(), endpoint);
         endpointConfig.setSubprotocols(Arrays.asList(WebSocketServerHandshaker.SUB_PROTOCOL_WILDCARD,selectedProtocol));

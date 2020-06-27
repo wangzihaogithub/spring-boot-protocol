@@ -19,11 +19,11 @@ public class CaseInsensitiveKeyMap<V> extends AbstractMap<String,V> {
     private final Map<Key,V> map;
 
     public CaseInsensitiveKeyMap(){
-        this.map = new HashMap<>();
+        this.map = new LinkedHashMap<>();
     }
 
     public CaseInsensitiveKeyMap(int initialCapacity) {
-        map = new HashMap<>(initialCapacity);
+        map = new LinkedHashMap<>(initialCapacity);
     }
 
     @Override

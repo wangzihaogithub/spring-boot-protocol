@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.util.UrlMapper;
 
 import javax.servlet.*;
 import java.io.IOException;
@@ -19,7 +20,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
      * Consider that each request is handled by only one thread, and that the ServletContext will create a new SimpleFilterChain object on each request
      * therefore, the FilterChain's Iterator is used as a private variable of the FilterChain, without thread safety problems
      */
-    private List<ServletFilterRegistration> filterRegistrationList = new ArrayList<>(16);
+    private List<UrlMapper.Element<ServletFilterRegistration>> filterRegistrationList = new ArrayList<>(16);
     private ServletRegistration servletRegistration;
     private ServletContext servletContext;
     private int pos;
@@ -65,9 +66,9 @@ public class ServletFilterChain implements FilterChain, Recyclable {
         }
 
         if(pos < filterRegistrationList.size()){
-            ServletFilterRegistration filterRegistration = filterRegistrationList.get(pos);
+            UrlMapper.Element<ServletFilterRegistration> element = filterRegistrationList.get(pos);
             pos++;
-            Filter filter = filterRegistration.getFilter();
+            Filter filter = element.getObject().getFilter();
             filter.doFilter(request, response, this);
 
 //            FILTER_SET.add(filter);
@@ -94,7 +95,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
         return servletRegistration;
     }
 
-    public List<ServletFilterRegistration> getFilterRegistrationList() {
+    public List<UrlMapper.Element<ServletFilterRegistration>> getFilterRegistrationList() {
         return filterRegistrationList;
     }
 

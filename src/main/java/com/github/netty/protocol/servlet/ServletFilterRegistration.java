@@ -22,7 +22,7 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private ServletContext servletContext;
     private UrlMapper<ServletFilterRegistration> urlMapper;
     private boolean asyncSupported = true;
-    private Map<String,String> initParameterMap = new HashMap<>();
+    private Map<String,String> initParameterMap = new LinkedHashMap<>();
     private Set<String> mappingSet = new HashSet<String>(){
         @Override
         public boolean add(String pattern) {

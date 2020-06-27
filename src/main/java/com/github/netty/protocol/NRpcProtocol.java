@@ -55,7 +55,7 @@ public class NRpcProtocol extends AbstractProtocol {
      * so the name of the method to ensure that each class is unique)
      */
     private boolean methodOverwriteCheck = true;
-    private Map<Object,Instance> instanceMap = new HashMap<>();
+    private Map<Object,Instance> instanceMap = new LinkedHashMap<>();
     private String serverDefaultVersion;
     private final List<RpcServerAop> rpcServerAopList = new ArrayList<>();
     private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class);

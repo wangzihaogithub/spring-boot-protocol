@@ -46,7 +46,7 @@ public class RpcClient extends AbstractNettyClient{
     private long connectTimeout = 1000;
     private RpcDBService rpcDBService;
     private RpcCommandService rpcCommandService;
-    private final Map<String, Sender> rpcInstanceMap = new HashMap<>(6);
+    private final Map<String, Sender> rpcInstanceMap = new LinkedHashMap<>(6);
     private final AtomicInteger requestIdIncr = new AtomicInteger();
     private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
     private final RpcCommandAsyncService rpcCommandAsyncService;

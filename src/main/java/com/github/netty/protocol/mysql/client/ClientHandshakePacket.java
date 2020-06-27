@@ -34,7 +34,7 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 	private final String username;
 	private final String database;
 	private final String authPluginName;
-	private final Map<String, String> attributes = new HashMap<String, String>();
+	private final Map<String, String> attributes = new LinkedHashMap<String, String>();
 
 	private ClientHandshakePacket(Builder builder) {
 		super(builder.authPluginData);
@@ -115,7 +115,7 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 		private String username;
 		private String database;
 		private String authPluginName;
-		private Map<String, String> attributes = new HashMap<>();
+		private Map<String, String> attributes = new LinkedHashMap<>();
 
 		public Builder sequenceId(int sequenceId) {
 			this.sequenceId = sequenceId;

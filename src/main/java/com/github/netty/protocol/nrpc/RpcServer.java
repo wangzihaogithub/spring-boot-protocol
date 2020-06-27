@@ -23,7 +23,7 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
  *  2018/8/18/018
  */
 public class RpcServer extends AbstractNettyServer{
-    private final Map<Object, Instance> instanceMap = new HashMap<>();
+    private final Map<Object, Instance> instanceMap = new LinkedHashMap<>();
     private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class);
 
     /**

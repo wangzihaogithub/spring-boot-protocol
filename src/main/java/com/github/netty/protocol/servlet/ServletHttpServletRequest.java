@@ -69,7 +69,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private BufferedReader reader;
     private FullHttpRequest nettyRequest;
     private ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
-    private Map<String,Object> attributeMap = Collections.synchronizedMap(new HashMap<>(16));
+    private Map<String,Object> attributeMap = Collections.synchronizedMap(new LinkedHashMap<>(16));
     private LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
     private Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
 	    @Override

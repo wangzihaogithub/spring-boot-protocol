@@ -44,10 +44,12 @@ import java.util.*;
  * Created on 2017-08-25 11:32.
  */
 public class UrlMapper<T> {
+    private int sort = 0;
 	private String rootPath;
     private Collection<Element<T>> elementList = new TreeSet<>();
     private final boolean singlePattern;
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
+    private final Comparator<? super Element<T>> addSortComparator =(o1, o2) -> o1.addSort < o2.addSort ? -1 : 1;
 
     public UrlMapper(boolean singlePattern) {
         this.singlePattern = singlePattern;
@@ -63,7 +65,7 @@ public class UrlMapper<T> {
 		this.rootPath = rootPath;
         Collection<Element<T>> elementList = new TreeSet<>();
 		for(Element<T> element : this.elementList){
-			elementList.add(new Element<>(rootPath,element.originalPattern,element.object,element.objectName));
+			elementList.add(new Element<>(rootPath,element.originalPattern,element.object,element.objectName,sort++));
 		}
 		this.elementList = elementList;
 	}
@@ -88,7 +90,7 @@ public class UrlMapper<T> {
                 }
             }
         }
-        elementList.add(new Element<>(rootPath,urlPattern,object,objectName));
+        elementList.add(new Element<>(rootPath,urlPattern,object,objectName,sort++));
     }
 
     /**
@@ -143,16 +145,17 @@ public class UrlMapper<T> {
      * @param list add in list
      * @param absoluteUri An absolute path
      */
-    public void addMappingObjectsByUri(String absoluteUri, List<T> list) {
+    public void addMappingObjectsByUri(String absoluteUri, List<Element<T>> list) {
         if(!absoluteUri.isEmpty() && absoluteUri.charAt(absoluteUri.length() - 1) == '/'){
             absoluteUri = absoluteUri.substring(0,absoluteUri.length()-1);
         }
         Collection<Element<T>> elementList = this.elementList;
         for (Element<T> element : elementList) {
             if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
-                list.add(element.object);
+                list.add(element);
             }
         }
+        list.sort(addSortComparator);
     }
 
     public static class Element<T> implements Comparable<Element<T>>{
@@ -166,8 +169,13 @@ public class UrlMapper<T> {
         boolean allPatternFlag;
         boolean defaultFlag;
         int sort;
-
-        Element(String rootPath,String originalPattern, T object, String objectName) {
+        int addSort;
+        public Element(String objectName,T object){
+            this.objectName = objectName;
+            this.object = object;
+        }
+        public Element(String rootPath,String originalPattern, T object, String objectName,int addSort) {
+            this.addSort = addSort;
             this.allPatternFlag = "/".equals(originalPattern)
                     || "/*".equals(originalPattern)
                     || "*".equals(originalPattern)
@@ -219,6 +227,10 @@ public class UrlMapper<T> {
             return object;
         }
 
+        public String getObjectName() {
+            return objectName;
+        }
+
         public String getPattern() {
             return pattern;
         }
@@ -242,6 +254,7 @@ public class UrlMapper<T> {
             return "Element{" +
                     "pattern='" + pattern + '\'' +
                     ", objectName='" + objectName + '\'' +
+                    ", addSort=" + addSort +
                     '}';
         }
 

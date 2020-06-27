@@ -238,7 +238,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
      */
     private void decodeParameter(){
         Map<String,String[]> sourceParameterMap = super.getParameterMap();
-        Map<String,String[]> parameterMap = new HashMap<>(sourceParameterMap);
+        Map<String,String[]> parameterMap = new LinkedHashMap<>(sourceParameterMap);
         Charset charset = Charset.forName(getCharacterEncoding());
         ServletUtil.decodeByUrl(parameterMap, dispatchPath,charset);
 

@@ -45,14 +45,14 @@ public class ServletContext implements javax.servlet.ServletContext {
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
      */
     private long uploadMinSize = 4096 * 16;
-    private Map<String,Object> attributeMap = new HashMap<>(16);
-    private Map<String,String> initParamMap = new HashMap<>(16);
-    private Map<String, ServletRegistration> servletRegistrationMap = new HashMap<>(8);
-    private Map<String, ServletFilterRegistration> filterRegistrationMap = new HashMap<>(8);
+    private Map<String,Object> attributeMap = new LinkedHashMap<>(16);
+    private Map<String,String> initParamMap = new LinkedHashMap<>(16);
+    private Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
+    private Map<String, ServletFilterRegistration> filterRegistrationMap = new LinkedHashMap<>(8);
     private FastThreadLocal<Map<Charset, HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, HttpDataFactory>>(){
         @Override
         protected Map<Charset, HttpDataFactory> initialValue() throws Exception {
-            return new HashMap<>(5);
+            return new LinkedHashMap<>(5);
         }
     };
     private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE,SessionTrackingMode.URL));
@@ -344,11 +344,11 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
-        List<ServletFilterRegistration> filterList = filterChain.getFilterRegistrationList();
+        List<UrlMapper.Element<ServletFilterRegistration>> filterList = filterChain.getFilterRegistrationList();
         for (ServletFilterRegistration registration : filterRegistrationMap.values()) {
             for(String servletName : registration.getServletNameMappings()){
                 if(servletName.equals(name)){
-                    filterList.add(registration);
+                    filterList.add(new UrlMapper.Element<>(name,registration));
                 }
             }
         }

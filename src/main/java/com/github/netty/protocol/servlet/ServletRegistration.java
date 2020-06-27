@@ -25,7 +25,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private String roleName;
     private boolean asyncSupported = true;
     private int loadOnStartup = -1;
-    private Map<String,String> initParameterMap = new HashMap<>();
+    private Map<String,String> initParameterMap = new LinkedHashMap<>();
     private Set<String> mappingSet = new HashSet<String>(){
         @Override
         public boolean add(String pattern) {
