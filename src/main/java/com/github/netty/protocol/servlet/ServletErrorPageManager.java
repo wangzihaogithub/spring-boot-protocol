@@ -75,16 +75,23 @@ public class ServletErrorPageManager {
         }
 
         if(throwable != null) {
-            logger.error(throwable.getMessage(), throwable);
+            logger.error(throwable.toString(), throwable);
         }
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
-        ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPage.getPath());
+
+        String errorPagePath = getErrorPagePath(request, errorPage);
+        if (errorPagePath == null) {
+            return;
+        }
+        ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPagePath);
         if (dispatcher == null) {
             try {
-                httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
+                response.resetBuffer();
+                response.getWriter().write("not found ".concat(errorPagePath));
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (IOException e) {
-                logger.error("sendError. error={}",e.toString(),e);
+                logger.error("handleErrorPage() sendError. error={}",e.toString(),e);
             }
             return;
         }
@@ -119,5 +126,17 @@ public class ServletErrorPageManager {
                 throw (VirtualMachineError) e;
             }
         }
+    }
+
+    public static String getErrorPagePath(HttpServletRequest request,ServletErrorPage errorPage){
+        String path = errorPage.getPath();
+        if(path == null || path.isEmpty() ){
+            return null;
+        }
+        if(!path.startsWith("/")){
+            path =  "/".concat(path);
+        }
+        String contextPath = request.getContextPath();
+        return contextPath == null || contextPath.isEmpty()? path : contextPath.concat(path);
     }
 }

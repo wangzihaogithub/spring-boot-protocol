@@ -206,7 +206,12 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void sendError(int sc) throws IOException {
         checkCommitted();
-        nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
+        HttpResponseStatus status = HttpResponseStatus.valueOf(sc);
+        if(status == null){
+            status = new HttpResponseStatus(sc,"");
+        }
+
+        nettyResponse.setStatus(status);
 
         resetBuffer();
         getOutputStream().setSuspendFlag(true);
