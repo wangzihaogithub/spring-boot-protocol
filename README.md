@@ -33,6 +33,7 @@ github地址 : https://github.com/wangzihaogithub
       <version>2.0.12</version>
     </dependency>
 	
+    https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol
 	
 #### 2.开启netty容器
 
