@@ -12,7 +12,7 @@
     
     3.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码替换Feign调用
     
-    4.MQTT等物联网协议可以在不依赖协议网关, 单机同时支持N种协议 (例: HTTP,MQTT,Mysql,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
+    4.MQTT等物联网协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,MQTT,Mysql,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
     
     5.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
     
