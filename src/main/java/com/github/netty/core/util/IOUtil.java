@@ -193,8 +193,17 @@ public class IOUtil {
         return outFile;
     }
 
+    public static String trimFilename(String fileName){
+        return fileName.replace(":","").replace("?","")
+                .replace("|","")
+                .replace("<","")
+                .replace(">","")
+                .replace("*","")
+                .replace("\"","")
+                .trim();
+    }
 
-     /**
+    /**
      * Read the file to bytebuffer.(note: remember to close after using)
       * @param sourcePath sourcePath
      * @param sourceFileName sourceFileName

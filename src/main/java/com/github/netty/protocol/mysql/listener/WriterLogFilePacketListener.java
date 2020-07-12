@@ -97,7 +97,7 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
             StringBuilder sb = new StringBuilder();
             List<String> removeKeyList = new ArrayList<>();
             for (Map.Entry<String, Queue<LogRecord>> entry : Lazy.UNWRITE_LOG_MAP.entrySet()) {
-                String key = entry.getKey();
+                String key = IOUtil.trimFilename(entry.getKey());
                 Queue<LogRecord> queue = entry.getValue();
                 if(queue == null || queue.isEmpty()){
                     removeKeyList.add(key);
