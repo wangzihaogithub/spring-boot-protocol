@@ -15,6 +15,8 @@ import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.BeanInitializationException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
+import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.web.server.*;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
@@ -22,6 +24,7 @@ import org.springframework.util.ResourceUtils;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.security.KeyStore;
@@ -86,13 +89,24 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 //        application.scanner("com.github.netty").inject();
     }
 
+    private static Number getNumberBytes(Object object,String methodName) throws InvocationTargetException, IllegalAccessException {
+        Object value = getMethod(object.getClass(), methodName).invoke(object);
+        if(!(value instanceof Number)) {
+            value = getMethod(value.getClass(), "toBytes").invoke(value);
+        }
+        return (Number) value;
+    }
+
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
         ServletContext servletContext = getServletContext();
+        ServerProperties serverProperties = application.getBean(ServerProperties.class);
+        MultipartProperties multipartProperties = application.getBean(MultipartProperties.class);
+
         InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
         //Server port
         servletContext.setServerAddress(address);
         servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableLookup());
-        servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
+
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
@@ -107,13 +121,24 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
         Compression compression = configurableWebServer.getCompression();
         super.setEnableContentCompression(compression.getEnabled());
-        Object minResponseSize = getMethod(compression.getClass(), "getMinResponseSize").invoke(compression);
-        if(!(minResponseSize instanceof Number)) {
-            minResponseSize = getMethod(minResponseSize.getClass(), "toBytes").invoke(minResponseSize);
-        }
-        super.setContentSizeThreshold(((Number) minResponseSize).intValue());
+        super.setContentSizeThreshold((getNumberBytes(compression,"getMinResponseSize")).intValue());
         super.setCompressionMimeTypes(compression.getMimeTypes().clone());
         super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
+        super.setMaxHeaderSize((getNumberBytes(serverProperties,"getMaxHttpHeaderSize")).intValue());
+
+        String location = null;
+        if(multipartProperties.getEnabled()){
+            Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
+            Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
+            super.setMaxContentLength(Math.max(maxRequestSize.intValue(),maxFileSize.intValue()));
+            location = multipartProperties.getLocation();
+        }
+
+        if(location != null && !location.isEmpty()){
+            servletContext.setDocBase(location,"");
+        }else {
+            servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
+        }
 
         //Error page
         for(ErrorPage errorPage : configurableWebServer.getErrorPages()) {

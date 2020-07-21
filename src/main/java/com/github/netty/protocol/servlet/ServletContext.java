@@ -111,6 +111,10 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public void setDocBase(String docBase){
         String workspace = '/' + (serverAddress == null || HostUtil.isLocalhost(serverAddress.getHostName())? "localhost": serverAddress.getHostName());
+        setDocBase(docBase,workspace);
+    }
+
+    public void setDocBase(String docBase,String workspace){
         this.resourceManager = new ResourceManager(docBase,workspace,classLoader);
         this.resourceManager.mkdirs("/");
 
