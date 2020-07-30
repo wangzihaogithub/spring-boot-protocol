@@ -23,6 +23,9 @@
 github地址 : https://github.com/wangzihaogithub
 
 
+如果需要不依赖spring的servlet, 可以使用 https://github.com/wangzihaogithub/netty-servlet (servlet支持文件零拷贝,自定义扩展)
+
+
 ### 使用方法
 
 #### 1.添加依赖, 在pom.xml中加入 （注: 1.x.x版本是用于springboot1.0，2.x.x版本用于springboot2.0）
