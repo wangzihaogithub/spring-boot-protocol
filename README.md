@@ -23,7 +23,7 @@
 github地址 : https://github.com/wangzihaogithub
 
 
-如果需要不依赖spring的servlet, 可以使用 https://github.com/wangzihaogithub/netty-servlet (servlet支持文件零拷贝,自定义扩展)
+如果需要不依赖spring的servlet, 可以使用 https://github.com/wangzihaogithub/netty-servlet (支持文件零拷贝,可扩展底层通讯)
 
 
 ### 使用方法
