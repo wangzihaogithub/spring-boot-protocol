@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.HttpHeaderUtil;
+import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import io.netty.buffer.ByteBuf;

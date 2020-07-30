@@ -1,6 +1,7 @@
-package com.github.netty.core.util;
+package com.github.netty.protocol.servlet.util;
 
-import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
+import com.github.netty.core.util.StringUtil;
+import com.github.netty.core.util.TypeUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.*;
 

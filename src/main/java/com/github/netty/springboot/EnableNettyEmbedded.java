@@ -16,7 +16,7 @@ import java.lang.annotation.*;
  *      2. rpc server protocol. {@link HRpcProtocolSpringAdapter}
  *      3. and user-defined protocols..
  *
- * If you want to add your own protocol,  you need implement {@link AbstractProtocol}
+ * If you want to add your own protocol,  you only need implement {@link AbstractProtocol}, Next restart, do not need to do other things
  * <pre> {@code
  *     \@Component
  *     public class MyProtocolsRegister extends AbstractProtocolsRegister{

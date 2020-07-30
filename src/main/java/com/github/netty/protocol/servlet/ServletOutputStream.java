@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
+import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;

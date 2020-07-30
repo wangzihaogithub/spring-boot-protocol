@@ -1,10 +1,7 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.*;
-import com.github.netty.protocol.servlet.util.HttpConstants;
-import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import com.github.netty.protocol.servlet.util.ServletUtil;
-import com.github.netty.protocol.servlet.util.SnowflakeIdWorker;
+import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
