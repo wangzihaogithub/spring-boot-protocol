@@ -80,7 +80,6 @@ com.github.netty.core.ProtocolHandler 处理之后的数据交换逻辑
 
 * 如果觉得这个产品还不错，请多多向您的朋友、同事推荐，感谢至极
 
-#### 参考平台
 
 http://alios.cn
 
