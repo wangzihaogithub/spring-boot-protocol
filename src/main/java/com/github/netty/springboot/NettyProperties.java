@@ -198,17 +198,17 @@ public class NettyProperties implements Serializable{
         /**
          * 请求体最大字节
          */
-        private int maxContentSize = 5 * 1024 * 1024;
+        private int maxContentSize = 20 * 1024 * 1024;
         /**
          * 请求头每行最大字节
          */
-        private int maxHeaderLineSize = 4096;
+        private int maxHeaderLineSize = 40960;
         /**
          * 请求头最大字节
          */
-        private int maxHeaderSize = 8192;
+        private int maxHeaderSize = 81920;
         /**
-         * 大于这个字节则进行分段传输
+         * 大于这个字节则进行分段传输,每段大小
          */
         private int maxChunkSize = 5 * 1024 * 1024;
         /**
