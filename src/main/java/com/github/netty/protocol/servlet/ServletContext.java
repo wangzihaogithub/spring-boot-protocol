@@ -67,7 +67,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     private ResourceManager resourceManager;
     private ExecutorService asyncExecutorService;
-    private SessionService sessionService = new SessionLocalMemoryServiceImpl();
+    private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
     private boolean enableLookupFlag = false;
@@ -240,6 +240,13 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public SessionService getSessionService() {
+        if(sessionService == null){
+            synchronized (this){
+                if(sessionService == null){
+                    sessionService = new SessionLocalMemoryServiceImpl();
+                }
+            }
+        }
         return sessionService;
     }
 

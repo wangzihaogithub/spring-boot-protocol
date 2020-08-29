@@ -84,7 +84,6 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         servletContext.setAsyncExecutorService(asyncExecutorService);
 
         application.addSingletonBeanDefinition(servletContext);
-        application.addSingletonBeanDefinition(servletContext.getSessionService());
 
 //        application.scanner("com.github.netty").inject();
     }
