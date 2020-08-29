@@ -37,9 +37,9 @@ public class HttpServletProtocol extends AbstractProtocol {
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
     private ChannelHandler servletHandler;
-    private int maxContentLength = 5 * 1024 * 1024;
-    private int maxInitialLineLength = 4096;
-    private int maxHeaderSize = 8192;
+    private int maxContentLength = 20 * 1024 * 1024;
+    private int maxInitialLineLength = 40960;
+    private int maxHeaderSize = 81920;
     private int maxChunkSize = 5 * 1024 * 1024;
     /**
      * output stream maxBufferBytes
