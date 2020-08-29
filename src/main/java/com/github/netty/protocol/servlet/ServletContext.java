@@ -273,7 +273,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public int getMajorVersion() {
-        return 3;
+        return 4;
     }
 
     @Override
