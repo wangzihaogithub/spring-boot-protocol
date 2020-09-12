@@ -40,6 +40,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 	private SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
+    private DispatcherType dispatcherType = null;
 
     private String serverName;
     private int serverPort;
@@ -131,6 +132,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
         this.servletSecurityElement = servletSecurityElement;
+    }
+
+    void setDispatcherType(DispatcherType dispatcherType) {
+        this.dispatcherType = dispatcherType;
     }
 
     boolean isAsync(){
@@ -1065,7 +1070,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public DispatcherType getDispatcherType() {
-        return DispatcherType.REQUEST;
+        if (dispatcherType == null) {
+            return DispatcherType.REQUEST;
+        }
+        return this.dispatcherType;
     }
 
     @Override
@@ -1252,6 +1260,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.servletHttpExchange = null;
         this.multipartConfigElement = null;
         this.servletSecurityElement = null;
+        this.dispatcherType = null;
 
         this.parameterMap.clear();
         this.fileUploadList.clear();

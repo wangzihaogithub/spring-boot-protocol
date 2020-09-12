@@ -4,6 +4,7 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -103,7 +104,8 @@ public class ServletErrorPageManager {
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME,dispatcher.getName());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, response.getStatus());
-//            httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, response.getMessage());
+            httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, response.getMessage());
+            request.setDispatcherType(DispatcherType.ERROR);
 
             if (httpServletResponse.isCommitted()) {
                 dispatcher.include(request, httpServletResponse);

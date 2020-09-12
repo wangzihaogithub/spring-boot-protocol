@@ -77,7 +77,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
 
     @Override
     public DispatcherType getDispatcherType() {
-        return DispatcherType.FORWARD;
+        return DispatcherType.ASYNC;
     }
 
     @Override
