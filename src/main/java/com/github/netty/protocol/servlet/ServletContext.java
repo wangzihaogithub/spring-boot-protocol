@@ -1,5 +1,6 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.Version;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
@@ -413,13 +414,13 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getServerInfo() {
-        return ServerInfo.getServerInfo()
+        return Version.getServerInfo()
                 .concat("(JDK ")
-                .concat(ServerInfo.getJvmVersion())
+                .concat(Version.getJvmVersion())
                 .concat(";")
-                .concat(ServerInfo.getOsName())
+                .concat(Version.getOsName())
                 .concat(" ")
-                .concat(ServerInfo.getArch())
+                .concat(Version.getArch())
                 .concat(")");
     }
 
@@ -697,7 +698,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getVirtualServerName() {
-        return ServerInfo.getServerInfo()
+        return Version.getServerInfo()
         .concat(" (")
         .concat(serverAddress.getHostName())
         .concat(":")

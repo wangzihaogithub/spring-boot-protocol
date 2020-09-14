@@ -1,9 +1,13 @@
-package com.github.netty.core.util;
+package com.github.netty.core;
 
 import java.io.InputStream;
 import java.util.Properties;
 
-public class ServerInfo {
+/**
+ * server version
+ * @author wangzihao
+ */
+public final class Version {
     private static final String SERVER_INFO;
     private static final String SERVER_BUILT;
     private static final String SERVER_NUMBER;
@@ -17,7 +21,7 @@ public class ServerInfo {
         String number = null;
 
         Properties props = new Properties();
-        try (InputStream is = ServerInfo.class.getResourceAsStream
+        try (InputStream is = Version.class.getResourceAsStream
                 ("/server.properties")) {
             props.load(is);
             info = props.getProperty("server.info");
