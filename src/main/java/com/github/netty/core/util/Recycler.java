@@ -1,8 +1,13 @@
 package com.github.netty.core.util;
 
+import io.netty.util.concurrent.FastThreadLocal;
+import io.netty.util.internal.PlatformDependent;
+
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Queue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Supplier;
 
@@ -11,12 +16,18 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class Recycler<T> {
-    private static final int DEFAULT_INSTANCE_COUNT = SystemPropertyUtil.getInt("netty-core.recyclerCount",30);
+    private static final int DEFAULT_INSTANCE_COUNT = SystemPropertyUtil.getInt("netty-core.recyclerCount",2);
     private static final boolean ENABLE = SystemPropertyUtil.getBoolean("netty-core.recyclerEnable",true);
+    private final int instanceCount;
     /**
      * The instance queue of the current object
      */
-    private Queue<T> queue;
+    private final FastThreadLocal<Queue<T>> queue = new FastThreadLocal<Queue<T>>(){
+        @Override
+        protected Queue<T> initialValue() throws Exception {
+            return PlatformDependent.newFixedMpscQueue(instanceCount);
+        }
+    };
     /**
      * New instance factory for the current object
      */
@@ -26,8 +37,8 @@ public class Recycler<T> {
      * All recyclers
      */
     private static final List<Recycler> RECYCLER_LIST = new ArrayList<>();
-    public static final LongAdder TOTAL_COUNT = new LongAdder();
     public static final LongAdder HIT_COUNT = new LongAdder();
+    public static final LongAdder MISS_COUNT = new LongAdder();
 
 //    private StackTraceElement formStack;
     private Thread formThread;
@@ -37,17 +48,11 @@ public class Recycler<T> {
     }
 
     public Recycler(int instanceCount, Supplier<T> supplier) {
+        this.instanceCount = instanceCount;
         this.supplier = supplier;
-        this.queue = new Queue<>();
         RECYCLER_LIST.add(this);
         this.formThread = Thread.currentThread();
 //        this.formStack = formThread.getStackTrace()[3];
-
-        if(ENABLE) {
-            for (int i = 0; i < instanceCount; i++) {
-                recycleInstance(supplier.get());
-            }
-        }
     }
 
     /**
@@ -64,11 +69,11 @@ public class Recycler<T> {
      */
     public T getInstance() {
         if(ENABLE) {
-            TOTAL_COUNT.increment();
-            T value = queue.pop();
+            T value = queue.get().poll();
             if (value == null) {
                 value = supplier.get();
-            } else {
+                MISS_COUNT.increment();
+            }else {
                 HIT_COUNT.increment();
             }
             return value;
@@ -82,30 +87,44 @@ public class Recycler<T> {
      * @param value value
      */
     public void recycleInstance(T value) {
-        queue.push(value);
+        queue.get().offer(value);
     }
 
 
     @Override
     public String toString() {
         return "Recycler{" +
-                "size=" + queue.size() +
+                "size=" + queue.get().size() +
 //                ", formStack=" + StringUtil.simpleClassName(formStack.getClassName()) +
                 ", formThread=" + formThread +
                 '}';
     }
 
-    /**
-     * Queue of instances
-     * @param <E> type
-     */
-    private static class Queue<E> extends ConcurrentLinkedQueue<E> {
-         public void push(E e) {
-             super.offer(e);
-         }
+    public static void main(String[] args) throws InterruptedException {
+        int count = 10000;
+        Recycler<Date> recycler = new Recycler<>(()->{
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return new Date();
+        });
 
-         public E pop() {
-             return super.poll();
-         }
-     }
+
+        ThreadPoolX threadPool = new ThreadPoolX("Test", 16);
+        long begin = System.currentTimeMillis();
+        CountDownLatch latch = new CountDownLatch(count);
+        for (int i = 0; i < count; i++) {
+            threadPool.execute(() -> {
+                Date instance = recycler.getInstance();
+                recycler.recycleInstance(instance);
+                latch.countDown();
+            });
+        }
+        latch.await();
+
+        long time = System.currentTimeMillis() - begin;
+        System.out.printf("time = %d/ms, hit = %s/c, mis = %s/c\n", time, Recycler.HIT_COUNT, Recycler.MISS_COUNT);
+    }
 }

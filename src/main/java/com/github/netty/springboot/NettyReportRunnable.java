@@ -73,7 +73,7 @@ public class NettyReportRunnable implements Runnable{
 //            joiner.add("filter平均时间="+ formatRate(filterAvgRuntime,4)+"ms, ");
 //            joiner.add("\r\n "+filterJoin.toString());
 
-            long recyclerTotal = Recycler.TOTAL_COUNT.sum();
+            long recyclerTotal = Recycler.MISS_COUNT.sum() + Recycler.HIT_COUNT.sum();
             long recyclerHit = Recycler.HIT_COUNT.sum();
             double hitRate = (double) recyclerHit/(double) recyclerTotal;
             joiner.add("\r\n获取实例次数="+ recyclerTotal+"次");
