@@ -139,7 +139,7 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
             }
             for (String key : removeKeyList) {
                 Queue<LogRecord> records = Lazy.UNWRITE_LOG_MAP.get(key);
-                if(records.isEmpty()){
+                if(records != null && records.isEmpty()){
                     Lazy.UNWRITE_LOG_MAP.remove(key);
                 }
             }
