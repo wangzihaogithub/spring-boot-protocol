@@ -8,6 +8,8 @@ import io.netty.channel.*;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.util.ReferenceCountUtil;
 
+import java.io.Flushable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
@@ -302,6 +304,13 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 }
                 requiresFlush = false;
             } else {
+                if(pendingMessage instanceof Flushable){
+                    try {
+                        ((Flushable) pendingMessage).flush();
+                    } catch (IOException e) {
+                        LOGGER.warn(pendingMessage.getClass().getSimpleName() + " flush error", e);
+                    }
+                }
                 removeFirst();
                 ctx.write(pendingMessage, currentWrite.promise);
                 requiresFlush = true;

@@ -1,30 +1,39 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.CompositeByteBufX;
+import com.github.netty.core.util.*;
+import com.github.netty.protocol.servlet.util.HttpConstants;
+import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
-import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.ReflectUtil;
+import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
 
+import javax.servlet.http.Cookie;
+import java.io.Flushable;
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * NettyHttpResponse
  * @author wangzihao
  * 2018/7/28/028
  */
-public class NettyHttpResponse implements HttpResponse, Recyclable {
+public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     public static final HttpResponseStatus DEFAULT_STATUS = HttpResponseStatus.OK;
-
+    private static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
     private DecoderResult decoderResult;
     private HttpVersion version;
     private HttpHeaders headers;
     private HttpResponseStatus status;
     private CompositeByteBufX content;
     private LastHttpContent lastHttpContent;
+    private ServletHttpExchange exchange;
+    protected final AtomicBoolean isSettingResponse = new AtomicBoolean(false);
 
     public NettyHttpResponse() {
         this.headers = new DefaultHttpHeaders(false);
@@ -47,6 +56,10 @@ public class NettyHttpResponse implements HttpResponse, Recyclable {
 
     public boolean isTransferEncodingChunked(){
         return HttpHeaderUtil.isTransferEncodingChunked(headers);
+    }
+
+    void setExchange(ServletHttpExchange exchange) {
+        this.exchange = exchange;
     }
 
     @Override
@@ -117,7 +130,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable {
 
     public NettyHttpResponse touch(Object hint) {
 //        content.touch(hint);
-        Method method = ReflectUtil.getAccessibleMethod(content.getClass(), "touch",Object.class);
+        Method method = ReflectUtil.getAccessibleMethod(content.getClass(), "touch", Object.class);
         try {
             method.invoke(content,hint);
         } catch (Exception e) {
@@ -200,6 +213,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable {
         this.status = DEFAULT_STATUS;
         this.lastHttpContent = null;
         this.decoderResult = DecoderResult.SUCCESS;
+        this.isSettingResponse.set(false);
     }
 
     @Override
@@ -246,6 +260,107 @@ public class NettyHttpResponse implements HttpResponse, Recyclable {
                 ", headers=" + headers +
                 ", status=" + status +
                 '}';
+    }
+
+    @Override
+    public void flush() throws IOException {
+        if(isSettingResponse.compareAndSet(false,true)) {
+            //Configure the response header
+            ServletHttpServletRequest servletRequest = exchange.getRequest();
+            ServletHttpServletResponse servletResponse = exchange.getResponse();
+            ServletSessionCookieConfig sessionCookieConfig = exchange.getServletContext().getSessionCookieConfig();
+
+            IOUtil.writerModeToReadMode(content());
+
+            settingResponseHeader(exchange.isHttpKeepAlive(), servletRequest,
+                    servletResponse.getContentType(),servletResponse.getCharacterEncoding(),
+                    servletResponse.getContentLength(),servletResponse.getLocale(),
+                    servletResponse.getCookies(), sessionCookieConfig);
+        }
+    }
+
+    /**
+     * Set the response header
+     * @param isKeepAlive isKeepAlive
+     * @param servletRequest servletRequest
+     * @param contentType contentType
+     * @param characterEncoding characterEncoding
+     * @param contentLength contentLength
+     * @param locale locale
+     * @param cookies cookies
+     * @param sessionCookieConfig sessionCookieConfig
+     */
+    private void settingResponseHeader(boolean isKeepAlive,
+                                       ServletHttpServletRequest servletRequest,
+                                       String contentType, String characterEncoding, long contentLength, Locale locale, List<Cookie> cookies,
+                                       ServletSessionCookieConfig sessionCookieConfig) {
+        HttpHeaderUtil.setKeepAlive(this, isKeepAlive);
+        HttpHeaders headers = headers();
+
+        //Content length
+        if(contentLength >= 0) {
+            headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
+            headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
+        }else {
+            enableTransferEncodingChunked();
+        }
+
+        // Time and date response header
+        if(!headers.contains(HttpHeaderConstants.DATE)) {
+            headers.set(HttpHeaderConstants.DATE, ServletUtil.getDateByRfcHttp());
+        }
+
+        //Content Type The content of the response header
+        if (null != contentType) {
+            String value = (null == characterEncoding) ? contentType :
+                    RecyclableUtil.newStringBuilder()
+                            .append(contentType)
+                            .append(APPEND_CONTENT_TYPE)
+                            .append(characterEncoding).toString();
+            headers.set(HttpHeaderConstants.CONTENT_TYPE, value);
+        }
+
+        //Server information response header
+        String serverHeader = servletRequest.getServletContext().getServerHeader();
+        if(serverHeader != null && serverHeader.length() > 0) {
+            headers.set(HttpHeaderConstants.SERVER, serverHeader);
+        }
+
+        //language
+        if(!headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
+            headers.set(HttpHeaderConstants.CONTENT_LANGUAGE,locale.toLanguageTag());
+        }
+
+        // Cookies processing
+        //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
+        ServletHttpSession httpSession = servletRequest.getSession(false);
+        if (httpSession != null && httpSession.isNew()
+//		        && !httpSession.getId().equals(servletRequest.getRequestedSessionId())
+        ) {
+            String sessionCookieName = sessionCookieConfig.getName();
+            if(sessionCookieName == null || sessionCookieName.isEmpty()){
+                sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;
+            }
+            String sessionCookiePath = sessionCookieConfig.getPath();
+            if(sessionCookiePath == null || sessionCookiePath.isEmpty()) {
+                sessionCookiePath = HttpConstants.DEFAULT_SESSION_COOKIE_PATH;
+            }
+            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName,servletRequest.getRequestedSessionId(), -1,
+                    sessionCookiePath,sessionCookieConfig.getDomain(),sessionCookieConfig.isSecure(), Boolean.TRUE);
+            headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
+
+            httpSession.setNewSessionFlag(false);
+        }
+
+        //Cookies set by other businesses or frameworks are written to the response header one by one
+        int cookieSize = cookies.size();
+        if(cookieSize > 0) {
+            for (int i=0; i<cookieSize; i++) {
+                Cookie cookie = cookies.get(i);
+                String cookieText = ServletUtil.encodeCookie(cookie.getName(),cookie.getValue(),cookie.getMaxAge(),cookie.getPath(),cookie.getDomain(),cookie.getSecure(),cookie.isHttpOnly());
+                headers.add(HttpHeaderConstants.SET_COOKIE, cookieText);
+            }
+        }
     }
 
 }

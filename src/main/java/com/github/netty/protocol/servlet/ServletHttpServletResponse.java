@@ -52,7 +52,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
          */
         instance.outputStream.wrap(ServletOutputStream.newInstance(servletHttpExchange));
         //------------------------
-
+        instance.nettyResponse.setExchange(servletHttpExchange);
         return instance;
     }
 
@@ -206,12 +206,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void sendError(int sc) throws IOException {
         checkCommitted();
-        HttpResponseStatus status = HttpResponseStatus.valueOf(sc);
-        if(status == null){
-            status = new HttpResponseStatus(sc,"");
-        }
-
-        nettyResponse.setStatus(status);
+        nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
 
         resetBuffer();
         getOutputStream().setSuspendFlag(true);
@@ -348,7 +343,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             setCharacterEncoding(characterEncoding);
         }
 
-        writer = new ServletPrintWriter(getOutputStream(),Charset.forName(characterEncoding));
+        writer = new ServletPrintWriter(getOutputStream(), Charset.forName(characterEncoding));
         return writer;
     }
 

@@ -106,6 +106,33 @@ public final class SystemPropertyUtil {
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
      */
+    public static float getFloat(String key, float def) {
+        String value = get(key);
+        if (value == null) {
+            return def;
+        }
+
+        value = value.trim();
+        try {
+            return Float.parseFloat(value);
+        } catch (Exception e) {
+            // Ignore
+        }
+
+        LOGGER.warn(
+                "Unable to parse the float system property '{}':{} - using the default value: {}",
+                key, value, def
+        );
+
+        return def;
+    }
+
+    /**
+     * Returns the value of the Java system property with the specified
+     * @param key while falling back to the specified default value if the property access fails.
+     * @param def if there's no such property or if an access to the  specified property is not allowed.
+     * @return the property value.
+     */
     public static int getInt(String key, int def) {
         String value = get(key);
         if (value == null) {

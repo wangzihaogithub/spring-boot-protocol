@@ -104,7 +104,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
         //Server port
         servletContext.setServerAddress(address);
-        servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableLookup());
+        servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
 
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());

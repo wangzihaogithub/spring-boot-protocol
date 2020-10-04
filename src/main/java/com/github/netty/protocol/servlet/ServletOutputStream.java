@@ -1,46 +1,39 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.*;
-import com.github.netty.protocol.servlet.util.HttpConstants;
-import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
-import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
-import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.WriteListener;
-import javax.servlet.http.Cookie;
 import java.io.File;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
  * Servlet OutputStream
  * @author wangzihao
  */
-public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable,NettyOutputStream {
-    public static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
+public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable, NettyOutputStream {
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
-
+    private static final Lock ALLOC_DIRECT_BUFFER_LOCK = new ReentrantLock();
+    private static final float THRESHOLD = SystemPropertyUtil.getFloat("netty-servlet.directBufferThreshold",0.8F);
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
     private ServletHttpExchange servletHttpExchange;
     private WriteListener writeListener;
     private CloseListener closeListenerWrapper = new CloseListener();
     private int responseWriterChunkMaxHeapByteLength;
     protected AtomicBoolean isSendResponse = new AtomicBoolean(false);
-    protected AtomicBoolean isSettingResponse = new AtomicBoolean(false);
 
     protected ServletOutputStream() {}
 
@@ -49,7 +42,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         instance.setServletHttpExchange(servletHttpExchange);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
         instance.isSendResponse.set(false);
-        instance.isSettingResponse.set(false);
         instance.isClosed.set(false);
         return instance;
     }
@@ -157,13 +149,13 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         flush0();
     }
 
-    protected void flush0(){
+    protected void flush0() throws IOException {
         writeResponseHeaderIfNeed();
-        if(isSettingResponse.compareAndSet(false,true)){
-            settingResponse();
+        ServletHttpExchange exchange = this.servletHttpExchange;
+        if(exchange != null) {
+            exchange.getResponse().getNettyResponse().flush();
+            exchange.getChannelHandlerContext().flush();
         }
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        context.flush();
     }
 
     /**
@@ -177,7 +169,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * ■AsyncContext.complete Method called
      */
     @Override
-    public void close() throws IOException{
+    public void close() throws IOException {
         if(isClosed()){
             return;
         }
@@ -190,21 +182,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             context.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
                     .addListener(closeListenerWrapper);
         }
-    }
-
-    /**
-     * Send a response
-     */
-    protected void settingResponse(){
-        //Write the pipe, send it, release the data resource at the same time, then manage the link if it needs to be closed, and finally the callback completes
-        ServletHttpServletRequest servletRequest = servletHttpExchange.getRequest();
-        ServletHttpServletResponse servletResponse = servletHttpExchange.getResponse();
-        NettyHttpResponse nettyResponse = servletResponse.getNettyResponse();
-        ServletSessionCookieConfig sessionCookieConfig = servletHttpExchange.getServletContext().getSessionCookieConfig();
-        boolean isKeepAlive = servletHttpExchange.isHttpKeepAlive();
-
-        IOUtil.writerModeToReadMode(nettyResponse.content());
-        settingResponseHeader(isKeepAlive, nettyResponse, servletRequest, servletResponse, sessionCookieConfig);
     }
 
     /**
@@ -241,11 +218,16 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     protected ByteBuf allocByteBuf(ByteBufAllocator allocator, int len){
         ByteBuf ioByteBuf;
-        if(len > responseWriterChunkMaxHeapByteLength){
-            if(PlatformDependent.usedDirectMemory() + len >= PlatformDependent.maxDirectMemory() * 0.8F){
-                ioByteBuf = allocator.heapBuffer(len);
-            }else {
-                ioByteBuf = allocator.directBuffer(len);
+        if(len > responseWriterChunkMaxHeapByteLength && PlatformDependent.usedDirectMemory() + len < PlatformDependent.maxDirectMemory() * THRESHOLD){
+            ALLOC_DIRECT_BUFFER_LOCK.lock();
+            try {
+                if (PlatformDependent.usedDirectMemory() + len < PlatformDependent.maxDirectMemory() * THRESHOLD) {
+                    ioByteBuf = allocator.directBuffer(len);
+                } else {
+                    ioByteBuf = allocator.heapBuffer(len);
+                }
+            }finally {
+                ALLOC_DIRECT_BUFFER_LOCK.unlock();
             }
         }else {
             ioByteBuf = allocator.heapBuffer(len);
@@ -310,91 +292,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     public boolean isClosed(){
         return isClosed.get();
-    }
-
-    /**
-     * Set the response header
-     * @param isKeepAlive keep alive
-     * @param nettyResponse nettyResponse
-     * @param servletRequest servletRequest
-     * @param servletResponse servletResponse
-     * @param sessionCookieConfig sessionCookieConfig
-     */
-    private static void settingResponseHeader(boolean isKeepAlive, NettyHttpResponse nettyResponse,
-                                              ServletHttpServletRequest servletRequest, ServletHttpServletResponse servletResponse,
-                                              ServletSessionCookieConfig sessionCookieConfig) {
-        HttpHeaderUtil.setKeepAlive(nettyResponse, isKeepAlive);
-        HttpHeaders headers = nettyResponse.headers();
-
-        //Content length
-        long contentLength = servletResponse.getContentLength();
-        if(contentLength >= 0) {
-            headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
-            headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
-        }else {
-            nettyResponse.enableTransferEncodingChunked();
-        }
-
-        // Time and date response header
-        if(!headers.contains(HttpHeaderConstants.DATE)) {
-            headers.set(HttpHeaderConstants.DATE, ServletUtil.getDateByRfcHttp());
-        }
-
-        //Content Type The content of the response header
-        String contentType = servletResponse.getContentType();
-        if (null != contentType) {
-            String characterEncoding = servletResponse.getCharacterEncoding();
-            String value = (null == characterEncoding) ? contentType :
-                    RecyclableUtil.newStringBuilder()
-                            .append(contentType)
-                            .append(APPEND_CONTENT_TYPE)
-                            .append(characterEncoding).toString();
-            headers.set(HttpHeaderConstants.CONTENT_TYPE, value);
-        }
-
-        //Server information response header
-        String serverHeader = servletRequest.getServletContext().getServerHeader();
-        if(serverHeader != null && serverHeader.length() > 0) {
-            headers.set(HttpHeaderConstants.SERVER, serverHeader);
-        }
-
-        //language
-        Locale locale = servletResponse.getLocale();
-        if(!headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
-            headers.set(HttpHeaderConstants.CONTENT_LANGUAGE,locale.toLanguageTag());
-        }
-
-        // Cookies processing
-        //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
-        List<Cookie> cookies = servletResponse.getCookies();
-        ServletHttpSession httpSession = servletRequest.getSession(false);
-        if (httpSession != null && httpSession.isNew()
-//		        && !httpSession.getId().equals(servletRequest.getRequestedSessionId())
-        ) {
-            String sessionCookieName = sessionCookieConfig.getName();
-            if(sessionCookieName == null || sessionCookieName.isEmpty()){
-                sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;
-            }
-            String sessionCookiePath = sessionCookieConfig.getPath();
-            if(sessionCookiePath == null || sessionCookiePath.isEmpty()) {
-                sessionCookiePath = HttpConstants.DEFAULT_SESSION_COOKIE_PATH;
-            }
-            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName,servletRequest.getRequestedSessionId(), -1,
-                    sessionCookiePath,sessionCookieConfig.getDomain(),sessionCookieConfig.isSecure(),Boolean.TRUE);
-            headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
-
-            httpSession.setNewSessionFlag(false);
-        }
-
-        //Cookies set by other businesses or frameworks are written to the response header one by one
-        int cookieSize = cookies.size();
-        if(cookieSize > 0) {
-            for (int i=0; i<cookieSize; i++) {
-                Cookie cookie = cookies.get(i);
-                String cookieText = ServletUtil.encodeCookie(cookie.getName(),cookie.getValue(),cookie.getMaxAge(),cookie.getPath(),cookie.getDomain(),cookie.getSecure(),cookie.isHttpOnly());
-                headers.add(HttpHeaderConstants.SET_COOKIE, cookieText);
-            }
-        }
     }
 
     @Override

@@ -43,7 +43,7 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
-    private int serverIoThreads = 0;
+    private int serverIoThreads = 50;
     /**
      * 服务端-io线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大
      */
@@ -198,19 +198,23 @@ public class NettyProperties implements Serializable{
         /**
          * 请求体最大字节
          */
-        private int maxContentSize = 20 * 1024 * 1024;
+        private int requestMaxContentSize = 20 * 1024 * 1024;
         /**
          * 请求头每行最大字节
          */
-        private int maxHeaderLineSize = 40960;
+        private int requestMaxHeaderLineSize = 40960;
         /**
          * 请求头最大字节
          */
-        private int maxHeaderSize = 81920;
+        private int requestMaxHeaderSize = 81920;
         /**
-         * 大于这个字节则进行分段传输,每段大小
+         * 请求分块传输的每段上限
          */
-        private int maxChunkSize = 5 * 1024 * 1024;
+        private int requestMaxChunkSize = 5 * 1024 * 1024;
+        /**
+         * 响应最大缓冲区大小（超过这个大小，会触发flush方法，发送给网络并清空缓冲区）
+         */
+        private int responseMaxBufferSize = 1024 * 1024;
         /**
          * 服务端 - servlet线程执行器
          */
@@ -237,7 +241,7 @@ public class NettyProperties implements Serializable{
         /**
          * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
          */
-        private int responseWriterChunkMaxHeapByteLength = 4096 * 10;
+        private int responseWriterChunkMaxHeapByteLength = 4096 * 5;
 
         /**
          * servlet文件存储的根目录。(servlet文件上传下载) 如果未指定，则使用临时目录。
@@ -247,7 +251,16 @@ public class NettyProperties implements Serializable{
         /**
          * 是否开启DNS地址查询. true=开启 {@link javax.servlet.ServletRequest#getRemoteHost}
          */
-        private boolean enableLookup = false;
+        private boolean enableNsLookup = false;
+
+
+        public int getResponseMaxBufferSize() {
+            return responseMaxBufferSize;
+        }
+
+        public void setResponseMaxBufferSize(int responseMaxBufferSize) {
+            this.responseMaxBufferSize = responseMaxBufferSize;
+        }
 
         public boolean isAsyncSwitchThread() {
             return asyncSwitchThread;
@@ -265,44 +278,44 @@ public class NettyProperties implements Serializable{
             this.asyncExecutorService = asyncExecutorService;
         }
 
-        public boolean isEnableLookup() {
-            return enableLookup;
+        public boolean isEnableNsLookup() {
+            return enableNsLookup;
         }
 
-        public void setEnableLookup(boolean enableLookup) {
-            this.enableLookup = enableLookup;
+        public void setEnableNsLookup(boolean enableNsLookup) {
+            this.enableNsLookup = enableNsLookup;
         }
 
-        public int getMaxContentSize() {
-            return maxContentSize;
+        public int getRequestMaxContentSize() {
+            return requestMaxContentSize;
         }
 
-        public void setMaxContentSize(int maxContentSize) {
-            this.maxContentSize = maxContentSize;
+        public void setRequestMaxContentSize(int requestMaxContentSize) {
+            this.requestMaxContentSize = requestMaxContentSize;
         }
 
-        public int getMaxHeaderLineSize() {
-            return maxHeaderLineSize;
+        public int getRequestMaxHeaderLineSize() {
+            return requestMaxHeaderLineSize;
         }
 
-        public void setMaxHeaderLineSize(int maxHeaderLineSize) {
-            this.maxHeaderLineSize = maxHeaderLineSize;
+        public void setRequestMaxHeaderLineSize(int requestMaxHeaderLineSize) {
+            this.requestMaxHeaderLineSize = requestMaxHeaderLineSize;
         }
 
-        public int getMaxHeaderSize() {
-            return maxHeaderSize;
+        public int getRequestMaxHeaderSize() {
+            return requestMaxHeaderSize;
         }
 
-        public void setMaxHeaderSize(int maxHeaderSize) {
-            this.maxHeaderSize = maxHeaderSize;
+        public void setRequestMaxHeaderSize(int requestMaxHeaderSize) {
+            this.requestMaxHeaderSize = requestMaxHeaderSize;
         }
 
-        public int getMaxChunkSize() {
-            return maxChunkSize;
+        public int getRequestMaxChunkSize() {
+            return requestMaxChunkSize;
         }
 
-        public void setMaxChunkSize(int maxChunkSize) {
-            this.maxChunkSize = maxChunkSize;
+        public void setRequestMaxChunkSize(int requestMaxChunkSize) {
+            this.requestMaxChunkSize = requestMaxChunkSize;
         }
 
         public Class<?extends Executor> getServerHandlerExecutor() {

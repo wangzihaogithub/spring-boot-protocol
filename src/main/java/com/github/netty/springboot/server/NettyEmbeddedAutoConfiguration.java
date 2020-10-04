@@ -94,10 +94,11 @@ public class NettyEmbeddedAutoConfiguration {
 
         HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(nettyProperties,serverHandlerExecutor,resourceLoader.getClassLoader());
         NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
-        protocol.setMaxInitialLineLength(http.getMaxHeaderLineSize());
-        protocol.setMaxHeaderSize(http.getMaxHeaderSize());
-        protocol.setMaxContentLength(http.getMaxContentSize());
-        protocol.setMaxChunkSize(http.getMaxChunkSize());
+        protocol.setMaxInitialLineLength(http.getRequestMaxHeaderLineSize());
+        protocol.setMaxHeaderSize(http.getRequestMaxHeaderSize());
+        protocol.setMaxContentLength(http.getRequestMaxContentSize());
+        protocol.setMaxChunkSize(http.getRequestMaxChunkSize());
+        protocol.setMaxBufferBytes(http.getResponseMaxBufferSize());
 
         factory.addBeanPostProcessor(protocol);
         return protocol;
