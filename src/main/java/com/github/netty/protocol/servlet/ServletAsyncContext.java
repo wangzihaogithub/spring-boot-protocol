@@ -109,7 +109,6 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
         check();
-        this.servletContext = (ServletContext) context;
         String contextPath = context.getContextPath();
         String dispatcherPath = contextPath.isEmpty()? path : contextPath + path;
         ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath);
