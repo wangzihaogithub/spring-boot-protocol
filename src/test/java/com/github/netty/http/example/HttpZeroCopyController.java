@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -25,11 +26,13 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * 内存映射的处理方式. 零拷贝。 sendFile, mmap.
+ * 1.内存映射的处理方式. 零拷贝。 sendFile, mmap.
  *
  * http://localhost:8080/test/zeroCopy/helloSync
  * http://localhost:8080/test/zeroCopy/helloAsync
  *
+ * @see NettyOutputStream#write(ByteBuffer)
+ * @see NettyOutputStream#write(FileChannel, long, long)
  * @see FileChannel#map(FileChannel.MapMode, long, long)
  * @see FileChannel#transferTo(long, long, WritableByteChannel)
  * @see FileChannel#transferFrom(ReadableByteChannel, long, long)
@@ -105,8 +108,9 @@ public class HttpZeroCopyController {
         String list = "[{\"random\":\""+ UUID.randomUUID()+"\"}]";
         setValue(list,helloAsyncMmap);
 
-        CompletableFuture<MappedByteBuffer> current;
+        java.util.concurrent.CompletableFuture<MappedByteBuffer> current;
         while ((current = queue.poll()) != null){
+            //回掉方法
             current.complete(helloAsyncMmap);
             // current.completeExceptionally(new RuntimeException("test error"));
             logger.info("notify netty zero copy = {}",list);
@@ -118,7 +122,7 @@ public class HttpZeroCopyController {
      * @param key key
      * @param maxBodyLength 响应体字节上限
      * @return 内存映射
-     * @throws IOException 文件创建失败
+     * @throws IOException 文件创建失败异常
      */
     public static MappedByteBuffer createMappedByteBuffer(String key,int maxBodyLength) throws IOException {
         RandomAccessFile accessFile = new RandomAccessFile(File.createTempFile(key,"map"), "rw");
