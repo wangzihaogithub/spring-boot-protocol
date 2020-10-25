@@ -54,7 +54,6 @@ public class HttpZeroCopyController {
      * 访问地址： http://localhost:8080/test/zeroCopy/helloSync
      * @param request netty request
      * @param response netty response
-     * @return
      */
     @RequestMapping("/helloSync")
     public void helloSync(HttpServletRequest request,HttpServletResponse response) throws IOException {
