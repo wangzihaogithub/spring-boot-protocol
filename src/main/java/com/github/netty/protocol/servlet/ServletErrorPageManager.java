@@ -72,12 +72,12 @@ public class ServletErrorPageManager {
      */
     public void handleErrorPage(ServletErrorPage errorPage, Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse){
         if(errorPage == null){
+            if(throwable != null){
+                logger.error("a unknown error. No error page handler", throwable.toString(), throwable);
+            }
             return;
         }
 
-        if(throwable != null) {
-            logger.error(throwable.toString(), throwable);
-        }
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
 
@@ -130,7 +130,7 @@ public class ServletErrorPageManager {
         }
     }
 
-    public static String getErrorPagePath(HttpServletRequest request,ServletErrorPage errorPage){
+    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage){
         String path = errorPage.getPath();
         if(path == null || path.isEmpty() ){
             return null;

@@ -78,7 +78,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      */
     private void checkCommitted() throws IllegalStateException {
         if(isCommitted()) {
-            throw new IllegalStateException("Cannot perform this operation after response has been committed");
+            throw new IllegalStateException("Cannot call sendError() after the response has been committed");
         }
     }
 
@@ -197,20 +197,22 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     public void sendError(int sc, String msg) throws IOException {
         checkCommitted();
         nettyResponse.setStatus(new HttpResponseStatus(sc, msg));
-
         resetBuffer();
-        getOutputStream().setSuspendFlag(true);
         setError();
+        if(contentType == null){
+            setContentType("text/html");
+        }
     }
 
     @Override
     public void sendError(int sc) throws IOException {
         checkCommitted();
         nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
-
         resetBuffer();
-        getOutputStream().setSuspendFlag(true);
         setError();
+        if(contentType == null){
+            setContentType("text/html");
+        }
     }
 
     @Override

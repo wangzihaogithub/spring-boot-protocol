@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Wrapper;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelProgressivePromise;
 import io.netty.handler.stream.ChunkedInput;
@@ -9,6 +10,7 @@ import io.netty.handler.stream.ChunkedInput;
 import javax.servlet.WriteListener;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.function.Consumer;
 
@@ -17,7 +19,7 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream
-        implements Wrapper<ServletOutputStream>, Recyclable,NettyOutputStream {
+        implements Wrapper<ServletOutputStream>, Recyclable, NettyOutputStream {
     /**
      * The source data
      */
@@ -49,9 +51,27 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
         return suspendFlag;
     }
 
+    public boolean isFlush() {
+        return source.isFlush();
+    }
+
+    public boolean isWrite() {
+        return source.isWrite();
+    }
+
     @Override
-    public ChannelProgressivePromise write(ChunkedInput input) throws IOException {
-        return source.write(input);
+    public ChannelProgressivePromise write(ByteBuffer httpBody) throws IOException {
+        return source.write(httpBody);
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ByteBuf httpBody) throws IOException {
+        return source.write(httpBody);
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ChunkedInput httpBody) throws IOException {
+        return source.write(httpBody);
     }
 
     @Override
@@ -62,6 +82,11 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     @Override
     public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
         return source.write(file,position,count);
+    }
+
+    @Override
+    public ChannelProgressivePromise write(File file) throws IOException {
+        return source.write(file);
     }
 
     @Override
@@ -83,7 +108,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         if(isSuspendFlag()){
             return;
         }

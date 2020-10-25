@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
+import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.util.ReferenceCountUtil;
 
@@ -12,10 +13,7 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
-import java.util.ArrayDeque;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -60,6 +58,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private final LongAdder unFlushBytes = new LongAdder();
     private final Queue<PendingWrite> queue;
     private volatile ChannelHandlerContext ctx;
+    private static final ClosedChannelException CLOSE_EXCEPTION = new ClosedChannelException();
 
     public ChunkedWriteHandler() {
         this(new ArrayDeque<PendingWrite>());
@@ -118,11 +117,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         return remove;
     }
 
-    @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        PendingWrite pendingWrite = new PendingWrite(msg, promise);
+    private void add(PendingWrite pendingWrite){
         queue.add(pendingWrite);
         unFlushBytes.add(pendingWrite.bytes);
+    }
+
+    @Override
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+        add(new PendingWrite(msg, promise));
 
         if(unFlushBytes.longValue() >= maxBufferBytes){
             doFlush(ctx);
@@ -154,6 +156,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     }
 
     public void discard(Throwable cause) {
+        List<PendingWrite> responseList = new ArrayList<>();
         for (;;) {
             PendingWrite currentWrite = removeFirst();
 
@@ -180,18 +183,23 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
                 if (!endOfInput) {
                     if (cause == null) {
-                        cause = new ClosedChannelException();
+                        cause = CLOSE_EXCEPTION;
                     }
                     currentWrite.fail(cause);
                 } else {
                     currentWrite.success(inputLength);
                 }
+            } else if(message instanceof HttpResponse){
+              responseList.add(currentWrite);
             } else {
                 if (cause == null) {
-                    cause = new ClosedChannelException();
+                    cause = CLOSE_EXCEPTION;
                 }
                 currentWrite.fail(cause);
             }
+        }
+        for (PendingWrite httpResponse : responseList) {
+            add(httpResponse);
         }
     }
 
@@ -317,7 +325,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
             }
 
             if (!channel.isActive()) {
-                discard(new ClosedChannelException());
+                discard(CLOSE_EXCEPTION);
                 break;
             }
         }

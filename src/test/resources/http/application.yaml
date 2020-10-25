@@ -4,5 +4,5 @@ server:
     context-path: '/test'
   netty:
     enable-tcp-package-log: true
-    max-connections: 1
+    max-connections: 2
     channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler

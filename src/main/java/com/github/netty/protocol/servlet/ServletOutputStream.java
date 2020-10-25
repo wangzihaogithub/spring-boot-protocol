@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
@@ -11,6 +12,7 @@ import io.netty.util.internal.PlatformDependent;
 import javax.servlet.WriteListener;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
 import java.util.LinkedList;
@@ -28,12 +30,16 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
     private static final Lock ALLOC_DIRECT_BUFFER_LOCK = new ReentrantLock();
     private static final float THRESHOLD = SystemPropertyUtil.getFloat("netty-servlet.directBufferThreshold",0.8F);
+    public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
+
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
-    private ServletHttpExchange servletHttpExchange;
-    private WriteListener writeListener;
+    protected ServletHttpExchange servletHttpExchange;
+    protected WriteListener writeListener;
     private CloseListener closeListenerWrapper = new CloseListener();
     private int responseWriterChunkMaxHeapByteLength;
     protected AtomicBoolean isSendResponse = new AtomicBoolean(false);
+    private boolean flush = false;
+    private boolean write = false;
 
     protected ServletOutputStream() {}
 
@@ -46,42 +52,53 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         return instance;
     }
 
+    public boolean isWrite() {
+        return write;
+    }
+
+    public boolean isFlush() {
+        return flush;
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ByteBuffer httpBody) throws IOException {
+        return writeHttpBody(Unpooled.wrappedBuffer(httpBody));
+    }
+
+    @Override
+    public ChannelProgressivePromise write(ByteBuf httpBody) throws IOException {
+        return writeHttpBody(httpBody);
+    }
+
     @Override
     public ChannelProgressivePromise write(ChunkedInput input) throws IOException {
-        checkClosed();
-
-        writeResponseHeaderIfNeed();
-
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        ChannelProgressivePromise promise = context.newProgressivePromise();
-        context.write(input,promise);
-        return promise;
+        return writeHttpBody(input);
     }
 
     @Override
     public ChannelProgressivePromise write(FileChannel fileChannel, long position, long count) throws IOException {
-        checkClosed();
-
-        writeResponseHeaderIfNeed();
-
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        ChannelProgressivePromise promise = context.newProgressivePromise();
-        context.write(new DefaultFileRegion(fileChannel,position,count),promise);
-        return promise;
+        return writeHttpBody(new DefaultFileRegion(fileChannel,position,count));
     }
 
     @Override
     public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
-        checkClosed();
-
-        writeResponseHeaderIfNeed();
-
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        ChannelProgressivePromise promise = context.newProgressivePromise();
-        context.write(new DefaultFileRegion(file,position,count),promise);
-        return promise;
+        return writeHttpBody(new DefaultFileRegion(file,position,count));
     }
 
+    @Override
+    public ChannelProgressivePromise write(File httpBody) throws IOException {
+        return writeHttpBody(new DefaultFileRegion(httpBody,0,httpBody.length()));
+    }
+
+    protected ChannelProgressivePromise writeHttpBody(Object httpBody) throws IOException {
+        checkClosed();
+        writeResponseHeaderIfNeed();
+        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+        ChannelProgressivePromise promise = context.newProgressivePromise();
+        context.write(httpBody,promise);
+        this.write = true;
+        return promise;
+    }
 
     private void writeResponseHeaderIfNeed(){
         if(isSendResponse.compareAndSet(false,true)){
@@ -99,14 +116,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             return;
         }
 
-        writeResponseHeaderIfNeed();
-
         ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
         ByteBuf ioByteBuf = allocByteBuf(context.alloc(), len);
         ioByteBuf.writeBytes(b, off, len);
         IOUtil.writerModeToReadMode(ioByteBuf);
 
-        context.write(ioByteBuf);
+        writeHttpBody(ioByteBuf);
     }
 
     @Override
@@ -125,7 +140,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public void write(byte[] b) throws IOException {
-        checkClosed();
         write(b,0,b.length);
     }
 
@@ -146,16 +160,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void flush() throws IOException {
         checkClosed();
-        flush0();
-    }
-
-    protected void flush0() throws IOException {
         writeResponseHeaderIfNeed();
         ServletHttpExchange exchange = this.servletHttpExchange;
         if(exchange != null) {
-            exchange.getResponse().getNettyResponse().flush();
             exchange.getChannelHandlerContext().flush();
         }
+        flush = true;
     }
 
     /**
@@ -169,16 +179,15 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * ■AsyncContext.complete Method called
      */
     @Override
-    public void close() throws IOException {
+    public void close() {
         if(isClosed()){
             return;
         }
 
         if(isClosed.compareAndSet(false,true)){
-            flush0();
             ServletHttpExchange exchange = getServletHttpExchange();
             ChannelHandlerContext context = exchange.getChannelHandlerContext();
-
+            writeResponseHeaderIfNeed();
             context.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
                     .addListener(closeListenerWrapper);
         }
@@ -236,14 +245,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Destroy yourself,
-     */
-    public void destroy(){
-        this.servletHttpExchange = null;
-        this.isClosed = null;
-    }
-
-    /**
      * Reset buffer
      */
     protected void resetBuffer() {
@@ -257,7 +258,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             ChunkedWriteHandler handler = (ChunkedWriteHandler) context.handler();
             int unWriteSize = handler.unWriteSize();
             if(unWriteSize > 0) {
-                handler.discard(new ServletResetBufferIOException());
+                handler.discard(RESET_BUFFER_EXCEPTION);
             }
         }
     }
@@ -279,14 +280,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Get off listening
-     * @return ChannelFutureListener ChannelFutureListener
-     */
-    protected CloseListener getCloseListener() {
-        return closeListenerWrapper;
-    }
-
-    /**
      * Whether to shut down
      * @return True = closed,false= not closed
      */
@@ -300,11 +293,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if(isClosed()){
             return;
         }
-        try {
-            close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        close();
     }
 
     /**
@@ -347,6 +336,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 recycleConsumer.accept(ServletOutputStream.this);
             }
 
+            write = false;
+            flush = false;
             writeListener = null;
             servletHttpExchange = null;
             this.closeListener = null;
