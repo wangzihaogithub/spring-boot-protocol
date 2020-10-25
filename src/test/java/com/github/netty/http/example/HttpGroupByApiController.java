@@ -97,6 +97,33 @@ public class HttpGroupByApiController {
         });
     }
 
+    public Map<String,String> selectListByUserIdIn(List<HttpServletRequest> requestList){
+        List<String> idList = requestList.stream()
+                .map(request -> request.getParameter("userId"))
+                .distinct()
+                .collect(Collectors.toList());
+        logger.info("sql = {}",String.format("select * from t_user where userId in (%s)", idList));
+        return databaseMap;
+    }
+
+    public Map<String,String> selectListByOrderIdIn(List<HttpServletRequest> requestList){
+        List<String> idList = requestList.stream()
+                .map(request -> request.getParameter("orderId"))
+                .distinct()
+                .collect(Collectors.toList());
+        logger.info("sql = {}",String.format("select * from t_order where orderId in (%s)", idList));
+        return databaseMap;
+    }
+
+    private static Map<String, List<MyDeferredResult<Map>>> groupBy(Queue<MyDeferredResult<Map>> queue){
+        MultiValueMap<String,MyDeferredResult<Map>> groupByMap = new LinkedMultiValueMap<>();
+        MyDeferredResult<Map> current;
+        while ((current = queue.poll()) != null){
+            groupByMap.add(current.request.getRequestURI(),current);
+        }
+        return groupByMap;
+    }
+
     /**
      * 做批量查询的 数据映射
      * @param api 按照接口聚合的某接口名称
@@ -134,33 +161,6 @@ public class HttpGroupByApiController {
             }default:{}
         }
         return result;
-    }
-
-    public Map<String,String> selectListByUserIdIn(List<HttpServletRequest> requestList){
-        List<String> idList = requestList.stream()
-                .map(request -> request.getParameter("userId"))
-                .distinct()
-                .collect(Collectors.toList());
-        logger.info("sql = {}",String.format("select * from t_user where userId in (%s)", idList));
-        return databaseMap;
-    }
-
-    public Map<String,String> selectListByOrderIdIn(List<HttpServletRequest> requestList){
-        List<String> idList = requestList.stream()
-                .map(request -> request.getParameter("orderId"))
-                .distinct()
-                .collect(Collectors.toList());
-        logger.info("sql = {}",String.format("select * from t_order where orderId in (%s)", idList));
-        return databaseMap;
-    }
-
-    private static Map<String, List<MyDeferredResult<Map>>> groupBy(Queue<MyDeferredResult<Map>> queue){
-        MultiValueMap<String,MyDeferredResult<Map>> groupByMap = new LinkedMultiValueMap<>();
-        MyDeferredResult<Map> current;
-        while ((current = queue.poll()) != null){
-            groupByMap.add(current.request.getRequestURI(),current);
-        }
-        return groupByMap;
     }
 
     /**
