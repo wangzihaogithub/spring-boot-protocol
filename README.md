@@ -8,7 +8,7 @@
 
     1.可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
     
-    2.支持异步http请求聚合后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
+    2.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
     
     3.支持异步零拷贝。sendFile, mmap. 示例：com.github.netty.http.example.HttpZeroCopyController.java
     
