@@ -45,7 +45,6 @@ public class MqttProtocol extends AbstractProtocol {
 
     private BrokerInterceptor interceptor = new BrokerInterceptor(1);
     private MqttServerChannelHandler mqttServerChannelHandler;
-    private MqttDropWizardMetricsChannelHandler mqttDropWizardMetricsChannelHandler;
     private MqttPostOffice mqttPostOffice;
 
     public MqttProtocol() {
@@ -96,17 +95,7 @@ public class MqttProtocol extends AbstractProtocol {
         }
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
-
         pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler);
-
-        if(isEnableMetrics()) {
-            if(mqttDropWizardMetricsChannelHandler == null) {
-                mqttDropWizardMetricsChannelHandler = new MqttDropWizardMetricsChannelHandler();
-                mqttDropWizardMetricsChannelHandler.init(metricsLibratoEmail, metricsLibratoToken, metricsLibratoSource);
-            }
-            pipeline.addLast("wizardMetrics", mqttDropWizardMetricsChannelHandler);
-        }
-
         pipeline.addLast("handler", mqttServerChannelHandler);
     }
 

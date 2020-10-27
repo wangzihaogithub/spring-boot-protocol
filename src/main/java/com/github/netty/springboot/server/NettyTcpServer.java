@@ -4,7 +4,7 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.HostUtil;
-import com.github.netty.core.Version;
+import com.github.netty.Version;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.TcpChannel;

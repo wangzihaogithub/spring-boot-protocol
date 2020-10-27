@@ -1,4 +1,4 @@
-package com.github.netty.core;
+package com.github.netty;
 
 import java.io.InputStream;
 import java.util.Properties;
