@@ -18,15 +18,13 @@ import java.util.stream.Collectors;
 
 /**
  * 支持异步单线程批量处理请求 {@link #queue} {@link #on20Delay}
+ * 适合浏览器后台进程的接口, 例如(IM消息场景, 表单定时自动保存等..)
  *
- * 请求可以在{@link #API_GROUP_BY_MS}毫秒内聚合，批量查询。（演示代码用的是根据api名称聚合）
+ * 请求可以在{@link #API_GROUP_BY_MS}毫秒内聚合，批量查询或批量写库。（演示代码用的是根据api名称聚合）
  *
- * 访问地址：（在 {@link #API_GROUP_BY_MS}毫秒内, 连续请求多次相同的接口。 ）
- *  http://localhost:8080/test/helloAsyncUser?userId=1
- *  http://localhost:8080/test/helloAsyncUser?userId=2
- *
- *  http://localhost:8080/test/helloAsyncOrder?orderId=1
- *  http://localhost:8080/test/helloAsyncOrder?orderId=1
+ * 访问地址：（快速连续请求接口,可以看到效果）
+ *  http://localhost:8080/test/insertOrder?productName=苹果
+ *  http://localhost:8080/test/insertOrder?productName=香蕉
  *
  * @see #queue 这个队列存放{@link #API_GROUP_BY_MS}毫秒内的多个请求
  * @see #on20Delay() 这个定时任务批量处理队列中的请求
@@ -42,6 +40,25 @@ public class HttpGroupByApiController {
         databaseMap.put("1","数据aaa");
         databaseMap.put("2","数据bbb");
         databaseMap.put("3","数据ccc");
+    }
+    /**
+     * 请求可以在{@link #API_GROUP_BY_MS}毫秒内聚合，批量写入。
+     *
+     * 访问地址：（在 {@link #API_GROUP_BY_MS}毫秒内, 连续请求多次相同的接口。 ）
+     *  http://localhost:8080/test/insertOrder?productName=香蕉
+     *  http://localhost:8080/test/insertOrder?productName=苹果
+     *
+     * @param productName 商品名称. 香蕉
+     * @param request netty request
+     * @param response netty response
+     * @return spring的延迟结果， 返回DeferredResult类型， spring就不会去做任何处理。
+     *      这里的返回结果是在定时任务线程批量处理  {@link #on20Delay}
+     */
+    @RequestMapping("/insertOrder")
+    public DeferredResult<Map> insertOrder(String productName,HttpServletRequest request,HttpServletResponse response){
+        MyDeferredResult<Map> deferredResult = new MyDeferredResult<>(request,response);
+        queue.offer(deferredResult);
+        return deferredResult;
     }
 
     /**
@@ -115,6 +132,15 @@ public class HttpGroupByApiController {
         return databaseMap;
     }
 
+    public Map<String,String> insertList(List<HttpServletRequest> requestList){
+        String values = requestList.stream()
+                .map(request -> request.getParameter("productName"))
+                .distinct()
+                .collect(Collectors.joining("'),('","values ('","')"));
+        logger.info("sql = insert into t_order (`product_name`) {}",values);
+        return databaseMap;
+    }
+
     private static Map<String, List<MyDeferredResult<Map>>> groupBy(Queue<MyDeferredResult<Map>> queue){
         MultiValueMap<String,MyDeferredResult<Map>> groupByMap = new LinkedMultiValueMap<>();
         MyDeferredResult<Map> current;
@@ -133,10 +159,14 @@ public class HttpGroupByApiController {
     private Map<String,String> map(String api, List<HttpServletRequest> requestList){
         //只查库一次。 比如：这是查数据库动作
         switch (api){
+            //批量读
             case "/test/helloAsyncUser" :{
                 return selectListByUserIdIn(requestList);
             }case "/test/helloAsyncOrder" :{
                 return selectListByOrderIdIn(requestList);
+            }case "/test/insertOrder" :{
+                //批量写
+                return insertList(requestList);
             }default:{
                 return Collections.emptyMap();
             }
@@ -157,6 +187,11 @@ public class HttpGroupByApiController {
                 String id = request.getParameter("orderId");
                 result.put("id",id);
                 result.put("result",batchQueryResult.get(id));
+                break;
+            }case "/test/insertOrder" :{
+                String productName = request.getParameter("productName");
+                result.put("productName",productName);
+                result.put("result",true);
                 break;
             }default:{}
         }
