@@ -32,17 +32,16 @@ github地址 : https://github.com/wangzihaogithub
 
 ### 使用方法
 
-#### 1.添加依赖, 在pom.xml中加入 
+#### 1.添加依赖, 在pom.xml中加入 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.wangzihaogithub/spring-boot-protocol/badge.svg)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:spring-boot-protocol)
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.wangzihaogithub/spring-boot-protocol/badge.svg)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:spring-boot-protocol)
-
-    <!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol -->
-    <dependency>
-      <groupId>com.github.wangzihaogithub</groupId>
-      <artifactId>spring-boot-protocol</artifactId>
-      <version>2.0.15</version>
-    </dependency>
-
+```xml
+<!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol -->
+<dependency>
+  <groupId>com.github.wangzihaogithub</groupId>
+  <artifactId>spring-boot-protocol</artifactId>
+  <version>2.0.15</version>
+</dependency>
+```
 	
 #### 2.开启netty容器
 
