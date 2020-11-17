@@ -687,19 +687,6 @@ public class TypeUtil {
                 //
             }
         }
-
-        if (value instanceof Map) {
-            Map map = (Map) value;
-            if (map.size() == 2
-                    && map.containsKey("andIncrement")
-                    && map.containsKey("andDecrement")) {
-                Iterator iter = map.values().iterator();
-                iter.next();
-                Object value2 = iter.next();
-                return castToLong(value2);
-            }
-        }
-
         return null;
     }
 

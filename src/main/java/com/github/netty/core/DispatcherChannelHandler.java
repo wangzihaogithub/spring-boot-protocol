@@ -1,7 +1,6 @@
-package com.github.netty.protocol.servlet;
+package com.github.netty.core;
 
-import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.MessageToRunnable;
+import com.github.netty.core.util.RecyclableUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -17,27 +16,26 @@ import java.util.function.Supplier;
  *  2018/7/1/001
  */
 @ChannelHandler.Sharable
-public class ServletChannelHandler extends AbstractChannelHandler<Object,Object> {
-    private Supplier<Executor> dispatcherExecutor;
-    private NettyMessageToServletRunnable httpMessageToServletRunnable;
+public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Object> {
+    private final Supplier<Executor> dispatcherExecutor;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
 
-    public ServletChannelHandler(ServletContext servletContext, Supplier<Executor> dispatcherExecutor) {
+    public DispatcherChannelHandler(Supplier<Executor> dispatcherExecutor) {
         super(false);
-        this.httpMessageToServletRunnable = new NettyMessageToServletRunnable(servletContext);
         this.dispatcherExecutor = dispatcherExecutor;
     }
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext context, Object msg) throws Exception {
         MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
-        if(messageToRunnable == null){
-            messageToRunnable = httpMessageToServletRunnable;
-            setMessageToRunnable(context.channel(),messageToRunnable);
+        if(messageToRunnable != null) {
+            Runnable runnable = messageToRunnable.onMessage(context, msg);
+            if (runnable != null) {
+                run(runnable);
+            }
+        }else {
+            RecyclableUtil.release(msg);
         }
-
-        Runnable task = messageToRunnable.newRunnable(context,msg);
-        run(task);
     }
 
     protected void run(Runnable task){

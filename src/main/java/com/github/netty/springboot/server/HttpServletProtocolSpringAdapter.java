@@ -129,7 +129,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         if(multipartProperties.getEnabled()){
             Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
             Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
-            super.setMaxContentLength(Math.max(maxRequestSize.intValue(),maxFileSize.intValue()));
+            super.setMaxContentLength(Math.max(maxRequestSize.longValue(),maxFileSize.longValue()));
             location = multipartProperties.getLocation();
         }
 

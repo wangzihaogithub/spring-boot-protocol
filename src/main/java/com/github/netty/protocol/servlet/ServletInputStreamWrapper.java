@@ -1,33 +1,39 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Wrapper;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 
 import javax.servlet.ReadListener;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * The servlet input stream
  * @author wangzihao
  *  2018/7/15/015
  */
-public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream implements Wrapper<ByteBuf>, Recyclable {
+public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream implements Wrapper<CompositeByteBuf>, Recyclable {
     private AtomicBoolean closed = new AtomicBoolean(false); //Whether the input stream has been closed to ensure thread safety
-    private ByteBuf source;
-    private int contentLength;
+    private CompositeByteBuf source;
+    private long contentLength;
     private ReadListener readListener;
+    private final Lock lock = new ReentrantLock();
+    private final Condition condition = lock.newCondition();
 
     public ServletInputStreamWrapper() {}
 
-    public ServletInputStreamWrapper(ByteBuf source) {
-        wrap(source);
-    }
-
-    public int getContentLength() {
+    public long getContentLength() {
         return contentLength;
     }
 
@@ -35,6 +41,59 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public int readLine(byte[] b, int off, int len) throws IOException {
         checkClosed();
         return super.readLine(b, off, len); //Template method, which invokes the read() method of the current class implementation
+    }
+
+    public static void main(String[] args) {
+        CompositeByteBuf c = ByteBufAllocator.DEFAULT.compositeBuffer();
+        c.addComponent(Unpooled.wrappedBuffer("123".getBytes()));
+        IOUtil.writerModeToReadMode(c);
+        String byteBuf = c.readBytes(c.readableBytes()).toString(Charset.defaultCharset());
+
+        c.addComponent(Unpooled.wrappedBuffer("456".getBytes()));
+        IOUtil.writerModeToReadMode(c);
+        String byteBuf1 = c.readBytes(c.readableBytes()).toString(Charset.defaultCharset());
+
+        c.addComponent(Unpooled.wrappedBuffer("".getBytes()));
+    }
+
+    public void onMessage(Object message){
+        ByteBuf byteBuf = null;
+        if(message instanceof ByteBuf){
+            byteBuf = (ByteBuf) message;
+        }
+
+        if(byteBuf == null) {
+            return;
+        }
+
+        int readableBytes = source.readableBytes();
+        source.addComponent(byteBuf);
+        IOUtil.writerModeToReadMode(source);
+
+        lock.lock();
+        try{
+            condition.signalAll();
+        }finally {
+            lock.unlock();
+        }
+
+        ReadListener readListener = this.readListener;
+        if(readListener != null){
+            if(readableBytes == 0) {
+                try {
+                    readListener.onDataAvailable();
+                } catch (IOException e) {
+                    readListener.onError(e);
+                }
+            }
+            if(source.capacity() >= contentLength){
+                try {
+                    readListener.onAllDataRead();
+                } catch (IOException e) {
+                    readListener.onError(e);
+                }
+            }
+        }
     }
 
     /**
@@ -46,7 +105,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if(closed.get()){
             return true;
         }
-        return source.readableBytes() == 0;
+        return contentLength == -1 || source.capacity() >= contentLength;
     }
 
     /**
@@ -54,12 +113,24 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
      */
     @Override
     public boolean isReady() {
-        return true;
+        return contentLength == -1 || source.readableBytes() != 0;
     }
 
     @Override
     public void setReadListener(ReadListener readListener) {
         this.readListener = readListener;
+        if (contentLength == -1) {
+            try {
+                readListener.onDataAvailable();
+            } catch (IOException e) {
+                readListener.onError(e);
+            }
+            try {
+                readListener.onAllDataRead();
+            } catch (IOException e) {
+                readListener.onError(e);
+            }
+        }
     }
 
     /**
@@ -102,18 +173,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (0 == len) {
             return 0;
         }
-        if (isFinished()) {
+
+        awaitDataIfNeed();
+        if(source.readableBytes() == 0){
             return -1;
         }
 
-        //Read len bytes
-        ByteBuf byteBuf = readContent(len);
-        //Total number of readable bytes
-        int readableBytes = byteBuf.readableBytes();
-        //Copy to the bytes array
-        byteBuf.readBytes(bytes, off, readableBytes);
-        //Returns the number of bytes actually read
-        return readableBytes - byteBuf.readableBytes();
+        int readableBytes = Math.min(len,source.readableBytes());
+        source.readBytes(bytes, off, readableBytes);
+        return readableBytes;
     }
 
     /**
@@ -122,20 +190,24 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public int read() throws IOException {
         checkClosed();
-        if (isFinished()) {
+
+        awaitDataIfNeed();
+        if (source.readableBytes() == 0) {
             return -1;
         }
         return source.readByte();
     }
 
-    /**
-     * Read length bytes from it
-     */
-    private ByteBuf readContent(int length) {
-        if (length < source.readableBytes()) {
-            return source.readSlice(length);
-        } else {
-            return source;
+    private void awaitDataIfNeed() throws IOException {
+        while (!isFinished() && source.readableBytes() == 0){
+            lock.lock();
+            try {
+                condition.await();
+            } catch (InterruptedException e) {
+                throw new IOException("read data interrupted",e);
+            }finally {
+                lock.unlock();
+            }
         }
     }
 
@@ -154,16 +226,19 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     @Override
-    public void wrap(ByteBuf source) {
+    public void wrap(CompositeByteBuf source) {
         Objects.requireNonNull(source);
 
         this.closed.set(false);
         this.source = source;
-        this.contentLength = source.capacity();
+    }
+
+    public void setContentLength(long contentLength) {
+        this.contentLength = contentLength;
     }
 
     @Override
-    public ByteBuf unwrap() {
+    public CompositeByteBuf unwrap() {
         return source;
     }
 

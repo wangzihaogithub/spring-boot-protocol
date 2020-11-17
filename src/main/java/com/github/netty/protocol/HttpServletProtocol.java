@@ -2,6 +2,7 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
+import com.github.netty.core.DispatcherChannelHandler;
 import com.github.netty.core.util.ChunkedWriteHandler;
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.core.util.LoggerFactoryX;
@@ -37,7 +38,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
     private ChannelHandler servletHandler;
-    private int maxContentLength = 20 * 1024 * 1024;
+    private long maxContentLength = 20 * 1024 * 1024;
     private int maxInitialLineLength = 40960;
     private int maxHeaderSize = 81920;
     private int maxChunkSize = 5 * 1024 * 1024;
@@ -55,7 +56,7 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public HttpServletProtocol(Supplier<Executor> executor, ServletContext servletContext){
         this.servletContext = servletContext;
-        this.servletHandler = new ServletChannelHandler(servletContext,executor);
+        this.servletHandler = new DispatcherChannelHandler(executor);
     }
 
     @Override
@@ -175,7 +176,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         pipeline.addLast("HttpCodec", new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false));
 
         //HTTP request aggregation, set the maximum message value to 5M
-        pipeline.addLast("Aggregator", new HttpObjectAggregator(maxContentLength,false));
+//        pipeline.addLast("Aggregator", new HttpObjectAggregator((int) maxContentLength,false));
 
         //The content of compression
         if(enableContentCompression) {
@@ -236,6 +237,9 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);
+
+        //Dynamic binding protocol for switching protocol
+        DispatcherChannelHandler.setMessageToRunnable(ch, new NettyMessageToServletRunnable(servletContext,maxContentLength));
     }
 
     public long getMaxBufferBytes() {
@@ -272,7 +276,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         this.sslContextBuilder = sslContextBuilder;
     }
 
-    public void setMaxContentLength(int maxContentLength) {
+    public void setMaxContentLength(long maxContentLength) {
         this.maxContentLength = maxContentLength;
     }
 

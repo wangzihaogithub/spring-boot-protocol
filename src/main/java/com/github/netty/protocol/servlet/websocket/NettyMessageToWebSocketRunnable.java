@@ -14,11 +14,12 @@ import java.util.Set;
 
 /**
  * WebSocketMessageToRunnable
+ * Life cycle connection
  * @author wangzihao
  */
 public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     private static final Recycler<WebsocketRunnable> RECYCLER = new Recycler<>(WebsocketRunnable::new);
-
+    private ChannelHandlerContext context;
     private MessageToRunnable parent;
 
     public NettyMessageToWebSocketRunnable(MessageToRunnable parent) {
@@ -26,15 +27,15 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     }
 
     @Override
-    public Runnable newRunnable(ChannelHandlerContext channelHandlerContext, Object msg) {
+    public Runnable onMessage(ChannelHandlerContext context, Object msg) {
         if(msg instanceof WebSocketFrame) {
             WebsocketRunnable task = RECYCLER.getInstance();
-            task.context = channelHandlerContext;
+            task.context = context;
             task.frame = (WebSocketFrame) msg;
             return task;
         }
         if(parent != null){
-            return parent.newRunnable(channelHandlerContext,msg);
+            return parent.onMessage(context,msg);
         }
         throw new IllegalStateException("["+msg.getClass().getName()+"] Message data type that cannot be processed");
     }

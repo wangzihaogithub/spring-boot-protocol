@@ -5,6 +5,8 @@ import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.multipart.*;
 
 import javax.servlet.*;
@@ -37,7 +39,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
     private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
-	private SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
+	private final SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
@@ -65,11 +67,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private boolean usingInputStreamFlag = false;
 
     private BufferedReader reader;
-    private FullHttpRequest nettyRequest;
-    private ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
-    private Map<String,Object> attributeMap = Collections.synchronizedMap(new LinkedHashMap<>(16));
-    private LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
-    private Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
+    private HttpRequest nettyRequest;
+    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
+    private final Map<String,Object> attributeMap = Collections.synchronizedMap(new LinkedHashMap<>(16));
+    private final LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
+    private final Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
 	    @Override
 	    public Set<Entry<String, String[]>> entrySet() {
 	    	if(isEmpty()){
@@ -118,11 +120,13 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     protected ServletHttpServletRequest() {}
 
-    public static ServletHttpServletRequest newInstance(ServletHttpExchange servletHttpExchange, FullHttpRequest fullHttpRequest) {
+    public static ServletHttpServletRequest newInstance(ServletHttpExchange servletHttpExchange, HttpRequest httpRequest) {
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.servletHttpExchange = servletHttpExchange;
-        instance.nettyRequest = fullHttpRequest;
-        instance.inputStream.wrap(fullHttpRequest.content());
+        instance.nettyRequest = httpRequest;
+
+        instance.inputStream.setContentLength(HttpHeaderUtil.getContentLength(httpRequest, -1L));
+        instance.inputStream.wrap(servletHttpExchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
         return instance;
     }
 
@@ -150,7 +154,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return servletHttpExchange;
     }
 
-    public FullHttpRequest getNettyRequest() {
+    public HttpRequest getNettyRequest() {
         return nettyRequest;
     }
 
@@ -246,6 +250,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             location = multipartConfigElement.getLocation();
             discardThreshold = multipartConfigElement.getFileSizeThreshold();
         }
+
+        getInputStream0();
 
         InterfaceHttpPostRequestDecoder postRequestDecoder = HttpPostRequestDecoder.isMultipart(nettyRequest)?
                 new HttpPostMultipartRequestDecoder(factory, nettyRequest, charset):

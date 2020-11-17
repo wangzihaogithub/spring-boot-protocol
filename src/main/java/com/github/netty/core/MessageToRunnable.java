@@ -4,6 +4,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 /**
  * Convert the IO message to Runnable
+ * Life cycle connection
  * @author wangzihao
  */
 @FunctionalInterface
@@ -15,6 +16,6 @@ public interface MessageToRunnable {
      * @param msg IO messages (attention! : no automatic release, manual release is required)
      * @return Runnable
      */
-    Runnable newRunnable(ChannelHandlerContext context, Object msg);
+    Runnable onMessage(ChannelHandlerContext context, Object msg);
 
 }

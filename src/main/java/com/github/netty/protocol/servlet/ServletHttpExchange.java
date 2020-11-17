@@ -6,6 +6,8 @@ import com.github.netty.core.util.Recycler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpUtil;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
@@ -27,21 +29,26 @@ public class ServletHttpExchange implements Recyclable{
     private ChannelHandlerContext channelHandlerContext;
     private ServletContext servletContext;
     private boolean isHttpKeepAlive;
+    private volatile int close;
+    public static final int CLOSE_NO = 0;
+    public static final int CLOSE_ING = 1;
+    public static final int CLOSE_YES = 2;
 
     private ServletHttpExchange() {
     }
 
-    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, FullHttpRequest fullHttpRequest) {
+    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest) {
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context,instance);
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
-        instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(fullHttpRequest);
+        instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(httpRequest);
 
         //Create a new servlet request object
-        instance.request = ServletHttpServletRequest.newInstance(instance,fullHttpRequest);
+        instance.request = ServletHttpServletRequest.newInstance(instance,httpRequest);
         //Create a new servlet response object
         instance.response = ServletHttpServletResponse.newInstance(instance);
+        instance.close = CLOSE_NO;
         return instance;
     }
 
@@ -183,6 +190,7 @@ public class ServletHttpExchange implements Recyclable{
      */
     @Override
     public void recycle() {
+        this.close = CLOSE_ING;
         response.recycle((e)->{
             request.recycle();
 
@@ -197,9 +205,13 @@ public class ServletHttpExchange implements Recyclable{
             request = null;
             channelHandlerContext = null;
             servletContext = null;
-
             RECYCLER.recycleInstance(this);
+            this.close = CLOSE_YES;
         });
+    }
+
+    public int closeStatus() {
+        return close;
     }
 
 }

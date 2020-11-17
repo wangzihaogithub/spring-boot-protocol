@@ -2,6 +2,11 @@ server:
   port: 8080
   servlet:
     context-path: '/test'
+    multipart:
+      #单个文件最大大小
+      max-request-size: 10GB
+      #所有上传文件最大大小
+      max-file-size: 10GB
   netty:
     enable-tcp-package-log: true
     max-connections: 2

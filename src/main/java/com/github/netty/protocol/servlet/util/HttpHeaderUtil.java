@@ -116,34 +116,23 @@ public class HttpHeaderUtil {
         }
     }
 
-    /**
-     * Returns the length of the content.  Please note that this value is
-     * not retrieved from {@link HttpContent#content()} but from the
-     * {@code "Content-Length"} header, and thus they are independent from each
-     * other.
-     *
-     * @return the content length
-     *
-     * @throws NumberFormatException
-     *         if the message does not have the {@code "Content-Length"} header
-     *         or its value is not a number
-     * @param message message
-     */
-    public static long getContentLength(HttpMessage message) {
-        Long value = TypeUtil.castToLong(message.headers().get(HttpHeaderConstants.CONTENT_LENGTH));
-        if (value != null) {
-            return value;
+    public static boolean isUnsupportedExpectation(HttpMessage message) {
+        if (!isExpectHeaderValid(message)) {
+            return false;
         }
 
-        // We know the content length if it's a Web Socket message even if
-        // Content-Length header is missing.
-        long webSocketContentLength = getWebSocketContentLength(message);
-        if (webSocketContentLength >= 0) {
-            return webSocketContentLength;
-        }
+        final String expectValue = message.headers().get(HttpHeaderNames.EXPECT);
+        return expectValue != null && !HttpHeaderValues.CONTINUE.toString().equalsIgnoreCase(expectValue);
+    }
 
-        // Otherwise we don't.
-        throw new NumberFormatException("header not found: " + HttpHeaderConstants.CONTENT_LENGTH);
+    private static boolean isExpectHeaderValid(final HttpMessage message) {
+        /*
+         * Expect: 100-continue is for requests only and it works only on HTTP/1.1 or later. Note further that RFC 7231
+         * section 5.1.1 says "A server that receives a 100-continue expectation in an HTTP/1.0 request MUST ignore
+         * that expectation."
+         */
+        return message instanceof HttpRequest &&
+                message.protocolVersion().compareTo(HttpVersion.HTTP_1_1) >= 0;
     }
 
     /**
@@ -159,15 +148,15 @@ public class HttpHeaderUtil {
      * @param defaultValue defaultValue
      */
     public static long getContentLength(HttpMessage message, long defaultValue) {
-        Long value = TypeUtil.castToLong(message.headers().get(HttpHeaderConstants.CONTENT_LENGTH));
-        if (value != null) {
-            return value;
+        String str = message.headers().get(HttpHeaderConstants.CONTENT_LENGTH);
+        if(str != null && str.length() > 0) {
+            return Long.parseLong(str);
         }
 
         // We know the content length if it's a Web Socket message even if
         // Content-Length header is missing.
         long webSocketContentLength = getWebSocketContentLength(message);
-        if (webSocketContentLength >= 0) {
+        if (webSocketContentLength != -1) {
             return webSocketContentLength;
         }
 

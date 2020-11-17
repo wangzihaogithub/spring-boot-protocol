@@ -2,7 +2,7 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.core.util.Wrapper;
-import com.github.netty.protocol.servlet.ServletChannelHandler;
+import com.github.netty.core.DispatcherChannelHandler;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import com.github.netty.protocol.servlet.websocket.NettyMessageToWebSocketRunnable;
@@ -13,7 +13,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import org.springframework.http.server.ServerHttpRequest;
@@ -109,7 +109,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     protected void handshakeToWebsocket(ServletHttpServletRequest servletRequest, String subprotocols, int maxFramePayloadLength, Principal userPrincipal,
                                         List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
                                         Endpoint localEndpoint, ServerEndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer){
-        FullHttpRequest nettyRequest = servletRequest.getNettyRequest();
+        HttpRequest nettyRequest = servletRequest.getNettyRequest();
         ChannelHandlerContext channelContext = Wrapper.unwrap(servletRequest.getServletHttpExchange().getChannelHandlerContext());
 
         String queryString = servletRequest.getQueryString();
@@ -122,7 +122,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         handshakelFuture.addListener((ChannelFutureListener) future -> {
             if(future.isSuccess()) {
                 Channel channel = future.channel();
-                ServletChannelHandler.setMessageToRunnable(channel, new NettyMessageToWebSocketRunnable(ServletChannelHandler.getMessageToRunnable(channel)));
+                DispatcherChannelHandler.setMessageToRunnable(channel, new NettyMessageToWebSocketRunnable(DispatcherChannelHandler.getMessageToRunnable(channel)));
                 WebSocketSession websocketSession = new WebSocketSession(
                         channel, webSocketContainer, wsHandshaker,
                         requestParameterMap,
