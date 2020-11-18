@@ -34,9 +34,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private final Condition condition = lock.newCondition();
     private Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private volatile HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
+    private volatile boolean receiveDataTimeout;
     private boolean needCloseClient;
     private long fileUploadTimeoutMs;
-    private boolean receiveDataTimeout;
 
     public ServletInputStreamWrapper() {}
 
