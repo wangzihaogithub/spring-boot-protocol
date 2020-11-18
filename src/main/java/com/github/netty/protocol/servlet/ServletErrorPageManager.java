@@ -86,9 +86,9 @@ public class ServletErrorPageManager {
             return;
         }
         ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPagePath);
+        response.resetBuffer();
         if (dispatcher == null) {
             try {
-                response.resetBuffer();
                 response.getWriter().write("not found ".concat(errorPagePath));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (IOException e) {

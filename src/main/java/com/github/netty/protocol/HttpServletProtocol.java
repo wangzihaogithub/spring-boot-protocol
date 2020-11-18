@@ -54,9 +54,10 @@ public class HttpServletProtocol extends AbstractProtocol {
             "application/xml"};
     private String[] compressionExcludedUserAgents = {};
 
-    public HttpServletProtocol(Supplier<Executor> executor, ServletContext servletContext){
+    public HttpServletProtocol(Supplier<Executor> executorSupplier, ServletContext servletContext){
         this.servletContext = servletContext;
-        this.servletHandler = new DispatcherChannelHandler(executor);
+        servletContext.setAsyncExecutorSupplier(executorSupplier);
+        this.servletHandler = new DispatcherChannelHandler(executorSupplier);
     }
 
     @Override

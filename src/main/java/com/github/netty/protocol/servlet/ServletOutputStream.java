@@ -311,14 +311,21 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             this.closeListener = closeListener;
         }
 
+        private void callListener(){
+            Consumer recycleConsumer;
+            while ((recycleConsumer = recycleConsumerQueue.poll()) != null) {
+                recycleConsumer.accept(ServletOutputStream.this);
+            }
+        }
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
             boolean isNeedClose = isCloseChannel(servletHttpExchange.isHttpKeepAlive(),
                     servletHttpExchange.getResponse().getStatus());
+            ChannelFuture closeFuture = null;
             if(isNeedClose){
                 Channel channel = future.channel();
                 if(channel.isActive()){
-                    ChannelFuture closeFuture = channel.close();
+                    closeFuture = channel.close();
                     ChannelFutureListener closeListener = this.closeListener;
                     if(closeListener != null) {
                         closeFuture.addListener(closeListener);
@@ -331,9 +338,10 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 }
             }
 
-            Consumer recycleConsumer;
-            while ((recycleConsumer = recycleConsumerQueue.poll()) != null){
-                recycleConsumer.accept(ServletOutputStream.this);
+            if(closeFuture != null) {
+                closeFuture.addListener(f -> callListener());
+            }else {
+                callListener();
             }
 
             write = false;

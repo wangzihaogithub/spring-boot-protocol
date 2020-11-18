@@ -1,6 +1,6 @@
 package com.github.netty.springboot;
 
-import com.github.netty.core.util.ApplicationX;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionHandler;
 
 /**
  * You can configure it here
@@ -216,13 +217,10 @@ public class NettyProperties implements Serializable{
          */
         private int responseMaxBufferSize = 1024 * 1024;
         /**
-         * 服务端 - servlet线程执行器
+         * 服务端 - 线程池配置
          */
-        private Class<?extends Executor> serverHandlerExecutor = null;
-        /**
-         * 服务端 - servlet3异步特性。 异步dispatch的线程执行器 (默认用的是netty的IO线程) {@link #serverIoThreads}
-         */
-        private Class<?extends ExecutorService> asyncExecutorService = null;
+        @NestedConfigurationProperty
+        private final ServerThreadPool serverThreadPool = new ServerThreadPool();
         /**
          * 服务端 - servlet3的异步特性。 异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
          * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
@@ -253,6 +251,99 @@ public class NettyProperties implements Serializable{
          */
         private boolean enableNsLookup = false;
 
+        public static class ServerThreadPool{
+            /**
+             * 服务端 - servlet线程执行器（用于执行业务线程, 因为worker线程与channel是绑定的, 如果阻塞worker线程，会导致当前worker线程绑定的所有channel无法接收数据包，比如阻塞住http的分段传输）
+             */
+            private Class<? extends Executor> executor = NettyThreadPoolExecutor.class;
+            private Class<? extends RejectedExecutionHandler> rejected = AbortPolicyWithReport.class;
+            private int coreThreads = 5;
+            private int maxThreads = 50;
+            private int keepAliveSeconds = 300;
+            private int queues = 0;
+            private boolean fixed = false;
+            private String poolName = "NettyX-http";
+            /**
+             * 如果出现繁忙拒绝执行, 则会自动dump线程信息. 值为空字符串则不进行dump.
+             */
+            private String dumpPath = System.getProperty("user.home");
+
+            public String getDumpPath() {
+                return dumpPath;
+            }
+
+            public void setDumpPath(String dumpPath) {
+                this.dumpPath = dumpPath;
+            }
+
+            public String getPoolName() {
+                return poolName;
+            }
+
+            public void setPoolName(String poolName) {
+                this.poolName = poolName;
+            }
+
+            public Class<? extends RejectedExecutionHandler> getRejected() {
+                return rejected;
+            }
+
+            public void setRejected(Class<? extends RejectedExecutionHandler> rejected) {
+                this.rejected = rejected;
+            }
+
+            public int getKeepAliveSeconds() {
+                return keepAliveSeconds;
+            }
+
+            public void setKeepAliveSeconds(int keepAliveSeconds) {
+                this.keepAliveSeconds = keepAliveSeconds;
+            }
+
+            public Class<? extends Executor> getExecutor() {
+                return executor;
+            }
+
+            public void setExecutor(Class<? extends Executor> executor) {
+                this.executor = executor;
+            }
+
+            public int getCoreThreads() {
+                return coreThreads;
+            }
+
+            public void setCoreThreads(int coreThreads) {
+                this.coreThreads = coreThreads;
+            }
+
+            public int getMaxThreads() {
+                return maxThreads;
+            }
+
+            public void setMaxThreads(int maxThreads) {
+                this.maxThreads = maxThreads;
+            }
+
+            public int getQueues() {
+                return queues;
+            }
+
+            public void setQueues(int queues) {
+                this.queues = queues;
+            }
+
+            public boolean isFixed() {
+                return fixed;
+            }
+
+            public void setFixed(boolean fixed) {
+                this.fixed = fixed;
+            }
+        }
+
+        public ServerThreadPool getServerThreadPool() {
+            return serverThreadPool;
+        }
 
         public int getResponseMaxBufferSize() {
             return responseMaxBufferSize;
@@ -268,14 +359,6 @@ public class NettyProperties implements Serializable{
 
         public void setAsyncSwitchThread(boolean asyncSwitchThread) {
             this.asyncSwitchThread = asyncSwitchThread;
-        }
-
-        public Class<? extends ExecutorService> getAsyncExecutorService() {
-            return asyncExecutorService;
-        }
-
-        public void setAsyncExecutorService(Class<? extends ExecutorService> asyncExecutorService) {
-            this.asyncExecutorService = asyncExecutorService;
         }
 
         public boolean isEnableNsLookup() {
@@ -316,14 +399,6 @@ public class NettyProperties implements Serializable{
 
         public void setRequestMaxChunkSize(int requestMaxChunkSize) {
             this.requestMaxChunkSize = requestMaxChunkSize;
-        }
-
-        public Class<?extends Executor> getServerHandlerExecutor() {
-            return serverHandlerExecutor;
-        }
-
-        public void setServerHandlerExecutor(Class<?extends Executor> serverHandlerExecutor) {
-            this.serverHandlerExecutor = serverHandlerExecutor;
         }
 
         public boolean isEnablesLocalFileSession() {

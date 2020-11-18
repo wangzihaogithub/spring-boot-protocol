@@ -44,9 +44,10 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private NettyProperties properties;
     private ApplicationX application;
     private BeanFactory beanFactory;
+    private AbstractServletWebServerFactory webServerFactory;
 
-    public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> serverHandlerExecutor,ClassLoader classLoader) {
-        super(serverHandlerExecutor,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
+    public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> executorSupplier,ClassLoader classLoader) {
+        super(executorSupplier,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
         this.properties = properties;
         this.application = properties.getApplication();
     }
@@ -57,13 +58,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             application.addSingletonBeanDefinition(bean, beanName, false);
         }
         if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
-            try {
-                configurableServletContext((AbstractServletWebServerFactory) bean);
-            } catch (Exception e) {
-                BeanInitializationException exception = new BeanInitializationException(e.getMessage(),e);
-                exception.setStackTrace(e.getStackTrace());
-                throw exception;
-            }
+            this.webServerFactory = (AbstractServletWebServerFactory) bean;
         }
         return bean;
     }
@@ -73,18 +68,17 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         super.onServerStart(server);
 
         ServletContext servletContext = getServletContext();
-
-        Class<? extends ExecutorService> asyncExecutorServiceClass = properties.getHttpServlet().getAsyncExecutorService();
-        ExecutorService asyncExecutorService;
-        if(asyncExecutorServiceClass != null){
-            asyncExecutorService = beanFactory.getBean(asyncExecutorServiceClass);
-        }else {
-            asyncExecutorService = server.getWorker();
-        }
-        servletContext.setAsyncExecutorService(asyncExecutorService);
-
         application.addSingletonBeanDefinition(servletContext);
 
+        if(webServerFactory != null) {
+            try {
+                configurableServletContext(webServerFactory);
+            } catch (Exception e) {
+                BeanInitializationException exception = new BeanInitializationException(e.getMessage(), e);
+                exception.setStackTrace(e.getStackTrace());
+                throw exception;
+            }
+        }
 //        application.scanner("com.github.netty").inject();
     }
 
@@ -99,7 +93,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
         ServletContext servletContext = getServletContext();
         ServerProperties serverProperties = application.getBean(ServerProperties.class);
-        MultipartProperties multipartProperties = application.getBean(MultipartProperties.class);
+        MultipartProperties multipartProperties = application.getBean(MultipartProperties.class,null,false);
 
         InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
         //Server port
@@ -126,7 +120,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         super.setMaxHeaderSize((getNumberBytes(serverProperties,"getMaxHttpHeaderSize")).intValue());
 
         String location = null;
-        if(multipartProperties.getEnabled()){
+        if(multipartProperties != null && multipartProperties.getEnabled()){
             Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
             Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
             super.setMaxContentLength(Math.max(maxRequestSize.longValue(),maxFileSize.longValue()));

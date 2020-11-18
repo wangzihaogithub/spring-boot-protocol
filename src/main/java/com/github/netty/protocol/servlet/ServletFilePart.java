@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * formData File blocks
@@ -23,11 +24,12 @@ import java.util.Map;
 public class ServletFilePart implements Part {
     private FileUpload fileUpload;
     private ResourceManager resourceManager;
+    private Supplier<ResourceManager> resourceManagerSupplier;
     private Map<String,String> headerMap;
 
-    public ServletFilePart(FileUpload fileUpload,ResourceManager resourceManager) {
+    public ServletFilePart(FileUpload fileUpload, Supplier<ResourceManager> resourceManagerSupplier) {
         this.fileUpload = fileUpload;
-        this.resourceManager = resourceManager;
+        this.resourceManagerSupplier = resourceManagerSupplier;
     }
 
     @Override
@@ -64,6 +66,9 @@ public class ServletFilePart implements Part {
 
     @Override
     public void write(String fileName) throws IOException {
+        if(resourceManager == null){
+            resourceManager = resourceManagerSupplier.get();
+        }
         resourceManager.writeFile(getInputStream(),"/",fileName);
     }
 

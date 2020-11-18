@@ -633,7 +633,7 @@ public class JavaClassFile {
             private int index;
             public ConstantClassInfo(int index,ClassReader reader) {
                 this.index = index;
-                this.nameIndex = reader.readUint16();;
+                this.nameIndex = reader.readUint16();
             }
             public String value() {
                 return getUtf8(nameIndex);
@@ -2429,7 +2429,7 @@ public class JavaClassFile {
             private int typeIndex;
             private ElementValue[] elementValues;
             public Annotation(ClassReader reader) {
-                this.typeIndex = reader.readUint16();;
+                this.typeIndex = reader.readUint16();
                 this.elementValues = new ElementValue[reader.readUint16()];
                 for(int i = 0; i< elementValues.length; i++){
                     int valueIndex = reader.readUint16();

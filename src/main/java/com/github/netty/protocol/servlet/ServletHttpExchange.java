@@ -40,6 +40,8 @@ public class ServletHttpExchange implements Recyclable{
     public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest) {
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context,instance);
+
+        instance.close = CLOSE_NO;
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(httpRequest);
@@ -48,7 +50,6 @@ public class ServletHttpExchange implements Recyclable{
         instance.request = ServletHttpServletRequest.newInstance(instance,httpRequest);
         //Create a new servlet response object
         instance.response = ServletHttpServletResponse.newInstance(instance);
-        instance.close = CLOSE_NO;
         return instance;
     }
 
@@ -203,7 +204,6 @@ public class ServletHttpExchange implements Recyclable{
             }
             response = null;
             request = null;
-            channelHandlerContext = null;
             servletContext = null;
             RECYCLER.recycleInstance(this);
             this.close = CLOSE_YES;

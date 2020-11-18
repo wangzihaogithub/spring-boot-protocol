@@ -14,9 +14,8 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
-import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_ING;
-import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_NO;
-import static io.netty.handler.codec.http.HttpHeaderNames.*;
+import static com.github.netty.protocol.servlet.ServletHttpExchange.*;
+import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;
 
 /**
  * Life cycle connection
@@ -50,10 +49,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         TOO_LARGE.headers().set(CONTENT_LENGTH, 0);
 
         TOO_LARGE_CLOSE.headers().set(CONTENT_LENGTH, 0);
-        TOO_LARGE_CLOSE.headers().set(CONNECTION, HttpHeaderValues.CLOSE);
+        TOO_LARGE_CLOSE.headers().set(CONNECTION, CLOSE);
 
         NOT_ACCEPTABLE_CLOSE.headers().set(CONTENT_LENGTH, 0);
-        NOT_ACCEPTABLE_CLOSE.headers().set(CONNECTION, HttpHeaderValues.CLOSE);
+        NOT_ACCEPTABLE_CLOSE.headers().set(CONNECTION, CLOSE);
     }
 
     public NettyMessageToServletRunnable(ServletContext servletContext,long maxContentLength) {
@@ -63,10 +62,11 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
 
     @Override
     public Runnable onMessage(ChannelHandlerContext context, Object msg) {
+        ServletHttpExchange exchange = this.exchange;
         if(msg instanceof HttpRequest) {
             if(continueResponse(context, (HttpRequest) msg)){
                 HttpRunnable instance = RECYCLER.getInstance();
-                instance.servletHttpExchange = this.exchange = ServletHttpExchange.newInstance(
+                instance.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
                         servletContext,
                         context,
                         (HttpRequest) msg);
@@ -78,20 +78,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         }else if(exchange != null && exchange.closeStatus() == CLOSE_NO && inputStream != null){
             inputStream.onMessage(msg);
             return null;
-        }else if(exchange != null && exchange.closeStatus() >= CLOSE_ING){
-            // send back a 413 and close the connection
-            ChannelFuture future = context.writeAndFlush(NOT_ACCEPTABLE_CLOSE.retainedDuplicate());
-            future.addListener((ChannelFutureListener) future1 -> {
-                if (!future1.isSuccess()) {
-                    logger.debug("Failed to send a 406 Not Acceptable.", future1.cause());
-                }
-                future1.channel().close();
-            });
+        }else if(exchange != null){
+            if(exchange.closeStatus() == CLOSE_YES && msg != LastHttpContent.EMPTY_LAST_CONTENT){
+                context.close();
+            }
             logger.warn("http packet discard = {}",msg);
             RecyclableUtil.release(msg);
             return null;
         }else {
-            logger.warn("http packet discard = {}",msg);
             RecyclableUtil.release(msg);
             return null;
         }

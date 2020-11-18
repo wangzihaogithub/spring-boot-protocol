@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.CLOSE;
+
 /**
  * NettyHttpResponse
  * @author wangzihao
@@ -303,6 +305,11 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             headers.set(HttpHeaderConstants.CONTENT_LENGTH, contentLength);
         }else {
             enableTransferEncodingChunked();
+        }
+
+        //if need close client
+        if(servletRequest.getInputStream0().isNeedCloseClient()){
+            headers.set(HttpHeaderConstants.CONNECTION, CLOSE);
         }
 
         // Time and date response header

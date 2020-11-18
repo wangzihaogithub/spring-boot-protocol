@@ -159,7 +159,6 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         List<PendingWrite> responseList = new ArrayList<>();
         for (;;) {
             PendingWrite currentWrite = removeFirst();
-
             if (currentWrite == null) {
                 break;
             }
@@ -190,7 +189,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                     currentWrite.success(inputLength);
                 }
             } else if(message instanceof HttpResponse){
-              responseList.add(currentWrite);
+                responseList.add(currentWrite);
             } else {
                 if (cause == null) {
                     cause = CLOSE_EXCEPTION;

@@ -2,6 +2,8 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
+import com.github.netty.core.util.AbortPolicyWithReport;
+import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.*;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
@@ -22,9 +24,13 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.net.InetSocketAddress;
+import java.text.SimpleDateFormat;
 import java.util.Collection;
-import java.util.concurrent.Executor;
+import java.util.Date;
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 
 /**
@@ -86,14 +92,26 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("httpServletProtocol")
     @ConditionalOnMissingBean(HttpServletProtocol.class)
     public HttpServletProtocol httpServletProtocol(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
-        Class<? extends Executor> serverHandlerExecutorClass = nettyProperties.getHttpServlet().getServerHandlerExecutor();
-        Supplier<Executor> serverHandlerExecutor = null;
-        if(serverHandlerExecutorClass != null){
-            serverHandlerExecutor = () -> factory.getBean(serverHandlerExecutorClass);
+        NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
+        NettyProperties.HttpServlet.ServerThreadPool pool = nettyProperties.getHttpServlet().getServerThreadPool();
+
+        Supplier<Executor> executorSupplier;
+        if(pool.getExecutor() == NettyThreadPoolExecutor.class){
+            RejectedExecutionHandler rejectedHandler;
+            if(pool.getRejected() == AbortPolicyWithReport.class){
+                rejectedHandler = new AbortPolicyWithReport(pool.getPoolName(),pool.getDumpPath(),"HttpServlet");
+            }else {
+                rejectedHandler = factory.getBean(pool.getRejected());
+            }
+            NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(
+                    pool.getPoolName(), pool.getCoreThreads(), pool.getMaxThreads(), pool.getQueues(),
+                    pool.getKeepAliveSeconds(), pool.isFixed(), rejectedHandler);
+            executorSupplier = ()-> executor;
+        }else {
+            executorSupplier = () -> factory.getBean(pool.getExecutor());
         }
 
-        HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(nettyProperties,serverHandlerExecutor,resourceLoader.getClassLoader());
-        NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
+        HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(nettyProperties,executorSupplier,resourceLoader.getClassLoader());
         protocol.setMaxInitialLineLength(http.getRequestMaxHeaderLineSize());
         protocol.setMaxHeaderSize(http.getRequestMaxHeaderSize());
         protocol.setMaxContentLength(http.getRequestMaxContentSize());
@@ -184,4 +202,23 @@ public class NettyEmbeddedAutoConfiguration {
         listener.setLogWriteInterval(mysql.getProxyLog().getLogFlushInterval());
         return listener;
     }
+
+    private NettyThreadPoolExecutor newNettyThreadPoolExecutor(String poolName,int coreThreads,int maxThreads,int queues,
+                                                               int keepAliveSeconds,boolean fixed,RejectedExecutionHandler handler){
+        BlockingQueue<Runnable> workQueue = queues == 0 ?
+                new SynchronousQueue<>() :
+                (queues < 0 ? new LinkedBlockingQueue<>(Integer.MAX_VALUE)
+                        : new LinkedBlockingQueue<>(queues));
+        if(fixed){
+            int max = Math.max(coreThreads,maxThreads);
+            coreThreads = max;
+            maxThreads = max;
+        }
+        int priority = Thread.NORM_PRIORITY;
+        boolean daemon = false;
+        return new NettyThreadPoolExecutor(
+                coreThreads,maxThreads,keepAliveSeconds, TimeUnit.SECONDS,
+                workQueue,poolName,priority,daemon,handler);
+    }
+
 }

@@ -15,6 +15,7 @@ import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * formData Text block
@@ -23,11 +24,12 @@ import java.util.Map;
 public class ServletTextPart implements Part {
     private Attribute attribute;
     private ResourceManager resourceManager;
+    private Supplier<ResourceManager> resourceManagerSupplier;
     private Map<String,String> headerMap;
 
-    public ServletTextPart(Attribute attribute, ResourceManager resourceManager) {
+    public ServletTextPart(Attribute attribute, Supplier<ResourceManager> resourceManagerSupplier) {
         this.attribute = attribute;
-        this.resourceManager = resourceManager;
+        this.resourceManagerSupplier = resourceManagerSupplier;
     }
 
     @Override
@@ -64,6 +66,9 @@ public class ServletTextPart implements Part {
 
     @Override
     public void write(String fileName) throws IOException {
+        if(resourceManager == null){
+            resourceManager = resourceManagerSupplier.get();
+        }
         resourceManager.writeFile(getInputStream(),"/",fileName);
     }
 

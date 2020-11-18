@@ -25,7 +25,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.*;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 /**
  * Servlet context (lifetime same as server)
@@ -46,6 +48,7 @@ public class ServletContext implements javax.servlet.ServletContext {
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
      */
     private long uploadMinSize = 4096 * 16;
+    private long uploadFileTimeoutMs = -1;
     private Map<String,Object> attributeMap = new LinkedHashMap<>(16);
     private Map<String,String> initParamMap = new LinkedHashMap<>(16);
     private Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
@@ -67,7 +70,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private UrlMapper<ServletFilterRegistration> filterUrlMapper = new UrlMapper<>(false);
 
     private ResourceManager resourceManager;
-    private ExecutorService asyncExecutorService;
+    private Supplier<Executor> asyncExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
@@ -140,20 +143,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
     }
 
-    public ExecutorService getAsyncExecutorService() {
-        if(asyncExecutorService == null) {
-            synchronized (this){
-                if(asyncExecutorService == null) {
-                    asyncExecutorService = new ThreadPoolX("Async", Runtime.getRuntime().availableProcessors() * 2);
-//                            executorService = new DefaultEventExecutorGroup(15);
-                }
-            }
-        }
-        return asyncExecutorService;
+    public Executor getAsyncExecutor() {
+        return asyncExecutorSupplier.get();
     }
 
-    public void setAsyncExecutorService(ExecutorService asyncExecutorService) {
-        this.asyncExecutorService = asyncExecutorService;
+    public void setAsyncExecutorSupplier(Supplier<Executor> asyncExecutorSupplier) {
+        this.asyncExecutorSupplier = asyncExecutorSupplier;
     }
 
     public HttpDataFactory getHttpDataFactory(Charset charset){
