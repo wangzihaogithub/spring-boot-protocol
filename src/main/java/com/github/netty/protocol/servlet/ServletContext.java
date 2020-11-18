@@ -48,6 +48,9 @@ public class ServletContext implements javax.servlet.ServletContext {
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
      */
     private long uploadMinSize = 4096 * 16;
+    /**
+     * Upload file timeout millisecond , -1 is not control timeout.
+     */
     private long uploadFileTimeoutMs = -1;
     private Map<String,Object> attributeMap = new LinkedHashMap<>(16);
     private Map<String,String> initParamMap = new LinkedHashMap<>(16);
@@ -91,6 +94,14 @@ public class ServletContext implements javax.servlet.ServletContext {
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
         setDocBase(createTempDir("netty-docbase").getAbsolutePath());
+    }
+
+    public long getUploadFileTimeoutMs() {
+        return uploadFileTimeoutMs;
+    }
+
+    public void setUploadFileTimeoutMs(long uploadFileTimeoutMs) {
+        this.uploadFileTimeoutMs = uploadFileTimeoutMs;
     }
 
     public void setAsyncSwitchThread(boolean asyncSwitchThread) {

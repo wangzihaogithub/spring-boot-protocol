@@ -6,6 +6,7 @@ import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.*;
+import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
@@ -158,8 +159,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             instance.postRequestDecoder = null;
         }
 
-        instance.inputStream.setContentLength(HttpHeaderUtil.getContentLength(httpRequest, -1L));
         instance.inputStream.wrap(exchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
+        instance.inputStream.setContentLength(HttpHeaderUtil.getContentLength(httpRequest, -1L));
         instance.inputStream.setRequestDecoder(()->{
             if(instance.postRequestDecoder == null) {
                 synchronized (instance) {
@@ -311,7 +312,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     private void decodeBody(){
         //wait LastHttpContent
-        getInputStream0().awaitDataIfNeed();
+        try {
+            getInputStream0().awaitDataIfNeed();
+        } catch (IOException e) {
+            PlatformDependent.throwException(e);
+        }
 
         boolean formUrlEncoder = HttpHeaderUtil.isFormUrlEncoder(getContentType());
         /*

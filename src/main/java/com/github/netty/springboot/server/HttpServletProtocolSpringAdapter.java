@@ -30,7 +30,6 @@ import java.net.URL;
 import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 import static org.springframework.util.ClassUtils.getMethod;
@@ -100,6 +99,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         servletContext.setServerAddress(address);
         servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
 
+        servletContext.setUploadFileTimeoutMs(properties.getHttpServlet().getUploadFileTimeoutMs());
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
         servletContext.setServletContextName(configurableWebServer.getDisplayName());

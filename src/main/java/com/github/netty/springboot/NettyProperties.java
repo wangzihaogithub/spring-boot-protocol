@@ -217,6 +217,10 @@ public class NettyProperties implements Serializable{
          */
         private int responseMaxBufferSize = 1024 * 1024;
         /**
+         * 接收客户端的文件上传超时时间(毫秒). -1 表示永远不超时。
+         */
+        private long uploadFileTimeoutMs = -1;
+        /**
          * 服务端 - 线程池配置
          */
         @NestedConfigurationProperty
@@ -339,6 +343,14 @@ public class NettyProperties implements Serializable{
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public long getUploadFileTimeoutMs() {
+            return uploadFileTimeoutMs;
+        }
+
+        public void setUploadFileTimeoutMs(long uploadFileTimeoutMs) {
+            this.uploadFileTimeoutMs = uploadFileTimeoutMs;
         }
 
         public ServerThreadPool getServerThreadPool() {

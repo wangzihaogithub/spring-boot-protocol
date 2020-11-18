@@ -11,6 +11,7 @@ import io.netty.util.internal.PlatformDependent;
 import javax.servlet.ReadListener;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
@@ -34,6 +35,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private volatile HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
     private boolean needCloseClient;
+    private long fileUploadTimeoutMs;
+    private boolean receiveDataTimeout;
 
     public ServletInputStreamWrapper() {}
 
@@ -130,7 +133,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if(closed.get()){
             return true;
         }
-        return contentLength == -1 || receiveContentLength.get() >= contentLength || decoderException != null ;
+        return contentLength == -1
+                || receiveContentLength.get() >= contentLength
+                || decoderException != null
+                || receiveDataTimeout;
     }
 
     /**
@@ -224,11 +230,20 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return source.readByte();
     }
 
-    public void awaitDataIfNeed() throws HttpPostRequestDecoder.ErrorDataDecoderException {
+    void awaitDataIfNeed() throws HttpPostRequestDecoder.ErrorDataDecoderException,IOException {
         while (!isFinished()){
             lock.lock();
             try {
-                condition.await();
+                if(fileUploadTimeoutMs > 0) {
+                    boolean isTimeout = condition.await(fileUploadTimeoutMs, TimeUnit.MILLISECONDS);
+                    if (isTimeout) {
+                        this.receiveDataTimeout = true;
+                        this.needCloseClient = true;
+                        throw new IOException("await client data stream timeout. timeout = " + fileUploadTimeoutMs + "/ms");
+                    }
+                }else {
+                    condition.await();
+                }
             } catch (InterruptedException e) {
                 PlatformDependent.throwException(e);
             }finally {
@@ -269,6 +284,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.receiveContentLength.set(0);
         this.decoderException = null;
         this.needCloseClient = false;
+        this.receiveDataTimeout = false;
     }
 
     public void setContentLength(long contentLength) {
@@ -277,6 +293,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     public void setRequestDecoder(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier) {
         this.requestDecoderSupplier = requestDecoderSupplier;
+    }
+
+    public void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
+        this.fileUploadTimeoutMs = fileUploadTimeoutMs;
+    }
+
+    public long getFileUploadTimeoutMs() {
+        return fileUploadTimeoutMs;
     }
 
     public Supplier<InterfaceHttpPostRequestDecoder> getRequestDecoder() {
