@@ -1,5 +1,6 @@
 package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.AutoFlushChannelHandler;
 import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -163,9 +164,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         writeResponseHeaderIfNeed();
         ServletHttpExchange exchange = this.servletHttpExchange;
         if(exchange != null) {
-            exchange.getChannelHandlerContext().flush();
+            flush = AutoFlushChannelHandler.flushIfNeed(exchange.getChannelHandlerContext());
         }
-        flush = true;
     }
 
     /**
@@ -188,7 +188,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             ServletHttpExchange exchange = getServletHttpExchange();
             ChannelHandlerContext context = exchange.getChannelHandlerContext();
             writeResponseHeaderIfNeed();
-            context.channel().writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
+            context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT)
                     .addListener(closeListenerWrapper);
         }
     }

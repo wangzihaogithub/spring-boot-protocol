@@ -117,6 +117,7 @@ public class NettyEmbeddedAutoConfiguration {
         protocol.setMaxContentLength(http.getRequestMaxContentSize());
         protocol.setMaxChunkSize(http.getRequestMaxChunkSize());
         protocol.setMaxBufferBytes(http.getResponseMaxBufferSize());
+        protocol.setAutoFlushIdleMs(http.getAutoFlushIdleMs());
 
         factory.addBeanPostProcessor(protocol);
         return protocol;
@@ -131,7 +132,7 @@ public class NettyEmbeddedAutoConfiguration {
     @ConditionalOnProperty(prefix = "server.netty.mqtt", name = "enabled", matchIfMissing = false)
     public MqttProtocol mqttProtocol(){
         NettyProperties.Mqtt mqtt = nettyProperties.getMqtt();
-        return new MqttProtocol(mqtt.getMessageMaxLength(),mqtt.getNettyReaderIdleTimeSeconds(),mqtt.getAutoFlushIdleTime());
+        return new MqttProtocol(mqtt.getMessageMaxLength(),mqtt.getNettyReaderIdleTimeSeconds(),mqtt.getAutoFlushIdleMs());
     }
 
     /**

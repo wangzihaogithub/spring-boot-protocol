@@ -22,7 +22,6 @@ import io.netty.handler.codec.mqtt.MqttPublishMessage;
 import io.netty.handler.timeout.IdleStateHandler;
 
 import java.text.ParseException;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Internet of things messaging protocol
@@ -34,7 +33,6 @@ public class MqttProtocol extends AbstractProtocol {
 
     private int messageMaxLength;
     private int nettyReaderIdleTimeSeconds;
-    private int autoFlushIdleTime;
     private boolean enableMetrics = false;
     private String metricsLibratoEmail;
     private String metricsLibratoToken;
@@ -60,7 +58,7 @@ public class MqttProtocol extends AbstractProtocol {
     public MqttProtocol(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
         this.messageMaxLength = messageMaxLength;
         this.nettyReaderIdleTimeSeconds = nettyReaderIdleTimeSeconds;
-        this.autoFlushIdleTime = autoFlushIdleTime;
+        setAutoFlushIdleMs(autoFlushIdleTime);
     }
 
     @Override
@@ -85,14 +83,12 @@ public class MqttProtocol extends AbstractProtocol {
 
     @Override
     public void addPipeline(Channel channel) throws Exception {
+        super.addPipeline(channel);
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyReaderIdleTimeSeconds, 0, 0));
         pipeline.addAfter("idleStateHandler", "idleEventHandler", timeoutHandler);
 
-        if(autoFlushIdleTime > 0) {
-            pipeline.addLast("autoflush", new MqttAutoFlushChannelHandler(autoFlushIdleTime, TimeUnit.SECONDS));
-        }
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
         pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler);
@@ -186,11 +182,4 @@ public class MqttProtocol extends AbstractProtocol {
         this.metricsLibratoSource = metricsLibratoSource;
     }
 
-    public int getAutoFlushIdleTime() {
-        return autoFlushIdleTime;
-    }
-
-    public void setAutoFlushIdleTime(int autoFlushIdleTime) {
-        this.autoFlushIdleTime = autoFlushIdleTime;
-    }
 }

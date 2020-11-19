@@ -30,9 +30,10 @@ import java.util.concurrent.TimeUnit;
 public class MqttInflightResenderChannelHandler extends AbstractChannelHandler {
     private static final long MIN_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(1);
     private final long resenderTimeNanos;
-    volatile ScheduledFuture<?> resenderTimeout;
-    volatile long lastExecutionTime;
-    private volatile int state; // 0 - none, 1 - initialized, 2 - destroyed
+    private volatile ScheduledFuture<?> resenderTimeout;
+    private volatile long lastExecutionTime;
+    // 0 - none, 1 - initialized, 2 - destroyed
+    private volatile int state;
 
     public MqttInflightResenderChannelHandler(long writerIdleTime, TimeUnit unit) {
         super(false);

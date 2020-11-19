@@ -119,6 +119,7 @@ public class NRpcProtocol extends AbstractProtocol {
 
     @Override
     public void addPipeline(Channel channel) throws Exception {
+        super.addPipeline(channel);
         RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
         rpcServerHandler.getAopList().addAll(rpcServerAopList);
         for (Instance instance : instanceMap.values()) {

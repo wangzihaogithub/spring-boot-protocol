@@ -44,7 +44,7 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
-    private int serverIoThreads = 50;
+    private int serverIoThreads = 0;
     /**
      * 服务端-io线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大
      */
@@ -197,6 +197,10 @@ public class NettyProperties implements Serializable{
 
     public static class HttpServlet{
         /**
+         * 刷新缓冲区数据间隔(毫秒),开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
+         */
+        private int autoFlushIdleMs = 0;
+        /**
          * 请求体最大字节
          */
         private int requestMaxContentSize = 20 * 1024 * 1024;
@@ -343,6 +347,14 @@ public class NettyProperties implements Serializable{
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public int getAutoFlushIdleMs() {
+            return autoFlushIdleMs;
+        }
+
+        public void setAutoFlushIdleMs(int autoFlushIdleMs) {
+            this.autoFlushIdleMs = autoFlushIdleMs;
         }
 
         public long getUploadFileTimeoutMs() {
@@ -632,9 +644,9 @@ public class NettyProperties implements Serializable{
          */
         private int nettyReaderIdleTimeSeconds = 10;
         /**
-         * 刷新缓冲区数据间隔(秒) (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
+         * 刷新缓冲区数据间隔(毫秒),开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
          */
-        private int autoFlushIdleTime = 0;
+        private int autoFlushIdleMs = 0;
 
         public int getMessageMaxLength() {
             return messageMaxLength;
@@ -652,12 +664,12 @@ public class NettyProperties implements Serializable{
             this.nettyReaderIdleTimeSeconds = nettyReaderIdleTimeSeconds;
         }
 
-        public int getAutoFlushIdleTime() {
-            return autoFlushIdleTime;
+        public int getAutoFlushIdleMs() {
+            return autoFlushIdleMs;
         }
 
-        public void setAutoFlushIdleTime(int autoFlushIdleTime) {
-            this.autoFlushIdleTime = autoFlushIdleTime;
+        public void setAutoFlushIdleMs(int autoFlushIdleMs) {
+            this.autoFlushIdleMs = autoFlushIdleMs;
         }
 
         public void setEnabled(boolean enabled) {

@@ -162,6 +162,7 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     @Override
     public void addPipeline(Channel ch) throws Exception {
+        super.addPipeline(ch);
         ChannelPipeline pipeline = ch.pipeline();
         if (sslContextBuilder != null) {
             if(sslContext == null) {

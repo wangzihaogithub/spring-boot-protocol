@@ -3,6 +3,8 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -23,7 +25,7 @@ import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;
  * @author wangzihao
  */
 public class NettyMessageToServletRunnable implements MessageToRunnable {
-    private static final LoggerX logger = LoggerFactoryX.getLogger(NettyMessageToServletRunnable.class);
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(NettyMessageToServletRunnable.class);
     private static final Recycler<HttpRunnable> RECYCLER = new Recycler<>(HttpRunnable::new);
     private static final FullHttpResponse CONTINUE =
             new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.CONTINUE, Unpooled.EMPTY_BUFFER);
@@ -79,10 +81,21 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             inputStream.onMessage(msg);
             return null;
         }else if(exchange != null){
-            if(exchange.closeStatus() == CLOSE_YES && msg != LastHttpContent.EMPTY_LAST_CONTENT){
-                context.close();
+            if(exchange.closeStatus() == CLOSE_YES){
+                ByteBuf byteBuf;
+                if(msg instanceof ByteBufHolder){
+                    byteBuf = ((ByteBufHolder) msg).content();
+                }else if(msg instanceof ByteBuf){
+                    byteBuf = (ByteBuf) msg;
+                    context.close();
+                }else {
+                    byteBuf = null;
+                }
+                if(byteBuf != null && byteBuf.isReadable()){
+                    LOGGER.warn("http packet discard = {}",msg);
+                    context.close();
+                }
             }
-            logger.warn("http packet discard = {}",msg);
             RecyclableUtil.release(msg);
             return null;
         }else {
@@ -139,7 +152,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         ChannelFuture future = ctx.writeAndFlush(TOO_LARGE_CLOSE.retainedDuplicate());
         future.addListener((ChannelFutureListener) future1 -> {
             if (!future1.isSuccess()) {
-                logger.debug("Failed to send a 413 Request Entity Too Large.", future1.cause());
+                LOGGER.debug("Failed to send a 413 Request Entity Too Large.", future1.cause());
             }
             future1.channel().close();
         });

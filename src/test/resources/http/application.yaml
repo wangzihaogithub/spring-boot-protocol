@@ -9,7 +9,7 @@ server:
       max-file-size: 10GB
   netty:
     enable-tcp-package-log: true
-    max-connections: 2
+    max-connections: 999999
     channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler
     #内存泄露追踪。 默认不设置是关闭
     resource-leak-detector-level: PARANOID

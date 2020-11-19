@@ -17,6 +17,7 @@
 package com.github.netty.protocol.mqtt;
 
 import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.core.AutoFlushChannelHandler;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.security.IAuthenticator;
 import io.netty.channel.Channel;
@@ -25,7 +26,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.mqtt.MqttMessage;
-import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
 import java.io.IOException;
@@ -78,7 +78,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
         }
 
         MqttConnection mqttConnection = mqttConnection(ctx.channel());
-        mqttConnection.setAuthFlushed(ctx.pipeline().context(MqttAutoFlushChannelHandler.class) != null);
+        mqttConnection.setAuthFlushed(AutoFlushChannelHandler.isAutoFlush(ctx.pipeline()));
         try {
             mqttConnection.handleMessage(msg);
         } catch (Throwable ex) {
@@ -97,7 +97,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     public void channelActive(ChannelHandlerContext ctx) {
         Channel channel = ctx.channel();
         MqttConnection connection =  new MqttConnection(channel, brokerConfig, authenticator, sessionRegistry, postOffice);
-        connection.setAuthFlushed(ctx.pipeline().context(MqttAutoFlushChannelHandler.class) != null);
+        connection.setAuthFlushed(AutoFlushChannelHandler.isAutoFlush(ctx.pipeline()));
         mqttConnection(channel,connection);
     }
 

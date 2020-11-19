@@ -14,10 +14,12 @@
  * You may elect to redistribute this code under either of these licenses.
  */
 
-package com.github.netty.protocol.mqtt;
+package com.github.netty.core;
 
-import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.protocol.mqtt.MqttUtil;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.util.concurrent.EventExecutor;
 
 import java.util.concurrent.ScheduledFuture;
@@ -28,23 +30,42 @@ import java.util.concurrent.TimeUnit;
  * specialized version, just flushing data after no read is done on the channel after a period. It's
  * used to avoid aggressively flushing from the ProtocolProcessor.
  */
-public class MqttAutoFlushChannelHandler extends AbstractChannelHandler<Object,Object> {
-
+public class AutoFlushChannelHandler extends AbstractChannelHandler<Object,Object> {
     private static final long MIN_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(1);
 
     private final long writerIdleTimeNanos;
-    volatile ScheduledFuture<?> writerIdleTimeout;
-    volatile long lastWriteTime;
+    private volatile ScheduledFuture<?> writerIdleTimeout;
+    private volatile long lastWriteTime;
     // private boolean firstWriterIdleEvent = true;
 
-    private volatile int state; // 0 - none, 1 - initialized, 2 - destroyed
+    // 0 - none, 1 - initialized, 2 - destroyed
+    private volatile int state;
 
-    public MqttAutoFlushChannelHandler(long writerIdleTime, TimeUnit unit) {
+    public AutoFlushChannelHandler(long writerIdleTime, TimeUnit unit) {
         super(false);
         if (unit == null) {
             throw new NullPointerException("unit");
         }
         writerIdleTimeNanos = Math.max(unit.toNanos(writerIdleTime), MIN_TIMEOUT_NANOS);
+    }
+
+    public static boolean isAutoFlush(ChannelPipeline pipeline){
+        return pipeline.context(AutoFlushChannelHandler.class) != null;
+    }
+    public static boolean flushIfNeed(ChannelHandlerContext context){
+        if(isAutoFlush(context.pipeline())){
+            context.flush();
+            return true;
+        }else {
+            return false;
+        }
+    }
+    public static ChannelFuture writeIfFlush(ChannelHandlerContext context, Object message){
+        if(isAutoFlush(context.pipeline())){
+            return context.write(message);
+        }else {
+            return context.writeAndFlush(message);
+        }
     }
 
     @Override

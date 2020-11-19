@@ -4,6 +4,7 @@ import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder;
 import io.netty.util.internal.PlatformDependent;
@@ -61,11 +62,11 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             throw new IllegalStateException("unkown messsage. "+ message.getClass()+". "+message);
         }
 
-
-        if(contentLength == -1){
+        if(contentLength == -1 && byteBuf.isReadable()){
+            int readableBytes = byteBuf.readableBytes();
             LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).warn(
                     "not exist contentLength, but receive message。 {}/bytes, message = '{}'",
-                    byteBuf.readableBytes(),byteBuf.toString(byteBuf.readerIndex(),255,Charset.defaultCharset()));
+                    readableBytes,byteBuf.toString(byteBuf.readerIndex(),Math.min(readableBytes,255),Charset.defaultCharset()));
             RecyclableUtil.release(httpContent);
             return;
         }
@@ -207,7 +208,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
 
         awaitDataIfNeed();
-        if(source.readableBytes() == 0){
+        if (!source.isReadable()) {
             return -1;
         }
 
@@ -224,7 +225,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         checkClosed();
 
         awaitDataIfNeed();
-        if (source.readableBytes() == 0) {
+        if (!source.isReadable()) {
             return -1;
         }
         return source.readByte();
