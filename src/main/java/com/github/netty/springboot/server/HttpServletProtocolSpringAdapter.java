@@ -117,7 +117,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         super.setContentSizeThreshold((getNumberBytes(compression,"getMinResponseSize")).intValue());
         super.setCompressionMimeTypes(compression.getMimeTypes().clone());
         super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
-        super.setMaxHeaderSize((getNumberBytes(serverProperties,"getMaxHttpHeaderSize")).intValue());
+        if(serverProperties != null) {
+            super.setMaxHeaderSize((getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
+        }
 
         String location = null;
         if(multipartProperties != null && multipartProperties.getEnabled()){
