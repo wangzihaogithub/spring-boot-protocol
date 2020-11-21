@@ -5,21 +5,21 @@ import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.HttpUtil;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * Servlet object (contains 3 big objects: request, response, TCP channel)
  * @author wangzihao
  *  2018/8/1/001
  */
-public class ServletHttpExchange implements Recyclable{
+public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private static final Recycler<ServletHttpExchange> RECYCLER = new Recycler<>(ServletHttpExchange::new);
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
     private static final AttributeKey<ServletHttpExchange> CHANNEL_ATTR_KEY_EXCHANGE = AttributeKey.valueOf(ServletHttpExchange.class + "#ServletHttpExchange");
@@ -29,7 +29,7 @@ public class ServletHttpExchange implements Recyclable{
     private ChannelHandlerContext channelHandlerContext;
     private ServletContext servletContext;
     private boolean isHttpKeepAlive;
-    private volatile int close;
+    private final AtomicInteger close = new AtomicInteger(CLOSE_NO);
     public static final int CLOSE_NO = 0;
     public static final int CLOSE_ING = 1;
     public static final int CLOSE_YES = 2;
@@ -41,7 +41,7 @@ public class ServletHttpExchange implements Recyclable{
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context,instance);
 
-        instance.close = CLOSE_NO;
+        instance.close.set(CLOSE_NO);
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(httpRequest);
@@ -191,27 +191,35 @@ public class ServletHttpExchange implements Recyclable{
      */
     @Override
     public void recycle() {
-        this.close = CLOSE_ING;
-        response.recycle((e)->{
-            request.recycle();
-
-            if(channelHandlerContext instanceof Recyclable){
-                ((Recyclable) channelHandlerContext).recycle();
-            }
-
-            if(channelHandlerContext != null) {
-                setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE, null);
-            }
-            response = null;
-            request = null;
-            servletContext = null;
-            RECYCLER.recycleInstance(this);
-            this.close = CLOSE_YES;
-        });
+        if(close.compareAndSet(CLOSE_NO,CLOSE_ING)) {
+            response.recycle(recycleCallback);
+        }
     }
 
+    @Override
+    public void close() {
+        recycle();
+    }
+
+    private final Consumer<Object> recycleCallback = e ->{
+        request.recycle();
+
+        if(channelHandlerContext instanceof Recyclable){
+            ((Recyclable) channelHandlerContext).recycle();
+        }
+
+        if(channelHandlerContext != null) {
+            setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE, null);
+        }
+        response = null;
+        request = null;
+        servletContext = null;
+        RECYCLER.recycleInstance(this);
+        close.set(CLOSE_YES);
+    };
+
     public int closeStatus() {
-        return close;
+        return close.get();
     }
 
 }

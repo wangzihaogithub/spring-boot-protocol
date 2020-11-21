@@ -11,9 +11,9 @@ import java.util.concurrent.*;
  * Log warn info when abort.
  */
 public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
-    private final String info;
-    private final String threadName;
-    private final String dumpPath;
+    protected final String info;
+    protected final String threadName;
+    protected final String dumpPath;
 
     private static volatile long lastPrintTime = 0;
 
@@ -43,7 +43,7 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
         throw new RejectedExecutionException(msg);
     }
 
-    private void dumpJStack() {
+    protected void dumpJStack() {
         long now = System.currentTimeMillis();
 
         //dump every 10 minutes
@@ -73,7 +73,6 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
         });
         //must shutdown thread pool ,if not will lead to OOM
         pool.shutdown();
-
     }
 
 }

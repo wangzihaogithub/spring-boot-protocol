@@ -79,6 +79,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     private boolean enableLookupFlag = false;
     private boolean asyncSwitchThread = true;
+    private boolean autoFlush;
     private String serverHeader;
     private String contextPath = "";
     private String requestCharacterEncoding;
@@ -94,6 +95,14 @@ public class ServletContext implements javax.servlet.ServletContext {
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
         setDocBase(createTempDir("netty-docbase").getAbsolutePath());
+    }
+
+    public boolean isAutoFlush() {
+        return autoFlush;
+    }
+
+    public void setAutoFlush(boolean autoFlush) {
+        this.autoFlush = autoFlush;
     }
 
     public long getUploadFileTimeoutMs() {

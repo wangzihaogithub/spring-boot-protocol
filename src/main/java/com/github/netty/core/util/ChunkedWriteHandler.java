@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -59,6 +60,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private final Queue<PendingWrite> queue;
     private volatile ChannelHandlerContext ctx;
     private static final ClosedChannelException CLOSE_EXCEPTION = new ClosedChannelException();
+    private final AtomicBoolean flushIng = new AtomicBoolean(false);
 
     public ChunkedWriteHandler() {
         this(new ArrayDeque<PendingWrite>());
@@ -124,7 +126,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        add(new PendingWrite(msg, promise));
+        add(PendingWrite.newInstance(msg, promise));
 
         if(unFlushBytes.longValue() >= maxBufferBytes){
             doFlush(ctx);
@@ -157,8 +159,12 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     public void discard(Throwable cause) {
         List<PendingWrite> responseList = new ArrayList<>();
+        PendingWrite currentWrite = null;
         for (;;) {
-            PendingWrite currentWrite = removeFirst();
+            if(currentWrite != null){
+                currentWrite.recycle();
+            }
+            currentWrite = removeFirst();
             if (currentWrite == null) {
                 break;
             }
@@ -203,6 +209,20 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     }
 
     private void doFlush(final ChannelHandlerContext ctx) {
+        if(queue.isEmpty()){
+            ctx.flush();
+            return;
+        }
+        if(flushIng.compareAndSet(false,true)){
+            try {
+                doFlush0(ctx);
+            }finally {
+                flushIng.set(false);
+            }
+        }
+    }
+
+    private void doFlush0(final ChannelHandlerContext ctx) {
         final Channel channel = ctx.channel();
         if (!channel.isActive()) {
             discard(null);
@@ -212,7 +232,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         boolean requiresFlush = true;
         ByteBufAllocator allocator = ctx.alloc();
         while (channel.isWritable()
-                || unFlushBytes.longValue() >= 0
+//                || unFlushBytes.longValue() >= 0
         ) {
             final PendingWrite currentWrite = queue.peek();
 
@@ -320,6 +340,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 }
                 removeFirst();
                 ctx.write(pendingMessage, currentWrite.promise);
+                currentWrite.recycle();
                 requiresFlush = true;
             }
 
@@ -372,27 +393,31 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static final class PendingWrite {
-        final Object msg;
-        final ChannelPromise promise;
-        final long bytes;
+    private static final class PendingWrite implements Recyclable{
+        private static final Recycler<PendingWrite> RECYCLER = new Recycler<>(PendingWrite::new);
+        Object msg;
+        ChannelPromise promise;
+        long bytes;
+        PendingWrite() {}
 
-        PendingWrite(Object msg, ChannelPromise promise) {
-            this.msg = msg;
-            this.promise = promise;
+        public static PendingWrite newInstance(Object msg, ChannelPromise promise){
+            PendingWrite instance = RECYCLER.getInstance();
+            instance.msg = msg;
+            instance.promise = promise;
             if(msg instanceof ByteBuf){
-                bytes = ((ByteBuf) msg).readableBytes();
+                instance.bytes = ((ByteBuf) msg).readableBytes();
             }else if(msg instanceof ByteBuffer){
-                bytes = ((ByteBuffer) msg).remaining();
+                instance.bytes = ((ByteBuffer) msg).remaining();
             }else if(msg instanceof ByteBufHolder){
-                bytes = ((ByteBufHolder) msg).content().readableBytes();
+                instance.bytes = ((ByteBufHolder) msg).content().readableBytes();
             }else if(msg instanceof ChunkedInput){
-                bytes = Math.max(((ChunkedInput) msg).length(),0);
+                instance.bytes = Math.max(((ChunkedInput) msg).length(),0);
             }else if(msg instanceof FileRegion){
-                bytes = ((FileRegion) msg).count() - ((FileRegion) msg).position();
+                instance.bytes = ((FileRegion) msg).count() - ((FileRegion) msg).position();
             }else {
-                bytes = 0;
+                instance.bytes = 0;
             }
+            return instance;
         }
 
         @Override
@@ -421,6 +446,13 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
             if (promise instanceof ChannelProgressivePromise) {
                 ((ChannelProgressivePromise) promise).tryProgress(progress, total);
             }
+        }
+
+        @Override
+        public void recycle() {
+            this.msg = null;
+            this.promise = null;
+            RECYCLER.recycleInstance(this);
         }
     }
 

@@ -40,7 +40,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
     private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
-	private final SnowflakeIdWorker snowflakeIdWorker = new SnowflakeIdWorker();
+	private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
@@ -67,7 +67,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
     private boolean usingInputStreamFlag = false;
-    private AtomicBoolean decodeBodyFlag = new AtomicBoolean();
+    private final AtomicBoolean decodeBodyFlag = new AtomicBoolean();
 
     private BufferedReader reader;
     private HttpRequest nettyRequest;
@@ -139,8 +139,32 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return resourceManager;
     };
+    private final Supplier<InterfaceHttpPostRequestDecoder> postRequestDecoderSupplier = ()->{
+        if(this.postRequestDecoder == null) {
+            synchronized (this) {
+                if (this.postRequestDecoder == null) {
+                    Charset charset = Charset.forName(getCharacterEncoding());
+                    HttpDataFactory httpDataFactory = getHttpDataFactory(charset);
+                    InterfaceHttpPostRequestDecoder postRequestDecoder;
+                    if(HttpPostRequestDecoder.isMultipart(nettyRequest)){
+                        postRequestDecoder = new HttpPostMultipartRequestDecoder(httpDataFactory, nettyRequest, charset);
+                    }else {
+                        postRequestDecoder = new HttpPostStandardRequestDecoder(httpDataFactory, nettyRequest, charset);
+                    }
+                    int discardThreshold = 0;
+                    if(multipartConfigElement != null) {
+                        discardThreshold = multipartConfigElement.getFileSizeThreshold();
+                    }
 
-    private List<Part> fileUploadList = new ArrayList<>();
+                    postRequestDecoder.setDiscardThreshold(discardThreshold);
+                    this.postRequestDecoder = postRequestDecoder;
+                }
+            }
+        }
+        return this.postRequestDecoder;
+    };
+
+    private final List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
@@ -160,31 +184,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         instance.inputStream.wrap(exchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
-        instance.inputStream.setContentLength(HttpHeaderUtil.getContentLength(httpRequest, -1L));
-        instance.inputStream.setRequestDecoder(()->{
-            if(instance.postRequestDecoder == null) {
-                synchronized (instance) {
-                    if (instance.postRequestDecoder == null) {
-                        Charset charset = Charset.forName(instance.getCharacterEncoding());
-                        HttpDataFactory httpDataFactory = instance.getHttpDataFactory(charset);
-                        InterfaceHttpPostRequestDecoder postRequestDecoder;
-                        if(HttpPostRequestDecoder.isMultipart(httpRequest)){
-                            postRequestDecoder = new HttpPostMultipartRequestDecoder(httpDataFactory, httpRequest, charset);
-                        }else {
-                            postRequestDecoder = new HttpPostStandardRequestDecoder(httpDataFactory, httpRequest, charset);
-                        }
-                        int discardThreshold = 0;
-                        if(instance.multipartConfigElement != null) {
-                            discardThreshold = instance.multipartConfigElement.getFileSizeThreshold();
-                        }
-
-                        postRequestDecoder.setDiscardThreshold(discardThreshold);
-                        instance.postRequestDecoder = postRequestDecoder;
-                    }
-                }
-            }
-            return instance.postRequestDecoder;
-        });
+        instance.inputStream.setRequestDecoder(instance.postRequestDecoderSupplier);
+        instance.inputStream.setFileUploadTimeoutMs(exchange.getServletContext().getUploadFileTimeoutMs());
         return instance;
     }
 
@@ -490,7 +491,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * @return session ID
      */
     private String newSessionId(){
-        return String.valueOf(snowflakeIdWorker.nextId());
+        return String.valueOf(SNOWFLAKE_ID_WORKER.nextId());
     }
 
     @Override

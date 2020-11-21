@@ -1,9 +1,11 @@
 package com.github.netty.springboot;
 
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.ApplicationX;
+import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
+import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -12,7 +14,6 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import java.io.File;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 
 /**
@@ -213,10 +214,6 @@ public class NettyProperties implements Serializable{
          */
         private int requestMaxHeaderSize = 81920;
         /**
-         * 请求分块传输的每段上限
-         */
-        private int requestMaxChunkSize = 5 * 1024 * 1024;
-        /**
          * 响应最大缓冲区大小（超过这个大小，会触发flush方法，发送给网络并清空缓冲区）
          */
         private int responseMaxBufferSize = 1024 * 1024;
@@ -228,7 +225,7 @@ public class NettyProperties implements Serializable{
          * 服务端 - 线程池配置
          */
         @NestedConfigurationProperty
-        private final ServerThreadPool serverThreadPool = new ServerThreadPool();
+        private final ServerThreadPool threadPool = new ServerThreadPool();
         /**
          * 服务端 - servlet3的异步特性。 异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
          * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
@@ -245,9 +242,9 @@ public class NettyProperties implements Serializable{
         private String sessionRemoteServerAddress;
 
         /**
-         * 每次调用servlet的 OutputStream.Writer()方法写入的最大堆字节,超出后用堆外内存
+         * 每次调用servlet的 OutputStream.writer(). 大小超过这个值, 就使用堆外内存
          */
-        private int responseWriterChunkMaxHeapByteLength = 4096 * 5;
+        private int responseWriterChunkMaxHeapByteLength = 0;
 
         /**
          * servlet文件存储的根目录。(servlet文件上传下载) 如果未指定，则使用临时目录。
@@ -261,10 +258,15 @@ public class NettyProperties implements Serializable{
 
         public static class ServerThreadPool{
             /**
+             * 不开启时，代码跑在Netty的IO线程上,如果您写的Controller是计算密集型，TPS会相比开启后高33%左右。
+             * 如果servlet中有大量阻塞IO的代码, 则建议开启。
+             */
+            private boolean enable = false;
+            /**
              * 服务端 - servlet线程执行器（用于执行业务线程, 因为worker线程与channel是绑定的, 如果阻塞worker线程，会导致当前worker线程绑定的所有channel无法接收数据包，比如阻塞住http的分段传输）
              */
             private Class<? extends Executor> executor = NettyThreadPoolExecutor.class;
-            private Class<? extends RejectedExecutionHandler> rejected = AbortPolicyWithReport.class;
+            private Class<? extends RejectedExecutionHandler> rejected = HttpAbortPolicyWithReport.class;
             private int coreThreads = 5;
             private int maxThreads = 50;
             private int keepAliveSeconds = 300;
@@ -275,6 +277,14 @@ public class NettyProperties implements Serializable{
              * 如果出现繁忙拒绝执行, 则会自动dump线程信息. 值为空字符串则不进行dump.
              */
             private String dumpPath = System.getProperty("user.home");
+
+            public boolean isEnable() {
+                return enable;
+            }
+
+            public void setEnable(boolean enable) {
+                this.enable = enable;
+            }
 
             public String getDumpPath() {
                 return dumpPath;
@@ -365,8 +375,8 @@ public class NettyProperties implements Serializable{
             this.uploadFileTimeoutMs = uploadFileTimeoutMs;
         }
 
-        public ServerThreadPool getServerThreadPool() {
-            return serverThreadPool;
+        public ServerThreadPool getThreadPool() {
+            return threadPool;
         }
 
         public int getResponseMaxBufferSize() {
@@ -415,14 +425,6 @@ public class NettyProperties implements Serializable{
 
         public void setRequestMaxHeaderSize(int requestMaxHeaderSize) {
             this.requestMaxHeaderSize = requestMaxHeaderSize;
-        }
-
-        public int getRequestMaxChunkSize() {
-            return requestMaxChunkSize;
-        }
-
-        public void setRequestMaxChunkSize(int requestMaxChunkSize) {
-            this.requestMaxChunkSize = requestMaxChunkSize;
         }
 
         public boolean isEnablesLocalFileSession() {

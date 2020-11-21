@@ -4,6 +4,14 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 
 import java.util.concurrent.*;
 
+/**
+ * Use netty thread
+ *
+ * @author wangzihaogithub 2020-11-21
+ * @see  io.netty.util.concurrent.DefaultThreadFactory
+ * @see io.netty.util.concurrent.FastThreadLocalThread
+ * @see io.netty.util.internal.InternalThreadLocalMap#handlerSharableCache()
+ */
 public class NettyThreadPoolExecutor extends ThreadPoolExecutor {
 
     public NettyThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,

@@ -2,14 +2,25 @@ server:
   port: 8080
   servlet:
     context-path: '/test'
-    multipart:
-      #单个文件最大大小
-      max-request-size: 10GB
-      #所有上传文件最大大小
-      max-file-size: 10GB
   netty:
-    enable-tcp-package-log: true
-    max-connections: 999999
+    enable-tcp-package-log: false
+    max-connections: 100
     channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler
     #内存泄露追踪。 默认不设置是关闭
-    resource-leak-detector-level: PARANOID
+#    resource-leak-detector-level: PARANOID
+#    http-servlet:
+#      thread-pool:
+#        enable: false
+
+  tomcat:
+    max-http-post-size: -1
+
+spring:
+  servlet:
+    multipart:
+      #请求头的上限
+      max-request-size: 10GB
+      #请求体的上限
+      max-file-size: 10GB
+      #超过多少大小，就把请求体放在文件存储。
+      file-size-threshold: 2MB

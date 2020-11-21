@@ -6,17 +6,14 @@ import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.*;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
-import static com.github.netty.protocol.servlet.ServletHttpExchange.*;
+import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_NO;
 import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;
 
 /**
@@ -38,13 +35,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private static final FullHttpResponse NOT_ACCEPTABLE_CLOSE = new DefaultFullHttpResponse(
             HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_ACCEPTABLE, Unpooled.EMPTY_BUFFER);
 
-    private ServletContext servletContext;
+    private final ServletContext servletContext;
+    private final long maxContentLength;
     private ServletHttpExchange exchange;
-    private long maxContentLength;
-    private ChannelFutureListener continueResponseWriteListener;
-    private boolean handlingOversizedMessage;
-    private boolean closeOnExpectationFailed = true;
-    private ServletInputStreamWrapper inputStream;
+    private HttpRunnable httpRunnable;
 
     static {
         EXPECTATION_FAILED.headers().set(CONTENT_LENGTH, 0);
@@ -65,142 +59,87 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     @Override
     public Runnable onMessage(ChannelHandlerContext context, Object msg) {
         ServletHttpExchange exchange = this.exchange;
-        if(msg instanceof HttpRequest) {
-            if(continueResponse(context, (HttpRequest) msg)){
-                HttpRunnable instance = RECYCLER.getInstance();
-                instance.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
-                        servletContext,
-                        context,
-                        (HttpRequest) msg);
-                this.inputStream = exchange.getRequest().getInputStream0();
-                return instance;
-            }else {
+        try {
+            if (msg instanceof HttpRequest) {
+                HttpRequest request = (HttpRequest) msg;
+                long contentLength = HttpHeaderUtil.getContentLength(request, -1L);
+                if (continueResponse(context, request, contentLength)) {
+                    HttpRunnable httpRunnable = RECYCLER.getInstance();
+                    httpRunnable.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
+                            servletContext,
+                            context,
+                            request);
+                    exchange.getRequest().getInputStream0().setContentLength(contentLength);
+                    this.httpRunnable = httpRunnable;
+                    return null;
+                } else {
+                    discard(msg);
+                    return null;
+                }
+            } else if (msg instanceof HttpContent) {
+                if (exchange.closeStatus() == CLOSE_NO) {
+                    exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
+                    if (msg instanceof LastHttpContent) {
+                        return httpRunnable;
+                    } else {
+                        return null;
+                    }
+                } else {
+                    discard(msg);
+                    return null;
+                }
+            } else {
+                discard(msg);
                 return null;
             }
-        }else if(exchange != null && exchange.closeStatus() == CLOSE_NO && inputStream != null){
-            inputStream.onMessage(msg);
-            return null;
-        }else if(exchange != null){
-            if(exchange.closeStatus() == CLOSE_YES){
-                ByteBuf byteBuf;
-                if(msg instanceof ByteBufHolder){
-                    byteBuf = ((ByteBufHolder) msg).content();
-                }else if(msg instanceof ByteBuf){
-                    byteBuf = (ByteBuf) msg;
-                    context.close();
-                }else {
-                    byteBuf = null;
-                }
-                if(byteBuf != null && byteBuf.isReadable()){
-                    LOGGER.warn("http packet discard = {}",msg);
-                    context.close();
-                }
-            }
+        }finally {
             RecyclableUtil.release(msg);
-            return null;
+        }
+    }
+
+    protected void discard(Object msg){
+        ByteBuf byteBuf;
+        if(msg instanceof ByteBufHolder){
+            byteBuf = ((ByteBufHolder) msg).content();
+        }else if(msg instanceof ByteBuf){
+            byteBuf = (ByteBuf) msg;
         }else {
-            RecyclableUtil.release(msg);
-            return null;
+            byteBuf = null;
+        }
+        if(byteBuf != null && byteBuf.isReadable()){
+            LOGGER.warn("http packet discard = {}",msg);
         }
     }
 
-    private boolean continueResponse(ChannelHandlerContext context,HttpRequest httpRequest){
-        Object continueResponse = newContinueResponse(httpRequest, maxContentLength, context.pipeline());
-        if (continueResponse != null) {
-            // Cache the write listener for reuse.
-            ChannelFutureListener listener = continueResponseWriteListener;
-            if (listener == null) {
-                continueResponseWriteListener = listener = future -> {
-                    if (!future.isSuccess()) {
-                        context.fireExceptionCaught(future.cause());
-                    }
-                };
+    protected boolean continueResponse(ChannelHandlerContext context,HttpRequest httpRequest,long contentLength){
+        boolean success;
+        Object continueResponse;
+        if (HttpHeaderUtil.isUnsupportedExpectation(httpRequest)) {
+            // if the request contains an unsupported expectation, we return 417
+            context.pipeline().fireUserEventTriggered(HttpExpectationFailedEvent.INSTANCE);
+            continueResponse = EXPECTATION_FAILED.retainedDuplicate();
+            success = false;
+        } else if (HttpUtil.is100ContinueExpected(httpRequest)) {
+            // if the request contains 100-continue but the content-length is too large, we return 413
+            if (contentLength <= maxContentLength) {
+                continueResponse = CONTINUE.retainedDuplicate();
+                success = true;
+            }else {
+                context.pipeline().fireUserEventTriggered(HttpExpectationFailedEvent.INSTANCE);
+                continueResponse = TOO_LARGE.retainedDuplicate();
+                success = false;
             }
-
-            // Make sure to call this before writing, otherwise reference counts may be invalid.
-            boolean closeAfterWrite = closeAfterContinueResponse(continueResponse);
-            handlingOversizedMessage = ignoreContentAfterContinueResponse(continueResponse);
-
-            final ChannelFuture future = context.writeAndFlush(continueResponse).addListener(listener);
-            if (closeAfterWrite) {
-                future.addListener(ChannelFutureListener.CLOSE);
-                return false;
-            }
-            if (handlingOversizedMessage) {
-                return false;
-            }
-        } else if (isContentLengthInvalid(httpRequest, maxContentLength)) {
-            // if content length is set, preemptively close if it's too large
-            try{
-                invokeHandleOversizedMessage(context);
-            } finally {
-                // Release the message in case it is a full one.
-                RecyclableUtil.release(httpRequest);
-            }
-            return false;
+        }else {
+            continueResponse = null;
+            success = true;
         }
-        return true;
-    }
-
-    public void setCloseOnExpectationFailed(boolean closeOnExpectationFailed) {
-        this.closeOnExpectationFailed = closeOnExpectationFailed;
-    }
-
-    private void invokeHandleOversizedMessage(ChannelHandlerContext ctx) {
-        handlingOversizedMessage = true;
-        // send back a 413 and close the connection
-        ChannelFuture future = ctx.writeAndFlush(TOO_LARGE_CLOSE.retainedDuplicate());
-        future.addListener((ChannelFutureListener) future1 -> {
-            if (!future1.isSuccess()) {
-                LOGGER.debug("Failed to send a 413 Request Entity Too Large.", future1.cause());
-            }
-            future1.channel().close();
-        });
-    }
-
-    protected boolean isContentLengthInvalid(HttpMessage start, long maxContentLength) {
-        try {
-//            return HttpHeaderUtil.getContentLength(start, -1L) > maxContentLength;
-        } catch (NumberFormatException e) {
-        }
-        return false;
-    }
-    protected boolean closeAfterContinueResponse(Object msg) {
-        return closeOnExpectationFailed && ignoreContentAfterContinueResponse(msg);
-    }
-
-    protected boolean ignoreContentAfterContinueResponse(Object msg) {
-        if (msg instanceof HttpResponse) {
-            final HttpResponse httpResponse = (HttpResponse) msg;
-            return httpResponse.status().codeClass().equals(HttpStatusClass.CLIENT_ERROR);
-        }
-        return false;
-    }
-    protected Object newContinueResponse(HttpMessage start, long maxContentLength, ChannelPipeline pipeline) {
-        Object response = continueResponse(start, maxContentLength, pipeline);
         // we're going to respond based on the request expectation so there's no
         // need to propagate the expectation further.
-        if (response != null) {
-            start.headers().remove(EXPECT);
+        if (continueResponse != null) {
+            httpRequest.headers().remove(EXPECT);
+            context.writeAndFlush(continueResponse);
         }
-        return response;
-    }
-
-    private static Object continueResponse(HttpMessage start, long maxContentLength, ChannelPipeline pipeline) {
-        if (HttpHeaderUtil.isUnsupportedExpectation(start)) {
-            // if the request contains an unsupported expectation, we return 417
-            pipeline.fireUserEventTriggered(HttpExpectationFailedEvent.INSTANCE);
-            return EXPECTATION_FAILED.retainedDuplicate();
-        } else if (HttpUtil.is100ContinueExpected(start)) {
-            // if the request contains 100-continue but the content-length is too large, we return 413
-            if (HttpHeaderUtil.getContentLength(start, -1L) <= maxContentLength) {
-                return CONTINUE.retainedDuplicate();
-            }
-            pipeline.fireUserEventTriggered(HttpExpectationFailedEvent.INSTANCE);
-            return TOO_LARGE.retainedDuplicate();
-        }
-
-        return null;
+        return success;
     }
 
     /**
@@ -208,11 +147,11 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
      */
     public static class HttpRunnable implements Runnable, Recyclable {
         private ServletHttpExchange servletHttpExchange;
-        public ServletHttpExchange getServletHttpExchange() {
+        public ServletHttpExchange getExchange() {
             return servletHttpExchange;
         }
 
-        public void setServletHttpExchange(ServletHttpExchange servletHttpExchange) {
+        public void setExchange(ServletHttpExchange servletHttpExchange) {
             this.servletHttpExchange = servletHttpExchange;
         }
 

@@ -4,7 +4,6 @@ import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder;
 import io.netty.util.internal.PlatformDependent;
@@ -26,18 +25,19 @@ import java.util.function.Supplier;
  *  2018/7/15/015
  */
 public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream implements Wrapper<CompositeByteBuf>, Recyclable {
-    private AtomicBoolean closed = new AtomicBoolean(false);
-    private CompositeByteBuf source;
-    private long contentLength;
-    private AtomicLong receiveContentLength = new AtomicLong();
-    private ReadListener readListener;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final AtomicLong receiveContentLength = new AtomicLong();
     private final Lock lock = new ReentrantLock();
     private final Condition condition = lock.newCondition();
+    private final AtomicBoolean first = new AtomicBoolean(true);
+    private CompositeByteBuf source;
+    private long contentLength;
+    private long fileUploadTimeoutMs;
+    private ReadListener readListener;
     private Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private volatile HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
     private volatile boolean receiveDataTimeout;
     private boolean needCloseClient;
-    private long fileUploadTimeoutMs;
 
     public ServletInputStreamWrapper() {}
 
@@ -45,38 +45,17 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return contentLength;
     }
 
-    @Override
-    public int readLine(byte[] b, int off, int len) throws IOException {
-        checkClosed();
-        return super.readLine(b, off, len);
-    }
-
-    public void onMessage(Object message){
-        HttpContent httpContent;
-        ByteBuf byteBuf;
-        if(message instanceof HttpContent){
-            httpContent = (HttpContent) message;
-            byteBuf = httpContent.content();
-        }else {
-            RecyclableUtil.release(message);
-            throw new IllegalStateException("unkown messsage. "+ message.getClass()+". "+message);
-        }
-
-        if(contentLength == -1 && byteBuf.isReadable()){
-            int readableBytes = byteBuf.readableBytes();
+    public void onMessage(HttpContent httpContent){
+        ByteBuf byteBuf = httpContent.content();
+        int readableBytes = byteBuf.readableBytes();
+        if(contentLength == -1 && readableBytes > 0){
             LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).warn(
                     "not exist contentLength, but receive message。 {}/bytes, message = '{}'",
                     readableBytes,byteBuf.toString(byteBuf.readerIndex(),Math.min(readableBytes,255),Charset.defaultCharset()));
-            RecyclableUtil.release(httpContent);
             return;
         }
 
-        receiveContentLength.addAndGet(byteBuf.readableBytes());
-
-        byteBuf.markReaderIndex();
-        int readableBytes = source.readableBytes();
-        source.addComponent(byteBuf);
-        IOUtil.writerModeToReadMode(source);
+        receiveContentLength.addAndGet(readableBytes);
 
         ReadListener readListener = this.readListener;
         InterfaceHttpPostRequestDecoder requestDecoder = this.requestDecoderSupplier.get();
@@ -93,8 +72,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                                 "readListener onError exception. source = {}, again trigger",e.toString(),t.toString(),t);
                     }
                 }
-            }finally {
-                byteBuf.resetReaderIndex();
             }
         }
 
@@ -108,7 +85,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
 
         if(readListener != null){
-            if(readableBytes == 0) {
+            if(first.compareAndSet(true,false)) {
                 try {
                     readListener.onDataAvailable();
                 } catch (IOException e) {
@@ -171,7 +148,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public long skip(long n) throws IOException {
         checkClosed();
-        long skipLen = Math.min(source.readableBytes(), n); //实际可以跳过的字节数
+        long skipLen = Math.min(source.readableBytes(), n);
         source.skipBytes((int) skipLen);
         return skipLen;
     }
@@ -192,8 +169,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             RecyclableUtil.release(source);
             this.source = null;
         }
+        this.first.set(true);
         this.readListener = null;
         this.decoderException = null;
+    }
+
+    @Override
+    public int readLine(byte[] b, int off, int len) throws IOException {
+        checkClosed();
+        return super.readLine(b, off, len);
     }
 
     /**
@@ -279,6 +263,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public void wrap(CompositeByteBuf source) {
         this.closed.set(false);
+        this.first.set(true);
         this.source = source;
         this.contentLength = -1;
         this.readListener = null;

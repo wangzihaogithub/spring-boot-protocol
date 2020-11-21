@@ -34,6 +34,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Obje
                 run(runnable);
             }
         }else {
+            logger.error("no handler message = {}",msg.getClass());
             RecyclableUtil.release(msg);
         }
     }

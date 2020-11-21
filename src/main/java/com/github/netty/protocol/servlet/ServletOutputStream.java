@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.AutoFlushChannelHandler;
 import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -8,7 +7,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
-import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.WriteListener;
 import java.io.File;
@@ -19,8 +17,6 @@ import java.nio.channels.FileChannel;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -29,8 +25,7 @@ import java.util.function.Consumer;
  */
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable, NettyOutputStream {
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
-    private static final Lock ALLOC_DIRECT_BUFFER_LOCK = new ReentrantLock();
-    private static final float THRESHOLD = SystemPropertyUtil.getFloat("netty-servlet.directBufferThreshold",0.8F);
+//    private static final Lock ALLOC_DIRECT_BUFFER_LOCK = new ReentrantLock();
     public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
 
     protected AtomicBoolean isClosed = new AtomicBoolean(false);
@@ -98,6 +93,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         ChannelProgressivePromise promise = context.newProgressivePromise();
         context.write(httpBody,promise);
         this.write = true;
+        this.flush = false;
         return promise;
     }
 
@@ -162,9 +158,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public void flush() throws IOException {
         checkClosed();
         writeResponseHeaderIfNeed();
-        ServletHttpExchange exchange = this.servletHttpExchange;
-        if(exchange != null) {
-            flush = AutoFlushChannelHandler.flushIfNeed(exchange.getChannelHandlerContext());
+        if(!flush) {
+            ServletHttpExchange exchange = this.servletHttpExchange;
+            if (exchange != null && !exchange.getServletContext().isAutoFlush()) {
+                exchange.getChannelHandlerContext().flush();
+                flush = true;
+            }
         }
     }
 
@@ -227,17 +226,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      */
     protected ByteBuf allocByteBuf(ByteBufAllocator allocator, int len){
         ByteBuf ioByteBuf;
-        if(len > responseWriterChunkMaxHeapByteLength && PlatformDependent.usedDirectMemory() + len < PlatformDependent.maxDirectMemory() * THRESHOLD){
-            ALLOC_DIRECT_BUFFER_LOCK.lock();
-            try {
-                if (PlatformDependent.usedDirectMemory() + len < PlatformDependent.maxDirectMemory() * THRESHOLD) {
-                    ioByteBuf = allocator.directBuffer(len);
-                } else {
-                    ioByteBuf = allocator.heapBuffer(len);
-                }
-            }finally {
-                ALLOC_DIRECT_BUFFER_LOCK.unlock();
-            }
+        if(len > responseWriterChunkMaxHeapByteLength && NettyUtil.freeDirectMemory() > len){
+            ioByteBuf = allocator.directBuffer(len);
+//            ALLOC_DIRECT_BUFFER_LOCK.lock();
+//            try {
+//                if (NettyUtil.freeDirectMemory() > len) {
+//                    ioByteBuf = allocator.directBuffer(len);
+//                } else {
+//                    ioByteBuf = allocator.heapBuffer(len);
+//                }
+//            }finally {
+//                ALLOC_DIRECT_BUFFER_LOCK.unlock();
+//            }
         }else {
             ioByteBuf = allocator.heapBuffer(len);
         }

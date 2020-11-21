@@ -91,14 +91,14 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
         ServletContext servletContext = getServletContext();
-        ServerProperties serverProperties = application.getBean(ServerProperties.class);
+        ServerProperties serverProperties = application.getBean(ServerProperties.class,null,false);
         MultipartProperties multipartProperties = application.getBean(MultipartProperties.class,null,false);
 
         InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
         //Server port
         servletContext.setServerAddress(address);
         servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
-
+        servletContext.setAutoFlush(properties.getHttpServlet().getAutoFlushIdleMs() > 0);
         servletContext.setUploadFileTimeoutMs(properties.getHttpServlet().getUploadFileTimeoutMs());
         servletContext.setContextPath(configurableWebServer.getContextPath());
         servletContext.setServerHeader(configurableWebServer.getServerHeader());
@@ -123,7 +123,11 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         if(multipartProperties != null && multipartProperties.getEnabled()){
             Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
             Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
-            super.setMaxContentLength(Math.max(maxRequestSize.longValue(),maxFileSize.longValue()));
+            Number fileSizeThreshold = getNumberBytes(multipartProperties, "getFileSizeThreshold");
+
+            super.setMaxChunkSize(maxRequestSize.longValue());
+            super.setMaxContentLength(maxFileSize.longValue());
+            servletContext.setUploadMinSize(fileSizeThreshold.longValue());
             location = multipartProperties.getLocation();
         }
 

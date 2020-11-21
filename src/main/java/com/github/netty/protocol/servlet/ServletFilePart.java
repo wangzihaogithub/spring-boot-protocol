@@ -103,8 +103,8 @@ public class ServletFilePart implements Part {
         if(headerMap == null) {
             Map<String,String> headerMap = new CaseInsensitiveKeyMap<>(2);
             headerMap.put(HttpHeaderConstants.CONTENT_DISPOSITION.toString(),
-                    HttpHeaderConstants.FORM_DATA + "; " + HttpHeaderConstants.NAME + "=\"" + getName() + "\"; " + HttpHeaderConstants.FILENAME + "=\"" + fileUpload.getFilename());
-            headerMap.put(HttpHeaderConstants.CONTENT_LENGTH.toString(), fileUpload.length() + "");
+                    HttpHeaderConstants.FORM_DATA + "; " + HttpHeaderConstants.NAME + "=\"" + getName() + "\"; " + HttpHeaderConstants.FILENAME + "=\"" + fileUpload.getFilename()+"\"");
+            headerMap.put(HttpHeaderConstants.CONTENT_LENGTH.toString(), String.valueOf(fileUpload.length()));
             if (fileUpload.getCharset() != null) {
                 headerMap.put(HttpHeaderConstants.CONTENT_TYPE.toString(), HttpHeaderConstants.CHARSET.toString() + '=' + fileUpload.getCharset().name());
             }
