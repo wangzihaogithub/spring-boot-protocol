@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 /**
- * 支持异步单线程批量处理请求 {@link #queue} {@link #on20Delay}
+ * 支持异步单线程批量处理请求 {@link #queue} {@link #onDelay}
  * 适合浏览器后台进程的接口, 例如(IM消息场景, 表单定时自动保存等..)
  *
  * 请求可以在{@link #API_GROUP_BY_MS}毫秒内聚合，批量查询或批量写库。（演示代码用的是根据api名称聚合）
@@ -27,14 +27,14 @@ import java.util.stream.Collectors;
  *  http://localhost:8080/test/insertOrder?productName=香蕉
  *
  * @see #queue 这个队列存放{@link #API_GROUP_BY_MS}毫秒内的多个请求
- * @see #on20Delay() 这个定时任务批量处理队列中的请求
+ * @see #onDelay() 这个定时任务批量处理队列中的请求
  */
 @EnableScheduling
 @RestController
 @RequestMapping
 public class HttpGroupByApiController {
     /**
-     * 接口最大延迟等待聚合时间
+     * 接口聚合最大延迟时间 (等待毫秒内的请求批量读写)
      */
     private static final int API_GROUP_BY_MS = 3000;
     private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -44,6 +44,30 @@ public class HttpGroupByApiController {
         databaseMap.put("2","数据bbb");
         databaseMap.put("3","数据ccc");
     }
+
+    /**
+     * {@link #API_GROUP_BY_MS} 毫秒间隔的 定时任务
+     * 异步批量处理
+     */
+    @Scheduled(fixedDelay = API_GROUP_BY_MS)
+    public void onDelay() {
+        String uuid = UUID.randomUUID().toString();
+
+        Map<String, List<MyDeferredResult<Map>>> groupByApiMap = groupBy(queue);
+        groupByApiMap.forEach((api, list)->{
+            List<HttpServletRequest> requestList = list.stream()
+                    .map(e-> e.request)
+                    .collect(Collectors.toList());
+            Map<String, String> batchQueryResult = map(api, requestList);
+            for (MyDeferredResult<Map> e : list) {
+                Map<String, Object> result = reduce(api, e.request, batchQueryResult);
+                result.put("batchId",uuid);
+                e.setResult(result);
+                logger.info("notify spring DeferredResult = {}",e.request.getRequestURL());
+            }
+        });
+    }
+
     /**
      * 请求可以在{@link #API_GROUP_BY_MS}毫秒内聚合，批量写入。
      *
@@ -55,7 +79,7 @@ public class HttpGroupByApiController {
      * @param request netty request
      * @param response netty response
      * @return spring的延迟结果， 返回DeferredResult类型， spring就不会去做任何处理。
-     *      这里的返回结果是在定时任务线程批量处理  {@link #on20Delay}
+     *      这里的返回结果是在定时任务线程批量处理  {@link #onDelay}
      */
     @RequestMapping("/insertOrder")
     public DeferredResult<Map> insertOrder(String productName,HttpServletRequest request,HttpServletResponse response){
@@ -78,7 +102,7 @@ public class HttpGroupByApiController {
      * @param request netty request
      * @param response netty response
      * @return spring的延迟结果， 返回DeferredResult类型， spring就不会去做任何处理。
-     *      这里的返回结果是在定时任务线程批量处理  {@link #on20Delay}
+     *      这里的返回结果是在定时任务线程批量处理  {@link #onDelay}
      */
     @RequestMapping("/helloAsyncUser")
     public DeferredResult<Map> helloAsyncUser(String userId,HttpServletRequest request,HttpServletResponse response){
@@ -92,29 +116,6 @@ public class HttpGroupByApiController {
         MyDeferredResult<Map> deferredResult = new MyDeferredResult<>(request,response);
         queue.offer(deferredResult);
         return deferredResult;
-    }
-
-    /**
-     * {@link #API_GROUP_BY_MS} 毫秒间隔的 定时任务
-     * 异步批量处理
-     */
-    @Scheduled(fixedDelay = API_GROUP_BY_MS)
-    public void on20Delay() {
-        String uuid = UUID.randomUUID().toString();
-
-        Map<String, List<MyDeferredResult<Map>>> groupByApiMap = groupBy(queue);
-        groupByApiMap.forEach((api, list)->{
-            List<HttpServletRequest> requestList = list.stream()
-                    .map(e-> e.request)
-                    .collect(Collectors.toList());
-            Map<String, String> batchQueryResult = map(api, requestList);
-            for (MyDeferredResult<Map> e : list) {
-                Map<String, Object> result = reduce(api, e.request, batchQueryResult);
-                result.put("batchId",uuid);
-                e.setResult(result);
-                logger.info("notify spring DeferredResult = {}",e.request.getRequestURL());
-            }
-        });
     }
 
     public Map<String,String> selectListByUserIdIn(List<HttpServletRequest> requestList){

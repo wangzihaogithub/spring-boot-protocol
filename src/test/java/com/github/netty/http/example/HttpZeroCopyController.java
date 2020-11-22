@@ -41,6 +41,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @RestController
 @RequestMapping("/zeroCopy")
 public class HttpZeroCopyController {
+    /**
+     * 接口最大延迟时间 (等待毫秒内的请求批量写)
+     */
+    private static final int scheduler_tick_ms = 3000;
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Queue<CompletableFuture<MappedByteBuffer>> queue = new ConcurrentLinkedQueue<>();
     private final MappedByteBuffer helloAsyncMmap = createMappedByteBuffer("helloAsync",4096 * 100);
@@ -51,6 +55,28 @@ public class HttpZeroCopyController {
     };
 
     public HttpZeroCopyController() throws IOException {}
+
+    /**
+     * 3秒间隔的定时任务
+     * 单线程处理N个请求, 异步批量处理。 不存在并发。
+     *
+     * 时间复杂度： 原本每3秒O(N), 降为每3秒 O(1).
+     * 空间复杂度：
+     */
+    @Scheduled(fixedDelay = scheduler_tick_ms)
+    public void onDelay() {
+        //每3秒，只查库一次。 比如：这是查数据库动作
+        String list = "[{\"random\":\""+ UUID.randomUUID()+"\"}]";
+        setValue(list,helloAsyncMmap);
+
+        java.util.concurrent.CompletableFuture<MappedByteBuffer> current;
+        while ((current = queue.poll()) != null){
+            //回掉方法
+            current.complete(helloAsyncMmap);
+            // current.completeExceptionally(new RuntimeException("test error"));
+            logger.info("notify netty zero copy = {}",list);
+        }
+    }
 
     /**
      * 零拷贝同步调用
@@ -74,7 +100,7 @@ public class HttpZeroCopyController {
      * 访问地址： http://localhost:8080/test/zeroCopy/helloAsync
      * @param request netty request
      * @param response netty response
-     * @return CompletableFuture spring异步的处理方式， 这里的 MappedByteBuffer是在定时任务线程批量生成 {@link #on5000Delay}
+     * @return CompletableFuture spring异步的处理方式， 这里的 MappedByteBuffer是在定时任务线程批量生成 {@link #onDelay}
      */
     @RequestMapping("/helloAsync")
     public CompletableFuture<java.nio.MappedByteBuffer> helloAsync(HttpServletRequest request,HttpServletResponse response){
@@ -93,28 +119,6 @@ public class HttpZeroCopyController {
             }
             return null;
         });
-    }
-
-    /**
-     * 5秒间隔的定时任务
-     * 单线程处理N个请求, 异步批量处理。 不存在并发。
-     *
-     * 时间复杂度： 原本每5秒O(N), 降为每5秒 O(1).
-     * 空间复杂度：
-     */
-    @Scheduled(fixedDelay = 5000)
-    public void on5000Delay() {
-        //每5秒，只查库一次。 比如：这是查数据库动作
-        String list = "[{\"random\":\""+ UUID.randomUUID()+"\"}]";
-        setValue(list,helloAsyncMmap);
-
-        java.util.concurrent.CompletableFuture<MappedByteBuffer> current;
-        while ((current = queue.poll()) != null){
-            //回掉方法
-            current.complete(helloAsyncMmap);
-            // current.completeExceptionally(new RuntimeException("test error"));
-            logger.info("notify netty zero copy = {}",list);
-        }
     }
 
     /**
