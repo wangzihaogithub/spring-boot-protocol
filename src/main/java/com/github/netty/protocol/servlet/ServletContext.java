@@ -43,7 +43,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     /**
      * The maximum number of bytes written to the outputstream.writer () method of the servlet each time it is called is exceeded
      */
-    private int responseWriterChunkMaxHeapByteLength = 4096;
+    private int responseWriterChunkMaxHeapByteLength = 0;
     /**
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
      */
