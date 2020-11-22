@@ -758,6 +758,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
             return SCHEDULED.scheduleAtFixedRate(INSTANCE, intervalLong, intervalLong, TimeUnit.MICROSECONDS);
         }
 
+        private final Consumer<ExpiryLRUMap.Node<?,?>> removeConsumer = EXPIRY_NOTIFY_QUEUE::offer;
+
         @Override
         public void run() {
             if(INSTANCE_SET.isEmpty()){
@@ -775,7 +777,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
                     continue;
                 }
                 try {
-                    expiryLRUMap.removeIfExpiry(EXPIRY_NOTIFY_QUEUE::offer);
+                    expiryLRUMap.removeIfExpiry((Consumer) removeConsumer);
                 }catch (Exception e){
                     e.printStackTrace();
                 }

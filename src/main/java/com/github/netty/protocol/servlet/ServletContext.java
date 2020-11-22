@@ -74,6 +74,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     private ResourceManager resourceManager;
     private Supplier<Executor> asyncExecutorSupplier;
+    private Supplier<Executor> defaultExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
@@ -164,11 +165,26 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public Executor getAsyncExecutor() {
-        return asyncExecutorSupplier.get();
+        Executor executor = asyncExecutorSupplier.get();
+        if(executor == null){
+            executor = defaultExecutorSupplier.get();
+        }
+        if(executor == null){
+            throw new IllegalStateException("no found async Executor");
+        }
+        return executor;
     }
 
     public void setAsyncExecutorSupplier(Supplier<Executor> asyncExecutorSupplier) {
         this.asyncExecutorSupplier = asyncExecutorSupplier;
+    }
+
+    public void setDefaultExecutorSupplier(Supplier<Executor> defaultExecutorSupplier) {
+        this.defaultExecutorSupplier = defaultExecutorSupplier;
+    }
+
+    public Supplier<Executor> getDefaultExecutorSupplier() {
+        return defaultExecutorSupplier;
     }
 
     public HttpDataFactory getHttpDataFactory(Charset charset){

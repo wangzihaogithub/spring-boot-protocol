@@ -90,8 +90,10 @@ public class NettyEmbeddedAutoConfiguration {
     public HttpServletProtocol httpServletProtocol(ConfigurableBeanFactory factory, ResourceLoader resourceLoader) {
         NettyProperties.HttpServlet http = nettyProperties.getHttpServlet();
         Supplier<Executor> executorSupplier = newExecutorSupplier(http.getThreadPool(), factory);
+        Supplier<Executor> defaultExecutorSupplier = newDefaultExecutorSupplier(http.getThreadPool(), factory);
 
-        HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(nettyProperties,executorSupplier,resourceLoader.getClassLoader());
+        HttpServletProtocolSpringAdapter protocol = new HttpServletProtocolSpringAdapter(
+                nettyProperties,resourceLoader.getClassLoader(),executorSupplier,defaultExecutorSupplier);
         protocol.setMaxInitialLineLength(http.getRequestMaxHeaderLineSize());
         protocol.setMaxHeaderSize(http.getRequestMaxHeaderSize());
         protocol.setMaxContentLength(http.getRequestMaxContentSize());
@@ -183,7 +185,7 @@ public class NettyEmbeddedAutoConfiguration {
         return listener;
     }
 
-    protected Supplier<Executor> newExecutorSupplier(NettyProperties.HttpServlet.ServerThreadPool pool,ConfigurableBeanFactory factory){
+    protected Supplier<Executor> newExecutorSupplier(NettyProperties.HttpServlet.ServerThreadPool pool, ConfigurableBeanFactory factory){
         Supplier<Executor> executorSupplier;
         if(pool.isEnable()) {
             if (pool.getExecutor() == NettyThreadPoolExecutor.class) {
@@ -193,12 +195,11 @@ public class NettyEmbeddedAutoConfiguration {
                 } else {
                     rejectedHandler = factory.getBean(pool.getRejected());
                 }
-                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(
-                        pool.getPoolName(), pool.getCoreThreads(), pool.getMaxThreads(), pool.getQueues(),
-                        pool.getKeepAliveSeconds(), pool.isFixed(), rejectedHandler);
+                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(pool, rejectedHandler);
                 executorSupplier = () -> executor;
             } else {
-                executorSupplier = () -> factory.getBean(pool.getExecutor());
+                Executor executor = factory.getBean(pool.getExecutor(),Executor.class);
+                executorSupplier = () -> executor;
             }
         }else {
             executorSupplier = () -> null;
@@ -206,8 +207,50 @@ public class NettyEmbeddedAutoConfiguration {
         return executorSupplier;
     }
 
-    protected NettyThreadPoolExecutor newNettyThreadPoolExecutor(String poolName,int coreThreads,int maxThreads,int queues,
-                                                               int keepAliveSeconds,boolean fixed,RejectedExecutionHandler handler){
+    protected Supplier<Executor> newDefaultExecutorSupplier(NettyProperties.HttpServlet.ServerThreadPool pool,ConfigurableBeanFactory factory){
+        RejectedExecutionHandler rejectedHandler;
+        if (pool.getRejected() == HttpAbortPolicyWithReport.class) {
+            rejectedHandler = new HttpAbortPolicyWithReport(pool.getPoolName(), pool.getDumpPath(), "Default Pool HttpServlet");
+        } else {
+            rejectedHandler = factory.getBean(pool.getRejected());
+        }
+        return new LazyPool(this,pool,rejectedHandler);
+    }
+
+    public static class LazyPool implements Supplier<Executor>{
+        protected volatile Executor executor;
+        protected final NettyProperties.HttpServlet.ServerThreadPool pool;
+        protected final RejectedExecutionHandler rejectedHandler;
+        protected final NettyEmbeddedAutoConfiguration autoConfiguration;
+
+        public LazyPool(NettyEmbeddedAutoConfiguration autoConfiguration,NettyProperties.HttpServlet.ServerThreadPool pool,RejectedExecutionHandler rejectedHandler) {
+            this.autoConfiguration = autoConfiguration;
+            this.pool = pool;
+            this.rejectedHandler = rejectedHandler;
+        }
+
+        @Override
+        public Executor get() {
+            if(executor == null){
+                synchronized (this){
+                    if(executor == null){
+                        executor = autoConfiguration.newNettyThreadPoolExecutor(pool,rejectedHandler);
+                    }
+                }
+            }
+            return executor;
+        }
+    }
+
+    protected NettyThreadPoolExecutor newNettyThreadPoolExecutor(
+            NettyProperties.HttpServlet.ServerThreadPool pool,RejectedExecutionHandler handler){
+        String poolName = pool.getPoolName();
+        int coreThreads = pool.getCoreThreads();
+        int maxThreads = pool.getMaxThreads();
+        int queues = pool.getQueues();
+        int keepAliveSeconds = pool.getKeepAliveSeconds();
+        boolean fixed = pool.isFixed();
+
         BlockingQueue<Runnable> workQueue = queues == 0 ?
                 new SynchronousQueue<>() :
                 (queues < 0 ? new LinkedBlockingQueue<>(Integer.MAX_VALUE)

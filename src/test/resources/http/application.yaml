@@ -8,7 +8,9 @@ server:
     channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler
     #内存泄露追踪。 调试用, 默认关闭
 #    resource-leak-detector-level: PARANOID
-#    http-servlet:
+    http-servlet:
+      # 异步接口,是否要多切换一次线程.
+      async-switch-thread: false
 #      thread-pool:
 #        enable: false
 

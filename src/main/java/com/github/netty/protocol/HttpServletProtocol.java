@@ -3,11 +3,9 @@ package com.github.netty.protocol;
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.DispatcherChannelHandler;
-import com.github.netty.core.util.ChunkedWriteHandler;
-import com.github.netty.core.util.IOUtil;
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.*;
+import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
@@ -25,6 +23,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 /**
@@ -54,9 +55,17 @@ public class HttpServletProtocol extends AbstractProtocol {
             "application/xml"};
     private String[] compressionExcludedUserAgents = {};
 
-    public HttpServletProtocol(Supplier<Executor> executorSupplier, ServletContext servletContext){
+    public HttpServletProtocol(ServletContext servletContext) {
+        this(servletContext,null,null);
+    }
+
+    public HttpServletProtocol(ServletContext servletContext,Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier){
         this.servletContext = servletContext;
+        if(defaultExecutorSupplier == null){
+            defaultExecutorSupplier = new LazyPool("NettyX-http");
+        }
         servletContext.setAsyncExecutorSupplier(executorSupplier);
+        servletContext.setDefaultExecutorSupplier(defaultExecutorSupplier);
         this.servletHandler = new DispatcherChannelHandler(executorSupplier);
     }
 
@@ -319,6 +328,34 @@ public class HttpServletProtocol extends AbstractProtocol {
             this.compressionExcludedUserAgents = new String[0];
         }else {
             this.compressionExcludedUserAgents = compressionExcludedUserAgents;
+        }
+    }
+
+    static class LazyPool implements Supplier<Executor>{
+        private volatile NettyThreadPoolExecutor executor;
+        private final String poolName;
+        LazyPool(String poolName) {
+            this.poolName = poolName;
+        }
+
+        @Override
+        public NettyThreadPoolExecutor get() {
+            if(executor == null){
+                synchronized (this){
+                    if(executor == null){
+                        int coreThreads = 2;
+                        int maxThreads = 50;
+                        int keepAliveSeconds = 180;
+                        int priority = Thread.NORM_PRIORITY;
+                        boolean daemon = false;
+                        RejectedExecutionHandler handler = new HttpAbortPolicyWithReport(poolName,System.getProperty("user.home"),"Http Servlet");
+                        executor = new NettyThreadPoolExecutor(
+                                coreThreads,maxThreads,keepAliveSeconds, TimeUnit.SECONDS,
+                                new SynchronousQueue<>(),poolName,priority,daemon,handler);
+                    }
+                }
+            }
+            return executor;
         }
     }
 }

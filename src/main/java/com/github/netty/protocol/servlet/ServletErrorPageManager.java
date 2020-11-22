@@ -9,6 +9,8 @@ import javax.servlet.RequestDispatcher;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -111,7 +113,13 @@ public class ServletErrorPageManager {
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION, throwable);
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE, throwable.getClass());
                 if(isShowErrorMessage()) {
-                    httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, throwable.getLocalizedMessage());
+                    String localizedMessage = throwable.getLocalizedMessage();
+                    if(localizedMessage == null){
+                        StringWriter writer = new StringWriter();
+                        throwable.printStackTrace(new PrintWriter(writer));
+                        localizedMessage = writer.toString();
+                    }
+                    httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, localizedMessage);
                 }
             }
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME,dispatcher.getName());

@@ -227,7 +227,7 @@ public class NettyProperties implements Serializable{
         @NestedConfigurationProperty
         private final ServerThreadPool threadPool = new ServerThreadPool();
         /**
-         * 服务端 - servlet3的异步特性。 异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
+         * 服务端 - servlet3的异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
          * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
          */
         private boolean asyncSwitchThread = true;
@@ -272,9 +272,9 @@ public class NettyProperties implements Serializable{
              */
             private Class<? extends Executor> executor = NettyThreadPoolExecutor.class;
             private Class<? extends RejectedExecutionHandler> rejected = HttpAbortPolicyWithReport.class;
-            private int coreThreads = 5;
+            private int coreThreads = 2;
             private int maxThreads = 50;
-            private int keepAliveSeconds = 300;
+            private int keepAliveSeconds = 180;
             private int queues = 0;
             private boolean fixed = false;
             private String poolName = "NettyX-http";

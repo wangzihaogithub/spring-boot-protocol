@@ -33,7 +33,10 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping
 public class HttpGroupByApiController {
-    private static final int API_GROUP_BY_MS = 1000;
+    /**
+     * 接口最大延迟等待聚合时间
+     */
+    private static final int API_GROUP_BY_MS = 3000;
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Queue<MyDeferredResult<Map>> queue = new ConcurrentLinkedQueue<>();
     private final Map<String,String> databaseMap = new LinkedHashMap<>();{

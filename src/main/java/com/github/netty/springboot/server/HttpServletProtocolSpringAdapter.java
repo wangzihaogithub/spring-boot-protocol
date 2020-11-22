@@ -40,13 +40,14 @@ import static org.springframework.util.ClassUtils.getMethod;
  * 2018/11/12/012
  */
 public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor, BeanFactoryAware {
-    private NettyProperties properties;
-    private ApplicationX application;
+    private final NettyProperties properties;
+    private final ApplicationX application;
     private BeanFactory beanFactory;
     private AbstractServletWebServerFactory webServerFactory;
 
-    public HttpServletProtocolSpringAdapter(NettyProperties properties, Supplier<Executor> executorSupplier,ClassLoader classLoader) {
-        super(executorSupplier,new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader));
+    public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader,
+                                            Supplier<Executor> executorSupplier,Supplier<Executor> defaultExecutorSupplier) {
+        super(new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader),executorSupplier,defaultExecutorSupplier);
         this.properties = properties;
         this.application = properties.getApplication();
     }

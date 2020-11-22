@@ -183,7 +183,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         instance.servletHttpExchange = exchange;
         instance.nettyRequest = httpRequest;
         instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
-        instance.isFormUrlEncoder = HttpHeaderUtil.isFormUrlEncoder(instance.getContentType().toLowerCase());
+        String contentType = instance.getContentType();
+        instance.isFormUrlEncoder = contentType != null && HttpHeaderUtil.isFormUrlEncoder(contentType.toLowerCase());
 
         instance.resourceManager = null;
         if(instance.postRequestDecoder != null){
@@ -565,7 +566,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getHeader(String name) {
        Object value = getNettyHeaders().get((CharSequence) name);
-        return value == null? null :String.valueOf(value);
+        return value == null? null :value.toString();
     }
 
     @Override
