@@ -17,9 +17,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author wangzihao
  */
 public class ServletErrorPageManager {
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private Map<String, ServletErrorPage> exceptionPages = new ConcurrentHashMap<>();
-    private Map<Integer, ServletErrorPage> statusPages = new ConcurrentHashMap<>();
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private boolean showErrorMessage = false;
+    private final Map<String, ServletErrorPage> exceptionPages = new ConcurrentHashMap<>();
+    private final Map<Integer, ServletErrorPage> statusPages = new ConcurrentHashMap<>();
 
     public void add(ServletErrorPage errorPage) {
         String exceptionType = errorPage.getExceptionType();
@@ -63,6 +64,14 @@ public class ServletErrorPageManager {
         return null;
     }
 
+    public boolean isShowErrorMessage() {
+        return showErrorMessage;
+    }
+
+    public void setShowErrorMessage(boolean showErrorMessage) {
+        this.showErrorMessage = showErrorMessage;
+    }
+
     /**
      * Handle error page
      * @param errorPage errorPage
@@ -99,12 +108,15 @@ public class ServletErrorPageManager {
         dispatcher.clearFilter();
         try {
             if(throwable != null) {
+                httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION, throwable);
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE, throwable.getClass());
+                if(isShowErrorMessage()) {
+                    httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, throwable.getLocalizedMessage());
+                }
             }
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME,dispatcher.getName());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, response.getStatus());
-            httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, response.getMessage());
             request.setDispatcherType(DispatcherType.ERROR);
 
             if (httpServletResponse.isCommitted()) {

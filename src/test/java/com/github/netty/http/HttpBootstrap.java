@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 import java.net.URL;
 
-@EnableNettyEmbedded
+//@EnableNettyEmbedded
 @SpringBootApplication
 public class HttpBootstrap {
     private static final URL CONFIG_URL = HttpBootstrap.class.getResource(

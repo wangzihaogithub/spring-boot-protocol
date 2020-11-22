@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.*;
@@ -71,7 +72,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     private BufferedReader reader;
     private HttpRequest nettyRequest;
-    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper();
+    private boolean isMultipart;
+    private boolean isFormUrlEncoder;
     private final Map<String,Object> attributeMap = Collections.synchronizedMap(new LinkedHashMap<>(16));
     private final LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
     private final Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
@@ -140,16 +142,21 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return resourceManager;
     };
     private final Supplier<InterfaceHttpPostRequestDecoder> postRequestDecoderSupplier = ()->{
+        if(!isMultipart && !isFormUrlEncoder){
+            return null;
+        }
         if(this.postRequestDecoder == null) {
             synchronized (this) {
                 if (this.postRequestDecoder == null) {
                     Charset charset = Charset.forName(getCharacterEncoding());
                     HttpDataFactory httpDataFactory = getHttpDataFactory(charset);
                     InterfaceHttpPostRequestDecoder postRequestDecoder;
-                    if(HttpPostRequestDecoder.isMultipart(nettyRequest)){
+                    if(isMultipart){
                         postRequestDecoder = new HttpPostMultipartRequestDecoder(httpDataFactory, nettyRequest, charset);
-                    }else {
+                    }else if(isFormUrlEncoder){
                         postRequestDecoder = new HttpPostStandardRequestDecoder(httpDataFactory, nettyRequest, charset);
+                    }else {
+                        throw new HttpPostRequestDecoder.ErrorDataDecoderException();
                     }
                     int discardThreshold = 0;
                     if(multipartConfigElement != null) {
@@ -163,7 +170,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return this.postRequestDecoder;
     };
-
+    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier);
     private final List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
@@ -175,6 +182,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.servletHttpExchange = exchange;
         instance.nettyRequest = httpRequest;
+        instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
+        instance.isFormUrlEncoder = HttpHeaderUtil.isFormUrlEncoder(instance.getContentType().toLowerCase());
+
         instance.resourceManager = null;
         if(instance.postRequestDecoder != null){
             try {
@@ -184,7 +194,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         instance.inputStream.wrap(exchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
-        instance.inputStream.setRequestDecoder(instance.postRequestDecoderSupplier);
         instance.inputStream.setFileUploadTimeoutMs(exchange.getServletContext().getUploadFileTimeoutMs());
         return instance;
     }
@@ -319,7 +328,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             PlatformDependent.throwException(e);
         }
 
-        boolean formUrlEncoder = HttpHeaderUtil.isFormUrlEncoder(getContentType());
         /*
          * There are three types of HttpDataType
          * Attribute, FileUpload, InternalAttribute
@@ -346,7 +354,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     }
                     parameterMap.add(name, value);
 
-                    if(!formUrlEncoder) {
+                    if(isMultipart) {
                         ServletTextPart part = new ServletTextPart(data,resourceManagerSupplier);
                         fileUploadList.add(part);
                     }

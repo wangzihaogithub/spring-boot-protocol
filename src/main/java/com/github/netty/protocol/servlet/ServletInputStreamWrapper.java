@@ -34,12 +34,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private long contentLength;
     private long fileUploadTimeoutMs;
     private ReadListener readListener;
-    private Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
+    private final Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private volatile HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
     private volatile boolean receiveDataTimeout;
     private boolean needCloseClient;
 
-    public ServletInputStreamWrapper() {}
+    public ServletInputStreamWrapper(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier) {
+        this.requestDecoderSupplier = requestDecoderSupplier;
+    }
 
     public long getContentLength() {
         return contentLength;
@@ -48,30 +50,41 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public void onMessage(HttpContent httpContent){
         ByteBuf byteBuf = httpContent.content();
         int readableBytes = byteBuf.readableBytes();
-        if(contentLength == -1 && readableBytes > 0){
-            LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).warn(
-                    "not exist contentLength, but receive message。 {}/bytes, message = '{}'",
-                    readableBytes,byteBuf.toString(byteBuf.readerIndex(),Math.min(readableBytes,255),Charset.defaultCharset()));
-            return;
-        }
+        boolean release = true;
+        try {
+            if (contentLength == -1 && readableBytes > 0) {
+                LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).warn(
+                        "not exist contentLength, but receive message。 {}/bytes, message = '{}'",
+                        readableBytes, byteBuf.toString(byteBuf.readerIndex(), Math.min(readableBytes, 255), Charset.defaultCharset()));
+                return;
+            }
 
-        receiveContentLength.addAndGet(readableBytes);
+            receiveContentLength.addAndGet(readableBytes);
 
-        ReadListener readListener = this.readListener;
-        InterfaceHttpPostRequestDecoder requestDecoder = this.requestDecoderSupplier.get();
-        if(requestDecoder != null){
-            try {
-                requestDecoder.offer(httpContent);
-            }catch (HttpPostRequestDecoder.ErrorDataDecoderException e){
-                this.decoderException = e;
-                if(readListener != null) {
-                    try {
-                        readListener.onError(e);
-                    }catch (Throwable t){
-                        LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).error(
-                                "readListener onError exception. source = {}, again trigger",e.toString(),t.toString(),t);
+            ReadListener readListener = this.readListener;
+            InterfaceHttpPostRequestDecoder requestDecoder = this.requestDecoderSupplier.get();
+            if (requestDecoder != null) {
+                try {
+                    requestDecoder.offer(httpContent);
+                } catch (HttpPostRequestDecoder.ErrorDataDecoderException e) {
+                    this.decoderException = e;
+                    if (readListener != null) {
+                        try {
+                            readListener.onError(e);
+                        } catch (Throwable t) {
+                            LoggerFactoryX.getLogger(ServletInputStreamWrapper.class).error(
+                                    "readListener onError exception. source = {}, again trigger", e.toString(), t.toString(), t);
+                        }
                     }
                 }
+            } else {
+                source.addComponent(byteBuf);
+                source.writerIndex(source.capacity());
+                release = false;
+            }
+        }finally {
+            if(release) {
+                RecyclableUtil.release(byteBuf);
             }
         }
 
@@ -100,6 +113,21 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 }
             }
         }
+    }
+
+    @Override
+    public boolean markSupported() {
+        return true;
+    }
+
+    @Override
+    public void mark(int readlimit) {
+        source.markReaderIndex();
+    }
+
+    @Override
+    public void reset() {
+        source.resetReaderIndex();
     }
 
     /**
@@ -164,14 +192,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     @Override
     public void close() {
-        ByteBuf source = this.source;
-        if(source != null){
-            RecyclableUtil.release(source);
-            this.source = null;
+        if(closed.compareAndSet(false,true)) {
+            ByteBuf source = this.source;
+            if (source != null) {
+                RecyclableUtil.release(source);
+                this.source = null;
+            }
+            this.readListener = null;
+            this.decoderException = null;
         }
-        this.first.set(true);
-        this.readListener = null;
-        this.decoderException = null;
     }
 
     @Override
@@ -277,20 +306,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.contentLength = contentLength;
     }
 
-    public void setRequestDecoder(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier) {
-        this.requestDecoderSupplier = requestDecoderSupplier;
-    }
-
     public void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
         this.fileUploadTimeoutMs = fileUploadTimeoutMs;
     }
 
     public long getFileUploadTimeoutMs() {
         return fileUploadTimeoutMs;
-    }
-
-    public Supplier<InterfaceHttpPostRequestDecoder> getRequestDecoder() {
-        return requestDecoderSupplier;
     }
 
     @Override

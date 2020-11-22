@@ -65,7 +65,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE,SessionTrackingMode.URL));
 
 //    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
-    private ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
+    private final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
     private MimeMappingsX mimeMappings = new MimeMappingsX();
     private ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
     private ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();

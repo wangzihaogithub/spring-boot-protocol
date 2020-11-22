@@ -59,55 +59,55 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     @Override
     public Runnable onMessage(ChannelHandlerContext context, Object msg) {
         ServletHttpExchange exchange = this.exchange;
-        try {
-            if (msg instanceof HttpRequest) {
-                HttpRequest request = (HttpRequest) msg;
-                long contentLength = HttpHeaderUtil.getContentLength(request, -1L);
-                if (continueResponse(context, request, contentLength)) {
-                    HttpRunnable httpRunnable = RECYCLER.getInstance();
-                    httpRunnable.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
-                            servletContext,
-                            context,
-                            request);
-                    exchange.getRequest().getInputStream0().setContentLength(contentLength);
-                    this.httpRunnable = httpRunnable;
-                    return null;
+        if (msg instanceof HttpRequest) {
+            HttpRequest request = (HttpRequest) msg;
+            long contentLength = HttpHeaderUtil.getContentLength(request, -1L);
+            if (continueResponse(context, request, contentLength)) {
+                HttpRunnable httpRunnable = RECYCLER.getInstance();
+                httpRunnable.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
+                        servletContext,
+                        context,
+                        request);
+                exchange.getRequest().getInputStream0().setContentLength(contentLength);
+                this.httpRunnable = httpRunnable;
+                return null;
+            } else {
+                discard(msg);
+                return null;
+            }
+        } else if (msg instanceof HttpContent) {
+            if (exchange.closeStatus() == CLOSE_NO) {
+                exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
+                if (msg instanceof LastHttpContent) {
+                    return httpRunnable;
                 } else {
-                    discard(msg);
-                    return null;
-                }
-            } else if (msg instanceof HttpContent) {
-                if (exchange.closeStatus() == CLOSE_NO) {
-                    exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
-                    if (msg instanceof LastHttpContent) {
-                        return httpRunnable;
-                    } else {
-                        return null;
-                    }
-                } else {
-                    discard(msg);
                     return null;
                 }
             } else {
                 discard(msg);
                 return null;
             }
-        }finally {
-            RecyclableUtil.release(msg);
+        } else {
+            discard(msg);
+            return null;
         }
     }
 
     protected void discard(Object msg){
-        ByteBuf byteBuf;
-        if(msg instanceof ByteBufHolder){
-            byteBuf = ((ByteBufHolder) msg).content();
-        }else if(msg instanceof ByteBuf){
-            byteBuf = (ByteBuf) msg;
-        }else {
-            byteBuf = null;
-        }
-        if(byteBuf != null && byteBuf.isReadable()){
-            LOGGER.warn("http packet discard = {}",msg);
+        try {
+            ByteBuf byteBuf;
+            if (msg instanceof ByteBufHolder) {
+                byteBuf = ((ByteBufHolder) msg).content();
+            } else if (msg instanceof ByteBuf) {
+                byteBuf = (ByteBuf) msg;
+            } else {
+                byteBuf = null;
+            }
+            if (byteBuf != null && byteBuf.isReadable()) {
+                LOGGER.warn("http packet discard = {}", msg);
+            }
+        }finally {
+            RecyclableUtil.release(msg);
         }
     }
 

@@ -27,15 +27,15 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
 
     private ServletHttpExchange servletHttpExchange;
-    private NettyHttpResponse nettyResponse = new NettyHttpResponse();
     private PrintWriter writer;
-    private List<Cookie> cookies = new ArrayList<>();
     private String contentType;
     private String characterEncoding;
     private Locale locale;
     private boolean commitFlag = false;
-    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
     private long contentLength = -1;
+    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
+    private final NettyHttpResponse nettyResponse = new NettyHttpResponse();
+    private final List<Cookie> cookies = new ArrayList<>();
     private final AtomicInteger errorState = new AtomicInteger(0);
 
     protected ServletHttpServletResponse() {}

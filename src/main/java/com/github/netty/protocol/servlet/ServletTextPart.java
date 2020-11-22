@@ -36,8 +36,7 @@ public class ServletTextPart implements Part {
     public InputStream getInputStream() throws IOException {
         InputStream inputStream;
         if(attribute.isInMemory()){
-            ByteBuf byteBuf = Unpooled.wrappedBuffer(attribute.getByteBuf());
-            inputStream = new ByteBufInputStream(byteBuf,false);
+            inputStream = new ByteBufInputStream(attribute.getByteBuf().retainedDuplicate(),true);
         }else {
             inputStream = new FileInputStream(attribute.getFile());
         }

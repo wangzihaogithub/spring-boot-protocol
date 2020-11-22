@@ -105,6 +105,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         servletContext.setServletContextName(configurableWebServer.getDisplayName());
         servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
         servletContext.setAsyncSwitchThread(properties.getHttpServlet().isAsyncSwitchThread());
+        servletContext.getErrorPageManager().setShowErrorMessage(properties.getHttpServlet().isShowExceptionMessage());
         //Session timeout
         servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));

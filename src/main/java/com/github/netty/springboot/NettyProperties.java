@@ -256,6 +256,11 @@ public class NettyProperties implements Serializable{
          */
         private boolean enableNsLookup = false;
 
+        /**
+         * 错误页是否展示异常消息.
+         */
+        private boolean showExceptionMessage = true;
+
         public static class ServerThreadPool{
             /**
              * 不开启时，代码跑在Netty的IO线程上,如果您写的Controller是计算密集型，TPS会相比开启后高33%左右。
@@ -357,6 +362,14 @@ public class NettyProperties implements Serializable{
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public boolean isShowExceptionMessage() {
+            return showExceptionMessage;
+        }
+
+        public void setShowExceptionMessage(boolean showExceptionMessage) {
+            this.showExceptionMessage = showExceptionMessage;
         }
 
         public int getAutoFlushIdleMs() {
