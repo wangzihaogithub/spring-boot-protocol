@@ -193,7 +193,7 @@ public class NettyEmbeddedAutoConfiguration {
                 if (pool.getRejected() == HttpAbortPolicyWithReport.class) {
                     rejectedHandler = new HttpAbortPolicyWithReport(pool.getPoolName(), pool.getDumpPath(), "HttpServlet");
                 } else {
-                    rejectedHandler = factory.getBean(pool.getRejected());
+                    rejectedHandler = factory.getBean(pool.getRejected(),RejectedExecutionHandler.class);
                 }
                 NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(pool, rejectedHandler);
                 executorSupplier = () -> executor;
@@ -212,7 +212,7 @@ public class NettyEmbeddedAutoConfiguration {
         if (pool.getRejected() == HttpAbortPolicyWithReport.class) {
             rejectedHandler = new HttpAbortPolicyWithReport(pool.getPoolName(), pool.getDumpPath(), "Default Pool HttpServlet");
         } else {
-            rejectedHandler = factory.getBean(pool.getRejected());
+            rejectedHandler = factory.getBean(pool.getRejected(),RejectedExecutionHandler.class);
         }
         return new LazyPool(this,pool,rejectedHandler);
     }
