@@ -114,14 +114,15 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         }
 
         Compression compression = configurableWebServer.getCompression();
-        super.setEnableContentCompression(compression.getEnabled());
-        super.setContentSizeThreshold((getNumberBytes(compression,"getMinResponseSize")).intValue());
-        super.setCompressionMimeTypes(compression.getMimeTypes().clone());
-        super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
-        if(serverProperties != null) {
+        if(compression != null && compression.getEnabled()) {
+            super.setEnableContentCompression(compression.getEnabled());
+            super.setContentSizeThreshold((getNumberBytes(compression, "getMinResponseSize")).intValue());
+            super.setCompressionMimeTypes(compression.getMimeTypes().clone());
+            super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
+        }
+        if (serverProperties != null) {
             super.setMaxHeaderSize((getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
         }
-
         String location = null;
         if(multipartProperties != null && multipartProperties.getEnabled()){
             Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
