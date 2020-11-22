@@ -39,7 +39,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     /**
      * maxConnections
      */
-    private int maxConnections;
+    private int maxConnections = 10000;
     /**
      * if client connect after. how long time no send first packet, trigger event.
      */

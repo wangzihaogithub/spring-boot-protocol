@@ -16,7 +16,6 @@
 
 package com.github.netty.core;
 
-import com.github.netty.protocol.mqtt.MqttUtil;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -113,7 +112,7 @@ public class AutoFlushChannelHandler extends AbstractChannelHandler<Object,Objec
         // Avoid the case where destroy() is called before scheduling timeouts.
         // See: https://github.com/netty/netty/issues/143
         if (logger.isTraceEnabled()) {
-            logger.trace("Initializing autoflush handler on channel {} Cid: {}", ctx.channel(), MqttUtil.clientID(ctx.channel()));
+            logger.trace("Initializing autoflush handler on channel {}", ctx.channel());
         }
         switch (state) {
             case 1:
@@ -148,7 +147,7 @@ public class AutoFlushChannelHandler extends AbstractChannelHandler<Object,Objec
     private void channelIdle(ChannelHandlerContext ctx) {
         // ctx.fireUserEventTriggered(evt);
         if (logger.isTraceEnabled()) {
-            logger.trace("Flushing idle Netty channel {} Cid: {}", ctx.channel(), MqttUtil.clientID(ctx.channel()));
+            logger.trace("Flushing idle Netty channel {}", ctx.channel());
         }
         ctx.channel().flush();
     }

@@ -1,7 +1,6 @@
 package com.github.netty.core.util;
 
 import com.github.netty.annotation.Protocol;
-import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.lang.annotation.*;
 import java.lang.reflect.Method;
@@ -84,9 +83,6 @@ public class AnnotationMethodToMethodNameFunction implements Function<Method,Str
     }
     @Protocol.RpcMethod("RpcMethod1")
     public void s2(){
-    }
-    @RequestMapping("RequestMapping")
-    public   void s3(){
     }
 
     @Target({ElementType.METHOD})
