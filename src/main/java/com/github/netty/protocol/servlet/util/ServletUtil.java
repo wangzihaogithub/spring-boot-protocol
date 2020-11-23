@@ -1,6 +1,7 @@
 package com.github.netty.protocol.servlet.util;
 
 import com.github.netty.core.util.LinkedMultiValueMap;
+import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
@@ -301,7 +302,11 @@ public class ServletUtil {
 
                 // skip obsolete RFC2965 fields
                 String name = header.substring(newNameStart, newNameEnd);
-                cookies.add(new Cookie(name, value));
+                try{
+                    cookies.add(new Cookie(name, value));
+                }catch (IllegalArgumentException e){
+                    LoggerFactoryX.getLogger(ServletUtil.class).warn("discard cookie. cause = {}",e.toString());
+                }
             }
         }
 
