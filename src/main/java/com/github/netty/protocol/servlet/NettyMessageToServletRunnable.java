@@ -59,7 +59,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     @Override
     public Runnable onMessage(ChannelHandlerContext context, Object msg) {
         ServletHttpExchange exchange = this.exchange;
+        boolean doRequest = false;
+        //header
         if (msg instanceof HttpRequest) {
+            doRequest = true;
             HttpRequest request = (HttpRequest) msg;
             long contentLength = HttpHeaderUtil.getContentLength(request, -1L);
             if (continueResponse(context, request, contentLength)) {
@@ -70,12 +73,13 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         request);
                 exchange.getRequest().getInputStream0().setContentLength(contentLength);
                 this.httpRunnable = httpRunnable;
-                return null;
             } else {
                 discard(msg);
-                return null;
             }
-        } else if (msg instanceof HttpContent) {
+        }
+
+        //body
+        if (msg instanceof HttpContent) {
             if (exchange.closeStatus() == CLOSE_NO) {
                 exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
                 if (msg instanceof LastHttpContent) {
@@ -87,7 +91,12 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 discard(msg);
                 return null;
             }
-        } else {
+        }
+
+        //discard
+        if(doRequest){
+            return null;
+        } else{
             discard(msg);
             return null;
         }
