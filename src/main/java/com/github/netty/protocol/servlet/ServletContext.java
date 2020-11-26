@@ -45,7 +45,7 @@ public class ServletContext implements javax.servlet.ServletContext {
      */
     private int responseWriterChunkMaxHeapByteLength = 0;
     /**
-     * Minimum upload file length, in bytes (becomes temporary file storage if larger than 16KB)
+     * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
      */
     private long uploadMinSize = 4096 * 16;
     /**

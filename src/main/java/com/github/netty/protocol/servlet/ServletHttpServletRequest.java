@@ -3,7 +3,6 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
-import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.*;
@@ -158,19 +157,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     }else {
                         throw new HttpPostRequestDecoder.ErrorDataDecoderException();
                     }
-                    int discardThreshold = 0;
-                    if(multipartConfigElement != null) {
-                        discardThreshold = multipartConfigElement.getFileSizeThreshold();
-                    }
-
-                    postRequestDecoder.setDiscardThreshold(discardThreshold);
+                    postRequestDecoder.setDiscardThreshold(getDiscardThreshold());
                     this.postRequestDecoder = postRequestDecoder;
                 }
             }
         }
         return this.postRequestDecoder;
     };
-    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier);
+    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier,resourceManagerSupplier);
     private final List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
@@ -183,9 +177,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         instance.servletHttpExchange = exchange;
         instance.nettyRequest = httpRequest;
         instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
-        String contentType = instance.getContentType();
-        instance.isFormUrlEncoder = contentType != null && HttpHeaderUtil.isFormUrlEncoder(contentType.toLowerCase());
-
+        if(instance.isMultipart){
+            instance.isFormUrlEncoder = false;
+        }else {
+            String contentType = instance.getContentType();
+            instance.isFormUrlEncoder = contentType != null && HttpHeaderUtil.isFormUrlEncoder(contentType.toLowerCase());
+        }
         instance.resourceManager = null;
         if(instance.postRequestDecoder != null){
             try {
@@ -195,6 +192,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         instance.inputStream.wrap(exchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
+        instance.inputStream.setFileSizeThreshold(instance.getFileSizeThreshold());
         instance.inputStream.setFileUploadTimeoutMs(exchange.getServletContext().getUploadFileTimeoutMs());
         return instance;
     }
@@ -203,7 +201,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.multipartConfigElement = multipartConfigElement;
         InterfaceHttpPostRequestDecoder postRequestDecoder = this.postRequestDecoder;
         if(postRequestDecoder != null){
-            postRequestDecoder.setDiscardThreshold(multipartConfigElement.getFileSizeThreshold());
+            int discardThreshold = 0;
+            if(multipartConfigElement != null) {
+                discardThreshold = (int)multipartConfigElement.getMaxFileSize();
+            }
+            if(discardThreshold <= 0){
+                discardThreshold = Integer.MAX_VALUE;
+            }
+            postRequestDecoder.setDiscardThreshold(discardThreshold);
         }
     }
 
@@ -213,6 +218,31 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     void setDispatcherType(DispatcherType dispatcherType) {
         this.dispatcherType = dispatcherType;
+    }
+
+    public int getFileSizeThreshold(){
+        int fileSizeThreshold = 16384;
+        if(multipartConfigElement != null) {
+            fileSizeThreshold = Math.max(multipartConfigElement.getFileSizeThreshold(),fileSizeThreshold);
+        }else {
+            fileSizeThreshold = Math.max((int) getServletContext().getUploadMinSize(),fileSizeThreshold);
+        }
+        return fileSizeThreshold;
+    }
+
+    public int getDiscardThreshold(){
+        int discardThreshold = 0;
+        if(multipartConfigElement != null) {
+            discardThreshold = (int)multipartConfigElement.getMaxFileSize();
+        }
+        if(discardThreshold <= 0){
+            discardThreshold = Integer.MAX_VALUE;
+        }
+        return discardThreshold;
+    }
+
+    public boolean isMultipart() {
+        return isMultipart;
     }
 
     boolean isAsync(){
@@ -1296,6 +1326,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 	    }
         this.inputStream.recycle();
         this.nettyRequest = null;
+
+        if(!fileUploadList.isEmpty()) {
+            for (Part part : fileUploadList) {
+                try {
+                    part.delete();
+                } catch (IOException ignored) {
+                }
+            }
+        }
         if(this.postRequestDecoder != null) {
             this.postRequestDecoder.destroy();
             this.postRequestDecoder = null;

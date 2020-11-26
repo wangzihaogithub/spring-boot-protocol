@@ -130,4 +130,8 @@ public class ServletFilePart implements Part {
         return headerMap;
     }
 
+    @Override
+    public String toString() {
+        return fileUpload.toString();
+    }
 }

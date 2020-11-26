@@ -158,6 +158,15 @@
             <version>3.9.0</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- 测试文件上传 -->
+        <dependency>
+            <groupId>commons-fileupload</groupId>
+            <artifactId>commons-fileupload</artifactId>
+            <version>1.4</version>
+            <scope>test</scope>
+        </dependency>
+
         <!--<dependency>-->
             <!--<groupId>io.moquette</groupId>-->
             <!--<artifactId>moquette-broker</artifactId>-->

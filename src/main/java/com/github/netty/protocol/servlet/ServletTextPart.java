@@ -112,4 +112,8 @@ public class ServletTextPart implements Part {
         return headerMap;
     }
 
+    @Override
+    public String toString() {
+        return attribute.toString();
+    }
 }
