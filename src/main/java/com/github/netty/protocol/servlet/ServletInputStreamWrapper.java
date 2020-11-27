@@ -191,17 +191,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                             uploadDir + hashCode() + "_" + (++uploadFileCount));
                     Path path = Paths.get(servletFile);
                     File uploadFile = path.toFile();
-                    SeekableByteChannel uploadFileChannel;
                     try {
-                        uploadFileChannel = createFileChannel(uploadFile, path);
+                        this.uploadFileOutputChannel = createFileChannel(uploadFile, path);
+                        this.uploadFile = uploadFile;
                     }catch (Exception e){
-                        uploadFileChannel = null;
                         this.createFileException = e;
                         LOGGER.error("upload file create temp file Exception. file = {}, message = {}", uploadFile,e.toString(),  e);
-                    }
-                    if(uploadFileChannel != null) {
-                        this.uploadFile = uploadFile;
-                        this.uploadFileOutputChannel = uploadFileChannel;
                     }
                 }
             }
