@@ -12,15 +12,15 @@
     
     3.支持异步零拷贝。sendFile, mmap. 示例：com.github.netty.http.example.HttpZeroCopyController.java
     
-    4.HttpServlet性能比tomcat的NIO高出 20%(TPS)
+    4.HttpServlet性能比tomcat的NIO高出 20%/TPS。 因为IO模型设计与tomcat的不同，减少了线程切换。
     
-    5.RPC性能略胜阿里巴巴的Dubbo, 使用习惯保持与springcloud相同, 可以不改springcloud代码替换Feign调用
+    5.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同, 可以不改springcloud代码替换Feign调用
     
     6.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,MQTT,Mysql,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
     
     7.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
     
-    8.高并发下服务器内存抖动在5M左右。 tomcat抖动在350M左右。
+    8.高并发下服务器内存抖动在5M左右。 tomcat抖动在350M左右。(因为用堆外内存不受GC影响，tomcat用的是byte[])
 
 作者邮箱 : 842156727@qq.com
 
