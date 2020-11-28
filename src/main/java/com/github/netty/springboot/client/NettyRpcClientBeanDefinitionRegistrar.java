@@ -123,7 +123,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
             NettyProperties nettyProperties = nettyPropertiesSupplier.get();
             NettyRpcClientProxy nettyRpcClientProxy = new NettyRpcClientProxy(serviceName,null,
                     beanClass,nettyProperties,
-		            nettyRpcLoadBalancedSupplier::get);
+                    nettyRpcLoadBalancedSupplier);
             if(timeout > 0){
                 nettyRpcClientProxy.setTimeout(timeout);
             }
