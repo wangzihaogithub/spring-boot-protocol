@@ -13,7 +13,7 @@ import java.lang.annotation.*;
  *      1. http server protocol,
  *          Servlet Web or Reactive Web. {@link NettyTcpServerFactory} {@link HttpServletProtocolSpringAdapter}
  *          Websocket. {@link NettyRequestUpgradeStrategy}
- *      2. rpc server protocol. {@link HRpcProtocolSpringAdapter}
+ *      2. rpc server protocol. {@link NRpcProtocolSpringAdapter}
  *      3. and user-defined protocols..
  *
  * If you want to add your own protocol,  you only need implement {@link AbstractProtocol}, Next restart, do not need to do other things
@@ -84,7 +84,7 @@ import java.lang.annotation.*;
  * @see com.github.netty.springboot.server.NettyEmbeddedAutoConfiguration
  * @see com.github.netty.springboot.server.NettyTcpServerFactory
  * @see com.github.netty.springboot.server.HttpServletProtocolSpringAdapter
- * @see com.github.netty.springboot.server.HRpcProtocolSpringAdapter
+ * @see NRpcProtocolSpringAdapter
  * @see com.github.netty.springboot.server.NettyRequestUpgradeStrategy
  * @see com.github.netty.core.AbstractProtocol
  * @author wangzihao 2019-11-2 00:58:11

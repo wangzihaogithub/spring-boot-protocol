@@ -18,13 +18,13 @@ import java.util.function.Function;
  * Internal RPC protocol registry (spring adapter)
  * @author wangzihao
  */
-public class HRpcProtocolSpringAdapter extends NRpcProtocol {
+public class NRpcProtocolSpringAdapter extends NRpcProtocol {
     private final ClassFileMethodToParameterNamesFunction classFileMethodToParameterNamesFunction = new ClassFileMethodToParameterNamesFunction();
     private final AnnotationMethodToParameterNamesFunction annotationMethodToParameterNamesFunction = new AnnotationMethodToParameterNamesFunction(
             Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
             PathVariable.class,CookieValue.class, RequestPart.class);
 
-    public HRpcProtocolSpringAdapter(ApplicationX application) {
+    public NRpcProtocolSpringAdapter(ApplicationX application) {
         super(application);
     }
 

@@ -72,7 +72,7 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("nRpcProtocol")
     @ConditionalOnMissingBean(NRpcProtocol.class)
     public NRpcProtocol nRpcProtocol(){
-        HRpcProtocolSpringAdapter protocol = new HRpcProtocolSpringAdapter(nettyProperties.getApplication());
+        NRpcProtocolSpringAdapter protocol = new NRpcProtocolSpringAdapter(nettyProperties.getApplication());
         protocol.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
         protocol.setMethodOverwriteCheck(nettyProperties.getNrpc().isServerMethodOverwriteCheck());
         protocol.setServerDefaultVersion(nettyProperties.getNrpc().getServerDefaultVersion());
