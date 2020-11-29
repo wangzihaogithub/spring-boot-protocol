@@ -227,7 +227,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         return rpcClient;
     }
 
-    public InetSocketAddress chooseAddress(DefaultNettyRpcRequest request){
+    public InetSocketAddress chooseAddress(NettyRpcRequest request){
         InetSocketAddress address;
         try {
             address = loadBalancedSupplier.get().chooseAddress(request);
