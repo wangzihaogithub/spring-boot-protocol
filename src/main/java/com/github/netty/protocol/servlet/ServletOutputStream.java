@@ -193,22 +193,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Whether the pipe needs to be closed
-     * @param isKeepAlive
-     * @param responseStatus
-     * @return
-     */
-    private static boolean isCloseChannel(boolean isKeepAlive,int responseStatus){
-        if(isKeepAlive){
-            return false;
-        }
-        if(responseStatus >= 100 && responseStatus < 300){
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Check if it's closed
      * @throws ClosedChannelException
      */
@@ -311,37 +295,15 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             this.closeListener = closeListener;
         }
 
-        private void callListener(){
+        @Override
+        public void operationComplete(ChannelFuture future) throws Exception {
+            ChannelFutureListener closeListener = this.closeListener;
+            if(closeListener != null) {
+                closeListener.operationComplete(future);
+            }
             Consumer recycleConsumer;
             while ((recycleConsumer = recycleConsumerQueue.poll()) != null) {
                 recycleConsumer.accept(ServletOutputStream.this);
-            }
-        }
-        @Override
-        public void operationComplete(ChannelFuture future) throws Exception {
-            boolean isNeedClose = isCloseChannel(servletHttpExchange.isHttpKeepAlive(),
-                    servletHttpExchange.getResponse().getStatus());
-            ChannelFuture closeFuture = null;
-            if(isNeedClose){
-                Channel channel = future.channel();
-                if(channel.isActive()){
-                    closeFuture = channel.close();
-                    ChannelFutureListener closeListener = this.closeListener;
-                    if(closeListener != null) {
-                        closeFuture.addListener(closeListener);
-                    }
-                }else {
-                    ChannelFutureListener closeListener = this.closeListener;
-                    if(closeListener != null) {
-                        closeListener.operationComplete(future);
-                    }
-                }
-            }
-
-            if(closeFuture != null) {
-                closeFuture.addListener(f -> callListener());
-            }else {
-                callListener();
             }
 
             write = false;

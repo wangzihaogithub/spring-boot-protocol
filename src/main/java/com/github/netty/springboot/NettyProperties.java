@@ -45,7 +45,7 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
-    private int serverIoThreads = 0;
+    private int serverIoThreads = Runtime.getRuntime().availableProcessors() * 2;
     /**
      * 服务端-io线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大
      */
@@ -55,7 +55,18 @@ public class NettyProperties implements Serializable{
      * 是否禁用Nagle算法，true=禁用Nagle算法. 即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
      */
     private boolean tcpNodelay = false;
-
+    /**
+     * tcp 接收数据缓冲区大小字节 (默认-1 跟随内核设置)
+     */
+    private int soRcvbuf = -1;
+    /**
+     * tcp 发送数据缓冲区大小字节 (默认-1 跟随内核设置)
+     */
+    private int soSndbuf = -1;
+    /**
+     * tcp 服务端接收新连接,等待被accept出的, 队列大小 (默认50)
+     */
+    private int soBacklog = 50;
     /**
      * netty的内存泄漏检测级别(调试程序的时候用). 默认禁用, 不然极其耗费性能
      */
@@ -102,6 +113,30 @@ public class NettyProperties implements Serializable{
 
     public ApplicationX getApplication() {
         return application;
+    }
+
+    public void setSoBacklog(int soBacklog) {
+        this.soBacklog = soBacklog;
+    }
+
+    public int getSoBacklog() {
+        return soBacklog;
+    }
+
+    public int getSoRcvbuf() {
+        return soRcvbuf;
+    }
+
+    public void setSoRcvbuf(int soRcvbuf) {
+        this.soRcvbuf = soRcvbuf;
+    }
+
+    public int getSoSndbuf() {
+        return soSndbuf;
+    }
+
+    public void setSoSndbuf(int soSndbuf) {
+        this.soSndbuf = soSndbuf;
     }
 
     public boolean isTcpNodelay() {

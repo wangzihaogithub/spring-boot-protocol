@@ -748,6 +748,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public ServletHttpSession getSession(boolean create) {
 	    String sessionId = getRequestedSessionId();
+	    if(sessionIdSource == null && !create){
+	        return null;
+        }
         ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
         if (httpSession != null && httpSession.isValid() && httpSession.getId().equals(sessionId)) {
             return httpSession;
@@ -830,7 +833,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getRequestedSessionId() {
-        if(StringUtil.isNotEmpty(sessionId)){
+        if(sessionId != null){
             return sessionId;
         }
 
@@ -844,11 +847,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             sessionIdSource = SessionTrackingMode.COOKIE;
         }else {
             String queryString = getQueryString();
-            boolean isUrlCookie = queryString != null && queryString.contains(HttpConstants.JSESSION_ID_URL);
-            if(isUrlCookie) {
-                sessionIdSource = SessionTrackingMode.URL;
+            if(queryString != null && queryString.contains(HttpConstants.JSESSION_ID_URL)) {
                 sessionId = getParameter(HttpConstants.JSESSION_ID_URL);
-            }else {
+            }
+            if(StringUtil.isNotEmpty(sessionId)){
+                sessionIdSource = SessionTrackingMode.URL;
+            }else{
                 sessionIdSource = null;
                 sessionId = newSessionId();
             }

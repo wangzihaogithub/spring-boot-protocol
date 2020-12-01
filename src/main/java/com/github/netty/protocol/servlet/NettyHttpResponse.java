@@ -5,7 +5,6 @@ import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.ServletUtil;
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
@@ -13,7 +12,6 @@ import io.netty.handler.codec.http.*;
 import javax.servlet.http.Cookie;
 import java.io.Flushable;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,7 +30,6 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     private HttpVersion version;
     private HttpHeaders headers;
     private HttpResponseStatus status;
-    private CompositeByteBufX content;
     private LastHttpContent lastHttpContent;
     private ServletHttpExchange exchange;
     protected final AtomicBoolean isSettingResponse = new AtomicBoolean(false);
@@ -101,100 +98,10 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         return lastHttpContent;
     }
 
-    public CompositeByteBufX content() {
-        return content;
-    }
-
-    public int refCnt() {
-        return content.refCnt();
-    }
-
-    public NettyHttpResponse retain() {
-        content.retain();
-        return this;
-    }
-
-    public NettyHttpResponse retain(int increment) {
-        content.retain(increment);
-        return this;
-    }
-
-    public NettyHttpResponse touch() {
-//        content.touch();
-        Method method = ReflectUtil.getAccessibleMethod(content.getClass(), "touch");
-        try {
-            method.invoke(content);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return this;
-    }
-
-    public NettyHttpResponse touch(Object hint) {
-//        content.touch(hint);
-        Method method = ReflectUtil.getAccessibleMethod(content.getClass(), "touch", Object.class);
-        try {
-            method.invoke(content,hint);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return this;
-    }
-
-    public boolean release() {
-        return content.release();
-    }
-
-    public boolean release(int decrement) {
-        return content.release(decrement);
-    }
-
-    public NettyHttpResponse copy() {
-        return replace(content().copy());
-    }
-
-    public NettyHttpResponse duplicate() {
-        return replace(content().duplicate());
-    }
-
-    public NettyHttpResponse retainedDuplicate() {
-        Method method = ReflectUtil.getAccessibleMethod(content.getClass(), "retainedDuplicate");
-        ByteBuf byteBuf;
-        try {
-            byteBuf = (ByteBuf) method.invoke(content);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return replace(byteBuf);
-    }
-
-    public NettyHttpResponse replace(ByteBuf content) {
-        NettyHttpResponse response = new NettyHttpResponse();
-        if(content instanceof CompositeByteBufX){
-             response.content = (CompositeByteBufX) content;
-        }else {
-            response.content = new CompositeByteBufX();
-        }
-        response.version = this.version;
-        response.status = this.status;
-        response.headers = this.headers;
-        response.decoderResult = this.decoderResult;
-        return response;
-    }
-
     @Override
     public NettyHttpResponse setProtocolVersion(HttpVersion version) {
         this.version = version;
         return this;
-    }
-
-    public void setContent(ByteBuf content) {
-        if(content instanceof CompositeByteBufX){
-            this.content = (CompositeByteBufX) content;
-        }else {
-            this.content = new CompositeByteBufX();
-            this.content.addComponent(content);
-        }
     }
 
     @Override
@@ -209,7 +116,6 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
 
     @Override
     public void recycle() {
-        this.content = null;
         this.headers.clear();
         this.version = HttpVersion.HTTP_1_1;
         this.status = DEFAULT_STATUS;
@@ -224,7 +130,6 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         result = 31 * result + (version != null ? version.hashCode() : 0);
         result = 31 * result + (headers != null ? headers.hashCode() : 0);
         result = 31 * result + (status != null ? status.hashCode() : 0);
-        result = 31 * result + (content != null ? content.hashCode() : 0);
         return result;
     }
 
@@ -250,14 +155,13 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         if (!headers.equals(that.headers)){
             return false;
         }
-        return content.equals(that.content);
+        return true;
     }
 
     @Override
     public String toString() {
         return "NettyHttpResponse{" +
-                "content=" + content +
-                ", decoderResult=" + decoderResult +
+                "decoderResult=" + decoderResult +
                 ", version=" + version +
                 ", headers=" + headers +
                 ", status=" + status +
@@ -271,8 +175,6 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             ServletHttpServletRequest servletRequest = exchange.getRequest();
             ServletHttpServletResponse servletResponse = exchange.getResponse();
             ServletSessionCookieConfig sessionCookieConfig = exchange.getServletContext().getSessionCookieConfig();
-
-            IOUtil.writerModeToReadMode(content());
 
             settingResponseHeader(exchange.isHttpKeepAlive(), servletRequest,
                     servletResponse.getContentType(),servletResponse.getCharacterEncoding(),

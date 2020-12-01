@@ -113,9 +113,18 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             long maxDirectMemory = -1;
             System.setProperty("io.netty.maxDirectMemory", String.valueOf(maxDirectMemory));
         }
-        bootstrap.childOption(ChannelOption.WRITE_SPIN_COUNT,Integer.MAX_VALUE);
+//        bootstrap.childOption(ChannelOption.WRITE_SPIN_COUNT,Integer.MAX_VALUE);
         bootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024,Integer.MAX_VALUE));
         bootstrap.childOption(ChannelOption.AUTO_CLOSE,true);
+        if(properties.getSoRcvbuf() > 0) {
+            bootstrap.childOption(ChannelOption.SO_RCVBUF, properties.getSoRcvbuf());
+        }
+        if(properties.getSoSndbuf() > 0) {
+            bootstrap.childOption(ChannelOption.SO_SNDBUF, properties.getSoSndbuf());
+        }
+        if(properties.getSoBacklog() > 0) {
+            bootstrap.option(ChannelOption.SO_BACKLOG, properties.getSoBacklog());
+        }
 
         bootstrap.childOption(ChannelOption.TCP_NODELAY, properties.isTcpNodelay());
         for (ServerListener serverListener : serverListeners) {
