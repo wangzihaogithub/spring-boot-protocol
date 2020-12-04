@@ -157,7 +157,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     }else {
                         throw new HttpPostRequestDecoder.ErrorDataDecoderException();
                     }
-                    postRequestDecoder.setDiscardThreshold(getDiscardThreshold());
                     this.postRequestDecoder = postRequestDecoder;
                 }
             }
@@ -199,10 +198,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
         this.multipartConfigElement = multipartConfigElement;
-        InterfaceHttpPostRequestDecoder postRequestDecoder = this.postRequestDecoder;
-        if(postRequestDecoder != null){
-            postRequestDecoder.setDiscardThreshold(getDiscardThreshold());
-        }
     }
 
     void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
@@ -221,17 +216,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             fileSizeThreshold = Math.max((int) getServletContext().getUploadMinSize(),fileSizeThreshold);
         }
         return fileSizeThreshold;
-    }
-
-    public int getDiscardThreshold(){
-        int discardThreshold = 0;
-        if(multipartConfigElement != null) {
-            discardThreshold = (int)multipartConfigElement.getMaxFileSize();
-        }
-        if(discardThreshold <= 0){
-            discardThreshold = 10 * 1024 * 1024;
-        }
-        return discardThreshold;
     }
 
     public boolean isMultipart() {
