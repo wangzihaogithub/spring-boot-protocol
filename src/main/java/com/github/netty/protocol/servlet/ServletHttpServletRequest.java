@@ -201,14 +201,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.multipartConfigElement = multipartConfigElement;
         InterfaceHttpPostRequestDecoder postRequestDecoder = this.postRequestDecoder;
         if(postRequestDecoder != null){
-            int discardThreshold = 0;
-            if(multipartConfigElement != null) {
-                discardThreshold = (int)multipartConfigElement.getMaxFileSize();
-            }
-            if(discardThreshold <= 0){
-                discardThreshold = Integer.MAX_VALUE;
-            }
-            postRequestDecoder.setDiscardThreshold(discardThreshold);
+            postRequestDecoder.setDiscardThreshold(getDiscardThreshold());
         }
     }
 
@@ -236,7 +229,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             discardThreshold = (int)multipartConfigElement.getMaxFileSize();
         }
         if(discardThreshold <= 0){
-            discardThreshold = Integer.MAX_VALUE;
+            discardThreshold = 10 * 1024 * 1024;
         }
         return discardThreshold;
     }
