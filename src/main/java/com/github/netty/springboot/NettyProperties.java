@@ -251,7 +251,7 @@ public class NettyProperties implements Serializable{
         /**
          * 响应最大缓冲区大小（超过这个大小，会触发flush方法，发送给网络并清空缓冲区）
          */
-        private int responseMaxBufferSize = 1024 * 1024;
+        private int responseMaxBufferSize = 8192;
         /**
          * 接收客户端的文件上传超时时间(毫秒). -1 表示永远不超时。
          */
