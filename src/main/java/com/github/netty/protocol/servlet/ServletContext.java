@@ -81,6 +81,10 @@ public class ServletContext implements javax.servlet.ServletContext {
     private boolean enableLookupFlag = false;
     private boolean asyncSwitchThread = true;
     private boolean autoFlush;
+    /**
+     * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
+     */
+    private final Collection<String> notExistBodyParameters = new HashSet<>();
     private String serverHeader;
     private String contextPath = "";
     private String requestCharacterEncoding;
@@ -173,6 +177,10 @@ public class ServletContext implements javax.servlet.ServletContext {
             throw new IllegalStateException("no found async Executor");
         }
         return executor;
+    }
+
+    public Collection<String> getNotExistBodyParameters() {
+        return notExistBodyParameters;
     }
 
     public void setAsyncExecutorSupplier(Supplier<Executor> asyncExecutorSupplier) {

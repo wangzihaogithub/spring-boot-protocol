@@ -146,7 +146,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if(isFinished()) {
             if(uploadFile != null) {
                 try {
-                    uploadFileInputStream = new FileInputStream(uploadFile);
                     uploadFileOutputChannel.close();
                     uploadFileOutputChannel = null;
                 } catch (FileNotFoundException | SecurityException e) {
@@ -194,6 +193,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                     try {
                         this.uploadFileOutputChannel = createFileChannel(uploadFile, path);
                         this.uploadFile = uploadFile;
+                        this.uploadFileInputStream = new FileInputStream(uploadFile);
                     }catch (Exception e){
                         this.createFileException = e;
                         LOGGER.error("upload file create temp file Exception. file = {}, message = {}", uploadFile,e.toString(),  e);

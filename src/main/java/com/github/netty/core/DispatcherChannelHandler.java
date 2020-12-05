@@ -62,7 +62,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Obje
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         if(cause.getClass() != IOException.class){
-            logger.error("servlet handler exception. case={}, channel={}",cause.toString(),ctx.channel(),cause);
+            logger.error("handler exception. case={}, channel={}",cause.toString(),ctx.channel(),cause);
         }
         ctx.close();
     }

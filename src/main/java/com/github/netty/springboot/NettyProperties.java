@@ -257,6 +257,10 @@ public class NettyProperties implements Serializable{
          */
         private long uploadFileTimeoutMs = -1;
         /**
+         * 不会出现在body中的字段. 仅限于 multipart/form-data, application/x-www-form-urlencoded. （为了避免因为要获取某个字段，一直在等客户端发完数据。）
+         */
+        private String[] notExistBodyParameter = {"_method","JSESSIONID"};
+        /**
          * 服务端 - 线程池配置
          */
         @NestedConfigurationProperty
@@ -397,6 +401,14 @@ public class NettyProperties implements Serializable{
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public String[] getNotExistBodyParameter() {
+            return notExistBodyParameter;
+        }
+
+        public void setNotExistBodyParameter(String[] notExistBodyParameter) {
+            this.notExistBodyParameter = notExistBodyParameter;
         }
 
         public boolean isShowExceptionMessage() {

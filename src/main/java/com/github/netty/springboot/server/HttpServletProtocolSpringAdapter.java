@@ -113,6 +113,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         for (MimeMappings.Mapping mapping :configurableWebServer.getMimeMappings()) {
             servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
         }
+        servletContext.getNotExistBodyParameters().addAll(Arrays.asList(properties.getHttpServlet().getNotExistBodyParameter()));
 
         Compression compression = configurableWebServer.getCompression();
         if(compression != null && compression.getEnabled()) {

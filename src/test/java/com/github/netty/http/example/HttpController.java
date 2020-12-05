@@ -27,6 +27,10 @@ import javax.servlet.http.Part;
 import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 
 @EnableScheduling
@@ -127,8 +131,12 @@ public class HttpController {
                 } else {
                     try (InputStream is = item.openStream()) {
                         int available = is.available();
+                        Path copyFileTo = Paths.get(System.getProperty("user.dir"), item.getName());
+                        Files.copy(is, copyFileTo,
+                                StandardCopyOption.REPLACE_EXISTING);
+
                         Assert.isTrue(available != -1, item.getName());
-                        logger.info("uploadForApache -> file = {}, length = {}",item.getName(),available);
+                        logger.info("uploadForApache -> 上传至 = {}, file = {}, length = {}",copyFileTo,item.getName(),available);
                     }
                 }
             }

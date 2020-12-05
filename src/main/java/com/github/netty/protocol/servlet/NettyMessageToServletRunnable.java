@@ -38,7 +38,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private final ServletContext servletContext;
     private final long maxContentLength;
     private ServletHttpExchange exchange;
-    private HttpRunnable httpRunnable;
+    private volatile HttpRunnable httpRunnable;
 
     static {
         EXPECTATION_FAILED.headers().set(CONTENT_LENGTH, 0);
@@ -67,6 +67,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             long contentLength = HttpHeaderUtil.getContentLength(request, -1L);
             if (continueResponse(context, request, contentLength)) {
                 HttpRunnable httpRunnable = RECYCLER.getInstance();
+                httpRunnable.ioThread = Thread.currentThread();
                 httpRunnable.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
                         servletContext,
                         context,
@@ -79,16 +80,11 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         }
 
         //body
-        if (msg instanceof HttpContent) {
-            if (exchange.closeStatus() == CLOSE_NO) {
-                exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
-                if (msg instanceof LastHttpContent) {
-                    return httpRunnable;
-                } else {
-                    return null;
-                }
+        if (msg instanceof HttpContent && exchange.closeStatus() == CLOSE_NO) {
+            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
+            if (msg instanceof LastHttpContent){
+                return httpRunnable;
             } else {
-                discard(msg);
                 return null;
             }
         }
@@ -156,6 +152,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
      */
     public static class HttpRunnable implements Runnable, Recyclable {
         private ServletHttpExchange servletHttpExchange;
+        private Thread ioThread;
         public ServletHttpExchange getExchange() {
             return servletHttpExchange;
         }
@@ -164,12 +161,20 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             this.servletHttpExchange = servletHttpExchange;
         }
 
+        public Thread getIoThread() {
+            return ioThread;
+        }
+
         @Override
         public void run() {
             ServletHttpServletRequest httpServletRequest = servletHttpExchange.getRequest();
             ServletHttpServletResponse httpServletResponse = servletHttpExchange.getResponse();
             Throwable realThrowable = null;
 
+            if(httpServletRequest.isMultipart() && ioThread == Thread.currentThread()){
+                servletHttpExchange.getServletContext().getDefaultExecutorSupplier().get().execute(this);
+                return;
+            }
             try {
                 ServletRequestDispatcher dispatcher = servletHttpExchange.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {

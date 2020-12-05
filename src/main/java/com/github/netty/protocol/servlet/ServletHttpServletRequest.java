@@ -893,7 +893,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getParameter(String name) {
-        String[] values = getParameterMap().get(name);
+        String[] values;
+        if(getServletContext().getNotExistBodyParameters().contains(name)){
+            if(!decodeParameterByUrlFlag) {
+                decodeUrlParameter();
+            }
+            values = unmodifiableParameterMap.get(name);
+        }else {
+            values = getParameterMap().get(name);
+        }
         if(values == null || values.length == 0){
             return null;
         }
