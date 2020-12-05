@@ -5,6 +5,7 @@ import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.fileupload.util.Streams;
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -21,8 +22,9 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @EnableScheduling
@@ -130,6 +132,58 @@ public class HttpController {
             }
         }
         return new ResponseEntity<>("success", HttpStatus.OK);
+    }
+
+    @RequestMapping("/downloadFile")
+    public ResponseEntity<String> downloadFile(@RequestParam(required = false,defaultValue = "7") Integer size,HttpServletRequest request, HttpServletResponse response) throws Exception {
+        String fileName = "CentOS-7-x86_64-DVD-2003.iso";
+
+        byte[] file = new byte[1024 * 1024 * size];
+        for (int i = 0; i < file.length; i++) {
+            file[i] = (byte) i;
+        }
+        handleDownloadStream(fileName, new ByteArrayInputStream(file), request, response);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    public void handleDownloadStream(String fileName, InputStream inputStream, HttpServletRequest request, HttpServletResponse res) throws IOException {
+        byte[] buffer = new byte[4 * 1024];
+        OutputStream os = null;
+        try {
+            os = new BufferedOutputStream(res.getOutputStream());
+            res.reset();
+            String agent = request.getHeader("User-Agent");
+            if (agent == null) {
+                return;
+            }
+            agent = agent.toUpperCase();
+
+            //ie浏览器,火狐,Edge浏览器
+            if (agent.indexOf("MSIE") > 0 || agent.indexOf("RV:11.0") > 0 || agent.indexOf("EDGE") > 0 || agent.indexOf("SAFARI") > -1) {
+                fileName = URLEncoder.encode(fileName, "utf8").replaceAll("\\+", "%20");
+            } else {
+                fileName = new String(fileName.getBytes(StandardCharsets.UTF_8), "ISO8859_1");
+            }
+            //safari RFC 5987标准
+            if (agent.contains("SAFARI")) {
+                res.addHeader("content-disposition", "attachment;filename*=UTF-8''" + fileName);
+            } else {
+                res.addHeader("Content-disposition", "attachment; filename=\"" + fileName + '"');
+            }
+            res.setContentType("application/octet-stream");
+            res.setCharacterEncoding("UTF-8");
+            res.setContentLength(inputStream.available());
+            int length = 0;
+            while ((length = inputStream.read(buffer)) != -1) {
+                os.write(buffer, 0, length);
+            }
+            os.flush();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            IOUtils.closeQuietly(inputStream);
+        }
     }
 
 }
