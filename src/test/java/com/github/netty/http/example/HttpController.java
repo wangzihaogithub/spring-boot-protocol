@@ -1,5 +1,6 @@
 package com.github.netty.http.example;
 
+import com.github.netty.protocol.servlet.NettyOutputStream;
 import org.apache.commons.fileupload.FileItemIterator;
 import org.apache.commons.fileupload.FileItemStream;
 import org.apache.commons.fileupload.FileUploadException;
@@ -19,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.Part;
@@ -146,9 +148,16 @@ public class HttpController {
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
+    @RequestMapping("/downloadFile1")
+    public ResponseEntity<String> downloadFile1(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        NettyOutputStream outputStream = (NettyOutputStream) response.getOutputStream();
+        outputStream.write(new File("C:\\Users\\Administrator\\Downloads\\android-x86-8.1-r5.iso"));
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
     public void handleDownloadStream(String fileName, InputStream inputStream, HttpServletRequest request, HttpServletResponse res) throws IOException {
         byte[] buffer = new byte[4 * 1024];
-        OutputStream os = null;
+        OutputStream os;
         try {
             os = new BufferedOutputStream(res.getOutputStream());
             res.reset();
