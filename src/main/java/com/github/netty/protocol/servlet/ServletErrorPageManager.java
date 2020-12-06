@@ -130,8 +130,8 @@ public class ServletErrorPageManager {
             if (httpServletResponse.isCommitted()) {
                 dispatcher.include(request, httpServletResponse);
             } else {
+                response.resetHeader();
                 response.resetBuffer(true);
-                httpServletResponse.setContentLength(-1);
                 dispatcher.forward(request, httpServletResponse);
 
                 response.getOutputStream().setSuspendFlag(false);

@@ -221,7 +221,11 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
         //Parse the requestURI and ensure that the requestURI prefix is + /
         String requestURI;
         if(existContextPath){
-            requestURI = '/' + contextPath + servletPath;
+            if(contextPath.startsWith("/")){
+                requestURI = contextPath + servletPath;
+            }else {
+                requestURI = '/' + contextPath + servletPath;
+            }
         }else {
             requestURI = servletPath;
         }

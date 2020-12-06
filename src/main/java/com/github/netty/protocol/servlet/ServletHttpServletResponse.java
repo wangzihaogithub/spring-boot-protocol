@@ -397,12 +397,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void reset() {
         checkCommitted();
-        nettyResponse.headers().clear();
-        nettyResponse.setStatus(NettyHttpResponse.DEFAULT_STATUS);
-        if(outputStream.unwrap() == null){
-            return;
-        }
-        outputStream.resetBuffer();
+        resetHeader();
+        resetBuffer();
     }
 
     /**
@@ -411,6 +407,14 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void resetBuffer() {
         resetBuffer(false);
+    }
+
+    public void resetHeader() {
+        nettyResponse.headers().clear();
+        nettyResponse.setStatus(NettyHttpResponse.DEFAULT_STATUS);
+        cookies.clear();
+        contentType = null;
+        locale = null;
     }
 
     /**
@@ -423,7 +427,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return;
         }
         outputStream.resetBuffer();
-
+        contentLength = -1;
         if(resetWriterStreamFlags) {
             writer = null;
             characterEncoding = null;
