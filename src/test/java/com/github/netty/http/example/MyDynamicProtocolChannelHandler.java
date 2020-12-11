@@ -52,17 +52,17 @@ public class MyDynamicProtocolChannelHandler extends DynamicProtocolChannelHandl
     }
 
     @Override
-    protected void addTcpChannel(ChannelId id, TcpChannel tcpChannel) {
+    public void addTcpChannel(ChannelId id, TcpChannel tcpChannel) {
         super.addTcpChannel(id, tcpChannel);
     }
 
     @Override
-    protected void removeTcpChannel(ChannelId id) {
+    public void removeTcpChannel(ChannelId id) {
         super.removeTcpChannel(id);
     }
 
     @Override
-    protected int getTcpChannelCount() {
+    public int getTcpChannelCount() {
         return super.getTcpChannelCount();
     }
 
