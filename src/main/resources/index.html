@@ -9,6 +9,41 @@ jvisualvm  jconsole
 
 你好 netty!
 
+2020/1/3
+
+现象：压测时，客户端一直处于收不到服务端数据的状态。
+
+复现：
+
+并发高的时候，不在eventLoop上执行的时候，
+DefaultHttpResponse response = new DefaultHttpResponse();
+response.set('content-length',50);
+write(response);
+write(new DefaultHttpContent(ByteBuff(50)));
+write(LastHttpContent.EMPTY);
+
+会出现如果存在设置响应体长度，LastHttpContent
+正两个
+
+这时候当处理完DefaultHttpResponse，和DefaultHttpContent， 客户端就会进行下一次请求。
+
+DefaultHttpResponse response = new DefaultHttpResponse();
+response.set('content-length',50);
+write(response);
+write(new DefaultHttpContent(ByteBuff(50)));
+
+
+与此同时，write(LastHttpContent.EMPTY);
+这个写任务还堆积在EventLoop的taskQueue中， 导致HttpObjectEncoder的state属性没有变回ST_INIT。
+
+这时候服务端收到了客户端的读事件，并且没来及处理上一次的写任务 write(LastHttpContent.EMPTY),
+就会导致HttpObjectEncoder抛出 unexpected message type:
+因为抛出了异常，导致本次的DefaultHttpResponse没有返回给客户端，这时客户端会一直等待服务端回应并阻塞直至超时。
+
+
+
+
+
 * 在这里可以进行优化操作
 * @author wangzihao
 * 2018/8/25/025

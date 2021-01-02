@@ -45,7 +45,8 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
-    private int serverIoThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int serverIoThreads = Math.max(Runtime.getRuntime().availableProcessors() * 2, 4);
+
     /**
      * 服务端-io线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大
      */
@@ -243,15 +244,15 @@ public class NettyProperties implements Serializable{
         /**
          * 请求头每行最大字节
          */
-        private int requestMaxHeaderLineSize = 40960;
+        private int requestMaxHeaderLineSize = 4096 * 10;
         /**
          * 请求头最大字节
          */
-        private int requestMaxHeaderSize = 81920;
+        private int requestMaxHeaderSize = 8192 * 10;
         /**
          * 响应最大缓冲区大小（超过这个大小，会触发flush方法，发送给网络并清空缓冲区）
          */
-        private int responseMaxBufferSize = 8192;
+        private int responseMaxBufferSize = 8192 * 10;
         /**
          * 接收客户端的文件上传超时时间(毫秒). -1 表示永远不超时。
          */
@@ -269,7 +270,7 @@ public class NettyProperties implements Serializable{
          * 服务端 - servlet3的异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
          * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
          */
-        private boolean asyncSwitchThread = true;
+        private boolean enableAsyncCallbackThread = true;
         /**
          * session存储 - 是否开启本地文件存储
          */
@@ -302,10 +303,10 @@ public class NettyProperties implements Serializable{
 
         public static class ServerThreadPool{
             /**
-             * 不开启时，代码跑在Netty的IO线程上,如果您写的Controller是计算密集型，TPS会相比开启后高33%左右。
-             * 如果servlet中有大量阻塞IO的代码, 则建议开启。
+             * 不开启时，代码跑在Netty的IO线程上,如果您写的Controller是计算密集型，平时都是小包读写, TPS会相比开启后高33%左右。
+             * 如果servlet中有大量阻塞IO的代码, 或存在大包频繁读写, 则建议开启。
              */
-            private boolean enable = false;
+            private boolean enable = true;
             /**
              * 服务端 - servlet线程执行器（用于执行业务线程, 因为worker线程与channel是绑定的, 如果阻塞worker线程，会导致当前worker线程绑定的所有channel无法接收数据包，比如阻塞住http的分段传输）
              */
@@ -447,12 +448,12 @@ public class NettyProperties implements Serializable{
             this.responseMaxBufferSize = responseMaxBufferSize;
         }
 
-        public boolean isAsyncSwitchThread() {
-            return asyncSwitchThread;
+        public boolean isEnableAsyncCallbackThread() {
+            return enableAsyncCallbackThread;
         }
 
-        public void setAsyncSwitchThread(boolean asyncSwitchThread) {
-            this.asyncSwitchThread = asyncSwitchThread;
+        public void setEnableAsyncCallbackThread(boolean enableAsyncCallbackThread) {
+            this.enableAsyncCallbackThread = enableAsyncCallbackThread;
         }
 
         public boolean isEnableNsLookup() {

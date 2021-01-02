@@ -214,8 +214,8 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
         response = null;
         request = null;
         servletContext = null;
-        RECYCLER.recycleInstance(this);
         close.set(CLOSE_YES);
+        RECYCLER.recycleInstance(this);
     };
 
     public int closeStatus() {

@@ -51,14 +51,6 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
         return suspendFlag;
     }
 
-    public boolean isFlush() {
-        return source.isFlush();
-    }
-
-    public boolean isWrite() {
-        return source.isWrite();
-    }
-
     @Override
     public ChannelProgressivePromise write(ByteBuffer httpBody) throws IOException {
         return source.write(httpBody);

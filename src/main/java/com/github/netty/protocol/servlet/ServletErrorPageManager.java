@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -97,7 +98,12 @@ public class ServletErrorPageManager {
             return;
         }
         ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPagePath);
-        response.resetBuffer();
+        try {
+            response.resetBuffer();
+        }catch (IllegalStateException e){
+            logger.warn("stream close. not execute handleErrorPage. {}", Objects.toString(throwable,""),throwable);
+            return;
+        }
         if (dispatcher == null) {
             try {
                 response.getWriter().write("not found ".concat(errorPagePath));

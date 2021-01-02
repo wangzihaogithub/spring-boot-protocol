@@ -8,6 +8,7 @@ import io.netty.util.AttributeKey;
 
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Supplier;
 
 /**
@@ -41,10 +42,14 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Obje
 
     protected void run(Runnable task){
         Executor executor = getExecutor();
-        if(executor != null) {
-            executor.execute(task);
-        }else {
-            task.run();
+        try {
+            if (executor != null) {
+                executor.execute(task);
+            } else {
+                task.run();
+            }
+        }catch (RejectedExecutionException e){
+            logger.error("RejectedExecutionException message = {}",e.toString(),e);
         }
     }
 
