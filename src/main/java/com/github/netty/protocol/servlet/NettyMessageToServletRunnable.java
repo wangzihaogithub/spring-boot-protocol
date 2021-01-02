@@ -148,6 +148,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
      * http task
      */
     public static class HttpRunnable implements Runnable, Recyclable {
+        private static final LoggerX logger = LoggerFactoryX.getLogger(HttpRunnable.class);
         private ServletHttpExchange servletHttpExchange;
         public ServletHttpExchange getExchange() {
             return servletHttpExchange;
@@ -184,7 +185,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                try{
                    handleErrorPage(realThrowable,httpServletRequest,httpServletResponse);
                }catch (Throwable e){
-                   e.printStackTrace();
+                   logger.warn("handleErrorPage error = {}",e.toString(),e);
                }
             }
         }
