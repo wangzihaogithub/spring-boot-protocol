@@ -15,8 +15,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,20 +30,23 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 //    private static final Lock ALLOC_DIRECT_BUFFER_LOCK = new ReentrantLock();
     public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
 
-    private final AtomicLong writeLength = new AtomicLong();
-    protected AtomicBoolean isClosed = new AtomicBoolean(false);
+    private int responseWriterChunkMaxHeapByteLength;
+    private final CloseListener closeListenerWrapper = new CloseListener();
+
     protected ServletHttpExchange servletHttpExchange;
     protected WriteListener writeListener;
-    private final CloseListener closeListenerWrapper = new CloseListener();
-    private int responseWriterChunkMaxHeapByteLength;
-    protected AtomicBoolean isSendResponse = new AtomicBoolean(false);
-    private final Collection<ChannelProgressivePromise> writeTaskPromiseList = new ArrayList<>();
+    protected boolean sendLastContent;
+    protected final AtomicLong writeLength = new AtomicLong();
+    protected final AtomicBoolean isClosed = new AtomicBoolean(false);
+    protected final AtomicBoolean isSendResponse = new AtomicBoolean(false);
 
     protected ServletOutputStream() {}
 
     public static ServletOutputStream newInstance(ServletHttpExchange servletHttpExchange) {
         ServletOutputStream instance = RECYCLER.getInstance();
         instance.setServletHttpExchange(servletHttpExchange);
+        instance.sendLastContent = false;
+        instance.writeLength.set(0);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
         instance.isSendResponse.set(false);
         instance.isClosed.set(false);
@@ -98,9 +99,11 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             if(httpBody instanceof ByteBuf){
                 context.write(new DefaultLastHttpContent((ByteBuf) httpBody,false),promise);
             }else {
-                context.write(httpBody,promise);
-                context.write(LastHttpContent.EMPTY_LAST_CONTENT);
+                context.write(httpBody);
+                context.write(LastHttpContent.EMPTY_LAST_CONTENT,promise);
             }
+            promise.addListener(closeListenerWrapper);
+            sendLastContent = true;
         }else {
             context.write(httpBody, promise);
         }
@@ -187,19 +190,19 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void close() {
         if(isClosed.compareAndSet(false,true)){
+            if(sendLastContent){
+                return;
+            }
             ServletHttpExchange exchange = getServletHttpExchange();
             ChannelHandlerContext context = exchange.getChannelHandlerContext();
             writeResponseHeaderIfNeed();
-            long contentLength = exchange.getResponse().getContentLength();
-            if(contentLength < 0){
-                ChannelFuture future;
-                if(exchange.getServletContext().isAutoFlush()){
-                    future = context.write(LastHttpContent.EMPTY_LAST_CONTENT);
-                }else {
-                    future = context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
-                }
-                future.addListener(closeListenerWrapper);
+            ChannelFuture future;
+            if(exchange.getServletContext().isAutoFlush()){
+                future = context.write(LastHttpContent.EMPTY_LAST_CONTENT);
+            }else {
+                future = context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
             }
+            future.addListener(closeListenerWrapper);
         }
     }
 
@@ -317,7 +320,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 recycleConsumer.accept(ServletOutputStream.this);
             }
 
-            writeLength.set(0);
             writeListener = null;
             servletHttpExchange = null;
             this.closeListener = null;
