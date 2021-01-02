@@ -61,6 +61,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public ChannelProgressivePromise write(ByteBuf httpBody) throws IOException {
+        IOUtil.writerModeToReadMode(httpBody);
         return writeHttpBody(httpBody,httpBody.readableBytes());
     }
 
