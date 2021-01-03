@@ -45,7 +45,7 @@ public class NettyProperties implements Serializable{
     /**
      * 服务端-IO线程数  注: (0 = cpu核数 * 2 )
      */
-    private int serverIoThreads = Math.max(Runtime.getRuntime().availableProcessors() * 2, 4);
+    private int serverIoThreads = Math.max(Runtime.getRuntime().availableProcessors(), 4);
 
     /**
      * 服务端-io线程执行调度与执行io事件的百分比. 注:(100=每次只执行一次调度工作, 其他都执行io事件), 并发高的时候可以设置最大
@@ -234,7 +234,9 @@ public class NettyProperties implements Serializable{
 
     public static class HttpServlet{
         /**
-         * 刷新缓冲区数据间隔(毫秒),开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
+         * 定时刷新缓冲区数据时间间隔(毫秒)
+         * 当同时连接的客户端数量上千的时候开启(开启减少系统调用次数,批量写数据),否则不建议开启(因为http协议是阻塞协议,不快速返回数据会导致客户端不进行下次请求,反而降低吞吐量).
+         * 开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
          */
         private int autoFlushIdleMs = 0;
         /**
@@ -262,7 +264,7 @@ public class NettyProperties implements Serializable{
          */
         private String[] notExistBodyParameter = {"_method","JSESSIONID"};
         /**
-         * 服务端 - 线程池配置
+         * 服务端 - 线程池配置 (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
          */
         @NestedConfigurationProperty
         private final ServerThreadPool threadPool = new ServerThreadPool();
@@ -297,14 +299,13 @@ public class NettyProperties implements Serializable{
         private boolean enableNsLookup = false;
 
         /**
-         * 错误页是否展示异常消息.
+         * 错误页是否展示详细异常信息.
          */
         private boolean showExceptionMessage = true;
 
         public static class ServerThreadPool{
             /**
-             * 不开启时，代码跑在Netty的IO线程上,如果您写的Controller是计算密集型，平时都是小包读写, TPS会相比开启后高33%左右。
-             * 如果servlet中有大量阻塞IO的代码, 或存在大包频繁读写, 则建议开启。
+             * 是否开启线程池. 注: (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
              */
             private boolean enable = true;
             /**

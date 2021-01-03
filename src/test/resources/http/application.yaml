@@ -8,9 +8,6 @@ server:
     channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler
     #内存泄露追踪。 调试用, 默认关闭
 #    resource-leak-detector-level: PARANOID
-    http-servlet:
-      thread-pool:
-        enable: true
 
   tomcat:
     max-http-post-size: -1

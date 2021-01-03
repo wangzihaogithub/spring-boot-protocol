@@ -35,7 +35,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     protected ServletHttpExchange servletHttpExchange;
     protected WriteListener writeListener;
-    protected boolean sendLastContent;
+    protected ChannelProgressivePromise lastContentPromise;
     protected final AtomicLong writeLength = new AtomicLong();
     protected final AtomicBoolean isClosed = new AtomicBoolean(false);
     protected final AtomicBoolean isSendResponse = new AtomicBoolean(false);
@@ -45,7 +45,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public static ServletOutputStream newInstance(ServletHttpExchange servletHttpExchange) {
         ServletOutputStream instance = RECYCLER.getInstance();
         instance.setServletHttpExchange(servletHttpExchange);
-        instance.sendLastContent = false;
         instance.writeLength.set(0);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
         instance.isSendResponse.set(false);
@@ -89,23 +88,36 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     protected ChannelProgressivePromise writeHttpBody(Object httpBody,long length) throws IOException {
         checkClosed();
         writeResponseHeaderIfNeed();
+        ServletHttpExchange servletHttpExchange = this.servletHttpExchange;
         ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
         ChannelProgressivePromise promise = context.newProgressivePromise();
 
         if(length > 0){
             writeLength.addAndGet(length);
         }
+
         long contentLength = servletHttpExchange.getResponse().getContentLength();
+        // response finish
         if(contentLength >= 0 && writeLength.get() >= contentLength){
+            boolean autoFlush = servletHttpExchange.getServletContext().isAutoFlush();
             if(httpBody instanceof ByteBuf){
-                context.write(new DefaultLastHttpContent((ByteBuf) httpBody,false),promise);
+                DefaultLastHttpContent httpContent = new DefaultLastHttpContent((ByteBuf) httpBody, false);
+                if(autoFlush){
+                    context.write(httpContent, promise);
+                }else {
+                    context.writeAndFlush(httpContent, promise);
+                }
             }else {
                 context.write(httpBody);
-                context.write(LastHttpContent.EMPTY_LAST_CONTENT,promise);
+                if(autoFlush){
+                    context.write(LastHttpContent.EMPTY_LAST_CONTENT,promise);
+                }else {
+                    context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT,promise);
+                }
             }
-            promise.addListener(closeListenerWrapper);
-            sendLastContent = true;
+            lastContentPromise = promise;
         }else {
+            // Response continues
             context.write(httpBody, promise);
         }
         return promise;
@@ -191,19 +203,19 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void close() {
         if(isClosed.compareAndSet(false,true)){
-            if(sendLastContent){
-                return;
+            ChannelFuture closeFuture = lastContentPromise;
+            if(closeFuture == null){
+                ServletHttpExchange exchange = getServletHttpExchange();
+                ChannelHandlerContext context = exchange.getChannelHandlerContext();
+                writeResponseHeaderIfNeed();
+
+                if(exchange.getServletContext().isAutoFlush()){
+                    closeFuture = context.write(LastHttpContent.EMPTY_LAST_CONTENT);
+                }else {
+                    closeFuture = context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
+                }
             }
-            ServletHttpExchange exchange = getServletHttpExchange();
-            ChannelHandlerContext context = exchange.getChannelHandlerContext();
-            writeResponseHeaderIfNeed();
-            ChannelFuture future;
-            if(exchange.getServletContext().isAutoFlush()){
-                future = context.write(LastHttpContent.EMPTY_LAST_CONTENT);
-            }else {
-                future = context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
-            }
-            future.addListener(closeListenerWrapper);
+            closeFuture.addListener(closeListenerWrapper);
         }
     }
 
@@ -320,7 +332,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             while ((recycleConsumer = recycleConsumerQueue.poll()) != null) {
                 recycleConsumer.accept(ServletOutputStream.this);
             }
-
+            lastContentPromise = null;
             writeListener = null;
             servletHttpExchange = null;
             this.closeListener = null;
