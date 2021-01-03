@@ -148,11 +148,11 @@ public class HttpController {
     public ResponseEntity<String> downloadFile(@RequestParam(required = false,defaultValue = "7") Integer size,HttpServletRequest request, HttpServletResponse response) throws Exception {
         String fileName = "CentOS-7-x86_64-DVD-2003.iso";
 
-        byte[] file = new byte[1024 * 1024 * size];
-        for (int i = 0; i < file.length; i++) {
-            file[i] = (byte) i;
-        }
-        handleDownloadStream(fileName, new ByteArrayInputStream(file), request, response);
+//        byte[] file = new byte[1024 * 1024 * size];
+//        for (int i = 0; i < file.length; i++) {
+//            file[i] = (byte) i;
+//        }
+        handleDownloadStream(fileName, new FileInputStream(new File("D:\\aaa.txt")), request, response);
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
