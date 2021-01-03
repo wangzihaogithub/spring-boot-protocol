@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * </pre>
  *
  * <h3>Sending a stream which generates a chunk intermittently</h3>
- *
+ * <p>
  * Some {@link ChunkedInput} generates a chunk on a certain event or timing.
  * Such {@link ChunkedInput} implementation often returns {@code null} on
  * {@link ChunkedInput#readChunk(ByteBufAllocator)}, resulting in the indefinitely suspended
@@ -49,10 +49,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private static final LoggerX LOGGER =
-        LoggerFactoryX.getLogger(ChunkedWriteHandler.class);
+            LoggerFactoryX.getLogger(ChunkedWriteHandler.class);
     private final Queue<PendingWrite> queue;
     private volatile ChannelHandlerContext ctx;
-    private static final ClosedChannelException CLOSE_EXCEPTION = new ClosedChannelException();
     private final AtomicBoolean flushIng = new AtomicBoolean(false);
 
     public ChunkedWriteHandler() {
@@ -96,12 +95,12 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private PendingWrite removeFirst(){
+    private PendingWrite removeFirst() {
         PendingWrite remove = queue.poll();
         return remove;
     }
 
-    private void add(PendingWrite pendingWrite){
+    private void add(PendingWrite pendingWrite) {
         queue.add(pendingWrite);
     }
 
@@ -130,14 +129,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         ctx.fireChannelWritabilityChanged();
     }
 
-    public int unWriteSize(){
+    public int unWriteSize() {
         return queue.size();
     }
 
     public void discard(Throwable cause) {
         List<PendingWrite> responseList = new ArrayList<>();
         PendingWrite currentWrite;
-        for (;;) {
+        for (; ; ) {
             currentWrite = removeFirst();
             if (currentWrite == null) {
                 break;
@@ -162,17 +161,17 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
                 if (!endOfInput) {
                     if (cause == null) {
-                        cause = CLOSE_EXCEPTION;
+                        cause = new ClosedChannelException();
                     }
                     currentWrite.fail(cause);
                 } else {
                     currentWrite.success(inputLength);
                 }
-            } else if(message instanceof HttpResponse){
+            } else if (message instanceof HttpResponse) {
                 responseList.add(currentWrite);
             } else {
                 if (cause == null) {
-                    cause = CLOSE_EXCEPTION;
+                    cause = new ClosedChannelException();
                 }
                 currentWrite.fail(cause);
             }
@@ -183,14 +182,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     }
 
     private void doFlush(final ChannelHandlerContext ctx) {
-        if(queue.isEmpty()){
+        if (queue.isEmpty()) {
             ctx.flush();
             return;
         }
-        if(flushIng.compareAndSet(false,true)){
+        if (flushIng.compareAndSet(false, true)) {
             try {
                 doFlush0(ctx);
-            }finally {
+            } finally {
                 flushIng.set(false);
             }
         }
@@ -305,7 +304,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 }
                 requiresFlush = false;
             } else {
-                if(pendingMessage instanceof Flushable){
+                if (pendingMessage instanceof Flushable) {
                     try {
                         ((Flushable) pendingMessage).flush();
                     } catch (IOException e) {
@@ -319,7 +318,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
             }
 
             if (!channel.isActive()) {
-                discard(CLOSE_EXCEPTION);
+                discard(new ClosedChannelException());
                 break;
             }
         }
@@ -367,28 +366,30 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static final class PendingWrite implements Recyclable{
+    private static final class PendingWrite implements Recyclable {
         private static final Recycler<PendingWrite> RECYCLER = new Recycler<>(PendingWrite::new);
         Object msg;
         ChannelPromise promise;
         long bytes;
-        PendingWrite() {}
 
-        public static PendingWrite newInstance(Object msg, ChannelPromise promise){
+        PendingWrite() {
+        }
+
+        public static PendingWrite newInstance(Object msg, ChannelPromise promise) {
             PendingWrite instance = RECYCLER.getInstance();
             instance.msg = msg;
             instance.promise = promise;
-            if(msg instanceof ByteBuf){
+            if (msg instanceof ByteBuf) {
                 instance.bytes = ((ByteBuf) msg).readableBytes();
-            }else if(msg instanceof ByteBuffer){
+            } else if (msg instanceof ByteBuffer) {
                 instance.bytes = ((ByteBuffer) msg).remaining();
-            }else if(msg instanceof ByteBufHolder){
+            } else if (msg instanceof ByteBufHolder) {
                 instance.bytes = ((ByteBufHolder) msg).content().readableBytes();
-            }else if(msg instanceof ChunkedInput){
-                instance.bytes = Math.max(((ChunkedInput) msg).length(),0);
-            }else if(msg instanceof FileRegion){
+            } else if (msg instanceof ChunkedInput) {
+                instance.bytes = Math.max(((ChunkedInput) msg).length(), 0);
+            } else if (msg instanceof FileRegion) {
                 instance.bytes = ((FileRegion) msg).count() - ((FileRegion) msg).position();
-            }else {
+            } else {
                 instance.bytes = 0;
             }
             return instance;

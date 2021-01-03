@@ -39,7 +39,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     protected final AtomicLong writeBytes = new AtomicLong();
     protected final AtomicBoolean isClosed = new AtomicBoolean(false);
     protected final AtomicBoolean isSendResponse = new AtomicBoolean(false);
-    private boolean ready = true;
 
     protected ServletOutputStream() {
     }
@@ -51,7 +50,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
         instance.isSendResponse.set(false);
         instance.isClosed.set(false);
-        instance.ready = true;
         return instance;
     }
 
@@ -129,18 +127,13 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         }
 
         // Over the double buffer size, block the processing
-        if (!context.executor().inEventLoop()) {
-            long pendingWriteBytes = servletHttpExchange.getPendingWriteBytes();
-            if (pendingWriteBytes > 0
-                    && pendingWriteBytes >= servletHttpExchange.getResponse().getBufferSize() << 1) {
-                try {
-                    this.ready = false;
-                    context.flush();
-                    promise.sync();
-                } catch (InterruptedException ignored) {
-                } finally {
-                    this.ready = true;
-                }
+        if (!isReady()) {
+            try {
+                context.flush();
+                promise.sync();
+            } catch (InterruptedException ignored) {
+            } catch (Exception e) {
+                throw new IOException("flush fail = "+e, e);
             }
         }
         return promise;
@@ -172,7 +165,16 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public boolean isReady() {
-        return ready;
+        ServletHttpExchange exchange = this.servletHttpExchange;
+        if (exchange == null) {
+            return true;
+        }
+        if (exchange.getChannelHandlerContext().executor().inEventLoop()) {
+            return true;
+        }
+        // Over the double buffer size, block the processing
+        long pendingWriteBytes = exchange.getPendingWriteBytes();
+        return pendingWriteBytes > 0 && pendingWriteBytes >= exchange.getResponse().getBufferSize() << 1;
     }
 
     @Override
