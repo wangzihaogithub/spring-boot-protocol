@@ -17,8 +17,8 @@ import java.util.function.Supplier;
  *  2018/7/1/001
  */
 @ChannelHandler.Sharable
-public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Object> {
-    private final Supplier<Executor> dispatcherExecutor;
+public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Object> {
+    private Supplier<Executor> dispatcherExecutor;
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
 
     public DispatcherChannelHandler(Supplier<Executor> dispatcherExecutor) {
@@ -62,6 +62,10 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object,Obje
             }
         }
         return null;
+    }
+
+    public void setDispatcherExecutor(Supplier<Executor> dispatcherExecutor) {
+        this.dispatcherExecutor = dispatcherExecutor;
     }
 
     @Override

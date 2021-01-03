@@ -8,7 +8,10 @@ import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -38,7 +41,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private final ServletContext servletContext;
     private SslContext sslContext;
     private SslContextBuilder sslContextBuilder;
-    private ChannelHandler servletHandler;
+    private DispatcherChannelHandler servletHandler;
     private long maxContentLength = 20 * 1024 * 1024;
     private int maxInitialLineLength = 40960;
     private int maxHeaderSize = 81920;
@@ -54,7 +57,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         this(servletContext,null,null);
     }
 
-    public HttpServletProtocol(ServletContext servletContext,Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier){
+    public HttpServletProtocol(ServletContext servletContext, Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier){
         this.servletContext = servletContext;
         if(defaultExecutorSupplier == null){
             defaultExecutorSupplier = new LazyPool("NettyX-http");
@@ -254,6 +257,10 @@ public class HttpServletProtocol extends AbstractProtocol {
         servletContext.setMaxBufferBytes(maxBufferBytes);
     }
 
+    public void setExecutor(Supplier<Executor> dispatcherExecutor) {
+        this.servletHandler.setDispatcherExecutor(dispatcherExecutor);
+    }
+
     @Override
     public int getOrder() {
         return 100;
@@ -324,7 +331,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
     }
 
-    static class LazyPool implements Supplier<Executor>{
+    static class LazyPool implements Supplier<Executor> {
         private volatile NettyThreadPoolExecutor executor;
         private final String poolName;
         LazyPool(String poolName) {
@@ -341,7 +348,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                         int keepAliveSeconds = 180;
                         int priority = Thread.NORM_PRIORITY;
                         boolean daemon = false;
-                        RejectedExecutionHandler handler = new HttpAbortPolicyWithReport(poolName,System.getProperty("user.home"),"Http Servlet");
+                        RejectedExecutionHandler handler = new HttpAbortPolicyWithReport(poolName, System.getProperty("user.home"),"Http Servlet");
                         executor = new NettyThreadPoolExecutor(
                                 coreThreads,maxThreads,keepAliveSeconds, TimeUnit.SECONDS,
                                 new SynchronousQueue<>(),poolName,priority,daemon,handler);
