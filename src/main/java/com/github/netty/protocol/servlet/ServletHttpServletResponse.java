@@ -35,6 +35,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private Locale locale;
     private boolean commitFlag = false;
     private long contentLength = -1;
+    private int bufferSize = -1;
     private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
     private final NettyHttpResponse nettyResponse = new NettyHttpResponse();
     private final List<Cookie> cookies = new ArrayList<>();
@@ -371,25 +372,21 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public void setBufferSize(int size) {
-        ChunkedWriteHandler chunkedWriteHandler = getChunkedWriteHandler();
-        if(chunkedWriteHandler != null){
-            chunkedWriteHandler.setMaxBufferBytes(size);
-        }
+        this.bufferSize = size;
     }
 
     private ChunkedWriteHandler getChunkedWriteHandler(){
         ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
-        ChunkedWriteHandler chunked = (ChunkedWriteHandler) context.pipeline().context(ChunkedWriteHandler.class);
-        return chunked;
+        ChannelHandlerContext chunked = context.pipeline().context(ChunkedWriteHandler.class);
+        return chunked != null? (ChunkedWriteHandler) chunked.handler() : null;
     }
 
     @Override
     public int getBufferSize() {
-        ChunkedWriteHandler chunkedWriteHandler = getChunkedWriteHandler();
-        if(chunkedWriteHandler == null){
-            return 0;
+        if(bufferSize == -1){
+            bufferSize = getServletHttpExchange().getServletContext().getMaxBufferBytes();
         }
-        return (int) chunkedWriteHandler.getMaxBufferBytes();
+        return bufferSize;
     }
 
     @Override
@@ -486,6 +483,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         public void operationComplete(ChannelFuture future) throws Exception {
             nettyResponse.recycle();
             errorState.set(0);
+            bufferSize = -1;
             contentLength = -1;
             servletHttpExchange = null;
             writer = null;

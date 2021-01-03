@@ -15,7 +15,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.LongAdder;
 
 /**
  * A {@link ChannelHandler} that adds support for writing a large data stream
@@ -51,12 +50,6 @@ import java.util.concurrent.atomic.LongAdder;
 public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private static final LoggerX LOGGER =
         LoggerFactoryX.getLogger(ChunkedWriteHandler.class);
-    /**
-     * output stream maxBufferBytes
-     * Each buffer accumulate the maximum number of bytes (default 1M)
-     */
-    private long maxBufferBytes = 1024 * 1024;
-    private final LongAdder unFlushBytes = new LongAdder();
     private final Queue<PendingWrite> queue;
     private volatile ChannelHandlerContext ctx;
     private static final ClosedChannelException CLOSE_EXCEPTION = new ClosedChannelException();
@@ -70,16 +63,8 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         this.queue = queue;
     }
 
-    public void setMaxBufferBytes(long maxBufferBytes) {
-        this.maxBufferBytes = maxBufferBytes;
-    }
-
     public Collection<PendingWrite> getUnFlushList() {
         return Collections.unmodifiableCollection(queue);
-    }
-
-    public long getMaxBufferBytes() {
-        return maxBufferBytes;
     }
 
     @Override
@@ -113,24 +98,16 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     private PendingWrite removeFirst(){
         PendingWrite remove = queue.poll();
-        if(remove != null) {
-            unFlushBytes.add(-remove.bytes);
-        }
         return remove;
     }
 
     private void add(PendingWrite pendingWrite){
         queue.add(pendingWrite);
-        unFlushBytes.add(pendingWrite.bytes);
     }
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         add(PendingWrite.newInstance(msg, promise));
-
-        if(unFlushBytes.longValue() >= maxBufferBytes){
-            doFlush(ctx);
-        }
     }
 
     @Override
@@ -159,11 +136,8 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     public void discard(Throwable cause) {
         List<PendingWrite> responseList = new ArrayList<>();
-        PendingWrite currentWrite = null;
+        PendingWrite currentWrite;
         for (;;) {
-            if(currentWrite != null){
-                currentWrite.recycle();
-            }
             currentWrite = removeFirst();
             if (currentWrite == null) {
                 break;
@@ -431,6 +405,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         void fail(Throwable cause) {
             ReferenceCountUtil.release(msg);
             promise.tryFailure(cause);
+            recycle();
         }
 
         void success(long total) {
@@ -440,6 +415,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
             }
             progress(total, total);
             promise.trySuccess();
+            recycle();
         }
 
         void progress(long progress, long total) {
@@ -459,9 +435,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     @Override
     public String toString() {
         return "ChunkedWriteHandler{" +
-                "maxBufferBytes=" + maxBufferBytes +
-                ", unFlushBytes=" + unFlushBytes +
-                ", queueSize=" + queue.size() +
+                "queueSize=" + queue.size() +
                 ", ctx=" + ctx +
                 '}';
     }

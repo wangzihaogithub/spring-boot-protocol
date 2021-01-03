@@ -6,10 +6,10 @@ import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.ThreadPoolX;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcClientFuture;
-import com.github.netty.protocol.servlet.NettyMessageToServletRunnable;
-import com.github.netty.protocol.servlet.ServletFilterChain;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollChannelReportRunnable;
+import io.netty.channel.nio.NioChannelReportRunnable;
 
-import javax.servlet.Filter;
 import java.math.BigDecimal;
 import java.util.StringJoiner;
 import java.util.concurrent.TimeUnit;
@@ -17,27 +17,42 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The task of statistics server information
+ *
  * @author wangzihao
  */
-public class NettyReportRunnable implements Runnable{
+public class NettyReportRunnable implements Runnable {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private AtomicInteger reportCount = new AtomicInteger();
     private long beginTime = System.currentTimeMillis();
+    private Runnable channelRunnable = Epoll.isAvailable() ?
+            new EpollChannelReportRunnable(logger) : new NioChannelReportRunnable(logger);
+    public static boolean reportChannel = true;
+    public static boolean reportRpc = false;
 
-    public static void start(){
-        ThreadPoolX.getDefaultInstance().scheduleAtFixedRate(new NettyReportRunnable(),5,5, TimeUnit.SECONDS);
+    public static void start() {
+        ThreadPoolX.getDefaultInstance().scheduleAtFixedRate(new NettyReportRunnable(), 5, 5, TimeUnit.SECONDS);
     }
 
     @Override
     public void run() {
+        if (reportChannel) {
+            channelRunnable.run();
+        }
+        if (reportRpc) {
+            rpcReport();
+        }
+    }
+
+
+    private void rpcReport() {
         try {
 //            String timeoutApis = RpcClient.getTimeoutApis();
             long spinResponseCount = RpcClientFuture.TOTAL_SUCCESS_COUNT.longValue();
             long totalCount = RpcClient.getTotalInvokeCount();
             long timeoutCount = RpcClient.getTotalTimeoutCount();
             long successCount = totalCount - timeoutCount;
-            double rate = totalCount == 0? 0:(double) successCount/(double) totalCount * 100;
-            double rateSpinResponseCount = totalCount==0?0:(double) spinResponseCount/(double) totalCount * 100;
+            double rate = totalCount == 0 ? 0 : (double) successCount / (double) totalCount * 100;
+            double rateSpinResponseCount = totalCount == 0 ? 0 : (double) spinResponseCount / (double) totalCount * 100;
 
             long totalTime = System.currentTimeMillis() - beginTime;
 
@@ -59,13 +74,13 @@ public class NettyReportRunnable implements Runnable{
 //            }
 
             StringJoiner joiner = new StringJoiner(", ");
-            joiner.add("\r\n第"+reportCount.incrementAndGet()+"次统计 ");
-            joiner.add("时间="+(totalTime/60000)+"分"+((totalTime % 60000 ) / 1000)+"秒 ");
+            joiner.add("\r\n第" + reportCount.incrementAndGet() + "次统计 ");
+            joiner.add("时间=" + (totalTime / 60000) + "分" + ((totalTime % 60000) / 1000) + "秒 ");
             joiner.add("rpc调用次数=" + successCount);
             joiner.add("超时次数=" + timeoutCount);
             joiner.add("自旋成功数=" + spinResponseCount);
-            joiner.add("自旋成功率=" + formatRate(rateSpinResponseCount,2)+ "%, ");
-            joiner.add("调用成功率=" + formatRate(rate,2)+"%, ");
+            joiner.add("自旋成功率=" + formatRate(rateSpinResponseCount, 2) + "%, ");
+            joiner.add("调用成功率=" + formatRate(rate, 2) + "%, ");
 //            joiner.add("超时api="+ timeoutApis);
 //            joiner.add("servlet执行次数="+ servletQueryCount);
 //            joiner.add("servlet+filter平均时间="+ formatRate(servletAndFilterAvgRuntime,4)+"ms,");
@@ -75,30 +90,30 @@ public class NettyReportRunnable implements Runnable{
 
             long recyclerTotal = Recycler.MISS_COUNT.sum() + Recycler.HIT_COUNT.sum();
             long recyclerHit = Recycler.HIT_COUNT.sum();
-            double hitRate = (double) recyclerHit/(double) recyclerTotal;
-            joiner.add("\r\n获取实例次数="+ recyclerTotal+"次");
-            joiner.add("实例命中="+ recyclerHit+"次");
-            joiner.add("实例命中率="+ formatRate(hitRate * 100,0)+"%");
+            double hitRate = (double) recyclerHit / (double) recyclerTotal;
+            joiner.add("\r\n获取实例次数=" + recyclerTotal + "次");
+            joiner.add("实例命中=" + recyclerHit + "次");
+            joiner.add("实例命中率=" + formatRate(hitRate * 100, 0) + "%");
 
             addMessage(joiner);
 
             logger.info(joiner.toString());
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private String formatRate(double num, int rate){
-        if(Double.isNaN(num)){
+    private String formatRate(double num, int rate) {
+        if (Double.isNaN(num)) {
             return "0";
         }
-        if(num == (int)num){
-            return String.valueOf(((int)num));
+        if (num == (int) num) {
+            return String.valueOf(((int) num));
         }
-        return new BigDecimal(num).setScale(rate,BigDecimal.ROUND_HALF_DOWN).stripTrailingZeros().toString();
+        return new BigDecimal(num).setScale(rate, BigDecimal.ROUND_HALF_DOWN).stripTrailingZeros().toString();
     }
 
-    protected void addMessage(StringJoiner messageJoiner){
+    protected void addMessage(StringJoiner messageJoiner) {
 
     }
 
