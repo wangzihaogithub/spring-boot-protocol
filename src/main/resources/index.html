@@ -9,6 +9,8 @@ jvisualvm  jconsole
 
 你好 netty!
 
+tomcat-NIO2是阻塞写, 如果遇到写繁忙, 则会注册OP_WRITE事件,并且当前线程阻塞select至操作系统返回OP_WRITE事件.
+
 2020/1/3
 
 现象：压测时，客户端一直处于收不到服务端数据的状态。
