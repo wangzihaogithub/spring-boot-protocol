@@ -12,17 +12,15 @@
     
     3.支持异步零拷贝。sendFile, mmap. 示例：com.github.netty.http.example.HttpZeroCopyController.java
     
-    4.HttpServlet性能比tomcat的NIO高出 20%/TPS。1. Netty的池化内存,减少了GC对CPU的消耗 2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 3. 与tomcat不同,支持两种IO模型,可供用户选择
+    4.HttpServlet性能比tomcat的NIO2高出 25%/TPS。1. Netty的池化内存,减少了GC对CPU的消耗 2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 3. 与tomcat不同,支持两种IO模型,可供用户选择
     
     5.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同, 可以不改springcloud代码替换Feign调用
     
     6.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,MQTT,Mysql,RTSP,DNS. 底层原理是,接到数据包后,进行协议路由.)
     
     7.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
-    
-    8.高并发下服务器内存抖动在5M左右。 tomcat抖动在350M左右。(因为用堆外内存不受GC影响，而tomcat的byte[]会频繁触发GC)
-    
-    9.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+
+    8.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
     
     {
