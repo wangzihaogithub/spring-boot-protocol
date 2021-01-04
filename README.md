@@ -61,6 +61,15 @@
         "serverCharset":"LATIN1_SWEDISH_CI",
         "packet":"ClientQueryPacket,SET NAMES utf8"
     },
+    {
+     	"timestamp":"2021-01-04 22:10:19",
+     	"sequenceId":1,
+     	"connectionId":8720,
+     	"handlerType":"backend",
+     	"clientCharset":"UTF8_GENERAL_CI",
+     	"serverCharset":"LATIN1_SWEDISH_CI",
+     	"packet":"ServerOkPacket,[AUTO_COMMIT]"
+    },
     
 作者邮箱 : 842156727@qq.com
 
