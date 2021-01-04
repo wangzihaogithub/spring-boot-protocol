@@ -15,6 +15,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * A {@link ChannelHandler} that adds support for writing a large data stream
@@ -53,17 +55,32 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private final Queue<PendingWrite> queue;
     private volatile ChannelHandlerContext ctx;
     private final AtomicBoolean flushIng = new AtomicBoolean(false);
+    /**
+     * output stream maxBufferBytes
+     * Each buffer accumulate the maximum number of bytes (default 1M)
+     */
+    private LongSupplier maxBufferBytes;
+    private final AtomicLong unFlushBytes = new AtomicLong();
 
-    public ChunkedWriteHandler() {
-        this(new ArrayDeque<PendingWrite>());
+    public ChunkedWriteHandler(LongSupplier maxBufferBytes) {
+        this(new ArrayDeque<PendingWrite>(),maxBufferBytes);
     }
 
-    public ChunkedWriteHandler(Queue<PendingWrite> queue) {
+    public ChunkedWriteHandler(Queue<PendingWrite> queue,LongSupplier maxBufferBytes) {
         this.queue = queue;
+        this.maxBufferBytes = maxBufferBytes;
+    }
+
+    public void setMaxBufferBytes(LongSupplier maxBufferBytes) {
+        this.maxBufferBytes = maxBufferBytes;
     }
 
     public Collection<PendingWrite> getUnFlushList() {
         return Collections.unmodifiableCollection(queue);
+    }
+
+    public long getMaxBufferBytes() {
+        return maxBufferBytes.getAsLong();
     }
 
     @Override
@@ -95,18 +112,26 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private PendingWrite removeFirst() {
+    private PendingWrite removeFirst(){
         PendingWrite remove = queue.poll();
+        if(remove != null) {
+            unFlushBytes.addAndGet(-remove.bytes);
+        }
         return remove;
     }
 
-    private void add(PendingWrite pendingWrite) {
+    private void add(PendingWrite pendingWrite){
         queue.add(pendingWrite);
+        unFlushBytes.addAndGet(pendingWrite.bytes);
     }
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         add(PendingWrite.newInstance(msg, promise));
+
+        if(unFlushBytes.get() >= maxBufferBytes.getAsLong()){
+            doFlush(ctx);
+        }
     }
 
     @Override
@@ -436,7 +461,9 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     @Override
     public String toString() {
         return "ChunkedWriteHandler{" +
-                "queueSize=" + queue.size() +
+                "maxBufferBytes=" + maxBufferBytes +
+                ", unFlushBytes=" + unFlushBytes +
+                ", queueSize=" + queue.size() +
                 ", ctx=" + ctx +
                 '}';
     }

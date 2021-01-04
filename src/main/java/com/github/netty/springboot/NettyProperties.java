@@ -307,7 +307,7 @@ public class NettyProperties implements Serializable{
             /**
              * 是否开启线程池. 注: (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
              */
-            private boolean enable = true;
+            private boolean enable = false;
             /**
              * 服务端 - servlet线程执行器（用于执行业务线程, 因为worker线程与channel是绑定的, 如果阻塞worker线程，会导致当前worker线程绑定的所有channel无法接收数据包，比如阻塞住http的分段传输）
              */

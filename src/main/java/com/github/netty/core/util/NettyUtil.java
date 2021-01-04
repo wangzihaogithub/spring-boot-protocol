@@ -6,7 +6,7 @@ import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class NettyUtil {
-    private static final float THRESHOLD = SystemPropertyUtil.getFloat("netty-core.directBufferThreshold",0.8F);
+    private static final float THRESHOLD = SystemPropertyUtil.getFloat("netty-core.directBufferThreshold",0.7F);
     private static final long MAX_DIRECT_MEMORY;
     private static final AtomicLong DIRECT_MEMORY_COUNTER;
 

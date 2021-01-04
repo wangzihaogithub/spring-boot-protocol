@@ -240,7 +240,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
 
         //Chunked transfer
-        pipeline.addLast("ChunkedWrite",new ChunkedWriteHandler());
+        pipeline.addLast("ChunkedWrite",new ChunkedWriteHandler(this::getMaxBufferBytes));
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast("Servlet", servletHandler);

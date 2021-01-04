@@ -31,6 +31,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
 
     private int responseWriterChunkMaxHeapByteLength;
+    private ChannelProgressivePromise blockPromise;
     private final CloseListener closeListenerWrapper = new CloseListener();
 
     protected ServletHttpExchange servletHttpExchange;
@@ -45,6 +46,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     public static ServletOutputStream newInstance(ServletHttpExchange servletHttpExchange) {
         ServletOutputStream instance = RECYCLER.getInstance();
+        instance.blockPromise = null;
         instance.setServletHttpExchange(servletHttpExchange);
         instance.writeBytes.set(0);
         instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
@@ -126,17 +128,59 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             context.write(httpBody, promise);
         }
 
-        // Over the double buffer size, block the processing
-        if (!isReady()) {
-            try {
+        // limiting control. avoid buffer memory overflow.
+        blockIfNeed(promise);
+        return promise;
+    }
+
+    /**
+     * limiting control. avoid buffer memory overflow.
+     *
+     * @param promise last write promise
+     * @throws IOException wrap ClosedChannelException or other channel exception
+     */
+    private void blockIfNeed(ChannelProgressivePromise promise) throws IOException {
+        ServletHttpExchange exchange = this.servletHttpExchange;
+        ChannelHandlerContext context = exchange.getChannelHandlerContext();
+        long pendingWriteBytes = exchange.getPendingWriteBytes();
+        if (pendingWriteBytes <= 0) {
+            return;
+        }
+        if (context.executor().inEventLoop()) {
+            // 1 time slices
+            Thread.yield();
+            context.flush();
+            ChannelUtils.forceFlush(context.channel());
+        } else {
+            int bufferSize = exchange.getResponse().getBufferSize();
+            ChannelProgressivePromise blockPromise = this.blockPromise;
+            boolean requiresFlush = true;
+            if (pendingWriteBytes >= bufferSize && blockPromise == null) {
                 context.flush();
-                promise.sync();
-            } catch (InterruptedException ignored) {
-            } catch (Exception e) {
-                throw new IOException("flush fail = "+e, e);
+                requiresFlush = false;
+                // record promise
+                this.blockPromise = blockPromise = promise;
+            }
+
+            // Over the double buffer size, block the processing
+            int doubleBufferSize = bufferSize << 1;
+            if (pendingWriteBytes >= doubleBufferSize) {
+                try {
+                    if (blockPromise == null) {
+                        blockPromise = promise;
+                    }
+                    if(requiresFlush) {
+                        context.flush();
+                    }
+                    blockPromise.sync();
+                } catch (InterruptedException ignored) {
+                } catch (Exception e) {
+                    throw new IOException("flush fail = " + e, e);
+                } finally {
+                    this.blockPromise = null;
+                }
             }
         }
-        return promise;
     }
 
     private void writeResponseHeaderIfNeed() {
@@ -169,12 +213,18 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (exchange == null) {
             return true;
         }
-        if (exchange.getChannelHandlerContext().executor().inEventLoop()) {
+
+        long pendingWriteBytes = exchange.getPendingWriteBytes();
+        if (pendingWriteBytes <= 0) {
             return true;
         }
-        // Over the double buffer size, block the processing
-        long pendingWriteBytes = exchange.getPendingWriteBytes();
-        return pendingWriteBytes > 0 && pendingWriteBytes >= exchange.getResponse().getBufferSize() << 1;
+        boolean ready = true;
+        if (!exchange.getChannelHandlerContext().executor().inEventLoop()) {
+            // limiting control
+            // pendingWriteBytes < exchange.getResponse().getBufferSize() * 2
+            ready = pendingWriteBytes < exchange.getResponse().getBufferSize() << 1;
+        }
+        return ready;
     }
 
     @Override
@@ -353,6 +403,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             while ((recycleConsumer = recycleConsumerQueue.poll()) != null) {
                 recycleConsumer.accept(ServletOutputStream.this);
             }
+            blockPromise = null;
             lastContentPromise = null;
             writeListener = null;
             servletHttpExchange = null;
