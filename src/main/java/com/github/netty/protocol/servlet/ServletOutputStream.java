@@ -150,6 +150,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             // 1 time slices
             Thread.yield();
             context.flush();
+            Thread.yield();
             ChannelUtils.forceFlush(context.channel());
         } else {
             int bufferSize = exchange.getResponse().getBufferSize();
