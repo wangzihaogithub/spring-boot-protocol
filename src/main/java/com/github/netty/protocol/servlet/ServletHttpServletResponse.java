@@ -375,12 +375,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         this.bufferSize = size;
     }
 
-    private ChunkedWriteHandler getChunkedWriteHandler(){
-        ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
-        ChannelHandlerContext chunked = context.pipeline().context(ChunkedWriteHandler.class);
-        return chunked != null? (ChunkedWriteHandler) chunked.handler() : null;
-    }
-
     @Override
     public int getBufferSize() {
         if(bufferSize == -1){

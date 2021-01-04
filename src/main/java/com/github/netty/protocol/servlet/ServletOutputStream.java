@@ -8,6 +8,7 @@ import io.netty.channel.*;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.stream.ChunkedInput;
+import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.WriteListener;
 import java.io.File;
@@ -170,7 +171,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                     if (blockPromise == null) {
                         blockPromise = promise;
                     }
-                    if(requiresFlush) {
+                    if (requiresFlush) {
                         context.flush();
                     }
                     blockPromise.sync();
@@ -291,8 +292,16 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 } else {
                     closeFuture = context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
                 }
+                closeFuture.addListener(closeListenerWrapper);
+            } else if (closeFuture.isDone()) {
+                try {
+                    closeListenerWrapper.operationComplete(closeFuture);
+                } catch (Exception e) {
+                    PlatformDependent.throwException(e);
+                }
+            } else {
+                closeFuture.addListener(closeListenerWrapper);
             }
-            closeFuture.addListener(closeListenerWrapper);
         }
     }
 
