@@ -21,7 +21,47 @@
     7.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
     
     8.高并发下服务器内存抖动在5M左右。 tomcat抖动在350M左右。(因为用堆外内存不受GC影响，而tomcat的byte[]会频繁触发GC)
-
+    
+    9.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+    /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
+    
+     {
+        "timestamp":"2021-01-04 22:10:19",
+        "sequenceId":0,
+        "connectionId":8720,
+        "handlerType":"backend",
+        "clientCharset":"UTF8_GENERAL_CI",
+        "serverCharset":"LATIN1_SWEDISH_CI",
+        "packet":"ServerHandshakePacket"
+    },
+    {
+        "timestamp":"2021-01-04 22:10:19",
+        "sequenceId":1,
+        "connectionId":8720,
+        "handlerType":"frontend",
+        "clientCharset":"UTF8_GENERAL_CI",
+        "serverCharset":"LATIN1_SWEDISH_CI",
+        "packet":"ClientHandshakePacket"
+    },
+    {
+        "timestamp":"2021-01-04 22:10:19",
+        "sequenceId":2,
+        "connectionId":8720,
+        "handlerType":"backend",
+        "clientCharset":"UTF8_GENERAL_CI",
+        "serverCharset":"LATIN1_SWEDISH_CI",
+        "packet":"ServerOkPacket,[AUTO_COMMIT]"
+    },
+    {
+        "timestamp":"2021-01-04 22:10:19",
+        "sequenceId":0,
+        "connectionId":8720,
+        "handlerType":"frontend",
+        "clientCharset":"UTF8_GENERAL_CI",
+        "serverCharset":"LATIN1_SWEDISH_CI",
+        "packet":"ClientQueryPacket,SET NAMES utf8"
+    },
+    
 作者邮箱 : 842156727@qq.com
 
 github地址 : https://github.com/wangzihaogithub
