@@ -26,7 +26,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private boolean asyncSupported = true;
     private int loadOnStartup = -1;
     private Map<String,String> initParameterMap = new LinkedHashMap<>();
-    private Set<String> mappingSet = new HashSet<String>(){
+    private Set<String> mappingSet = new LinkedHashSet<String>(){
         @Override
         public boolean add(String pattern) {
             urlMapper.addMapping(pattern, ServletRegistration.this, servletName);
@@ -39,6 +39,12 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
                 add(o.toString());
             }
             return c.size() > 0;
+        }
+
+        @Override
+        public void clear() {
+            urlMapper.clear();
+            super.clear();
         }
     };
     private AtomicBoolean initServlet = new AtomicBoolean();

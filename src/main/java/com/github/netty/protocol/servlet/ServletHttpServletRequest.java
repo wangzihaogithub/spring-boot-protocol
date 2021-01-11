@@ -1086,7 +1086,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return getServletContext().getRequestDispatcher(path);
+        return getServletContext().getRequestDispatcher(path,getDispatcherType());
     }
 
     @Override

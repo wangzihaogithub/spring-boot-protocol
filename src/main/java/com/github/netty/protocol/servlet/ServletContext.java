@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.Version;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.servlet.util.FilterMapper;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import com.github.netty.protocol.servlet.util.UrlMapper;
@@ -70,7 +71,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
     private ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
     private UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>(true);
-    private UrlMapper<ServletFilterRegistration> filterUrlMapper = new UrlMapper<>(false);
+    private FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
 
     private ResourceManager resourceManager;
     private Supplier<Executor> asyncExecutorSupplier;
@@ -382,6 +383,10 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
+        return getRequestDispatcher(path,DispatcherType.REQUEST);
+    }
+
+    public ServletRequestDispatcher getRequestDispatcher(String path,DispatcherType dispatcherType) {
         UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
         if(element == null){
             return null;
@@ -392,7 +397,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
-        filterUrlMapper.addMappingObjectsByUri(path,filterChain.getFilterRegistrationList());
+        filterUrlMapper.addMappingObjectsByUri(path,dispatcherType,filterChain.getFilterRegistrationList());
 
         ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
         dispatcher.setMapperElement(element);
@@ -408,11 +413,11 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
-        List<UrlMapper.Element<ServletFilterRegistration>> filterList = filterChain.getFilterRegistrationList();
+        List<FilterMapper.Element<ServletFilterRegistration>> filterList = filterChain.getFilterRegistrationList();
         for (ServletFilterRegistration registration : filterRegistrationMap.values()) {
             for(String servletName : registration.getServletNameMappings()){
                 if(servletName.equals(name)){
-                    filterList.add(new UrlMapper.Element<>(name,registration));
+                    filterList.add(new FilterMapper.Element<>(name,registration));
                 }
             }
         }

@@ -56,6 +56,10 @@ public class UrlMapper<T> {
         this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
+    public void clear(){
+        elementList.clear();
+    }
+
 	public void setRootPath(String rootPath) {
         while (rootPath.startsWith("/")){
             rootPath = rootPath.substring(1);

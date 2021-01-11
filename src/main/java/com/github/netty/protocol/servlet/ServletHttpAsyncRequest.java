@@ -76,6 +76,12 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
     }
 
     @Override
+    public ServletRequestDispatcher getRequestDispatcher(String path) {
+        com.github.netty.protocol.servlet.ServletContext servletContext = (com.github.netty.protocol.servlet.ServletContext) getServletContext();
+        return servletContext.getRequestDispatcher(path,getDispatcherType());
+    }
+
+    @Override
     public DispatcherType getDispatcherType() {
         return DispatcherType.ASYNC;
     }

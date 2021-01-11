@@ -171,7 +171,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 return;
             }
             try {
-                ServletRequestDispatcher dispatcher = servletHttpExchange.getServletContext().getRequestDispatcher(httpServletRequest.getRequestURI());
+                ServletRequestDispatcher dispatcher = httpServletRequest.getRequestDispatcher(httpServletRequest.getRequestURI());
                 if (dispatcher == null) {
                     httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
                     return;

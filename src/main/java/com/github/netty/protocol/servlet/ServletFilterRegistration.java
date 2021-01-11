@@ -1,6 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.protocol.servlet.util.UrlMapper;
+import com.github.netty.protocol.servlet.util.FilterMapper;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.Filter;
@@ -20,14 +20,14 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private Filter filter;
     private FilterConfig filterConfig;
     private ServletContext servletContext;
-    private UrlMapper<ServletFilterRegistration> urlMapper;
+    private FilterMapper<ServletFilterRegistration> urlMapper;
     private boolean asyncSupported = true;
     private Map<String,String> initParameterMap = new LinkedHashMap<>();
-    private Set<String> mappingSet = new HashSet<String>(){
+    private MappingSet mappingSet = new MappingSet();
+    class MappingSet extends LinkedHashSet<String>{
         @Override
         public boolean add(String pattern) {
-            urlMapper.addMapping(pattern, ServletFilterRegistration.this, filterName);
-            return super.add(pattern);
+            return add(pattern,false,null);
         }
 
         @Override
@@ -37,11 +37,22 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
             }
             return c.size() > 0;
         }
-    };
+
+        public boolean add(String pattern,boolean isMatchAfter,EnumSet<DispatcherType> dispatcherTypes) {
+            urlMapper.addMapping(pattern, ServletFilterRegistration.this, filterName,isMatchAfter,dispatcherTypes);
+            return super.add(pattern);
+        }
+
+        @Override
+        public void clear() {
+            urlMapper.clear();
+            super.clear();
+        }
+    }
     private Set<String> servletNameMappingSet = new HashSet<>();
     private AtomicBoolean initFilter = new AtomicBoolean();
 
-    public ServletFilterRegistration(String filterName, Filter servlet,ServletContext servletContext,UrlMapper<ServletFilterRegistration> urlMapper) {
+    public ServletFilterRegistration(String filterName, Filter servlet, ServletContext servletContext, FilterMapper<ServletFilterRegistration> urlMapper) {
         this.filterName = filterName;
         this.filter = servlet;
         this.servletContext = servletContext;
@@ -127,7 +138,9 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
 
     @Override
     public void addMappingForServletNames(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... servletNames) {
-        servletNameMappingSet.addAll(Arrays.asList(servletNames));
+        if(servletNames != null) {
+            servletNameMappingSet.addAll(Arrays.asList(servletNames));
+        }
     }
 
     @Override
@@ -137,7 +150,11 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
 
     @Override
     public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... urlPatterns) {
-        mappingSet.addAll(Arrays.asList(urlPatterns));
+        if(urlPatterns != null) {
+            for (String urlPattern : urlPatterns) {
+                mappingSet.add(urlPattern, isMatchAfter,dispatcherTypes);
+            }
+        }
     }
 
     @Override
