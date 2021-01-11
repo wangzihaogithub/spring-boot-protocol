@@ -114,15 +114,17 @@ public class FilterMapper<T> {
             rootPath = rootPath.substring(1);
         }
         rootPath = "/" + rootPath;
-        Element<T>[] newElements = new Element[array.length];
-        for (int i = 0; i < this.array.length; i++) {
-            Element<T> source = array[i];
+        synchronized (lock) {
+            Element<T>[] newElements = new Element[array.length];
+            for (int i = 0; i < this.array.length; i++) {
+                Element<T> source = array[i];
 
-            Element<T> element = new Element<>(rootPath, source.originalPattern, source.object,source.objectName,source.dispatcherTypes);
-            newElements[i] = element;
+                Element<T> element = new Element<>(rootPath, source.originalPattern, source.object, source.objectName, source.dispatcherTypes);
+                newElements[i] = element;
+            }
+            this.rootPath = rootPath;
+            this.array = newElements;
         }
-		this.rootPath = rootPath;
-		this.array = newElements;
 	}
 
 	/**
@@ -130,6 +132,8 @@ public class FilterMapper<T> {
      * @param urlPattern  urlPattern
      * @param object     object
      * @param objectName objectName
+     * @param isMatchAfter isMatchAfter
+     * @param dispatcherTypes dispatcherTypes
      * @throws IllegalArgumentException IllegalArgumentException
      */
     public void addMapping(String urlPattern, T object, String objectName,boolean isMatchAfter,EnumSet<DispatcherType> dispatcherTypes) throws IllegalArgumentException {
