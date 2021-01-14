@@ -30,7 +30,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         }
     };
     private static volatile ScheduledFuture<?> SCHEDULED_FUTURE;
-    private static final TransferQueue<Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedTransferQueue<>();
+    private static final BlockingQueue<Node<?,?>> EXPIRY_NOTIFY_QUEUE = new LinkedBlockingQueue<>();
     private static final Set<ExpiryLRUMap<?,?>> INSTANCE_SET = Collections.newSetFromMap(new WeakHashMap<>());
     private final transient LongAdder missCount = new LongAdder();
     private final transient LongAdder hitCount = new LongAdder();
@@ -110,7 +110,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         return Collections.unmodifiableSet(INSTANCE_SET);
     }
 
-    public static TransferQueue<Node<?,?>> getExpiryNotifyQueue(){
+    public static BlockingQueue<Node<?,?>> getExpiryNotifyQueue(){
         return EXPIRY_NOTIFY_QUEUE;
     }
 
@@ -729,14 +729,14 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     public static class ExpiresScan implements Runnable {
         public static final ExpiresNotify NOTIFY_INSTANCE = new ExpiresNotify();
         private static final ExpiresScan INSTANCE = new ExpiresScan();
-        static final AtomicInteger INCR = new AtomicInteger();
         static final ScheduledExecutorService SCHEDULED = Executors.newScheduledThreadPool(1, runnable -> {
-            Thread thread = new Thread(runnable, "ExpiryLRUMap-ExpiresScan" + INCR.getAndIncrement());
+            Thread thread = new Thread(runnable);
+            thread.setName("ExpiryLRUMap-ExpiresScan-" + thread.getId());
             thread.setPriority(Thread.MIN_PRIORITY);
             return thread;
         });
         static {
-            NOTIFY_INSTANCE.setName("ExpiryLRUMap-ExpiresNotify");
+            NOTIFY_INSTANCE.setName("ExpiryLRUMap-ExpiresNotify-"+NOTIFY_INSTANCE.getId());
             NOTIFY_INSTANCE.start();
         }
 

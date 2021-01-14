@@ -159,15 +159,14 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      * @param request request
      * @param response response
      * @param asyncContext asyncContext
-     * @return Runnable
      */
-    public Runnable dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext){
+    public void dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext) throws ServletException, IOException {
         if(path == null){
-            return null;
+            return;
         }
         if(request instanceof ServletHttpAsyncRequest
                 && path.equals(request.getAttribute(AsyncContext.ASYNC_REQUEST_URI))){
-            return null;
+            throw new IllegalStateException("Asynchronous dispatch operation has already been called. Additional asynchronous dispatch operation within the same asynchronous cycle is not allowed.");
         }
 
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
@@ -200,14 +199,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
 
         //Return to the task
-        Runnable runnable = ()->{
-            try {
-                dispatch(asyncRequest, asyncResponse);
-            } catch (Exception e) {
-                throw new ServletAsyncContext.AsyncRuntimeException(e);
-            }
-        };
-        return runnable;
+        dispatch(asyncRequest, asyncResponse);
     }
 
     public void setPath(String path) {

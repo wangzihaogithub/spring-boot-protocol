@@ -18,11 +18,12 @@ import java.util.concurrent.RejectedExecutionHandler;
 
 /**
  * You can configure it here
+ *
  * @author wangzihao
  * 2018/8/25/025
  */
 @ConfigurationProperties(prefix = "server.netty", ignoreUnknownFields = true)
-public class NettyProperties implements Serializable{
+public class NettyProperties implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -76,7 +77,7 @@ public class NettyProperties implements Serializable{
     /**
      * 动态协议处理器,是在进入所有协议之前的入口- 使用者可以继承它加入自己的逻辑 比如:(处理超出最大tcp连接数时的逻辑, 处理遇到不支持的协议时的逻辑等..)
      */
-    private Class<?extends DynamicProtocolChannelHandler> channelHandler = DynamicProtocolChannelHandler.class;
+    private Class<? extends DynamicProtocolChannelHandler> channelHandler = DynamicProtocolChannelHandler.class;
 
     /**
      * HTTP协议(Servlet实现)
@@ -110,7 +111,8 @@ public class NettyProperties implements Serializable{
      */
     private transient final ApplicationX application = new ApplicationX();
 
-    public NettyProperties() {}
+    public NettyProperties() {
+    }
 
     public ApplicationX getApplication() {
         return application;
@@ -164,11 +166,11 @@ public class NettyProperties implements Serializable{
         this.firstClientPacketReadTimeoutMs = firstClientPacketReadTimeoutMs;
     }
 
-    public Class<?extends DynamicProtocolChannelHandler> getChannelHandler() {
+    public Class<? extends DynamicProtocolChannelHandler> getChannelHandler() {
         return channelHandler;
     }
 
-    public void setChannelHandler(Class<?extends DynamicProtocolChannelHandler> channelHandler) {
+    public void setChannelHandler(Class<? extends DynamicProtocolChannelHandler> channelHandler) {
         this.channelHandler = channelHandler;
     }
 
@@ -232,7 +234,7 @@ public class NettyProperties implements Serializable{
         return mysql;
     }
 
-    public static class HttpServlet{
+    public static class HttpServlet {
         /**
          * 定时刷新缓冲区数据时间间隔(毫秒)
          * 当同时连接的客户端数量上千的时候开启(开启减少系统调用次数,批量写数据),否则不建议开启(因为http协议是阻塞协议,不快速返回数据会导致客户端不进行下次请求,反而降低吞吐量).
@@ -262,17 +264,12 @@ public class NettyProperties implements Serializable{
         /**
          * 不会出现在body中的字段. 仅限于 multipart/form-data, application/x-www-form-urlencoded. （为了避免因为要获取某个字段，一直在等客户端发完数据。）
          */
-        private String[] notExistBodyParameter = {"_method","JSESSIONID"};
+        private String[] notExistBodyParameter = {"_method", "JSESSIONID"};
         /**
          * 服务端 - 线程池配置 (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
          */
         @NestedConfigurationProperty
         private final ServerThreadPool threadPool = new ServerThreadPool();
-        /**
-         * 服务端 - servlet3的异步回调是否切换至新的线程执行任务, 如果没有异步嵌套异步的情况,建议开启.因为只有给前端写数据的IO损耗.
-         * (设置false会减少一次线程切换, 用回调方的线程执行. 提示:tomcat是true，用新线程执行)
-         */
-        private boolean enableAsyncCallbackThread = true;
         /**
          * session存储 - 是否开启本地文件存储
          */
@@ -303,7 +300,7 @@ public class NettyProperties implements Serializable{
          */
         private boolean showExceptionMessage = true;
 
-        public static class ServerThreadPool{
+        public static class ServerThreadPool {
             /**
              * 是否开启线程池. 注: (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
              */
@@ -447,14 +444,6 @@ public class NettyProperties implements Serializable{
 
         public void setResponseMaxBufferSize(int responseMaxBufferSize) {
             this.responseMaxBufferSize = responseMaxBufferSize;
-        }
-
-        public boolean isEnableAsyncCallbackThread() {
-            return enableAsyncCallbackThread;
-        }
-
-        public void setEnableAsyncCallbackThread(boolean enableAsyncCallbackThread) {
-            this.enableAsyncCallbackThread = enableAsyncCallbackThread;
         }
 
         public boolean isEnableNsLookup() {
@@ -694,7 +683,7 @@ public class NettyProperties implements Serializable{
         }
     }
 
-    public static class Mqtt{
+    public static class Mqtt {
         /**
          * 是否开启MQTT协议
          */
@@ -745,11 +734,11 @@ public class NettyProperties implements Serializable{
         }
     }
 
-    public static class Rtsp{
+    public static class Rtsp {
 
     }
 
-    public static class Mysql{
+    public static class Mysql {
         /**
          * 是否开启MYSQL代理协议
          */
@@ -769,11 +758,11 @@ public class NettyProperties implements Serializable{
         /**
          * 用户可以处理MYSQL后端的业务处理, 每次有链接进入时, 会从spring容器中获取实例, 不能是单例对象, 请使用原型实例
          */
-        private Class<?extends MysqlBackendBusinessHandler> backendBusinessHandler = MysqlBackendBusinessHandler.class;
+        private Class<? extends MysqlBackendBusinessHandler> backendBusinessHandler = MysqlBackendBusinessHandler.class;
         /**
          * 用户可以处理MYSQL前端的业务逻辑, 每次有链接进入时, 会从spring容器中获取实例, 不能是单例对象, 请使用原型实例
          */
-        private Class<?extends MysqlFrontendBusinessHandler> frontendBusinessHandler = MysqlFrontendBusinessHandler.class;
+        private Class<? extends MysqlFrontendBusinessHandler> frontendBusinessHandler = MysqlFrontendBusinessHandler.class;
 
         public boolean isEnabled() {
             return enabled;
@@ -831,7 +820,7 @@ public class NettyProperties implements Serializable{
     /**
      * mysql代理日志的配置
      */
-    public static class MysqlProxyLog{
+    public static class MysqlProxyLog {
         /**
          * 是否开启代理日志
          */

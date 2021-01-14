@@ -80,7 +80,6 @@ public class ServletContext implements javax.servlet.ServletContext {
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
     private boolean enableLookupFlag = false;
-    private boolean asyncSwitchThread = true;
     private boolean autoFlush;
     /**
      * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
@@ -130,14 +129,6 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public void setUploadFileTimeoutMs(long uploadFileTimeoutMs) {
         this.uploadFileTimeoutMs = uploadFileTimeoutMs;
-    }
-
-    public void setAsyncSwitchThread(boolean asyncSwitchThread) {
-        this.asyncSwitchThread = asyncSwitchThread;
-    }
-
-    public boolean isAsyncSwitchThread() {
-        return asyncSwitchThread;
     }
 
     public boolean isEnableLookupFlag() {

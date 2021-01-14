@@ -97,7 +97,7 @@ public class ServletErrorPageManager {
         if (errorPagePath == null) {
             return;
         }
-        ServletRequestDispatcher dispatcher = request.getRequestDispatcher(errorPagePath);
+        ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath,DispatcherType.ERROR);
         try {
             response.resetBuffer();
         }catch (IllegalStateException e){

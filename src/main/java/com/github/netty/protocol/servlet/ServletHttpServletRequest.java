@@ -222,8 +222,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return isMultipart;
     }
 
-    boolean isAsync(){
-        return asyncContext != null && asyncContext.isStarted();
+    public boolean isAsync(){
+        return asyncContext != null;
     }
 
     void setAsyncSupportedFlag(Boolean asyncSupportedFlag) {
@@ -1127,10 +1127,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         ServletContext servletContext = getServletContext();
         if(asyncContext == null) {
-            asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getAsyncExecutor(), servletRequest, servletResponse);
+            asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getAsyncExecutor());
+            asyncContext.setTimeout(servletContext.getAsyncTimeout());
         }
-        asyncContext.setTimeout(servletContext.getAsyncTimeout());
-        asyncContext.start();
+        asyncContext.setServletRequest(servletRequest);
+        asyncContext.setServletResponse(servletResponse);
+        asyncContext.setStart();
         return asyncContext;
     }
 

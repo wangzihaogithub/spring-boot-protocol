@@ -8,27 +8,37 @@ import com.github.netty.core.util.Recyclable;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 
 /**
  * Context for asynchronous processing
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class ServletAsyncContext implements AsyncContext, Recyclable {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletAsyncContext.class);
     private static final int STATUS_INIT = 0;
     private static final int STATUS_START = 1;
-    private static final int STATUS_RUNNING = 2;
+    private static final int STATUS_DISPATCH = 2;
     private static final int STATUS_COMPLETE = 3;
+    private static final AtomicInteger TASK_ID_INCR = new AtomicInteger();
+    private static final ExpiryLRUMap<Integer, ServletAsyncContext> TIMEOUT_TASK_MAP = new ExpiryLRUMap<>(256, Long.MAX_VALUE, Long.MAX_VALUE, null);
+
+    static {
+        TIMEOUT_TASK_MAP.setOnExpiryConsumer(e -> {
+            ServletAsyncContext asyncContext = e.getData();
+            if (asyncContext.status.get() >= STATUS_DISPATCH) {
+                return;
+            }
+            asyncContext.executor.execute(asyncContext.timeoutTask);
+        });
+    }
 
     /**
      * Has it been recycled
@@ -40,8 +50,9 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     private AtomicBoolean ioThreadExecuteOverFlag = new AtomicBoolean(false);
     /**
      * 0=init, 1=start, 2=complete
-      */
-    private AtomicInteger status = new AtomicInteger(STATUS_INIT);;
+     */
+    private AtomicInteger status = new AtomicInteger(STATUS_INIT);
+    ;
     /**
      * Timeout time -> ms
      */
@@ -49,58 +60,87 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
     private ServletContext servletContext;
     private ServletHttpExchange servletHttpExchange;
-    private Throwable throwable;
-    private HttpServletRequest httpServletRequest;
-    private HttpServletResponse httpServletResponse;
-    private Executor executor;
+    private ServletRequest servletRequest;
+    private ServletResponse servletResponse;
+    private volatile Integer timeoutTaskId;
+    private volatile long startTimestamp;
+    private final Executor executor;
+    private final AtomicBoolean timeoutFlag = new AtomicBoolean();
+    private final Runnable timeoutTask = () -> {
+        //Notice the timeout
+        if (timeoutFlag.compareAndSet(false, true)) {
+            if (asyncListenerWrapperList == null) {
+                return;
+            }
+            Throwable throwable = null;
+            boolean eventNotify = false;
+            for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
+                eventNotify = throwable != null;
+                AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                try {
+                    listenerWrapper.asyncListener.onTimeout(event);
+                } catch (Throwable e) {
+                    if (throwable != null) {
+                        e.addSuppressed(throwable);
+                    }
+                    throwable = e;
+                }
+            }
+            if (throwable != null && !eventNotify) {
+                logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
+            }
+        }
+    };
 
-    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor, ServletRequest httpServletRequest, ServletResponse httpServletResponse) {
+    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor) {
         this.servletHttpExchange = Objects.requireNonNull(servletHttpExchange);
         this.servletContext = Objects.requireNonNull(servletContext);
         this.executor = Objects.requireNonNull(executor);
-        this.httpServletRequest = (HttpServletRequest)Objects.requireNonNull(httpServletRequest);
-        this.httpServletResponse = (HttpServletResponse)Objects.requireNonNull(httpServletResponse);
-    }
-
-    public Throwable getThrowable() {
-        return throwable;
     }
 
     public ServletContext getServletContext() {
         return servletContext;
     }
 
-    public void setThrowable(Throwable throwable) {
-        this.throwable = throwable;
-    }
-
     @Override
     public ServletRequest getRequest() {
-        return httpServletRequest;
+        return servletRequest;
     }
 
     @Override
     public ServletResponse getResponse() {
-        return httpServletResponse;
+        return servletResponse;
     }
 
     @Override
     public boolean hasOriginalRequestAndResponse() {
-        return true;
+        return servletHttpExchange.getRequest() == servletRequest && servletHttpExchange.getResponse() == servletResponse;
+    }
+
+    public void setServletResponse(ServletResponse servletResponse) {
+        this.servletResponse = servletResponse;
+    }
+
+    public void setServletRequest(ServletRequest servletRequest) {
+        this.servletRequest = servletRequest;
     }
 
     @Override
     public void dispatch() {
-        if(httpServletRequest == null){
-            return;
+        String path;
+        String contextPath;
+        ServletRequest servletRequest = this.servletRequest;
+        if (servletRequest instanceof HttpServletRequest) {
+            path = ((HttpServletRequest) servletRequest).getRequestURI();
+            contextPath = ((HttpServletRequest) servletRequest).getContextPath();
+        } else {
+            path = servletHttpExchange.getRequest().getRequestURI();
+            contextPath = servletHttpExchange.getRequest().getContextPath();
         }
-
-        String path = httpServletRequest.getRequestURI();
-        String contextPath = httpServletRequest.getContextPath();
         if (contextPath.length() > 1) {
             path = path.substring(contextPath.length());
         }
-        dispatch(path);
+        dispatch(servletContext, path);
     }
 
     @Override
@@ -110,35 +150,81 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
-        check();
+        status.set(STATUS_DISPATCH);
         String contextPath = context.getContextPath();
-        String dispatcherPath = contextPath.isEmpty()? path : contextPath + path;
-        ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath);
-        if(dispatcher == null){
-            logger.error("not found dispatcher. contextPath={}, path={}",context.getContextPath(), path);
-            return;
+        String dispatcherPath = contextPath == null || contextPath.isEmpty() ? path : contextPath + path;
+        HttpServletRequest httpServletRequest;
+        HttpServletResponse httpServletResponse;
+        if (servletRequest instanceof HttpServletRequest) {
+            httpServletRequest = (HttpServletRequest) servletRequest;
+        } else {
+            httpServletRequest = servletHttpExchange.getRequest();
         }
-        Runnable runnable = dispatcher.dispatchAsync(httpServletRequest,httpServletResponse,this);
-        start(runnable);
+        if (servletResponse instanceof HttpServletResponse) {
+            httpServletResponse = (HttpServletResponse) servletResponse;
+        } else {
+            httpServletResponse = servletHttpExchange.getResponse();
+        }
+
+        ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath, DispatcherType.ASYNC);
+        try {
+            if (dispatcher == null) {
+                logger.warn("not found dispatcher. contextPath={}, path={}", context.getContextPath(), path);
+                httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            } else {
+                try {
+                    dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
+                } catch (Throwable e) {
+                    //Notify the complete
+                    if (asyncListenerWrapperList != null) {
+                        Throwable throwable = e;
+                        for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
+                            AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                            try {
+                                listenerWrapper.asyncListener.onError(event);
+                            } catch (Throwable childEx) {
+                                childEx.addSuppressed(throwable);
+                                throwable = childEx;
+                            }
+                        }
+                    }
+                }
+            }
+        } finally {
+            complete();
+        }
     }
 
     @Override
     public void complete() {
-        status.set(STATUS_COMPLETE);
-        //Notify the complete
-        if(asyncListenerWrapperList != null) {
-            for (ServletAsyncListenerWrapper listenerWrapper : asyncListenerWrapperList) {
-                AsyncEvent event = new AsyncEvent(this,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
-                try {
-                    listenerWrapper.asyncListener.onComplete(event);
-                } catch (IOException e) {
-                    logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
+        TIMEOUT_TASK_MAP.remove(timeoutTaskId);
+        try {
+            //Notify the complete
+            if (asyncListenerWrapperList != null) {
+                Throwable throwable = null;
+                boolean eventNotify = false;
+                for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
+                    eventNotify = throwable != null;
+                    AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                    try {
+                        listenerWrapper.asyncListener.onComplete(event);
+                    } catch (Throwable e) {
+                        if (throwable != null) {
+                            e.addSuppressed(throwable);
+                        }
+                        throwable = e;
+                    }
+                }
+                if (throwable != null && !eventNotify) {
+                    logger.error("asyncContext notifyEvent.onComplete() error={}", throwable.toString(), throwable);
                 }
             }
-        }
-        //If the handler has finished, recycle it yourself
-        if(ioThreadExecuteOverFlag.get()) {
-            recycle();
+            //If the handler has finished, recycle it yourself
+            if (ioThreadExecuteOverFlag.get()) {
+                recycle();
+            }
+        } finally {
+            status.set(STATUS_COMPLETE);
         }
     }
 
@@ -146,131 +232,70 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
      * Marks the end of the main thread
      */
     public void markIoThreadOverFlag() {
-        this.ioThreadExecuteOverFlag.compareAndSet(false,true);
+        this.ioThreadExecuteOverFlag.compareAndSet(false, true);
     }
 
     @Override
-    public void recycle(){
+    public void recycle() {
         //If not, recycle
-        if(recycleFlag.compareAndSet(false,true)){
+        if (recycleFlag.compareAndSet(false, true)) {
             servletHttpExchange.recycle();
         }
     }
 
     @Override
     public void start(Runnable runnable) {
-        start();
-        if(status.compareAndSet(STATUS_START,STATUS_RUNNING)){
-            TaskWrapper wrapper = new TaskWrapper(runnable,this);
-            if(servletContext.isAsyncSwitchThread()){
-                executor.execute(wrapper);
-            }else {
-                wrapper.run();
+        executor.execute(runnable);
+    }
+
+    public void setStart() {
+        if (status.get() >= STATUS_DISPATCH || timeoutFlag.get()) {
+            throw new IllegalStateException("The request associated with the AsyncContext has already completed processing.");
+        }
+        startTimestamp = System.currentTimeMillis();
+        if (timeoutTaskId == null) {
+            timeoutTaskId = TASK_ID_INCR.getAndIncrement();
+        } else {
+            TIMEOUT_TASK_MAP.remove(timeoutTaskId);
+        }
+        status.set(STATUS_START);
+        TIMEOUT_TASK_MAP.put(timeoutTaskId, this, timeout);
+
+        //Notify the start
+        if (asyncListenerWrapperList != null) {
+            List<ServletAsyncListenerWrapper> list = new ArrayList<>(asyncListenerWrapperList);
+            asyncListenerWrapperList.clear();
+            Throwable throwable = null;
+            boolean eventNotify = false;
+            for (ServletAsyncListenerWrapper listenerWrapper : list) {
+                eventNotify = throwable != null;
+                AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                try {
+                    listenerWrapper.asyncListener.onStartAsync(event);
+                } catch (Throwable e) {
+                    if (throwable != null) {
+                        e.addSuppressed(throwable);
+                    }
+                    throwable = e;
+                }
             }
-        }
-    }
-
-    public void start(){
-        status.compareAndSet(STATUS_INIT,STATUS_START);
-    }
-
-    private static class TaskWrapper implements Runnable{
-        private static final AtomicInteger TASK_ID_INCR = new AtomicInteger();
-        private static final ExpiryLRUMap<Integer,TaskWrapper> TIMEOUT_TASK_MAP = new ExpiryLRUMap<>(256,Long.MAX_VALUE,Long.MAX_VALUE,null);
-        static {
-            TIMEOUT_TASK_MAP.setOnExpiryConsumer(node -> {
-                //Notice the timeout
-                TaskWrapper taskWrapper = node.getData();
-                ServletAsyncContext asyncContext = taskWrapper.asyncContext;
-                if(taskWrapper.eventFlag.compareAndSet(false,true)){
-                    if(asyncContext.asyncListenerWrapperList == null) {
-                        return;
-                    }
-                    asyncContext.executor.execute(()->{
-                        for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
-                            try {
-                                AsyncEvent event = new AsyncEvent(asyncContext, listenerWrapper.servletRequest, listenerWrapper.servletResponse, null);
-                                listenerWrapper.asyncListener.onTimeout(event);
-                            } catch (Exception ex) {
-                                logger.error("asyncContext notifyEvent.onTimeout() error={}", ex.toString(), ex);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-        private final Runnable runnable;
-        private final ServletAsyncContext asyncContext;
-        private final AtomicBoolean eventFlag = new AtomicBoolean(false);
-        public TaskWrapper(Runnable runnable, ServletAsyncContext asyncContext) {
-            this.runnable = runnable;
-            this.asyncContext = asyncContext;
-        }
-        @Override
-        public void run() {
-            int taskId = TASK_ID_INCR.getAndIncrement();
-            TIMEOUT_TASK_MAP.put(taskId,this,asyncContext.getTimeout());
-            try {
-                //Notify the start
-                if(asyncContext.asyncListenerWrapperList != null) {
-                    for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
-                        AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse,null);
-                        try {
-                            listenerWrapper.asyncListener.onStartAsync(event);
-                        } catch (IOException e) {
-                            logger.error("asyncContext notifyEvent.onStartAsync() error={}",e.toString(),e);
-                        }
-                    }
-                }
-                //running
-                runnable.run();
-                if(eventFlag.compareAndSet(false,true)){
-                    TIMEOUT_TASK_MAP.remove(taskId);
-                    //Notify the complete
-                    if(asyncContext.asyncListenerWrapperList != null) {
-                        for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
-                            AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse, null);
-                            try {
-                                listenerWrapper.asyncListener.onComplete(event);
-                            } catch (Exception e) {
-                                logger.error("asyncContext notifyEvent.onComplete() error={}",e.toString(),e);
-                            }
-                        }
-                    }
-                }
-            }catch (Throwable throwable){
-                if(throwable instanceof AsyncRuntimeException){
-                    throwable = throwable.getCause();
-                }
-                asyncContext.setThrowable(throwable);
-                //Notify the throwable
-                if(asyncContext.asyncListenerWrapperList != null) {
-                    for (ServletAsyncListenerWrapper listenerWrapper : asyncContext.asyncListenerWrapperList) {
-                        AsyncEvent event = new AsyncEvent(asyncContext,listenerWrapper.servletRequest,listenerWrapper.servletResponse, throwable);
-                        try {
-                            listenerWrapper.asyncListener.onError(event);
-                        } catch (Exception e) {
-                            logger.error("asyncContext notifyEvent.onError() error={}",e.toString(),e);
-                        }
-                    }
-                }
-            }finally {
-                asyncContext.recycle();
+            if (throwable != null && !eventNotify) {
+                logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
             }
         }
     }
 
     @Override
     public void addListener(AsyncListener listener) {
-        addListener(listener, httpServletRequest, httpServletResponse);
+        addListener(listener, servletRequest, servletResponse);
     }
 
     @Override
     public void addListener(AsyncListener listener, ServletRequest servletRequest, ServletResponse servletResponse) {
-        if(asyncListenerWrapperList == null){
-            asyncListenerWrapperList = new ArrayList<>(6);
+        if (asyncListenerWrapperList == null) {
+            asyncListenerWrapperList = new ArrayList<>(3);
         }
-        asyncListenerWrapperList.add(new ServletAsyncListenerWrapper(listener,servletRequest,servletResponse));
+        asyncListenerWrapperList.add(new ServletAsyncListenerWrapper(listener, servletRequest, servletResponse));
     }
 
     @Override
@@ -278,13 +303,32 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         try {
             return clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new ServletException("asyncContext createListener error="+e,e);
+            throw new ServletException("asyncContext createListener error=" + e, e);
         }
     }
 
     @Override
     public void setTimeout(long timeout) {
         this.timeout = timeout;
+        if (timeout <= 0 && timeoutTaskId != null) {
+            TIMEOUT_TASK_MAP.remove(timeoutTaskId);
+            return;
+        }
+
+        if (startTimestamp != 0) {
+            if (timeoutTaskId == null) {
+                timeoutTaskId = TASK_ID_INCR.getAndIncrement();
+            } else {
+                TIMEOUT_TASK_MAP.remove(timeoutTaskId);
+            }
+            long startDiff = System.currentTimeMillis() - startTimestamp;
+            long expiryTime = timeout - startDiff;
+            if (expiryTime > 0) {
+                TIMEOUT_TASK_MAP.put(timeoutTaskId, this, expiryTime);
+            } else {
+                timeoutTask.run();
+            }
+        }
     }
 
     @Override
@@ -292,26 +336,19 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         return timeout;
     }
 
-    private void check() {
-        if (httpServletRequest == null) {
-            // AsyncContext has been recycled and should not be being used
-            throw new IllegalStateException("The request cannot be null");
-        }
+    public boolean isStarted() {
+        return status.get() == STATUS_START;
     }
 
-    public boolean isStarted(){
-        return status.get() > STATUS_INIT;
-    }
-
-    public boolean isComplete(){
+    public boolean isComplete() {
         return status.get() == STATUS_COMPLETE;
     }
 
-
-    private class ServletAsyncListenerWrapper{
+    private static class ServletAsyncListenerWrapper {
         AsyncListener asyncListener;
         ServletRequest servletRequest;
         ServletResponse servletResponse;
+
         ServletAsyncListenerWrapper(AsyncListener asyncListener, ServletRequest servletRequest, ServletResponse servletResponse) {
             this.asyncListener = asyncListener;
             this.servletRequest = servletRequest;
@@ -319,15 +356,4 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         }
     }
 
-    public static class AsyncRuntimeException extends RuntimeException{
-        private Throwable cause;
-        AsyncRuntimeException(Throwable cause) {
-            super(cause.getMessage(),cause,true,false);
-            this.cause = cause;
-        }
-        @Override
-        public Throwable getCause() {
-            return cause;
-        }
-    }
 }
