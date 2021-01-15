@@ -159,6 +159,8 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      * @param request request
      * @param response response
      * @param asyncContext asyncContext
+     * @throws ServletException ServletException
+     * @throws IOException IOException
      */
     public void dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext) throws ServletException, IOException {
         if(path == null){
