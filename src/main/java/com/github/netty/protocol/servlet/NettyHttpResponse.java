@@ -178,7 +178,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
 
             settingResponseHeader(exchange.isHttpKeepAlive(), servletRequest,
                     servletResponse.getContentType(),servletResponse.getCharacterEncoding(),
-                    servletResponse.getContentLength(),servletResponse.getLocale(),
+                    servletResponse.getContentLength(),servletResponse.getLocaleUse(),
                     servletResponse.getCookies(), sessionCookieConfig);
         }
     }
@@ -236,7 +236,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         }
 
         //language
-        if(!headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
+        if(locale != null && !headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)){
             headers.set(HttpHeaderConstants.CONTENT_LANGUAGE,locale.toLanguageTag());
         }
 

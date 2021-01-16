@@ -450,6 +450,10 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return null == locale ? Locale.getDefault() : locale;
     }
 
+    public Locale getLocaleUse() {
+        return locale;
+    }
+
     @Override
     public <T> void recycle(Consumer<T> consumer) {
         //1. Close the output stream first; 2.(by calling back CloseListener) recycle the netty response; 3
