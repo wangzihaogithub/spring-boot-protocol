@@ -58,6 +58,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     }
 
     void setExchange(ServletHttpExchange exchange) {
+        this.version = exchange.getRequest().getNettyRequest().protocolVersion();
         this.exchange = exchange;
     }
 
@@ -176,11 +177,34 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             ServletHttpServletResponse servletResponse = exchange.getResponse();
             ServletSessionCookieConfig sessionCookieConfig = exchange.getServletContext().getSessionCookieConfig();
 
-            settingResponseHeader(exchange.isHttpKeepAlive(), servletRequest,
+            boolean keepAlive = exchange.isHttpKeepAlive()
+                    && !statusDropsConnection(servletResponse.getStatus());
+            settingResponseHeader(keepAlive, servletRequest,
                     servletResponse.getContentType(),servletResponse.getCharacterEncoding(),
                     servletResponse.getContentLength(),servletResponse.getLocaleUse(),
                     servletResponse.getCookies(), sessionCookieConfig);
         }
+    }
+
+
+    /**
+     * Determine if we must drop the connection because of the HTTP status
+     * code.  Use the same list of codes as Apache/httpd.
+     * @param status response status
+     * @return is need close.  true = need close
+     */
+    private static boolean statusDropsConnection(int status) {
+        if(status == 200){
+            return false;
+        }
+        return status == 400 /* SC_BAD_REQUEST */ ||
+                status == 408 /* SC_REQUEST_TIMEOUT */ ||
+                status == 411 /* SC_LENGTH_REQUIRED */ ||
+                status == 413 /* SC_REQUEST_ENTITY_TOO_LARGE */ ||
+                status == 414 /* SC_REQUEST_URI_TOO_LONG */ ||
+                status == 500 /* SC_INTERNAL_SERVER_ERROR */ ||
+                status == 503 /* SC_SERVICE_UNAVAILABLE */ ||
+                status == 501 /* SC_NOT_IMPLEMENTED */;
     }
 
     /**
