@@ -8,6 +8,7 @@ import com.github.netty.protocol.servlet.ServletHttpServletResponse;
 import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.http.HttpConstants;
 import io.netty.util.CharsetUtil;
+import io.netty.util.internal.RecyclableArrayList;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletRequestWrapper;
@@ -21,12 +22,16 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 /**
  * ServletUtil
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class ServletUtil {
     private static final String EMPTY_STRING = "";
@@ -35,10 +40,10 @@ public class ServletUtil {
     private static Date lastDate = new Date(lastTimestamp);
     private static String nowRFCTime = DateFormatter.format(lastDate);
 
-    public static String getDateByRfcHttp(){
+    public static String getDateByRfcHttp() {
         long timestamp = System.currentTimeMillis();
         //cache 1/s
-        if(timestamp - lastTimestamp > 1000L){
+        if (timestamp - lastTimestamp > 1000L) {
             lastTimestamp = timestamp;
             lastDate.setTime(timestamp);
             nowRFCTime = DateFormatter.format(lastDate);
@@ -46,34 +51,34 @@ public class ServletUtil {
         return nowRFCTime;
     }
 
-    public static String date2string(long date){
+    public static String date2string(long date) {
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(date));
     }
 
-    public static String getCookieValue(Cookie[] cookies, String cookieName){
-        if(cookies == null || cookieName == null) {
+    public static String getCookieValue(Cookie[] cookies, String cookieName) {
+        if (cookies == null || cookieName == null) {
             return null;
         }
-        for(Cookie cookie : cookies){
-            if(cookie == null) {
+        for (Cookie cookie : cookies) {
+            if (cookie == null) {
                 continue;
             }
 
             String name = cookie.getName();
-            if(cookieName.equals(name)){
+            if (cookieName.equals(name)) {
                 return cookie.getValue();
             }
         }
         return null;
     }
 
-    public static void decodeByUrl(LinkedMultiValueMap<String,String> parameterMap, String uri, Charset charset){
+    public static void decodeByUrl(LinkedMultiValueMap<String, String> parameterMap, String uri, Charset charset) {
         StringBuilder buffer = RecyclableUtil.newStringBuilder();
-        decodeParams(parameterMap,uri, findPathEndIndex(uri), charset, 10000,buffer);
+        decodeParams(parameterMap, uri, findPathEndIndex(uri), charset, 10000, buffer);
     }
 
-	public static void decodeByUrl(Map<String,String[]> sourceParameterMap, String uri, Charset charset){
-        LinkedMultiValueMap<String,String> parameterMap = RecyclableUtil.newLinkedMultiValueMap();
+    public static void decodeByUrl(Map<String, String[]> sourceParameterMap, String uri, Charset charset) {
+        LinkedMultiValueMap<String, String> parameterMap = RecyclableUtil.newLinkedMultiValueMap();
         try {
             decodeByUrl(parameterMap, uri, charset);
             for (Map.Entry<String, List<String>> entry : parameterMap.entrySet()) {
@@ -84,10 +89,10 @@ public class ServletUtil {
                 }
                 sourceParameterMap.put(entry.getKey(), newValueList.toArray(new String[0]));
             }
-        }finally {
+        } finally {
             parameterMap.clear();
         }
-	}
+    }
 
     public static String decodeCharacterEncoding(String contentType) {
         if (contentType == null) {
@@ -112,13 +117,14 @@ public class ServletUtil {
 
     /**
      * Encodes the specified cookie into a Set-Cookie header value.
-     * @param cookieName cookieName
+     *
+     * @param cookieName  cookieName
      * @param cookieValue cookieValue
-     * @param maxAge maxAge
-     * @param path path
-     * @param domain domain
-     * @param secure secure
-     * @param httpOnly httpOnly
+     * @param maxAge      maxAge
+     * @param path        path
+     * @param domain      domain
+     * @param secure      secure
+     * @param httpOnly    httpOnly
      * @return a single Set-Cookie header value
      */
     public static String encodeCookie(String cookieName, String cookieValue, int maxAge, String path, String domain, boolean secure, boolean httpOnly) {
@@ -168,158 +174,166 @@ public class ServletUtil {
         return buf.toString();
     }
 
+    private static final Cookie[] EMPTY_COOKIE = {};
+
     /**
      * Decodes the specified Set-Cookie HTTP header value into a
+     *
      * @param header header
      * @return the decoded {@link Cookie}
      */
-    public static Collection<Cookie> decodeCookie(String header) {
+    public static Cookie[] decodeCookie(String header) {
         final int headerLen = header.length();
 
         if (headerLen == 0) {
-            return Collections.emptySet();
+            return EMPTY_COOKIE;
         }
 
-        List<Cookie> cookies = new ArrayList<>();
+        RecyclableArrayList cookies = RecyclableUtil.newRecyclableList(2);
+        try {
+            int i = 0;
 
-        int i = 0;
-
-        boolean rfc2965Style = false;
-        if (header.regionMatches(true, 0, "$Version", 0, 8)) {
-            // RFC 2965 style cookie, move to after version value
-            i = header.indexOf(';') + 1;
-            rfc2965Style = true;
-        }
-
-        loop: for (;;) {
-
-            // Skip spaces and separators.
-            for (;;) {
-                if (i == headerLen) {
-                    break loop;
-                }
-                char c = header.charAt(i);
-                if (c == '\t' || c == '\n' || c == 0x0b || c == '\f'
-                        || c == '\r' || c == ' ' || c == ',' || c == ';') {
-                    i++;
-                    continue;
-                }
-                break;
+            boolean rfc2965Style = false;
+            if (header.regionMatches(true, 0, "$Version", 0, 8)) {
+                // RFC 2965 style cookie, move to after version value
+                i = header.indexOf(';') + 1;
+                rfc2965Style = true;
             }
 
-            int newNameStart = i;
-            int newNameEnd = i;
-            String value;
+            loop:
+            for (; ; ) {
 
-            if (i == headerLen) {
-                value = null;
-            } else {
-                keyValLoop: for (;;) {
-
-                    char curChar = header.charAt(i);
-                    if (curChar == ';') {
-                        // NAME; (no value till ';')
-                        newNameEnd = i;
-                        value = null;
-                        break keyValLoop;
-                    } else if (curChar == '=') {
-                        // NAME=VALUE
-                        newNameEnd = i;
+                // Skip spaces and separators.
+                for (; ; ) {
+                    if (i == headerLen) {
+                        break loop;
+                    }
+                    char c = header.charAt(i);
+                    if (c == '\t' || c == '\n' || c == 0x0b || c == '\f'
+                            || c == '\r' || c == ' ' || c == ',' || c == ';') {
                         i++;
-                        if (i == headerLen) {
-                            // NAME= (empty value, i.e. nothing after '=')
-                            value = "";
+                        continue;
+                    }
+                    break;
+                }
+
+                int newNameStart = i;
+                int newNameEnd = i;
+                String value;
+
+                if (i == headerLen) {
+                    value = null;
+                } else {
+                    keyValLoop:
+                    for (; ; ) {
+
+                        char curChar = header.charAt(i);
+                        if (curChar == ';') {
+                            // NAME; (no value till ';')
+                            newNameEnd = i;
+                            value = null;
                             break keyValLoop;
-                        }
-
-                        int newValueStart = i;
-                        char c = header.charAt(i);
-                        if (c == '"') {
-                            // NAME="VALUE"
-                            StringBuilder newValueBuf = RecyclableUtil.newStringBuilder();
-
-                            final char q = c;
-                            boolean hadBackslash = false;
+                        } else if (curChar == '=') {
+                            // NAME=VALUE
+                            newNameEnd = i;
                             i++;
-                            for (;;) {
-                                if (i == headerLen) {
-                                    value = newValueBuf.toString();
-                                    break keyValLoop;
-                                }
-                                if (hadBackslash) {
-                                    hadBackslash = false;
-                                    c = header.charAt(i++);
-                                    if (c == '\\' || c == '"') {
-                                        // Escape last backslash.
-                                        newValueBuf.setCharAt(newValueBuf.length() - 1, c);
-                                    } else {
-                                        // Do not escape last backslash.
-                                        newValueBuf.append(c);
-                                    }
-                                } else {
-                                    c = header.charAt(i++);
-                                    if (c == q) {
+                            if (i == headerLen) {
+                                // NAME= (empty value, i.e. nothing after '=')
+                                value = "";
+                                break keyValLoop;
+                            }
+
+                            int newValueStart = i;
+                            char c = header.charAt(i);
+                            if (c == '"') {
+                                // NAME="VALUE"
+                                StringBuilder newValueBuf = RecyclableUtil.newStringBuilder();
+
+                                final char q = c;
+                                boolean hadBackslash = false;
+                                i++;
+                                for (; ; ) {
+                                    if (i == headerLen) {
                                         value = newValueBuf.toString();
                                         break keyValLoop;
                                     }
-                                    newValueBuf.append(c);
-                                    if (c == '\\') {
-                                        hadBackslash = true;
+                                    if (hadBackslash) {
+                                        hadBackslash = false;
+                                        c = header.charAt(i++);
+                                        if (c == '\\' || c == '"') {
+                                            // Escape last backslash.
+                                            newValueBuf.setCharAt(newValueBuf.length() - 1, c);
+                                        } else {
+                                            // Do not escape last backslash.
+                                            newValueBuf.append(c);
+                                        }
+                                    } else {
+                                        c = header.charAt(i++);
+                                        if (c == q) {
+                                            value = newValueBuf.toString();
+                                            break keyValLoop;
+                                        }
+                                        newValueBuf.append(c);
+                                        if (c == '\\') {
+                                            hadBackslash = true;
+                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            // NAME=VALUE;
-                            int semiPos = header.indexOf(';', i);
-                            if (semiPos > 0) {
-                                value = header.substring(newValueStart, semiPos);
-                                i = semiPos;
                             } else {
-                                value = header.substring(newValueStart);
-                                i = headerLen;
+                                // NAME=VALUE;
+                                int semiPos = header.indexOf(';', i);
+                                if (semiPos > 0) {
+                                    value = header.substring(newValueStart, semiPos);
+                                    i = semiPos;
+                                } else {
+                                    value = header.substring(newValueStart);
+                                    i = headerLen;
+                                }
                             }
+                            break keyValLoop;
+                        } else {
+                            i++;
                         }
-                        break keyValLoop;
-                    } else {
-                        i++;
-                    }
 
-                    if (i == headerLen) {
-                        // NAME (no value till the end of string)
-                        newNameEnd = headerLen;
-                        value = null;
-                        break;
+                        if (i == headerLen) {
+                            // NAME (no value till the end of string)
+                            newNameEnd = headerLen;
+                            value = null;
+                            break;
+                        }
+                    }
+                }
+
+                if (!rfc2965Style || (!header.regionMatches(newNameStart, "$Path", 0, "$Path".length()) &&
+                        !header.regionMatches(newNameStart, "$Domain", 0, "$Domain".length()) &&
+                        !header.regionMatches(newNameStart, "$Port", 0, "$Port".length()))) {
+
+                    // skip obsolete RFC2965 fields
+                    String name = header.substring(newNameStart, newNameEnd);
+                    try {
+                        cookies.add(new Cookie(name, value));
+                    } catch (IllegalArgumentException e) {
+                        LoggerFactoryX.getLogger(ServletUtil.class).warn("discard cookie. cause = {}", e.toString());
                     }
                 }
             }
-
-            if (!rfc2965Style || (!header.regionMatches(newNameStart, "$Path", 0, "$Path".length()) &&
-                    !header.regionMatches(newNameStart, "$Domain", 0, "$Domain".length()) &&
-                    !header.regionMatches(newNameStart, "$Port", 0, "$Port".length()))) {
-
-                // skip obsolete RFC2965 fields
-                String name = header.substring(newNameStart, newNameEnd);
-                try{
-                    cookies.add(new Cookie(name, value));
-                }catch (IllegalArgumentException e){
-                    LoggerFactoryX.getLogger(ServletUtil.class).warn("discard cookie. cause = {}",e.toString());
-                }
-            }
+            return cookies.toArray(EMPTY_COOKIE);
+        } finally {
+            cookies.recycle();
         }
-
-        return cookies;
     }
 
     /**
      * unWrapper
+     *
      * @param response response
      * @return ServletHttpServletResponse
      */
-    public static ServletHttpServletResponse unWrapper(ServletResponse response){
-        if(response instanceof ServletResponseWrapper){
+    public static ServletHttpServletResponse unWrapper(ServletResponse response) {
+        if (response instanceof ServletResponseWrapper) {
             return unWrapper(((ServletResponseWrapper) response).getResponse());
         }
-        if(response instanceof ServletHttpServletResponse){
+        if (response instanceof ServletHttpServletResponse) {
             return (ServletHttpServletResponse) response;
         }
         return null;
@@ -327,14 +341,15 @@ public class ServletUtil {
 
     /**
      * unWrapper
+     *
      * @param request request
      * @return ServletHttpServletRequest
      */
-    public static ServletHttpServletRequest unWrapper(ServletRequest request){
-        if(request instanceof ServletRequestWrapper){
+    public static ServletHttpServletRequest unWrapper(ServletRequest request) {
+        if (request instanceof ServletRequestWrapper) {
             return unWrapper(((ServletRequestWrapper) request).getRequest());
         }
-        if(request instanceof ServletHttpServletRequest){
+        if (request instanceof ServletHttpServletRequest) {
             return (ServletHttpServletRequest) request;
         }
         return null;
@@ -351,7 +366,7 @@ public class ServletUtil {
         return len;
     }
 
-    private static void decodeParams(LinkedMultiValueMap<String,String> parameterMap, String s, int from, Charset charset, int paramsLimit,StringBuilder buffer) {
+    private static void decodeParams(LinkedMultiValueMap<String, String> parameterMap, String s, int from, Charset charset, int paramsLimit, StringBuilder buffer) {
         int len = s.length();
         if (from >= len) {
             return;
@@ -374,7 +389,7 @@ public class ServletUtil {
                     break;
                 case '&':
                 case ';':
-                    if (addParam(s, nameStart, valueStart, i, parameterMap, charset,buffer)) {
+                    if (addParam(s, nameStart, valueStart, i, parameterMap, charset, buffer)) {
                         paramsLimit--;
                         if (paramsLimit == 0) {
                             return;
@@ -388,24 +403,24 @@ public class ServletUtil {
                     // continue
             }
         }
-        addParam(s, nameStart, valueStart, i, parameterMap, charset,buffer);
+        addParam(s, nameStart, valueStart, i, parameterMap, charset, buffer);
     }
 
     private static boolean addParam(String s, int nameStart, int valueStart, int valueEnd,
-                                    LinkedMultiValueMap<String,String> parameterMap, Charset charset,StringBuilder buffer) {
+                                    LinkedMultiValueMap<String, String> parameterMap, Charset charset, StringBuilder buffer) {
         if (nameStart >= valueEnd) {
             return false;
         }
         if (valueStart <= nameStart) {
             valueStart = valueEnd + 1;
         }
-        String name = decodeComponent(s, nameStart, valueStart - 1, charset,buffer);
-        String value = decodeComponent(s, valueStart, valueEnd, charset,buffer);
-	    parameterMap.add(name,value);
+        String name = decodeComponent(s, nameStart, valueStart - 1, charset, buffer);
+        String value = decodeComponent(s, valueStart, valueEnd, charset, buffer);
+        parameterMap.add(name, value);
         return true;
     }
 
-    private static String decodeComponent(String s, int from, int toExcluded, Charset charset,StringBuilder strBuf) {
+    private static String decodeComponent(String s, int from, int toExcluded, Charset charset, StringBuilder strBuf) {
         int len = toExcluded - from;
         if (len <= 0) {
             return EMPTY_STRING;

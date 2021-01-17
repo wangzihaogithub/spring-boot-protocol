@@ -396,10 +396,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private void decodeCookie(){
         String value = getHeader(HttpHeaderConstants.COOKIE.toString());
         if (value != null && value.length() > 0) {
-            Collection<Cookie> nettyCookieSet = ServletUtil.decodeCookie(value);
-            if(nettyCookieSet.size() > 0){
-                this.cookies = nettyCookieSet.toArray(new Cookie[0]);
-            }
+            this.cookies = ServletUtil.decodeCookie(value);
         }
         this.decodeCookieFlag = true;
     }

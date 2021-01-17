@@ -23,9 +23,9 @@ public class RecyclableUtil {
         }
     };
 
-    public static <T> List<T> newRecyclableList(int minCapacity) {
+    public static  RecyclableArrayList newRecyclableList(int minCapacity) {
         RecyclableArrayList finishListeners = RecyclableArrayList.newInstance(minCapacity);
-        return (List<T>) finishListeners;
+        return finishListeners;
     }
 
     public static StringBuilder newStringBuilder() {
