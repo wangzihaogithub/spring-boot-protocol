@@ -5,9 +5,9 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
+import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.http.HttpConstants;
 import io.netty.util.CharsetUtil;
-import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletRequestWrapper;
@@ -20,7 +20,6 @@ import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
-import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -32,24 +31,17 @@ import java.util.*;
 public class ServletUtil {
     private static final String EMPTY_STRING = "";
     private static final char SPACE = 0x20;
-    private static final FastThreadLocal<DateFormat> DATE_FORMAT_GMT_LOCAL = new FastThreadLocal<DateFormat>() {
-        private TimeZone timeZone = TimeZone.getTimeZone("GMT");
-        @Override
-        protected DateFormat initialValue() {
-            DateFormat df = new SimpleDateFormat("EEE, dd-MMM-yyyy HH:mm:ss z", Locale.ENGLISH);
-            df.setTimeZone(timeZone);
-            return df;
-        }
-    };
     private static long lastTimestamp = System.currentTimeMillis();
-    private static String nowRFCTime = DATE_FORMAT_GMT_LOCAL.get().format(new Date(lastTimestamp));
+    private static Date lastDate = new Date(lastTimestamp);
+    private static String nowRFCTime = DateFormatter.format(lastDate);
 
     public static String getDateByRfcHttp(){
         long timestamp = System.currentTimeMillis();
         //cache 1/s
-        if(timestamp - lastTimestamp > 1000){
+        if(timestamp - lastTimestamp > 1000L){
             lastTimestamp = timestamp;
-            nowRFCTime = DATE_FORMAT_GMT_LOCAL.get().format(new Date(timestamp));
+            lastDate.setTime(timestamp);
+            nowRFCTime = DateFormatter.format(lastDate);
         }
         return nowRFCTime;
     }
@@ -76,20 +68,25 @@ public class ServletUtil {
     }
 
     public static void decodeByUrl(LinkedMultiValueMap<String,String> parameterMap, String uri, Charset charset){
-        decodeParams(parameterMap,uri, findPathEndIndex(uri), charset, 10000);
+        StringBuilder buffer = RecyclableUtil.newStringBuilder();
+        decodeParams(parameterMap,uri, findPathEndIndex(uri), charset, 10000,buffer);
     }
 
 	public static void decodeByUrl(Map<String,String[]> sourceParameterMap, String uri, Charset charset){
-		LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>();
-		decodeByUrl(parameterMap,uri, charset);
-		for (Map.Entry<String, List<String>> entry : parameterMap.entrySet()) {
-			String[] values = sourceParameterMap.get(entry.getKey());
-			List<String> newValueList = entry.getValue();
-			if(values != null) {
-				Collections.addAll(newValueList, values);
-			}
-			sourceParameterMap.put(entry.getKey(),newValueList.toArray(new String[0]));
-		}
+        LinkedMultiValueMap<String,String> parameterMap = RecyclableUtil.newLinkedMultiValueMap();
+        try {
+            decodeByUrl(parameterMap, uri, charset);
+            for (Map.Entry<String, List<String>> entry : parameterMap.entrySet()) {
+                String[] values = sourceParameterMap.get(entry.getKey());
+                List<String> newValueList = entry.getValue();
+                if (values != null) {
+                    Collections.addAll(newValueList, values);
+                }
+                sourceParameterMap.put(entry.getKey(), newValueList.toArray(new String[0]));
+            }
+        }finally {
+            parameterMap.clear();
+        }
 	}
 
     public static String decodeCharacterEncoding(String contentType) {
@@ -354,7 +351,7 @@ public class ServletUtil {
         return len;
     }
 
-    private static void decodeParams(LinkedMultiValueMap<String,String> parameterMap, String s, int from, Charset charset, int paramsLimit) {
+    private static void decodeParams(LinkedMultiValueMap<String,String> parameterMap, String s, int from, Charset charset, int paramsLimit,StringBuilder buffer) {
         int len = s.length();
         if (from >= len) {
             return;
@@ -377,7 +374,7 @@ public class ServletUtil {
                     break;
                 case '&':
                 case ';':
-                    if (addParam(s, nameStart, valueStart, i, parameterMap, charset)) {
+                    if (addParam(s, nameStart, valueStart, i, parameterMap, charset,buffer)) {
                         paramsLimit--;
                         if (paramsLimit == 0) {
                             return;
@@ -391,24 +388,24 @@ public class ServletUtil {
                     // continue
             }
         }
-        addParam(s, nameStart, valueStart, i, parameterMap, charset);
+        addParam(s, nameStart, valueStart, i, parameterMap, charset,buffer);
     }
 
     private static boolean addParam(String s, int nameStart, int valueStart, int valueEnd,
-                                    LinkedMultiValueMap<String,String> parameterMap, Charset charset) {
+                                    LinkedMultiValueMap<String,String> parameterMap, Charset charset,StringBuilder buffer) {
         if (nameStart >= valueEnd) {
             return false;
         }
         if (valueStart <= nameStart) {
             valueStart = valueEnd + 1;
         }
-        String name = decodeComponent(s, nameStart, valueStart - 1, charset);
-        String value = decodeComponent(s, valueStart, valueEnd, charset);
+        String name = decodeComponent(s, nameStart, valueStart - 1, charset,buffer);
+        String value = decodeComponent(s, valueStart, valueEnd, charset,buffer);
 	    parameterMap.add(name,value);
         return true;
     }
 
-    private static String decodeComponent(String s, int from, int toExcluded, Charset charset) {
+    private static String decodeComponent(String s, int from, int toExcluded, Charset charset,StringBuilder strBuf) {
         int len = toExcluded - from;
         if (len <= 0) {
             return EMPTY_STRING;
@@ -432,7 +429,7 @@ public class ServletUtil {
         ByteBuffer byteBuf = ByteBuffer.allocate(decodedCapacity);
         CharBuffer charBuf = CharBuffer.allocate(decodedCapacity);
 
-        StringBuilder strBuf = new StringBuilder(len);
+        strBuf.setLength(0);
         strBuf.append(s, from, firstEscaped);
 
         for (int i = firstEscaped; i < toExcluded; i++) {
