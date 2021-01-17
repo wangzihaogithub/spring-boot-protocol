@@ -2,8 +2,8 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.ProtocolHandler;
-import com.github.netty.metrics.BytesMetricsChannelHandler;
-import com.github.netty.metrics.MessageMetricsChannelHandler;
+import com.github.netty.core.util.BytesMetricsChannelHandler;
+import com.github.netty.core.util.MessageMetricsChannelHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.logging.LogLevel;

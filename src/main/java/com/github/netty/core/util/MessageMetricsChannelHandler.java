@@ -14,7 +14,7 @@
  * You may elect to redistribute this code under either of these licenses.
  */
 
-package com.github.netty.metrics;
+package com.github.netty.core.util;
 
 import com.github.netty.core.AbstractChannelHandler;
 import io.netty.channel.*;

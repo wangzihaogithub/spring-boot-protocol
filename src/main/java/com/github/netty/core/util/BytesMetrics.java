@@ -14,26 +14,26 @@
  * You may elect to redistribute this code under either of these licenses.
  */
 
-package com.github.netty.metrics;
+package com.github.netty.core.util;
 
-public class MessageMetrics {
+public class BytesMetrics {
 
-    private long m_messagesRead;
-    private long m_messageWrote;
+    private long m_bytesRead;
+    private long m_bytesWrote;
 
-    void incrementRead(long numMessages) {
-        m_messagesRead += numMessages;
+    void incrementRead(long numBytes) {
+        m_bytesRead += numBytes;
     }
 
-    void incrementWrote(long numMessages) {
-        m_messageWrote += numMessages;
+    void incrementWrote(long numBytes) {
+        m_bytesWrote += numBytes;
     }
 
-    public long messagesRead() {
-        return m_messagesRead;
+    public long bytesRead() {
+        return m_bytesRead;
     }
 
-    public long messagesWrote() {
-        return m_messageWrote;
+    public long bytesWrote() {
+        return m_bytesWrote;
     }
 }
