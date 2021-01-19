@@ -336,6 +336,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             PlatformDependent.throwException(e);
         }
 
+        if(postRequestDecoder == null){
+            return;
+        }
         /*
          * There are three types of HttpDataType
          * Attribute, FileUpload, InternalAttribute
