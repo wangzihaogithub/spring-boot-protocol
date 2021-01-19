@@ -41,7 +41,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
      */
     private int maxConnections = 10000;
     /**
-     * if client connect after. how long time no send first packet, trigger event.
+     * The timeout (milliseconds) of the first client package.
+     * When there is a new link Access, if the packet is confiscated in time,
+     * the server will turn off the link or perform timeout processing.
      */
     private long firstClientPacketReadTimeoutMs = 1000;
 

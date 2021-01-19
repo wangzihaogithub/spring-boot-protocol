@@ -35,7 +35,7 @@ public class NettyProperties implements Serializable {
      */
     private boolean enableTcpPackageLog = false;
     /**
-     * 服务端 - 第一个客户端包的超时时间 (毫秒)
+     * 服务端 - 第一个客户端包的超时时间 (毫秒). 当有新链接接入后, 如果在时间内没收到数据包的话, 服务端会关闭链接或进行超时处理.
      */
     private long firstClientPacketReadTimeoutMs = 800;
     /**
