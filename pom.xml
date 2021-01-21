@@ -355,14 +355,16 @@
             <id>ossrh</id>
             <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
         </repository>
-<!--        <snapshotRepository>-->
-<!--            <id>ig</id>-->
-<!--            <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty/</url>-->
-<!--        </snapshotRepository>-->
 <!--        <repository>-->
-<!--            <id>ig</id>-->
-<!--            <url>http://59.151.109.88:8081/nexus/content/repositories/thirdparty</url>-->
+<!--            <id>lechun-releases</id>-->
+<!--            <name>releases repository</name>-->
+<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>-->
 <!--        </repository>-->
+<!--        <snapshotRepository>-->
+<!--            <id>lechun-snapshots</id>-->
+<!--            <name>snapshots repository</name>-->
+<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
     </distributionManagement>
 
     <profiles>
