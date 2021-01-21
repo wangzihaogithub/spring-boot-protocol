@@ -99,7 +99,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 return;
             }
 
-            receiveContentLength.addAndGet(readableBytes);
 
             ReadListener readListener = this.readListener;
             InterfaceHttpPostRequestDecoder requestDecoder = this.requestDecoderSupplier.get();
@@ -137,6 +136,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 source.writerIndex(source.capacity());
                 release = false;
             }
+            receiveContentLength.addAndGet(readableBytes);
         }finally {
             if(release) {
                 RecyclableUtil.release(byteBuf);

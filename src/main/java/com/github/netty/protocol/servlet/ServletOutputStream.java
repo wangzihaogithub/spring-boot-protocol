@@ -350,6 +350,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 handler.discard(RESET_BUFFER_EXCEPTION);
             }
         }
+        writeBytes.set(0);
     }
 
     /**

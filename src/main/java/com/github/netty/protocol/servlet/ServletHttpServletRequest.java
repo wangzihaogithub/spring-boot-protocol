@@ -929,6 +929,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     && getContentLength() > 0) {
                 decodeBody();
             }
+        }else {
+            try {
+                getInputStream0().awaitDataIfNeed();
+            } catch (IOException e) {
+                PlatformDependent.throwException(e);
+            }
         }
         return unmodifiableParameterMap;
     }
@@ -1264,6 +1270,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 setAttribute(RequestDispatcher.ERROR_EXCEPTION,illegalStateException);
                 throw illegalStateException;
             }
+        }else {
+            getInputStream0().awaitDataIfNeed();
         }
         return fileUploadList;
     }

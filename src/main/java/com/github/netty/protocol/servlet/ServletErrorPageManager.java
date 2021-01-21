@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Error page management
+ *
  * @author wangzihao
  */
 public class ServletErrorPageManager {
@@ -77,14 +78,15 @@ public class ServletErrorPageManager {
 
     /**
      * Handle error page
-     * @param errorPage errorPage
-     * @param throwable throwable
-     * @param httpServletRequest httpServletRequest
+     *
+     * @param errorPage           errorPage
+     * @param throwable           throwable
+     * @param httpServletRequest  httpServletRequest
      * @param httpServletResponse httpServletResponse
      */
-    public void handleErrorPage(ServletErrorPage errorPage, Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse){
-        if(errorPage == null){
-            if(throwable != null){
+    public void handleErrorPage(ServletErrorPage errorPage, Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
+        if (errorPage == null) {
+            if (throwable != null) {
                 logger.error("a unknown error. No error page handler", throwable.toString(), throwable);
             }
             return;
@@ -97,11 +99,11 @@ public class ServletErrorPageManager {
         if (errorPagePath == null) {
             return;
         }
-        ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath,DispatcherType.ERROR);
+        ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath, DispatcherType.ERROR);
         try {
             response.resetBuffer();
-        }catch (IllegalStateException e){
-            logger.warn("stream close. not execute handleErrorPage. {}", Objects.toString(throwable,""),throwable);
+        } catch (IllegalStateException e) {
+            logger.warn("stream close. not execute handleErrorPage. {}", Objects.toString(throwable, ""), throwable);
             return;
         }
         if (dispatcher == null) {
@@ -109,18 +111,17 @@ public class ServletErrorPageManager {
                 response.getWriter().write("not found ".concat(errorPagePath));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (IOException e) {
-                logger.error("handleErrorPage() sendError. error={}",e.toString(),e);
+                logger.error("handleErrorPage() sendError. error={}", e.toString(), e);
             }
             return;
         }
-        dispatcher.clearFilter();
         try {
-            if(throwable != null) {
+            if (throwable != null) {
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION, throwable);
                 httpServletRequest.setAttribute(RequestDispatcher.ERROR_EXCEPTION_TYPE, throwable.getClass());
-                if(isShowErrorMessage()) {
+                if (isShowErrorMessage()) {
                     String localizedMessage = throwable.getLocalizedMessage();
-                    if(localizedMessage == null){
+                    if (localizedMessage == null) {
                         StringWriter writer = new StringWriter();
                         throwable.printStackTrace(new PrintWriter(writer));
                         localizedMessage = writer.toString();
@@ -128,22 +129,22 @@ public class ServletErrorPageManager {
                     httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, localizedMessage);
                 }
             }
-            httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME,dispatcher.getName());
+            httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME, dispatcher.getName());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, response.getStatus());
             request.setDispatcherType(DispatcherType.ERROR);
 
             if (httpServletResponse.isCommitted()) {
-                dispatcher.include(request, httpServletResponse);
+                dispatcher.include(request, httpServletResponse, DispatcherType.ERROR);
             } else {
                 response.resetHeader();
                 response.resetBuffer(true);
-                dispatcher.forward(request, httpServletResponse);
+                dispatcher.forward(request, httpServletResponse, DispatcherType.ERROR);
 
                 response.getOutputStream().setSuspendFlag(false);
             }
         } catch (Throwable e) {
-            logger.error("on handleErrorPage error. url="+request.getRequestURL()+", case="+e.getMessage(),e);
+            logger.error("on handleErrorPage error. url=" + request.getRequestURL() + ", case=" + e.getMessage(), e);
             if (e instanceof ThreadDeath) {
                 throw (ThreadDeath) e;
             }
@@ -156,15 +157,15 @@ public class ServletErrorPageManager {
         }
     }
 
-    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage){
+    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage) {
         String path = errorPage.getPath();
-        if(path == null || path.isEmpty() ){
+        if (path == null || path.isEmpty()) {
             return null;
         }
-        if(!path.startsWith("/")){
-            path =  "/".concat(path);
+        if (!path.startsWith("/")) {
+            path = "/".concat(path);
         }
         String contextPath = request.getContextPath();
-        return contextPath == null || contextPath.isEmpty()? path : contextPath.concat(path);
+        return contextPath == null || contextPath.isEmpty() ? path : contextPath.concat(path);
     }
 }

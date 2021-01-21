@@ -49,6 +49,8 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
      */
     private final Object[] specialAttributes = new Object[specials.length];
 
+    private DispatcherType dispatcherType;
+
     public ServletHttpForwardRequest(HttpServletRequest source) {
         super(source);
     }
@@ -72,9 +74,13 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper{
         return servletContext.getRequestDispatcher(path,getDispatcherType());
     }
 
+    public void setDispatcherType(DispatcherType dispatcherType) {
+        this.dispatcherType = dispatcherType;
+    }
+
     @Override
     public DispatcherType getDispatcherType() {
-        return DispatcherType.FORWARD;
+        return dispatcherType;
     }
 
     @Override

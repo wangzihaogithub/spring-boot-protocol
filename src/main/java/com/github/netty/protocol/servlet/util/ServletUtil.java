@@ -15,6 +15,7 @@ import javax.servlet.ServletRequestWrapper;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -444,6 +445,10 @@ public class ServletUtil {
         ByteBuffer byteBuf = ByteBuffer.allocate(decodedCapacity);
         CharBuffer charBuf = CharBuffer.allocate(decodedCapacity);
 
+        // jdk9 bug. java.lang.NoSuchMethodError: java.nio.ByteBuffer.clear()Ljava/nio/ByteBuffer;
+        Buffer byteBufHandler = Buffer.class.cast(byteBuf);
+        Buffer charBufHandler = Buffer.class.cast(charBuf);
+
         strBuf.setLength(0);
         strBuf.append(s, from, firstEscaped);
 
@@ -454,7 +459,7 @@ public class ServletUtil {
                 continue;
             }
 
-            byteBuf.clear();
+            byteBufHandler.clear();
             do {
                 if (i + 3 > toExcluded) {
                     throw new IllegalArgumentException("unterminated escape sequence at index " + i + " of: " + s);
@@ -465,8 +470,8 @@ public class ServletUtil {
             } while (i < toExcluded && s.charAt(i) == '%');
             i--;
 
-            byteBuf.flip();
-            charBuf.clear();
+            byteBufHandler.flip();
+            charBufHandler.clear();
             CoderResult result = decoder.reset().decode(byteBuf, charBuf, true);
             try {
                 if (!result.isUnderflow()) {
@@ -479,7 +484,8 @@ public class ServletUtil {
             } catch (CharacterCodingException ex) {
                 throw new IllegalStateException(ex);
             }
-            strBuf.append(charBuf.flip());
+            charBufHandler.flip();
+            strBuf.append(charBuf);
         }
         return strBuf.toString();
     }

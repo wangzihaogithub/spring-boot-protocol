@@ -52,6 +52,10 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      */
     @Override
     public void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException {
+        forward(request,response,DispatcherType.FORWARD);
+    }
+
+    void forward(ServletRequest request, ServletResponse response,DispatcherType dispatcherType) throws ServletException, IOException {
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
         if(httpResponse == null){
             throw new UnsupportedOperationException("Not found Original Response");
@@ -89,6 +93,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                 forwardRequest.setAttribute(FORWARD_SERVLET_PATH, httpRequest.getServletPath());
             }
         }
+        forwardRequest.setDispatcherType(dispatcherType);
         dispatch(forwardRequest,forwardResponse);
     }
 
@@ -102,6 +107,10 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      */
     @Override
     public void include(ServletRequest request, ServletResponse response) throws ServletException, IOException {
+        include(request,response,DispatcherType.INCLUDE);
+    }
+
+    void include(ServletRequest request, ServletResponse response, DispatcherType dispatcherType) throws ServletException, IOException {
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
         if(httpResponse == null){
             throw new UnsupportedOperationException("Not found Original Response");
@@ -132,9 +141,9 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                 includeRequest.setAttribute(INCLUDE_SERVLET_PATH, includeRequest.getServletPath());
             }
         }
+        includeRequest.setDispatcherType(dispatcherType);
         dispatch(includeRequest,includeResponse);
     }
-
     /**
      * dispatch
      * @param request request
