@@ -2,7 +2,6 @@ package com.github.netty.protocol.mysql.server;
 
 import com.github.netty.protocol.mysql.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.nio.charset.Charset;
@@ -39,25 +38,28 @@ public class ServerResultsetDecoder extends AbstractPacketDecoder implements Ser
 		MysqlCharacterSet serverCharset = session.getServerCharset();
 
 		switch (state) {
-            case ERROR:
-//                throw new IllegalStateException("Received a packet while in an error state");
-			case COMPLETE:
-//				throw new IllegalStateException("Received an unexpected packet after decoding a result set");
 			case COLUMN_COUNT:
 				handleColumnCount(sequenceId, packet, out, capabilities, serverCharset);
 				break;
 			case COLUMN_DEFINITION:
-				handleColumngDefinition(sequenceId, packet, out, capabilities, serverCharset);
+				handleColumnDefinition(sequenceId, packet, out, capabilities, serverCharset);
 				break;
 			case ROW:
 				handleRow(sequenceId, packet, out, capabilities, serverCharset);
 				break;
+			case ERROR:
+//                throw new IllegalStateException("Received a packet while in an error state");
+			case COMPLETE:
+//				throw new IllegalStateException("Received an unexpected packet after decoding a result set");
+			default:{
+				break;
+			}
 		}
 	}
 
 	private void handleColumnCount(int sequenceId, ByteBuf packet, List<Object> out,
                                    Set<CapabilityFlags> capabilities, MysqlCharacterSet serverCharset) {
-		int header = packet.readByte() & 0xff;
+		int header = packet.readUnsignedByte();
 		if (header == RESPONSE_ERROR) {
 			state = State.ERROR;
 			out.add(decodeErrorResponse(sequenceId, packet, serverCharset));
@@ -79,8 +81,8 @@ public class ServerResultsetDecoder extends AbstractPacketDecoder implements Ser
 		return new ServerColumnCountPacket(sequenceId, currentResultSetFieldCount);
 	}
 
-	private void handleColumngDefinition(int sequenceId, ByteBuf packet, List<Object> out,
-                                         Set<CapabilityFlags> capabilities, MysqlCharacterSet serverCharset) {
+	private void handleColumnDefinition(int sequenceId, ByteBuf packet, List<Object> out,
+										Set<CapabilityFlags> capabilities, MysqlCharacterSet serverCharset) {
 		int header = packet.readUnsignedByte();
 		if (header == RESPONSE_EOF) {
 			state = State.ROW;

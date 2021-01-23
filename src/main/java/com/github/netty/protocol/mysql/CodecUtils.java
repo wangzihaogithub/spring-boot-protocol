@@ -26,71 +26,44 @@ import java.util.EnumSet;
 import java.util.Set;
 
 public final class CodecUtils {
-
-	static final int NULL_VALUE = 0xfb;
-	static final int SHORT_VALUE = 0xfc;
-	static final int MEDIUM_VALUE = 0xfd;
-	static final int LONG_VALUE = 0xfe;
-
-	private CodecUtils() {
-		// Non-instantiable
-	}
+	private static final byte TERMINAL = 0x00;
+	private static final int NULL_VALUE = 0xFB;
+	private static final int SHORT_VALUE = 0xFC;
+	private static final int MEDIUM_VALUE = 0xFD;
+	private static final int LONG_VALUE = 0xFE;
 
 	public static long readLengthEncodedInteger(ByteBuf buf) {
 		return readLengthEncodedInteger(buf, buf.readUnsignedByte());
 	}
 
 	// https://dev.mysql.com/doc/internals/en/integer.html
-	public static long readLengthEncodedInteger(ByteBuf buf, int firstByte) {
-		firstByte = firstByte & 0xff;
-		if (firstByte < NULL_VALUE) {
-			return firstByte;
+	public static long readLengthEncodedInteger(ByteBuf buffer,int firstUnsignedByte) {
+		switch (firstUnsignedByte) {
+			case NULL_VALUE:
+				return -1;
+			case SHORT_VALUE:
+				return buffer.readUnsignedShortLE();
+			case MEDIUM_VALUE:
+				return buffer.readUnsignedMediumLE();
+			case LONG_VALUE:
+				return buffer.readLongLE();
+			default:
+				return firstUnsignedByte;
 		}
-		if (firstByte == NULL_VALUE) {
-			return -1;
-		}
-		if (firstByte == SHORT_VALUE) {
-			return buf.readUnsignedShortLE();
-		}
-		if (firstByte == MEDIUM_VALUE) {
-			return buf.readUnsignedMediumLE();
-		}
-		if (firstByte == LONG_VALUE) {
-			long length = buf.readLongLE();
-			if (length < 0) {
-				throw new CodecException("Received a length value too large to handle: " + Long.toHexString(length));
-			}
-			return length;
-		}
-		throw new CodecException("Received an invalid length value " + firstByte);
 	}
 
-	//    static String readLengthEncodedString(ByteBuf buf, Charset charset) {
-//        return readLengthEncodedString(buf, buf.readByte(), charset);
-//    }
-//
-//    static String readLengthEncodedString(ByteBuf buf, int firstByte, Charset charset) {
-//        long length = readLengthEncodedInteger(buf, firstByte);
-//        return readFixedLengthString(buf, (int) length, charset);
-//    }
-//
-	public static AsciiString readNullTerminatedString(ByteBuf buf) {
-		int len = findNullTermLen(buf);
-		if (len < 0) {
-			return null;
-		}
-		AsciiString s = readFixedLengthString(buf, len);
-		buf.readByte();
-		return s;
+	public static AsciiString readNullTerminatedString(ByteBuf buffer) {
+		int len = buffer.bytesBefore(TERMINAL);
+		byte[] bytes = new byte[len];
+		buffer.readBytes(bytes);
+		buffer.readByte();
+		return new AsciiString(bytes,false);
 	}
 
-	public static String readNullTerminatedString(ByteBuf buf, Charset charset) {
-		int len = findNullTermLen(buf);
-		if (len < 0) {
-			return null;
-		}
-		String s = readFixedLengthString(buf, len, charset);
-		buf.readByte();
+	public static String readNullTerminatedString(ByteBuf buffer, Charset charset) {
+		int len = buffer.bytesBefore(TERMINAL);
+		String s = buffer.readCharSequence(len, charset).toString();
+		buffer.readByte();
 		return s;
 	}
 
@@ -100,12 +73,6 @@ public final class CodecUtils {
 			return -1;
 		}
 		return termIdx - buf.readerIndex();
-	}
-
-	public static AsciiString readFixedLengthString(ByteBuf buf, int len) {
-		byte[] bytes = new byte[len];
-		buf.readBytes(bytes);
-		return new AsciiString(bytes);
 	}
 
 	public static String readFixedLengthString(ByteBuf buf, int length, Charset charset) {
@@ -174,10 +141,10 @@ public final class CodecUtils {
 			throw new IllegalArgumentException("Cannot encode a negative length: " + n);
 		} else if (n < NULL_VALUE) {
 			buf.writeByte(n.intValue());
-		} else if (n < 0xffff) {
+		} else if (n < 0xFFFF) {
 			buf.writeByte(SHORT_VALUE);
 			buf.writeShortLE(n.intValue());
-		} else if (n < 0xffffff) {
+		} else if (n < 0xFFFFFF) {
 			buf.writeByte(MEDIUM_VALUE);
 			buf.writeMediumLE(n.intValue());
 		} else {

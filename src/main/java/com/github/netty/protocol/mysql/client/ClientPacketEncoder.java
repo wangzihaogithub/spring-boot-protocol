@@ -21,6 +21,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -81,10 +83,10 @@ public class ClientPacketEncoder extends AbstractPacketEncoder<ClientPacket> {
 		}
 		if (capabilities.contains(CapabilityFlags.CLIENT_CONNECT_ATTRS)) {
 			CodecUtils.writeLengthEncodedInt(buf, (long) handshakeResponse.getAttributes().size());
-			handshakeResponse.getAttributes().forEach((key, value) -> {
-				CodecUtils.writeLengthEncodedString(buf, key, charset);
-				CodecUtils.writeLengthEncodedString(buf, value, charset);
-			});
+			for(Map.Entry<String,String> entry : handshakeResponse.getAttributes().entrySet()){
+                CodecUtils.writeLengthEncodedString(buf, entry.getKey(), charset);
+                CodecUtils.writeLengthEncodedString(buf, entry.getValue(), charset);
+            }
 		}
 	}
 

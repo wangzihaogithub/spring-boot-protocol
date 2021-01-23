@@ -34,4 +34,9 @@ public class ClientCommandPacket extends AbstractMySqlPacket implements ClientPa
 	public Command getCommand() {
 		return command;
 	}
+
+	@Override
+	public String toString() {
+		return super.toString()+","+command.name();
+	}
 }

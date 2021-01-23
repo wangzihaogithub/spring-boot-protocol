@@ -12,6 +12,7 @@ import java.util.List;
 
 /**
  *
+ * @author Administrator
  */
 public class ClientConnectionDecoder extends AbstractPacketDecoder implements ClientDecoder {
 	private Session session;
@@ -33,7 +34,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 		response.sequenceId(sequenceId);
 		response.addCapabilities(clientCapabilities)
 				.maxPacketSize((int)packet.readUnsignedIntLE());
-		MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readByte());
+		MysqlCharacterSet characterSet = MysqlCharacterSet.findById(packet.readUnsignedByte());
 
 		response.characterSet(characterSet);
 		packet.skipBytes(23);
@@ -64,7 +65,9 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 
 			if (capabilities.contains(CapabilityFlags.CLIENT_CONNECT_ATTRS)) {
 				long keyValueLen = CodecUtils.readLengthEncodedInteger(packet);
-				for (int i = 0; i < keyValueLen; i++) {
+				int readIndex = packet.readerIndex();
+				long endIndex = readIndex + keyValueLen;
+				while (packet.readerIndex() < endIndex) {
 					response.addAttribute(
 							CodecUtils.readLengthEncodedString(packet, StandardCharsets.UTF_8),
 							CodecUtils.readLengthEncodedString(packet, StandardCharsets.UTF_8));

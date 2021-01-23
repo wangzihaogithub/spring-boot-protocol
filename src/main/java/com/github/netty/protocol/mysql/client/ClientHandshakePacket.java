@@ -103,9 +103,10 @@ public class ClientHandshakePacket extends DefaultByteBufHolder implements Clien
 	public int getSequenceId() {
 		return sequenceId;
 	}
+
 	@Override
 	public String toString() {
-		return getClass().getSimpleName();
+		return getClass().getSimpleName()+","+database+","+username+","+attributes;
 	}
 
 	public static class Builder extends AbstractAuthPluginDataBuilder<Builder> {

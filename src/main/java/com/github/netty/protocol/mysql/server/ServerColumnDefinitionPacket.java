@@ -54,6 +54,15 @@ public class ServerColumnDefinitionPacket extends AbstractMySqlPacket implements
 		this.decimals = builder.decimals;
 	}
 
+	@Override
+	public String toString() {
+		if(table.isEmpty()) {
+			return super.toString() + "," + name;
+		}else {
+			return super.toString() + "," + table + "." + name;
+		}
+	}
+
 	public static Builder builder() {
 		return new Builder();
 	}
@@ -111,7 +120,7 @@ public class ServerColumnDefinitionPacket extends AbstractMySqlPacket implements
 		private String orgTable;
 		private String name;
 		private String orgName;
-		private MysqlCharacterSet characterSet = MysqlCharacterSet.UTF8_GENERAL_CI;
+		private MysqlCharacterSet characterSet = MysqlCharacterSet.DEFAULT;
 		private long columnLength;
 		private ColumnType type;
 		private int decimals;

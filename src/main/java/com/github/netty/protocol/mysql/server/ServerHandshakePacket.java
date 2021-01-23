@@ -123,10 +123,12 @@ public class ServerHandshakePacket extends DefaultByteBufHolder implements Serve
 				Objects.equals(serverStatus, handshake.serverStatus) &&
 				Objects.equals(authPluginName, handshake.authPluginName);
 	}
+
 	@Override
 	public String toString() {
-		return getClass().getSimpleName();
+		return getClass().getSimpleName()+","+serverVersion+","+serverStatus;
 	}
+
 	@Override
 	public int hashCode() {
 		return Objects.hash(super.hashCode(), protocolVersion, serverVersion, connectionId, capabilities, characterSet, serverStatus, authPluginName);
