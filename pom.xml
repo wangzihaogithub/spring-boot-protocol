@@ -347,24 +347,24 @@
     </build>
 
     <distributionManagement>
-<!--        <snapshotRepository>-->
-<!--            <id>ossrh</id>-->
-<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
-<!--        </snapshotRepository>-->
-<!--        <repository>-->
-<!--            <id>ossrh</id>-->
-<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
-<!--        </repository>-->
-        <repository>
-            <id>lechun-releases</id>
-            <name>releases repository</name>
-            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>
-        </repository>
         <snapshotRepository>
-            <id>lechun-snapshots</id>
-            <name>snapshots repository</name>
-            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+<!--        <repository>-->
+<!--            <id>lechun-releases</id>-->
+<!--            <name>releases repository</name>-->
+<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>-->
+<!--        </repository>-->
+<!--        <snapshotRepository>-->
+<!--            <id>lechun-snapshots</id>-->
+<!--            <name>snapshots repository</name>-->
+<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
     </distributionManagement>
 
     <profiles>
@@ -450,16 +450,14 @@
                 </pluginManagement>
             </build>
             <distributionManagement>
-                <repository>
-                    <id>lechun-releases</id>
-                    <name>releases repository</name>
-                    <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>
-                </repository>
                 <snapshotRepository>
-                    <id>lechun-snapshots</id>
-                    <name>snapshots repository</name>
-                    <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>
+                    <id>ossrh</id>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
                 </snapshotRepository>
+                <repository>
+                    <id>ossrh</id>
+                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                </repository>
             </distributionManagement>
         </profile>
     </profiles>
