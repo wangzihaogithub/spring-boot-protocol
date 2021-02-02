@@ -4,7 +4,7 @@
 
     <groupId>com.github.wangzihaogithub</groupId>
     <artifactId>spring-boot-protocol</artifactId>
-    <version>2.1.4</version>
+    <version>2.1.5</version>
     <packaging>jar</packaging>
 
     <name>Spring Boot Protocol</name>
@@ -47,7 +47,7 @@
         <connection>scm:git:https://github.com/wangzihaogithub/spring-boot-protocol.git</connection>
         <developerConnection>scm:git:git@github.com:wangzihaogithub/spring-boot-protocol.git</developerConnection>
         <url>git@github.com:wangzihaogithub/spring-boot-protocol.git</url>
-        <tag>v2.1.4</tag>
+        <tag>v2.1.5</tag>
     </scm>
 
     <!-- 开发者信息 -->
@@ -347,24 +347,24 @@
     </build>
 
     <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-<!--        <repository>-->
-<!--            <id>lechun-releases</id>-->
-<!--            <name>releases repository</name>-->
-<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>-->
-<!--        </repository>-->
 <!--        <snapshotRepository>-->
-<!--            <id>lechun-snapshots</id>-->
-<!--            <name>snapshots repository</name>-->
-<!--            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
 <!--        </snapshotRepository>-->
+<!--        <repository>-->
+<!--            <id>ossrh</id>-->
+<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>-->
+<!--        </repository>-->
+        <repository>
+            <id>lechun-releases</id>
+            <name>releases repository</name>
+            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>lechun-snapshots</id>
+            <name>snapshots repository</name>
+            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>
+        </snapshotRepository>
     </distributionManagement>
 
     <profiles>
@@ -450,14 +450,16 @@
                 </pluginManagement>
             </build>
             <distributionManagement>
-                <snapshotRepository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-                </snapshotRepository>
                 <repository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                    <id>lechun-releases</id>
+                    <name>releases repository</name>
+                    <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>
                 </repository>
+                <snapshotRepository>
+                    <id>lechun-snapshots</id>
+                    <name>snapshots repository</name>
+                    <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>
+                </snapshotRepository>
             </distributionManagement>
         </profile>
     </profiles>

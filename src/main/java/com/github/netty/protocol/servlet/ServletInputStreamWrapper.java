@@ -95,7 +95,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         try {
             if (contentLength == -1 && readableBytes > 0) {
                 LOGGER.warn("not exist contentLength, but receive message。 {}/bytes, message = '{}'",
-                        readableBytes, byteBuf.toString(byteBuf.readerIndex(), Math.min(readableBytes, 255), Charset.defaultCharset()));
+                        readableBytes, byteBuf.toString(byteBuf.readerIndex(), Math.min(readableBytes, 2048), Charset.forName("UTF-8")));
                 return;
             }
 
