@@ -1,11 +1,11 @@
 package com.github.netty.protocol.servlet.http2;
 
+import com.github.netty.core.util.LoggerFactoryX;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.internal.PlatformDependent;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
 import java.io.Closeable;
@@ -95,7 +95,7 @@ public class NettyHttp2ClientPool extends ConcurrentHashMap<String, List<NettyHt
                 client.close().addListener(new GenericFutureListener<Future<? super Long>>() {
                     @Override
                     public void operationComplete(Future<? super Long> future) throws Exception {
-                        LoggerFactory.getLogger(NettyHttp2ClientPool.class)
+                        LoggerFactoryX.getLogger(NettyHttp2ClientPool.class)
                                 .info("http2 client close = {}", client.getRemoteAddress());
                     }
                 });

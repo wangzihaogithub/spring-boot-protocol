@@ -14,6 +14,8 @@
  */
 package com.github.netty.protocol.servlet.http2;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -32,10 +34,9 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.*;
 import io.netty.util.internal.PlatformDependent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLProtocolException;
 import java.io.Closeable;
 import java.io.Flushable;
 import java.net.*;
@@ -46,13 +47,14 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 /**
  * 一个客户端维护一个http长连接
  *
  * <p>
  * An HTTP2 client that allows you to send HTTP2 frames to a server using HTTP1-style approaches
- * (via {@link io.netty.handler.codec.http2.InboundHttp2ToHttpAdapter}). Inbound and outbound
+ * (via {@link InboundHttp2ToHttpAdapter}). Inbound and outbound
  * frames are logged.
  * When run from the command-line, sends a single HEADERS frame to the server and gets back
  * a "Hello World" response.
@@ -90,7 +92,7 @@ public class NettyHttp2Client {
     public static int WRITE_TIMEOUT_SCHEDULE_DELAY = 30;
     public static int READ_TIMEOUT_SCHEDULE_DELAY = 30;
 
-    private static final Logger logger = LoggerFactory.getLogger(NettyHttp2Client.class);
+    private static final LoggerX logger = LoggerFactoryX.getLogger(NettyHttp2Client.class);
     private final AtomicInteger streamIdIncr = new AtomicInteger(3);
     private final Queue<H2Response> pendingWriteQueue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
     private final AtomicBoolean connectIng = new AtomicBoolean(false);
@@ -140,6 +142,9 @@ public class NettyHttp2Client {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
             H2Response h2Response = http2Client.write(request);
+            h2Response.addListener(future -> {
+
+            });
         }
 
         Promise<List<H2Response>> flush = http2Client.flush();
@@ -793,9 +798,15 @@ public class NettyHttp2Client {
         private SslContext newSslContext(HttpScheme scheme) throws SSLException {
             SslContext sslCtx;
             if (HttpScheme.HTTPS == scheme) {
-                SslProvider provider = SslProvider.isAlpnSupported(SslProvider.OPENSSL) ? SslProvider.OPENSSL : SslProvider.JDK;
+                Optional<SslProvider> sslProvider = Stream.of(SslProvider.values()).filter(SslProvider::isAlpnSupported).findAny();
+                if (!sslProvider.isPresent()) {
+                    throw new SSLProtocolException("ALPN unsupported. Is your classpath configured correctly?"
+                            + " For Conscrypt, add the appropriate Conscrypt JAR to classpath and set the security provider."
+                            + " For Jetty-ALPN, see "
+                            + "http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html#alpn-starting");
+                }
                 sslCtx = SslContextBuilder.forClient()
-                        .sslProvider(provider)
+                        .sslProvider(sslProvider.get())
                         /* NOTE: the cipher filter may not include all ciphers required by the HTTP/2 specification.
                          * Please refer to the HTTP/2 specification for cipher requirements. */
                         .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
@@ -995,17 +1006,17 @@ public class NettyHttp2Client {
     }
 
     /**
-     * Process {@link io.netty.handler.codec.http.FullHttpResponse} translated from HTTP/2 frames
+     * Process {@link FullHttpResponse} translated from HTTP/2 frames
      */
     public static class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
-        private static Logger logger = LoggerFactory.getLogger(HttpResponseHandler.class);
+        private static LoggerX logger = LoggerFactoryX.getLogger(HttpResponseHandler.class);
 
         // Use a concurrent map because we add and iterate from the main thread (just for the purposes of the example),
         // but Netty also does a get on the map when messages are received in a EventLoop thread.
         private final Map<Integer, H2Response> streamIdPromiseMap = new ConcurrentHashMap<>(32);
 
         /**
-         * Create an association between an anticipated response stream id and a {@link io.netty.channel.ChannelPromise}
+         * Create an association between an anticipated response stream id and a {@link ChannelPromise}
          *
          * @param streamId The stream for which a response is expected
          * @param promise  The promise object that will be used to wait/notify events
