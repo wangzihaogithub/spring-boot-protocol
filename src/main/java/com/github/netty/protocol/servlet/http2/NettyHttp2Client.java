@@ -103,7 +103,7 @@ public class NettyHttp2Client {
     private int connectCount = 0;
     private int connectTimeout = 5000;
     private int requestTimeout = 5000;
-    private int maxPendingSize = 1000;
+    private int maxPendingSize = 5000;
     private int timeoutCheckScheduleInterval = 30;
     private long beginConnectTimestamp;
     private long endConnectTimestamp;
@@ -136,9 +136,10 @@ public class NettyHttp2Client {
 
     public static void main(String[] args) throws Exception {
         NettyHttp2Client http2Client = new NettyHttp2Client("https://maimai.cn")
-                .logger(LogLevel.INFO);
+                .logger(LogLevel.INFO)
+                .awaitConnectIfNoActive();
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 550000; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
             H2Response h2Response = http2Client.write(request);
@@ -862,7 +863,7 @@ public class NettyHttp2Client {
                 Optional<SslProvider> sslProvider = Stream.of(SslProvider.values()).filter(SslProvider::isAlpnSupported).findAny();
                 if (!sslProvider.isPresent()) {
                     throw new SSLProtocolException(
-                            "Not found SslProvider. place add maven dependency or update jdk version >= 9 \n" +
+                            "Not found SslProvider. place add maven dependency\n" +
                                     "        <dependency>\n" +
                                     "            <groupId>io.netty</groupId>\n" +
                                     "            <artifactId>netty-tcnative-boringssl-static</artifactId>\n" +
