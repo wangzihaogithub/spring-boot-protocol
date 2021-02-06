@@ -3,6 +3,7 @@ package com.github.netty.http2;
 import com.github.netty.protocol.servlet.http2.NettyHttp2Client;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.logging.LogLevel;
@@ -22,12 +23,13 @@ public class Http2Tests {
     @Test
     public void test() throws IOException, ExecutionException, InterruptedException {
         NettyHttp2Client http2Client = new NettyHttp2Client("https://maimai.cn")
-                .logger(LogLevel.INFO);
+                .logger(LogLevel.INFO)
+                .maxPendingSize(550000);
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 550000; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
-            http2Client.write(request);
+            http2Client.write(request).onSuccess(FullHttpResponse::release);
         }
 
         List<NettyHttp2Client.H2Response> httpPromises = http2Client.flush().get();

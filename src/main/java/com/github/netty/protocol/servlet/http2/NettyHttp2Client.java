@@ -14,8 +14,6 @@
  */
 package com.github.netty.protocol.servlet.http2;
 
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
@@ -34,6 +32,8 @@ import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
 import io.netty.util.concurrent.*;
 import io.netty.util.internal.PlatformDependent;
+import io.netty.util.internal.logging.InternalLogger;
+import io.netty.util.internal.logging.InternalLoggerFactory;
 
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLProtocolException;
@@ -90,7 +90,7 @@ import java.util.stream.Stream;
  * @see Http2Flags (这个状态位由服务端返回, 告诉客户端, 是否结束header, 是否结束body)
  */
 public class NettyHttp2Client {
-    private static final LoggerX logger = LoggerFactoryX.getLogger(NettyHttp2Client.class);
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(NettyHttp2Client.class);
     private final AtomicInteger streamIdIncr = new AtomicInteger(3);
     private final Queue<H2Response> pendingWriteQueue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
     private final AtomicBoolean connectIng = new AtomicBoolean(false);
@@ -139,18 +139,13 @@ public class NettyHttp2Client {
                 .logger(LogLevel.INFO)
                 .awaitConnectIfNoActive();
 
-        for (int i = 0; i < 550000; i++) {
+        for (int i = 0; i < 50000; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
-            H2Response h2Response = http2Client.write(request);
-            h2Response.addListener(future -> {
-
-            });
+            http2Client.write(request).onSuccess(FullHttpResponse::release);
         }
 
-        Promise<List<H2Response>> flush = http2Client.flush();
-        List<H2Response> httpPromises = flush.get();
-        httpPromises.forEach(H2Response::close);
+        List<H2Response> httpPromises = http2Client.flush().get();
 
         Long closeTime = http2Client.close(true).get();
         System.out.printf("connectTime = %d, closeTime = %d \n",
@@ -1047,7 +1042,7 @@ public class NettyHttp2Client {
      * Process {@link FullHttpResponse} translated from HTTP/2 frames
      */
     public static class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
-        private static LoggerX logger = LoggerFactoryX.getLogger(HttpResponseHandler.class);
+        private static InternalLogger logger = InternalLoggerFactory.getInstance(HttpResponseHandler.class);
         private final Map<Integer, H2Response> streamIdPromiseMap = new ConcurrentHashMap<>(64);
 
         /**
