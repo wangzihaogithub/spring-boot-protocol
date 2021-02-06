@@ -47,6 +47,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 /**
@@ -89,9 +90,6 @@ import java.util.stream.Stream;
  * @see Http2Flags (这个状态位由服务端返回, 告诉客户端, 是否结束header, 是否结束body)
  */
 public class NettyHttp2Client {
-    public static int WRITE_TIMEOUT_SCHEDULE_DELAY = 30;
-    public static int READ_TIMEOUT_SCHEDULE_DELAY = 30;
-
     private static final LoggerX logger = LoggerFactoryX.getLogger(NettyHttp2Client.class);
     private final AtomicInteger streamIdIncr = new AtomicInteger(3);
     private final Queue<H2Response> pendingWriteQueue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
@@ -101,10 +99,12 @@ public class NettyHttp2Client {
     private final Http2Handler http2Handler;
     private final InetSocketAddress remoteAddress;
     private final URL url;
+    private final LinkedList<H2Response> removeStreamIdList = new LinkedList<>();
     private int connectCount = 0;
     private int connectTimeout = 5000;
-    private int readTimeout = 5000;
+    private int requestTimeout = 5000;
     private int maxPendingSize = 1000;
+    private int timeoutCheckScheduleInterval = 30;
     private long beginConnectTimestamp;
     private long endConnectTimestamp;
     private Http2Settings settings;
@@ -156,13 +156,17 @@ public class NettyHttp2Client {
                 http2Client.getEndConnectTimestamp() - http2Client.getBeginConnectTimestamp(), closeTime);
     }
 
-    public NettyHttp2Client readTimeout(int readTimeout) {
-        this.readTimeout = readTimeout;
+    public NettyHttp2Client requestTimeout(int requestTimeout) {
+        this.requestTimeout = requestTimeout;
         return this;
     }
 
-    public int getReadTimeout() {
-        return readTimeout;
+    public ScheduledFuture<?> getTimeoutScheduledFuture() {
+        return timeoutScheduledFuture;
+    }
+
+    public int getRequestTimeout() {
+        return requestTimeout;
     }
 
     public NettyHttp2Client connectTimeout(int connectTimeout) {
@@ -278,19 +282,48 @@ public class NettyHttp2Client {
             flush();
         }
         this.connectAfterAutoFlush = true;
+        scheduleTimeoutCheck(timeoutCheckScheduleInterval, TimeUnit.MILLISECONDS);
+    }
 
-        ScheduledFuture<?> scheduledFuture = this.timeoutScheduledFuture;
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
+    public NettyHttp2Client timeoutCheckScheduleInterval(int timeoutCheckScheduleInterval) {
+        if (this.timeoutCheckScheduleInterval == timeoutCheckScheduleInterval) {
+            return this;
         }
-        this.timeoutScheduledFuture = channel.eventLoop().scheduleWithFixedDelay(this::checkTimeout, WRITE_TIMEOUT_SCHEDULE_DELAY, WRITE_TIMEOUT_SCHEDULE_DELAY, TimeUnit.MILLISECONDS);
+        this.timeoutCheckScheduleInterval = timeoutCheckScheduleInterval;
+        if (timeoutScheduledFuture != null) {
+            scheduleTimeoutCheck(timeoutCheckScheduleInterval, TimeUnit.MILLISECONDS);
+        }
+        return this;
+    }
+
+    public ScheduledFuture scheduleTimeoutCheck(int timeoutCheckScheduleInterval, TimeUnit timeUnit) {
+        ScheduledFuture<?> oldScheduledFuture = this.timeoutScheduledFuture;
+        if (oldScheduledFuture != null) {
+            oldScheduledFuture.cancel(false);
+        }
+        this.timeoutScheduledFuture = channel.eventLoop().scheduleWithFixedDelay(this::checkTimeout, timeoutCheckScheduleInterval, timeoutCheckScheduleInterval, timeUnit);
+        return oldScheduledFuture;
     }
 
     public void checkTimeout() {
+        // write timeout
         for (H2Response value : pendingWriteQueue) {
             if (!value.isDone() && value.isTimeout()) {
                 value.tryFailure(WriteTimeoutException.INSTANCE);
             }
+        }
+
+        // read timeout
+        Map<Integer, H2Response> streamIdPromiseMap = http2Handler.responseHandler.getStreamIdPromiseMap();
+        for (H2Response value : streamIdPromiseMap.values()) {
+            if (!value.isDone() && value.isTimeout()) {
+                value.tryFailure(ReadTimeoutException.INSTANCE);
+                removeStreamIdList.add(value);
+            }
+        }
+        H2Response remove;
+        while ((remove = removeStreamIdList.poll()) != null) {
+            streamIdPromiseMap.remove(remove.streamId);
         }
     }
 
@@ -318,22 +351,34 @@ public class NettyHttp2Client {
     /**
      * 用完需要使用者主动释放内存,不然会内存泄漏 {@link FullHttpResponse#release()}
      *
-     * @param request 请求
-     * @param timeout 超时时间, 小于0则永不超时 {@link H2Response#isTimeout()}
+     * @param request        请求
+     * @param requestTimeout 超时时间, 小于0则永不超时 {@link H2Response#isTimeout()}
      * @return 未来的响应
      */
-    public H2Response write(FullHttpRequest request, int timeout) {
+    public H2Response write(FullHttpRequest request, int requestTimeout) {
         if (isClose()) {
             throw new IllegalStateException("http2 close. " + remoteAddress + ", request = " + request);
         }
+
         HttpHeaders headers = request.headers();
         headers.set(HttpHeaderNames.HOST, getHostString(remoteAddress) + ":" + remoteAddress.getPort());
         headers.set(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), scheme.name());
         headers.add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.GZIP);
         headers.add(HttpHeaderNames.ACCEPT_ENCODING, HttpHeaderValues.DEFLATE);
-        H2Response promise = new H2Response(this, request, timeout, newStreamId());
-        pendingWriteQueue.offer(promise);
-        awaitIfMaxPendingSize(promise);
+
+        H2Response promise = new H2Response(this, request, requestTimeout, newStreamId());
+        int pendingSize = pendingWriteQueue.size();
+        if (pendingSize < maxPendingSize) {
+            pendingWriteQueue.offer(promise);
+        } else {
+            try {
+                promise.await();
+            } catch (InterruptedException ignored) {
+            } finally {
+                logger.warn("out of max pending size. trigger once block flush method. pendingSize = {}, maxPendingSize={}, blockTime = {}/ms",
+                        pendingSize, maxPendingSize, promise.getExecuteTime());
+            }
+        }
         return promise;
     }
 
@@ -344,7 +389,7 @@ public class NettyHttp2Client {
      * @return 未来的响应
      */
     public H2Response write(FullHttpRequest request) {
-        return write(request, readTimeout);
+        return write(request, requestTimeout);
     }
 
     /**
@@ -354,18 +399,18 @@ public class NettyHttp2Client {
      * @return 未来的响应
      */
     public H2Response writeAndFlush(FullHttpRequest request) {
-        return writeAndFlush(request, readTimeout);
+        return writeAndFlush(request, requestTimeout);
     }
 
     /**
      * 用完需要使用者主动释放内存,不然会内存泄漏 {@link FullHttpResponse#release()}
      *
-     * @param request 请求
-     * @param timeout 超时时间, 小于0则永不超时 {@link H2Response#isTimeout()}
+     * @param request        请求
+     * @param requestTimeout 超时时间, 小于0则永不超时 {@link H2Response#isTimeout()}
      * @return 未来的响应
      */
-    public H2Response writeAndFlush(FullHttpRequest request, int timeout) {
-        H2Response write = write(request, timeout);
+    public H2Response writeAndFlush(FullHttpRequest request, int requestTimeout) {
+        H2Response write = write(request, requestTimeout);
         if (isActive()) {
             flush();
         } else {
@@ -387,32 +432,8 @@ public class NettyHttp2Client {
         return closePromise != null;
     }
 
-    private void awaitIfMaxPendingSize(Promise promise) {
-        int pendingSize = pendingWriteQueue.size();
-        if (pendingSize >= maxPendingSize) {
-            long beginTimestamp = System.currentTimeMillis();
-            try {
-                flush();
-                promise.await();
-            } catch (InterruptedException ignored) {
-            } finally {
-                logger.warn("out of max pending size. trigger once block flush method. pendingSize = {}, maxPendingSize={}, blockTime = {}/ms",
-                        pendingSize, maxPendingSize, System.currentTimeMillis() - beginTimestamp);
-            }
-        }
-    }
-
     public Map<Integer, H2Response> getStreamIdPromiseMap() {
-        if (http2Handler == null) {
-            return Collections.emptyMap();
-        } else {
-            HttpResponseHandler responseHandler = http2Handler.responseHandler();
-            if (responseHandler != null) {
-                return responseHandler.getStreamIdPromiseMap();
-            } else {
-                return Collections.emptyMap();
-            }
-        }
+        return http2Handler.responseHandler().getStreamIdPromiseMap();
     }
 
     public Promise<List<H2Response>> flush(Promise<List<H2Response>> promise) {
@@ -435,6 +456,7 @@ public class NettyHttp2Client {
         }
         H2Response responsePromise;
         AtomicInteger total = new AtomicInteger();
+        EventLoop executor = bootstrap.config().group().next();
         List<H2Response> list = Collections.synchronizedList(new ArrayList<>(pendingWriteQueue.size()));
         while ((responsePromise = pendingWriteQueue.poll()) != null) {
             if (responsePromise.isDone()) {
@@ -442,6 +464,7 @@ public class NettyHttp2Client {
             }
             if (responsePromise.flush.compareAndSet(false, true)) {
                 total.incrementAndGet();
+                responsePromise.executor = executor;
                 writeChannel(responsePromise);
 
                 final H2Response finalResponsePromise = responsePromise;
@@ -512,10 +535,6 @@ public class NettyHttp2Client {
                 if (timeoutScheduledFuture != null) {
                     timeoutScheduledFuture.cancel(false);
                 }
-                timeoutScheduledFuture = http2Handler.timeoutScheduledFuture;
-                if (timeoutScheduledFuture != null) {
-                    timeoutScheduledFuture.cancel(false);
-                }
 
                 Channel channel = this.channel;
                 if (channel != null) {
@@ -544,6 +563,9 @@ public class NettyHttp2Client {
         return closePromise;
     }
 
+    public interface H2FutureListener extends GenericFutureListener<H2Response> {
+    }
+
     public static class H2Response extends DefaultPromise<FullHttpResponse> implements Future<FullHttpResponse>, Closeable, Flushable {
         private final int timeout;
         private final NettyHttp2Client client;
@@ -554,6 +576,7 @@ public class NettyHttp2Client {
         private final AtomicBoolean done = new AtomicBoolean();
         private long endTimestamp = -1L;
         private ChannelFuture writeFuture;
+        private EventExecutor executor;
 
         public H2Response(NettyHttp2Client client, FullHttpRequest request, int timeout, int streamId) {
             super(client.bootstrap.config().group().next());
@@ -561,6 +584,14 @@ public class NettyHttp2Client {
             this.request = request;
             this.timeout = timeout;
             this.streamId = streamId;
+        }
+
+        @Override
+        public EventExecutor executor() {
+            if (executor != null) {
+                return executor;
+            }
+            return super.executor();
         }
 
         @Override
@@ -643,8 +674,30 @@ public class NettyHttp2Client {
             }
         }
 
-        @Override
-        public H2Response addListener(GenericFutureListener<? extends io.netty.util.concurrent.Future<? super FullHttpResponse>> listener) {
+        public H2Response onFailure(Consumer<Throwable> consumer) {
+            super.addListener(future -> {
+                if (!future.isSuccess()) {
+                    consumer.accept(future.cause());
+                }
+            });
+            return this;
+        }
+
+        public H2Response onSuccess(Consumer<FullHttpResponse> consumer) {
+            super.addListener(future -> {
+                if (future.isSuccess()) {
+                    consumer.accept((FullHttpResponse) future.getNow());
+                }
+            });
+            return this;
+        }
+
+        public H2Response onComplete(H2FutureListener listener) {
+            super.addListener(listener);
+            return this;
+        }
+
+        public H2Response addListener(H2FutureListener listener) {
             super.addListener(listener);
             return this;
         }
@@ -652,6 +705,12 @@ public class NettyHttp2Client {
         @Override
         public H2Response addListeners(GenericFutureListener<? extends io.netty.util.concurrent.Future<? super FullHttpResponse>>... listeners) {
             super.addListeners(listeners);
+            return this;
+        }
+
+        @Override
+        public H2Response addListener(GenericFutureListener<? extends io.netty.util.concurrent.Future<? super FullHttpResponse>> listener) {
+            super.addListener(listener);
             return this;
         }
 
@@ -721,7 +780,7 @@ public class NettyHttp2Client {
 
         @Override
         public String toString() {
-            String toString = "streamId = " + streamId + ", time = " + getExecuteTime() + ", ";
+            String toString = "streamId = " + streamId + ", time = " + getExecuteTime() + "/ms, ";
             if (isDone()) {
                 if (isSuccess()) {
                     return toString + getNow();
@@ -774,20 +833,22 @@ public class NettyHttp2Client {
         private Http2FrameLogger logger;
         private final SslContext sslCtx;
         private final int maxContentLength;
-        private HttpToHttp2ConnectionHandler connectionHandler;
-        private HttpResponseHandler responseHandler;
-        private Http2SettingsHandler settingsHandler;
-        private int connectTimeout;
-        private InetSocketAddress remoteAddress;
-        private Http2Connection connection;
-        private ScheduledFuture<?> timeoutScheduledFuture;
-        private final LinkedList<H2Response> removeStreamIdList = new LinkedList<>();
+        private final HttpToHttp2ConnectionHandler connectionHandler;
+        private final HttpResponseHandler responseHandler;
+        private final Http2SettingsHandler settingsHandler;
+        private final int connectTimeout;
+        private final InetSocketAddress remoteAddress;
+        private final Http2Connection connection;
 
         public Http2Handler(HttpScheme scheme, int maxContentLength, int connectTimeout, InetSocketAddress remoteAddress) throws SSLException {
             this.sslCtx = newSslContext(scheme);
             this.maxContentLength = maxContentLength;
             this.connectTimeout = connectTimeout;
             this.remoteAddress = remoteAddress;
+            this.connection = new DefaultHttp2Connection(false);
+            this.connectionHandler = newConnectionHandler(connection);
+            this.responseHandler = new HttpResponseHandler();
+            this.settingsHandler = new Http2SettingsHandler();
         }
 
         @Override
@@ -795,15 +856,18 @@ public class NettyHttp2Client {
             return remoteAddress.toString();
         }
 
-        private SslContext newSslContext(HttpScheme scheme) throws SSLException {
+        protected SslContext newSslContext(HttpScheme scheme) throws SSLException {
             SslContext sslCtx;
             if (HttpScheme.HTTPS == scheme) {
                 Optional<SslProvider> sslProvider = Stream.of(SslProvider.values()).filter(SslProvider::isAlpnSupported).findAny();
                 if (!sslProvider.isPresent()) {
-                    throw new SSLProtocolException("ALPN unsupported. Is your classpath configured correctly?"
-                            + " For Conscrypt, add the appropriate Conscrypt JAR to classpath and set the security provider."
-                            + " For Jetty-ALPN, see "
-                            + "http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html#alpn-starting");
+                    throw new SSLProtocolException(
+                            "Not found SslProvider. place add maven dependency or update jdk version >= 9 \n" +
+                                    "        <dependency>\n" +
+                                    "            <groupId>io.netty</groupId>\n" +
+                                    "            <artifactId>netty-tcnative-boringssl-static</artifactId>\n" +
+                                    "            <version>any version. example = 2.0.34.Final</version>\n" +
+                                    "        </dependency>\n");
                 }
                 sslCtx = SslContextBuilder.forClient()
                         .sslProvider(sslProvider.get())
@@ -830,7 +894,7 @@ public class NettyHttp2Client {
             this.logger = logger;
         }
 
-        private HttpToHttp2ConnectionHandler newConnectionHandler(Http2Connection connection) {
+        protected HttpToHttp2ConnectionHandler newConnectionHandler(Http2Connection connection) {
             HttpToHttp2ConnectionHandlerBuilder builder = new HttpToHttp2ConnectionHandlerBuilder();
             InboundHttp2ToHttpAdapter http2ToHttpAdapter = new InboundHttp2ToHttpAdapterBuilder(connection)
                     .maxContentLength(maxContentLength)
@@ -845,37 +909,13 @@ public class NettyHttp2Client {
                     .build();
         }
 
-        public void checkTimeout() {
-            Map<Integer, H2Response> streamIdPromiseMap = responseHandler.getStreamIdPromiseMap();
-            for (H2Response value : streamIdPromiseMap.values()) {
-                if (!value.isDone() && value.isTimeout()) {
-                    value.tryFailure(ReadTimeoutException.INSTANCE);
-                    removeStreamIdList.add(value);
-                }
-            }
-            H2Response remove;
-            while ((remove = removeStreamIdList.poll()) != null) {
-                streamIdPromiseMap.remove(remove.streamId);
-            }
-        }
-
         @Override
         public void initChannel(SocketChannel ch) throws Exception {
             ChannelPromise promise = ch.newPromise();
-            connection = new DefaultHttp2Connection(false);
-            connectionHandler = newConnectionHandler(connection);
-            responseHandler = new HttpResponseHandler();
-            settingsHandler = new Http2SettingsHandler(promise);
-
+            settingsHandler.setPromise(promise);
             ch.eventLoop().schedule(() -> {
                 promise.setFailure(ReadTimeoutException.INSTANCE);
             }, connectTimeout, TimeUnit.MILLISECONDS);
-
-            ScheduledFuture<?> scheduledFuture = this.timeoutScheduledFuture;
-            if (scheduledFuture != null) {
-                scheduledFuture.cancel(false);
-            }
-            this.timeoutScheduledFuture = ch.eventLoop().scheduleWithFixedDelay(this::checkTimeout, READ_TIMEOUT_SCHEDULE_DELAY, READ_TIMEOUT_SCHEDULE_DELAY, TimeUnit.MILLISECONDS);
 
             if (sslCtx != null) {
                 configureSsl(ch);
@@ -918,7 +958,7 @@ public class NettyHttp2Client {
             pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
                 @Override
                 protected void configurePipeline(ChannelHandlerContext ctx, String protocol) {
-                    if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                    if (ApplicationProtocolNames.HTTP_2.equalsIgnoreCase(protocol)) {
                         ChannelPipeline p = ctx.pipeline();
                         p.addLast(connectionHandler);
                         configureEndOfPipeline(p);
@@ -970,17 +1010,9 @@ public class NettyHttp2Client {
     }
 
     public static class Http2SettingsHandler extends SimpleChannelInboundHandler<Http2Settings> {
-        private final ChannelPromise promise;
+        // Promise object used to notify when first settings are received
+        private ChannelPromise promise;
         private Http2Settings http2Settings;
-
-        /**
-         * Create new instance
-         *
-         * @param promise Promise object used to notify when first settings are received
-         */
-        public Http2SettingsHandler(ChannelPromise promise) {
-            this.promise = promise;
-        }
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Http2Settings msg) throws Exception {
@@ -993,6 +1025,10 @@ public class NettyHttp2Client {
 
         public Http2Settings getHttp2Settings() {
             return http2Settings;
+        }
+
+        public void setPromise(ChannelPromise promise) {
+            this.promise = promise;
         }
 
         public ChannelPromise promise() {
@@ -1010,10 +1046,7 @@ public class NettyHttp2Client {
      */
     public static class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpResponse> {
         private static LoggerX logger = LoggerFactoryX.getLogger(HttpResponseHandler.class);
-
-        // Use a concurrent map because we add and iterate from the main thread (just for the purposes of the example),
-        // but Netty also does a get on the map when messages are received in a EventLoop thread.
-        private final Map<Integer, H2Response> streamIdPromiseMap = new ConcurrentHashMap<>(32);
+        private final Map<Integer, H2Response> streamIdPromiseMap = new ConcurrentHashMap<>(64);
 
         /**
          * Create an association between an anticipated response stream id and a {@link ChannelPromise}
@@ -1042,9 +1075,7 @@ public class NettyHttp2Client {
                 return;
             }
             H2Response promise = streamIdPromiseMap.remove(streamId);
-            if (promise == null) {
-                logger.warn("Message received for unknown stream id: {}", streamId);
-            } else {
+            if (promise != null) {
                 promise.setSuccess(msg);
             }
         }

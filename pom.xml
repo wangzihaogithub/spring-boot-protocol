@@ -31,7 +31,8 @@
 
         <javax-websocket-api.version>1.1</javax-websocket-api.version>
 
-        <netty.version>4.1.48.Final</netty.version>
+        <netty.version>4.1.52.Final</netty.version>
+        <netty.boringssl.version>2.0.34.Final</netty.boringssl.version>
         <fastjson.version>1.2.68</fastjson.version>
         <reactive-streams.version>1.0.3</reactive-streams.version>
     </properties>
@@ -70,7 +71,13 @@
             <artifactId>fastjson</artifactId>
             <version>${fastjson.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <version>${netty.boringssl.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>org.reactivestreams</groupId>
             <artifactId>reactive-streams</artifactId>
