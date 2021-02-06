@@ -867,6 +867,7 @@ public class NettyHttp2Client {
                                     "            <groupId>io.netty</groupId>\n" +
                                     "            <artifactId>netty-tcnative-boringssl-static</artifactId>\n" +
                                     "            <version>any version. example = 2.0.34.Final</version>\n" +
+                                    "            <scope>compile</scope>\n" +
                                     "        </dependency>\n");
                 }
                 sslCtx = SslContextBuilder.forClient()
