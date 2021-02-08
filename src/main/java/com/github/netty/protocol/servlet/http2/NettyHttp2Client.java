@@ -30,6 +30,7 @@ import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.timeout.ReadTimeoutException;
 import io.netty.handler.timeout.WriteTimeoutException;
+import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.*;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.logging.InternalLogger;
@@ -114,6 +115,7 @@ public class NettyHttp2Client {
     private volatile Promise<Channel> connectPromise;
     private volatile Promise<Long> closePromise;
 
+
     public NettyHttp2Client(String domain) throws SSLException, MalformedURLException, UnknownHostException {
         this(new URL(domain), new NioEventLoopGroup(0));
     }
@@ -137,9 +139,9 @@ public class NettyHttp2Client {
     public static void main(String[] args) throws Exception {
         NettyHttp2Client http2Client = new NettyHttp2Client("https://maimai.cn")
                 .logger(LogLevel.INFO)
-                .awaitConnectIfNoActive();
+                .awaitConnect();
 
-        for (int i = 0; i < 50000; i++) {
+        for (int i = 0; i < 5; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
             http2Client.write(request).onSuccess(FullHttpResponse::release);
@@ -150,6 +152,12 @@ public class NettyHttp2Client {
         Long closeTime = http2Client.close(true).get();
         System.out.printf("connectTime = %d, closeTime = %d \n",
                 http2Client.getEndConnectTimestamp() - http2Client.getBeginConnectTimestamp(), closeTime);
+    }
+
+    public static ResourceLeakDetector.Level setMemoryLeakDetector(ResourceLeakDetector.Level level) {
+        ResourceLeakDetector.Level old = ResourceLeakDetector.getLevel();
+        ResourceLeakDetector.setLevel(level);
+        return old;
     }
 
     public NettyHttp2Client requestTimeout(int requestTimeout) {
@@ -179,12 +187,26 @@ public class NettyHttp2Client {
         return this;
     }
 
+    public NettyHttp2Client maxContentLength(int maxContentLength) {
+        http2Handler.setMaxContentLength(maxContentLength);
+        return this;
+    }
+
+    public long getMaxContentLength() {
+        return http2Handler.getMaxContentLength();
+    }
+
     public NettyHttp2Client maxPendingSize(int maxPendingSize) {
         this.maxPendingSize = maxPendingSize;
         return this;
     }
 
-    public NettyHttp2Client awaitConnectIfNoActive() throws ConnectException {
+    public NettyHttp2Client awaitConnect() throws ConnectException {
+        awaitConnect(connectTimeout);
+        return this;
+    }
+
+    public NettyHttp2Client awaitConnect(int connectTimeout) throws ConnectException {
         if (!isActive()) {
             try {
                 this.connectAfterAutoFlush = false;
@@ -827,9 +849,9 @@ public class NettyHttp2Client {
      */
     public static class Http2Handler extends ChannelInitializer<SocketChannel> {
         private Http2FrameLogger logger;
+        private HttpToHttp2ConnectionHandler connectionHandler;
+        private int maxContentLength;
         private final SslContext sslCtx;
-        private final int maxContentLength;
-        private final HttpToHttp2ConnectionHandler connectionHandler;
         private final HttpResponseHandler responseHandler;
         private final Http2SettingsHandler settingsHandler;
         private final int connectTimeout;
@@ -842,7 +864,6 @@ public class NettyHttp2Client {
             this.connectTimeout = connectTimeout;
             this.remoteAddress = remoteAddress;
             this.connection = new DefaultHttp2Connection(false);
-            this.connectionHandler = newConnectionHandler(connection);
             this.responseHandler = new HttpResponseHandler();
             this.settingsHandler = new Http2SettingsHandler();
         }
@@ -855,7 +876,9 @@ public class NettyHttp2Client {
         protected SslContext newSslContext(HttpScheme scheme) throws SSLException {
             SslContext sslCtx;
             if (HttpScheme.HTTPS == scheme) {
-                Optional<SslProvider> sslProvider = Stream.of(SslProvider.values()).filter(SslProvider::isAlpnSupported).findAny();
+                Optional<SslProvider> sslProvider = Stream.of(SslProvider.values())
+                        .filter(SslProvider::isAlpnSupported)
+                        .findAny();
                 if (!sslProvider.isPresent()) {
                     throw new SSLProtocolException(
                             "Not found SslProvider. place add maven dependency\n" +
@@ -891,6 +914,14 @@ public class NettyHttp2Client {
             this.logger = logger;
         }
 
+        public void setMaxContentLength(int maxContentLength) {
+            this.maxContentLength = maxContentLength;
+        }
+
+        public int getMaxContentLength() {
+            return maxContentLength;
+        }
+
         protected HttpToHttp2ConnectionHandler newConnectionHandler(Http2Connection connection) {
             HttpToHttp2ConnectionHandlerBuilder builder = new HttpToHttp2ConnectionHandlerBuilder();
             InboundHttp2ToHttpAdapter http2ToHttpAdapter = new InboundHttp2ToHttpAdapterBuilder(connection)
@@ -914,6 +945,7 @@ public class NettyHttp2Client {
                 promise.setFailure(ReadTimeoutException.INSTANCE);
             }, connectTimeout, TimeUnit.MILLISECONDS);
 
+            this.connectionHandler = newConnectionHandler(connection);
             if (sslCtx != null) {
                 configureSsl(ch);
             } else {
