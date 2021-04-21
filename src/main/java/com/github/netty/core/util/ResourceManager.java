@@ -65,7 +65,9 @@ public class ResourceManager {
     @Override
     protected void finalize() throws Throwable {
         super.finalize();
-        lock.close();
+        if (lock != null) {
+            lock.close();
+        }
     }
 
     /**
