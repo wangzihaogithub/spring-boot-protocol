@@ -267,6 +267,7 @@ public class ResourceManager {
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
      * @throws IOException IOException
+     * @return File
      */
     public File writeFile(InputStream inputStream, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(inputStream, getRealPath(targetPath), targetFileName, false);
@@ -279,6 +280,7 @@ public class ResourceManager {
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
      * @throws IOException IOException
+     * @return File
      */
     public File writeFile(Iterator<ByteBuffer> dataIterator, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(dataIterator, getRealPath(targetPath), targetFileName, false);
@@ -291,6 +293,7 @@ public class ResourceManager {
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
      * @throws IOException IOException
+     * @return File
      */
     public File writeFile(byte[] data, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(data, getRealPath(targetPath), targetFileName, false);
@@ -304,6 +307,7 @@ public class ResourceManager {
      * @param targetFileName targetFileName
      * @param append         Whether to concatenate old data
      * @throws IOException IOException
+     * @return File
      */
     public File writeFile(byte[] data, String targetPath, String targetFileName, boolean append) throws IOException {
         return IOUtil.writeFile(data, getRealPath(targetPath), targetFileName, append);
