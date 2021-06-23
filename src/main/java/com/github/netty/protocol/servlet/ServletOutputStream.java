@@ -28,19 +28,17 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable, NettyOutputStream {
-    private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
     public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
-
-    private int responseWriterChunkMaxHeapByteLength;
-    private ChannelProgressivePromise blockPromise;
-    private final CloseListener closeListenerWrapper = new CloseListener();
-
-    protected ServletHttpExchange servletHttpExchange;
-    protected WriteListener writeListener;
-    protected ChannelProgressivePromise lastContentPromise;
+    private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
     protected final AtomicLong writeBytes = new AtomicLong();
     protected final AtomicBoolean isClosed = new AtomicBoolean(false);
     protected final AtomicBoolean isSendResponse = new AtomicBoolean(false);
+    private final CloseListener closeListenerWrapper = new CloseListener();
+    protected ServletHttpExchange servletHttpExchange;
+    protected WriteListener writeListener;
+    protected ChannelProgressivePromise lastContentPromise;
+    private int responseWriterChunkMaxHeapByteLength;
+    private ChannelProgressivePromise blockPromise;
 
     protected ServletOutputStream() {
     }
@@ -314,6 +312,14 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (isClosed()) {
             throw new IOException("Stream closed");
         }
+
+        ServletHttpExchange exchange = servletHttpExchange;
+        if (exchange != null) {
+            Channel channel = exchange.getChannelHandlerContext().channel();
+            if (!channel.isActive()) {
+                throw new IOException("Channel closed");
+            }
+        }
     }
 
     /**
@@ -354,21 +360,21 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     /**
-     * Put in the servlet object
-     *
-     * @param servletHttpExchange servletHttpExchange
-     */
-    protected void setServletHttpExchange(ServletHttpExchange servletHttpExchange) {
-        this.servletHttpExchange = servletHttpExchange;
-    }
-
-    /**
      * Get servlet object
      *
      * @return ServletHttpExchange
      */
     protected ServletHttpExchange getServletHttpExchange() {
         return servletHttpExchange;
+    }
+
+    /**
+     * Put in the servlet object
+     *
+     * @param servletHttpExchange servletHttpExchange
+     */
+    protected void setServletHttpExchange(ServletHttpExchange servletHttpExchange) {
+        this.servletHttpExchange = servletHttpExchange;
     }
 
     /**
@@ -393,8 +399,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * Closing the listening wrapper class (for data collection)
      */
     public class CloseListener implements ChannelFutureListener {
-        private ChannelFutureListener closeListener;
         private final Queue<Consumer> recycleConsumerQueue = new LinkedList<>();
+        private ChannelFutureListener closeListener;
 
         public void addRecycleConsumer(Consumer consumer) {
             recycleConsumerQueue.add(consumer);
