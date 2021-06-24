@@ -41,11 +41,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_ACCEPTABLE, Unpooled.EMPTY_BUFFER);
     private static final Set<HttpMethod> HTTP_METHOD_SET = new HashSet<>(9);
 
-    private final ServletContext servletContext;
-    private final long maxContentLength;
-    private ServletHttpExchange exchange;
-    private volatile HttpRunnable httpRunnable;
-
     static {
         EXPECTATION_FAILED.headers().set(CONTENT_LENGTH, 0);
         TOO_LARGE.headers().set(CONTENT_LENGTH, 0);
@@ -61,6 +56,11 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH,
                 HttpMethod.DELETE, HttpMethod.TRACE, HttpMethod.CONNECT));
     }
+
+    private final ServletContext servletContext;
+    private final long maxContentLength;
+    private ServletHttpExchange exchange;
+    private volatile HttpRunnable httpRunnable;
 
     public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength) {
         this.servletContext = servletContext;
@@ -104,6 +104,30 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             discard(msg);
         }
         return result;
+    }
+
+    @Override
+    public Runnable onClose(ChannelHandlerContext context) {
+        ServletHttpExchange exchange = this.exchange;
+        if (exchange != null && exchange.isAsyncStartIng()) {
+            ServletAsyncContext asyncContext = exchange.getAsyncContext();
+            if (asyncContext != null) {
+                asyncContext.complete();
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Runnable onError(ChannelHandlerContext context, Throwable throwable) {
+        ServletHttpExchange exchange = this.exchange;
+        if (exchange != null && exchange.isAsyncStartIng()) {
+            ServletAsyncContext asyncContext = exchange.getAsyncContext();
+            if (asyncContext != null) {
+                asyncContext.onError(throwable);
+            }
+        }
+        return null;
     }
 
     protected void discard(Object msg) {

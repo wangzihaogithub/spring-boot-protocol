@@ -312,13 +312,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (isClosed()) {
             throw new IOException("Stream closed");
         }
-
-        ServletHttpExchange exchange = servletHttpExchange;
-        if (exchange != null) {
-            Channel channel = exchange.getChannelHandlerContext().channel();
-            if (!channel.isActive()) {
-                throw new IOException("Channel closed");
-            }
+        ServletHttpExchange exchange = this.servletHttpExchange;
+        if (exchange != null && !exchange.isChannelActive() && exchange.isAsyncStartIng()) {
+            throw new IOException("connection was forcibly closed by the remote host. " + exchange.getChannelHandlerContext().channel());
         }
     }
 

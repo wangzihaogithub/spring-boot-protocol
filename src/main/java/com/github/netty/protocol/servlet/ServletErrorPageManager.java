@@ -94,6 +94,9 @@ public class ServletErrorPageManager {
 
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
+        if(!request.getServletHttpExchange().getChannelHandlerContext().channel().isActive()){
+            return;
+        }
 
         String errorPagePath = getErrorPagePath(request, errorPage);
         if (errorPagePath == null) {

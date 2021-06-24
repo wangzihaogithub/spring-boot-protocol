@@ -201,6 +201,27 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
         }
     }
 
+    public boolean isChannelActive() {
+        return isChannelActive(channelHandlerContext);
+    }
+
+    public boolean isAsyncStartIng() {
+        ServletHttpServletRequest request = this.request;
+        if (request != null) {
+            ServletAsyncContext asyncContext = request.getAsyncContext();
+            return asyncContext != null && asyncContext.isStarted() && !asyncContext.isComplete();
+        }
+        return false;
+    }
+
+    public ServletAsyncContext getAsyncContext(){
+        ServletHttpServletRequest request = getRequest();
+        if (request != null) {
+            return request.getAsyncContext();
+        }
+        return null;
+    }
+
     /**
      * Recycle servlet object
      */
