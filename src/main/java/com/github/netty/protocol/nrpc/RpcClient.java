@@ -325,8 +325,11 @@ public class RpcClient extends AbstractNettyClient{
         }
 
         int yieldCount = 0;
-        while (!socketChannel.isWritable()){
+        if(!socketChannel.isWritable()){
             socketChannel.flush();
+        }
+        while (!socketChannel.isWritable()){
+            ChannelUtils.forceFlush(socketChannel);
             if(!socketChannel.eventLoop().inEventLoop()) {
                 Thread.yield();
                 yieldCount++;
