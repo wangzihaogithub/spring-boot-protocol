@@ -23,6 +23,18 @@ import java.util.function.Consumer;
  */
 public class JsonDataCodec implements DataCodec {
     private static final byte[] EMPTY = {};
+    private static final FastThreadLocal<Map<String, Object>> PARAMETER_MAP_LOCAL = new FastThreadLocal<Map<String, Object>>() {
+        @Override
+        protected Map<String, Object> initialValue() throws Exception {
+            return new HashMap<>(32);
+        }
+    };
+    private static final FastThreadLocal<CharsetDecoder> CHARSET_DECODER_LOCAL = new FastThreadLocal<CharsetDecoder>() {
+        @Override
+        protected CharsetDecoder initialValue() throws Exception {
+            return CHARSET_UTF8.newDecoder();
+        }
+    };
     private static SerializerFeature[] SERIALIZER_FEATURES = {
 //            SerializerFeature.WriteClassName
     };
@@ -38,21 +50,6 @@ public class JsonDataCodec implements DataCodec {
     };
     private static int FEATURE_MASK = Feature.of(FEATURES);
 
-    private static final FastThreadLocal<Map<String,Object>> PARAMETER_MAP_LOCAL = new FastThreadLocal<Map<String,Object>>(){
-        @Override
-        protected Map<String,Object> initialValue() throws Exception {
-            return new HashMap<>(32);
-        }
-    };
-    private static final FastThreadLocal<CharsetDecoder> CHARSET_DECODER_LOCAL = new FastThreadLocal<CharsetDecoder>(){
-        @Override
-        protected CharsetDecoder initialValue() throws Exception {
-            return CHARSET_UTF8.newDecoder();
-        }
-    };
-    private ParserConfig parserConfig;
-    private List<Consumer<Map<String,Object>>> encodeRequestConsumerList = new CopyOnWriteArrayList<>();
-    private List<Consumer<Map<String,Object>>> decodeRequestConsumerList = new CopyOnWriteArrayList<>();
     static {
         try {
             Class.forName("com.alibaba.fastjson.util.TypeUtils");
@@ -64,6 +61,10 @@ public class JsonDataCodec implements DataCodec {
         }
     }
 
+    private ParserConfig parserConfig;
+    private List<Consumer<Map<String, Object>>> encodeRequestConsumerList = new CopyOnWriteArrayList<>();
+    private List<Consumer<Map<String, Object>>> decodeRequestConsumerList = new CopyOnWriteArrayList<>();
+
     public JsonDataCodec() {
         this(new ParserConfig());
     }
@@ -72,12 +73,12 @@ public class JsonDataCodec implements DataCodec {
         this.parserConfig = parserConfig;
     }
 
-    public static void setSerializerFeatures(SerializerFeature[] serializerFeatures) {
-        SERIALIZER_FEATURES = serializerFeatures;
-    }
-
     public static SerializerFeature[] getSerializerFeatures() {
         return SERIALIZER_FEATURES;
+    }
+
+    public static void setSerializerFeatures(SerializerFeature[] serializerFeatures) {
+        SERIALIZER_FEATURES = serializerFeatures;
     }
 
     @Override
@@ -91,10 +92,10 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public byte[] encodeRequestData(Object[] data,RpcMethod rpcMethod) {
+    public byte[] encodeRequestData(Object[] data, RpcMethod<RpcClient> rpcMethod) {
         String[] parameterNames = rpcMethod.getParameterNames();
         Map<String, Object> parameterMap = PARAMETER_MAP_LOCAL.get();
-        if(data != null && data.length != 0){
+        if (data != null && data.length != 0) {
             for (int i = 0; i < parameterNames.length; i++) {
                 String name = parameterNames[i];
                 if (name == null) {
@@ -109,22 +110,22 @@ public class JsonDataCodec implements DataCodec {
             for (Consumer<Map<String, Object>> consumer : encodeRequestConsumerList) {
                 consumer.accept(parameterMap);
             }
-            if(parameterMap.isEmpty()){
+            if (parameterMap.isEmpty()) {
                 return EMPTY;
-            }else {
+            } else {
                 return JSON.toJSONBytes(parameterMap, SERIALIZER_FEATURES);
             }
-        }finally {
+        } finally {
             parameterMap.clear();
         }
     }
 
     @Override
-    public Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod) {
+    public Object[] decodeRequestData(byte[] data, RpcMethod<RpcServerInstance> rpcMethod) {
         Map parameterMap;
-        if(data != null && data.length != 0){
-            parameterMap = (Map) JSON.parse(data,0,data.length,CHARSET_DECODER_LOCAL.get(),FEATURE_MASK);
-        }else {
+        if (data != null && data.length != 0) {
+            parameterMap = (Map) JSON.parse(data, 0, data.length, CHARSET_DECODER_LOCAL.get(), FEATURE_MASK);
+        } else {
             parameterMap = PARAMETER_MAP_LOCAL.get();
         }
         try {
@@ -139,7 +140,7 @@ public class JsonDataCodec implements DataCodec {
                 Class<?> type = parameterTypes[i];
                 String name = parameterNames[i];
                 Object value = parameterMap.get(name);
-                if(value == null && !parameterMap.containsKey(name)){
+                if (value == null && !parameterMap.containsKey(name)) {
                     value = parameterMap.get("arg" + i);
                 }
                 if (isNeedCast(value, type)) {
@@ -148,14 +149,14 @@ public class JsonDataCodec implements DataCodec {
                 parameterValues[i] = value;
             }
             return parameterValues;
-        }finally {
+        } finally {
             parameterMap.clear();
         }
     }
 
     @Override
-    public byte[] encodeResponseData(Object data,RpcMethod rpcMethod) {
-        if(data == null){
+    public byte[] encodeResponseData(Object data, RpcMethod<RpcServerInstance> rpcMethod) {
+        if (data == null) {
             return EMPTY;
         }
 
@@ -168,20 +169,20 @@ public class JsonDataCodec implements DataCodec {
     }
 
     @Override
-    public Object decodeResponseData(byte[] data,RpcMethod rpcMethod) {
-        if(data == null || data.length == 0){
+    public Object decodeResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod) {
+        if (data == null || data.length == 0) {
             return null;
         }
         Type returnType = rpcMethod.getGenericReturnType();
-        return JSON.parseObject(data,0, data.length, CHARSET_UTF8,returnType,FEATURES);
+        return JSON.parseObject(data, 0, data.length, CHARSET_UTF8, returnType, FEATURES);
     }
 
-    protected boolean isNeedCast(Object value,Class<?> type){
-        if(value == null){
+    protected boolean isNeedCast(Object value, Class<?> type) {
+        if (value == null) {
             return false;
         }
         //The class information corresponding to type is the superclass or superinterface of the class information corresponding to arg object. Simply understood, type is the superclass or interface of arg
-        if(type.isAssignableFrom(value.getClass())){
+        if (type.isAssignableFrom(value.getClass())) {
             return false;
         }
         return true;
@@ -189,8 +190,8 @@ public class JsonDataCodec implements DataCodec {
 
     protected Object cast(Object value, Class<?> type) {
         try {
-            return TypeUtils.cast(value,type,parserConfig);
-        }catch (Exception e){
+            return TypeUtils.cast(value, type, parserConfig);
+        } catch (Exception e) {
             return value;
         }
     }

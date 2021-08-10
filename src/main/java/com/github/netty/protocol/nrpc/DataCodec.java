@@ -7,7 +7,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- *  Data encoder decoder. (Serialization or Deserialization)
+ * Data encoder decoder. (Serialization or Deserialization)
+ *
  * @author wangzihao
  */
 public interface DataCodec {
@@ -15,44 +16,50 @@ public interface DataCodec {
 
     /**
      * Request data - encoding
-     * @param data data
+     *
+     * @param data      data
      * @param rpcMethod rpcMethod
      * @return ByteBuf
      */
-    byte[] encodeRequestData(Object[] data, RpcMethod rpcMethod);
-
-    /**
-     * Request data - decoding
-     * @param data data
-     * @param rpcMethod rpcMethod
-     * @return Object[]
-     */
-    Object[] decodeRequestData(byte[] data, RpcMethod rpcMethod);
-
-    /**
-     * Response data - encoding
-     * @param data data
-     * @param rpcMethod rpcMethod
-     * @return byte[]
-     */
-    byte[] encodeResponseData(Object data,RpcMethod rpcMethod);
+    byte[] encodeRequestData(Object[] data, RpcMethod<RpcClient> rpcMethod);
 
     /**
      * Response data - decoding
-     * @param data data
+     *
+     * @param data      data
      * @param rpcMethod rpcMethod
      * @return Object
      */
-    Object decodeResponseData(byte[] data,RpcMethod rpcMethod);
+    Object decodeResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod);
+
+    /**
+     * Response data - encoding
+     *
+     * @param data      data
+     * @param rpcMethod rpcMethod
+     * @return byte[]
+     */
+    byte[] encodeResponseData(Object data, RpcMethod<RpcServerInstance> rpcMethod);
+
+    /**
+     * Request data - decoding
+     *
+     * @param data      data
+     * @param rpcMethod rpcMethod
+     * @return Object[]
+     */
+    Object[] decodeRequestData(byte[] data, RpcMethod<RpcServerInstance> rpcMethod);
 
     /**
      * The client parses
+     *
      * @return EncodeRequestConsumer
      */
     List<Consumer<Map<String, Object>>> getEncodeRequestConsumerList();
 
     /**
      * The server parses
+     *
      * @return DecodeRequestConsumer
      */
     List<Consumer<Map<String, Object>>> getDecodeRequestConsumerList();
@@ -60,11 +67,11 @@ public interface DataCodec {
     /**
      * data encode enum  (note: 0=binary, 1=json)
      */
-    enum Encode{
+    enum Encode {
         /**
          * binary data encode
          */
-        BINARY((byte)0),
+        BINARY((byte) 0),
         /**
          * json data encode
          */
@@ -76,17 +83,17 @@ public interface DataCodec {
             this.code = code;
         }
 
-        public int getCode() {
-            return code;
-        }
-
-        public static Encode indexOf(int code){
-            for(Encode encode : values()){
-                if(encode.code == code){
+        public static Encode indexOf(int code) {
+            for (Encode encode : values()) {
+                if (encode.code == code) {
                     return encode;
                 }
             }
             throw new IllegalArgumentException("value=" + code);
+        }
+
+        public int getCode() {
+            return code;
         }
     }
 }
