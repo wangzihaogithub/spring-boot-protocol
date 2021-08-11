@@ -42,6 +42,7 @@ public class JavaClassFile {
     private static final Attribute.InnerClass[] EMPTY_INNER_CLASSES = {};
     private static final Attribute.StackMapEntry[] EMPTY_STACK_MAP_ENTRY = {};
     private static final Attribute.StackMapFrame[] EMPTY_STACK_MAP_FRAME = {};
+    private static final Attribute.BootstrapMethod[] EMPTY_BOOT_STRAP_METHOD = {};
     private static final Attribute.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
 
@@ -55,6 +56,23 @@ public class JavaClassFile {
     private Member[] fields;
     private Member[] methods;
     private Attribute[] attributes;
+
+    /**
+     * Determine the name of the class file, relative to the containing
+     * package: e.g. "String.class"
+     * @param clazz the class
+     * @return the file name of the ".class" file
+     */
+    public static String getClassFileName(Class<?> clazz) {
+        Objects.requireNonNull(clazz, "Class must not be null");
+        String className = clazz.getName();
+        int lastDotIndex = className.lastIndexOf('.');
+        return className.substring(lastDotIndex + 1) + ".class";
+    }
+
+    public JavaClassFile(Class clazz) throws ClassNotFoundException, IOException, IllegalClassFormatException {
+        this(new ClassReader(clazz));
+    }
 
     public JavaClassFile(String path, String name) throws ClassNotFoundException, IOException, IllegalClassFormatException {
         this(new ClassReader(path, name));
@@ -350,10 +368,17 @@ public class JavaClassFile {
             return constantInfo;
         }
 
+        public ConstantMethodHandleInfo getConstantMethodHandleInfo(int index)  {
+            return (ConstantMethodHandleInfo) getConstantInfo(index);
+        }
+
         public ConstantInfo getConstantInfo(int index)  {
             if(index >= constants.length){
                 throw new ArrayIndexOutOfBoundsException(index);
             }
+//            if(index == 0) {
+//                throw new IllegalStateException("Constant pool at index 0 is null.");
+//            }
             ConstantInfo cpInfo = constants[index];
             if(cpInfo == null){
                 System.out.println("Bad constant pool index: "+ index);
@@ -368,7 +393,10 @@ public class JavaClassFile {
             return getUtf8(((ConstantClassInfo)getConstantInfo(index)).nameIndex);
         }
         public String getUtf8(int stringIndex) {
-            return((ConstantUtf8Info)getConstantInfo(stringIndex)).value();
+            if(stringIndex == 0){
+                return null;
+            }
+            return ((ConstantUtf8Info)getConstantInfo(stringIndex)).value();
         }
         public String getClassNameForToString(int index) {
             if(index == 0){
@@ -854,8 +882,9 @@ public class JavaClassFile {
                         .add("\"index\":"+ index)
                         .add("\"constant\":\""+name()+"\"")
                         .add("\"length\":"+length())
-                        .add("\"referenceKind\":"+referenceKind)
-                        .add("\"referenceIndex\":"+referenceIndex)
+                        .add("\"referenceKind\":\"" + Opcodes.METHOD_HANDLES_NAMES[referenceKind]+"\"")
+                        .add("\"referenceIndex\":"+ referenceIndex)
+                        .add("\"reference\":"+ getConstantInfo(referenceIndex))
                         .toString();
             }
         }
@@ -972,6 +1001,9 @@ public class JavaClassFile {
 
         public java.lang.reflect.Member getJavaMember(Class target) throws NoSuchMethodException {
             String name = name();
+            if(name == null){
+                throw new NoSuchMethodException("name is null");
+            }
             Class<?>[] argumentTypes = getJavaArgumentTypes();
             if ("<init>".equals(name)) {
                 return target.getDeclaredConstructor(argumentTypes);
@@ -1278,7 +1310,7 @@ public class JavaClassFile {
                 // Skip the first character, which is always a '('.
                 int currentOffset = 1;
                 // Parse the argument types, one at a each loop iteration.
-                while (methodDescriptor.charAt(currentOffset) != ')') {
+                while (methodDescriptor != null && methodDescriptor.charAt(currentOffset) != ')') {
                     while (methodDescriptor.charAt(currentOffset) == '[') {
                         currentOffset++;
                     }
@@ -1295,7 +1327,7 @@ public class JavaClassFile {
                 currentOffset = 1;
                 // Parse and create the argument types, one at each loop iteration.
                 int currentArgumentTypeIndex = 0;
-                while (methodDescriptor.charAt(currentOffset) != ')') {
+                while (methodDescriptor != null && methodDescriptor.charAt(currentOffset) != ')') {
                     final int currentArgumentTypeOffset = currentOffset;
                     while (methodDescriptor.charAt(currentOffset) == '[') {
                         currentOffset++;
@@ -1884,7 +1916,7 @@ public class JavaClassFile {
                 reader.mark();
                 decode(attrName, length, reader);
             }catch (Exception e){
-                put("decodeAttributeException",e.getMessage());
+                put("decodeAttributeException",e.toString());
                 reader.reset();
                 byte[] decodeAttributeExceptionBytes = reader.readInt8s(length);
                 put("decodeAttributeExceptionBytes",decodeAttributeExceptionBytes);
@@ -1896,11 +1928,13 @@ public class JavaClassFile {
                 case "ConstantValue" :{
                     int constantValueIndex = reader.readUint16();
                     put("constantValueIndex",constantValueIndex);
+                    put("constantValue",constantPool.getConstantInfo(constantValueIndex));
                     break;
                 }
                 case "SourceFile" :{
                     int sourceFileIndex = reader.readUint16();
                     put("sourceFileIndex",sourceFileIndex);
+                    put("sourceFileName",constantPool.getUtf8(sourceFileIndex));
                     break;
                 }
                 case "Code" :{
@@ -2051,6 +2085,20 @@ public class JavaClassFile {
                         annotations[i] = new Annotation(reader);
                     }
                     put("annotations",annotations);
+                    break;
+                }
+                case "BootstrapMethods" :{
+                    int numberOfBootstrapMethods = reader.readUint16();
+                    BootstrapMethod[] bootstrapMethods;
+                    if(numberOfBootstrapMethods == 0){
+                        bootstrapMethods = EMPTY_BOOT_STRAP_METHOD;
+                    }else{
+                        bootstrapMethods = new BootstrapMethod[numberOfBootstrapMethods];
+                    }
+                    put("bootstrapMethods",bootstrapMethods);
+                    for(int i=0; i< bootstrapMethods.length; i++){
+                        bootstrapMethods[i] = new BootstrapMethod(reader);
+                    }
                     break;
                 }
                 default:{
@@ -2425,6 +2473,30 @@ public class JavaClassFile {
             }
         }
 
+        public class BootstrapMethod{
+            private int bootstrapMethodRef;
+            private int[] bootstrapArguments;
+            public BootstrapMethod(ClassReader reader) {
+                this.bootstrapMethodRef = reader.readUint16();
+                this.bootstrapArguments = new int[reader.readUint16()];
+                for(int i = 0; i< bootstrapArguments.length; i++){
+                    this.bootstrapArguments[i] = reader.readUint16();
+                }
+            }
+            @Override
+            public String toString() {
+                ConstantPool.ConstantInfo[] infos = new ConstantPool.ConstantInfo[bootstrapArguments.length];
+                for (int i = 0; i < bootstrapArguments.length; i++) {
+                    int bootstrapArgument = bootstrapArguments[i];
+                    infos[i] = constantPool.getConstantInfo(bootstrapArgument);
+                }
+                StringJoiner joiner = new StringJoiner(",", "{", "}")
+                        .add("\"bootstrapMethod\":" + constantPool.getConstantMethodHandleInfo(bootstrapMethodRef))
+                        .add("\"bootstrapArguments\":" + Arrays.toString(infos));
+                return joiner.toString();
+            }
+        }
+
         public class Annotation{
             private int typeIndex;
             private ElementValue[] elementValues;
@@ -2685,6 +2757,9 @@ public class JavaClassFile {
             this(new FileInputStream(new File(path + File.separator + fileName)));
         }
 
+        public ClassReader(Class clazz) throws IOException {
+            this(clazz.getResourceAsStream(getClassFileName(clazz)));
+        }
         public ClassReader(InputStream in) throws IOException {
             try {
                 byte[] buffer = new byte[in.available()];
@@ -2710,6 +2785,14 @@ public class JavaClassFile {
 
         public void reset() {
             this.index = this.markIndex;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public void setIndex(int index) {
+            this.index = index;
         }
 
         /**
@@ -2747,7 +2830,9 @@ public class JavaClassFile {
             index = index + 2;
             return value;
         }
-
+        public int readUint32(){
+            return readInt32() & 0x0FFFF;
+        }
         /**
          * 读取32位-有符号
          * @return 32位-有符号
@@ -2817,6 +2902,14 @@ public class JavaClassFile {
             return values;
         }
 
+        public byte[] getBytes() {
+            return codes;
+        }
+
+        public InputStream getInputStream() {
+            return new ByteArrayInputStream(codes);
+        }
+
         @Override
         public void close(){
             this.codes = null;
@@ -2857,7 +2950,14 @@ public class JavaClassFile {
         public static final int  H_INVOKESPECIAL = 7;
         public static final int  H_NEWINVOKESPECIAL = 8;
         public static final int  H_INVOKEINTERFACE = 9;
-
+        /**
+         * Table 5.4.3.5-A. Bytecode Behaviors for Method Handles
+         */
+        public static final String[] METHOD_HANDLES_NAMES = {
+                null,"REF_getField","REF_getStatic","REF_putField",
+                "REF_putStatic","REF_invokeVirtual","REF_invokeStatic",
+                "REF_invokeSpecial","REF_newInvokeSpecial","REF_invokeInterface"
+        };
 
         /** An expanded frame.
          *
@@ -3230,6 +3330,8 @@ public class JavaClassFile {
 
 
     public static void main(String[] args) throws Exception{
+        JavaClassFile classFile = new JavaClassFile(LinkedHashMap.class);
+
         //这里换成自己的class包路径
         String path = "G:\\githubs\\spring-boot-protocol\\target\\classes\\com\\github\\netty\\protocol\\servlet";
         Map<String, JavaClassFile> javaClassMap = new HashMap<>();
