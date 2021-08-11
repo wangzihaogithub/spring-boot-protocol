@@ -2041,7 +2041,9 @@ public class JavaClassFile {
                     break;
                 }
                 case "Signature" :{
-                    put("signatureIndex",reader.readUint16());
+                    int signatureIndex = reader.readUint16();
+                    put("signatureIndex",signatureIndex);
+                    put("signature",constantPool.getConstantInfo(signatureIndex));
                     break;
                 }
                 case "StackMap" :{
