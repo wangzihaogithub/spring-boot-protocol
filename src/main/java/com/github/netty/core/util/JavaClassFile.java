@@ -45,7 +45,7 @@ public class JavaClassFile {
     private static final Attribute.BootstrapMethod[] EMPTY_BOOT_STRAP_METHOD = {};
     private static final Attribute.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
-
+    private static final String[] EMPTY_EXCEPTION_NAME_TABLE = {};
     private long minorVersion;
     private JavaVersion majorVersion;
     private ConstantPool constantPool;
@@ -101,7 +101,7 @@ public class JavaClassFile {
         this.interfacesIndex = reader.readUint16s();
         this.fields = readMembers(reader);
         this.methods = readMembers(reader);
-        this.attributes = readAttributes(reader);
+        this.attributes = readAttributes(reader,null);
         reader.close();
     }
 
@@ -128,12 +128,12 @@ public class JavaClassFile {
             members[i].descriptorIndex = reader.readUint16();
             members[i].name = constantPool.getUtf8(members[i].nameIndex);
             members[i].descriptorName = constantPool.getUtf8(members[i].descriptorIndex);
-            members[i].attributes = readAttributes(reader);
+            members[i].attributes = readAttributes(reader,null);
         }
         return members;
     }
 
-    private Attribute[] readAttributes(ClassReader reader)  {
+    private Attribute[] readAttributes(ClassReader reader,Attribute parent)  {
         int attributesCount = reader.readUint16();
         if(attributesCount == 0){
             return EMPTY_ATTRIBUTES;
@@ -141,7 +141,7 @@ public class JavaClassFile {
             Attribute[] attributes = new Attribute[attributesCount];
             for (int i = 0; i < attributes.length; i++) {
                 int attrNameIndex = reader.readUint16();
-                attributes[i] = new Attribute(attrNameIndex, reader.readInt32(), reader);
+                attributes[i] = new Attribute(attrNameIndex, reader.readInt32(), parent, reader);
             }
             return attributes;
         }
@@ -1906,7 +1906,7 @@ public class JavaClassFile {
     }
 
     public class Attribute extends LinkedHashMap<String,Object>{
-        public Attribute(int attrNameIndex, int length, ClassReader reader) {
+        public Attribute(int attrNameIndex, int length, Attribute parent, ClassReader reader) {
             String attrName = constantPool.getUtf8(attrNameIndex);
             put("attrNameIndex",attrNameIndex);
             put("attrName",attrName);
@@ -1914,7 +1914,7 @@ public class JavaClassFile {
 
             try {
                 reader.mark();
-                decode(attrName, length, reader);
+                decode(attrName, length, parent, reader);
             }catch (Exception e){
                 put("decodeAttributeException",e.toString());
                 reader.reset();
@@ -1923,7 +1923,11 @@ public class JavaClassFile {
             }
         }
 
-        private void decode(String attrName, int length, ClassReader reader){
+        public Opcodes getOpcodes(){
+            return (Opcodes) get("opcodes");
+        }
+
+        private void decode(String attrName, int length, Attribute parent, ClassReader reader){
             switch (attrName){
                 case "ConstantValue" :{
                     int constantValueIndex = reader.readUint16();
@@ -1955,21 +1959,28 @@ public class JavaClassFile {
                         }
                     }
                     put("exceptionTable",codeExceptions);
-                    put("attributes", readAttributes(reader));
+                    put("attributes", readAttributes(reader,this));
                     break;
                 }
                 case "Exceptions" :{
                     int exceptionIndexTableLength = reader.readUint16();
                     int[] exceptionIndexTable;
+                    String[] exceptionNameTable;
                     if(exceptionIndexTableLength == 0){
                         exceptionIndexTable = EMPTY_EXCEPTION_INDEX_TABLE;
+                        exceptionNameTable = EMPTY_EXCEPTION_NAME_TABLE;
                     }else {
                         exceptionIndexTable = new int[exceptionIndexTableLength];
                         for(int i=0; i < exceptionIndexTable.length; i++) {
                             exceptionIndexTable[i] = reader.readUint16();
                         }
+                        exceptionNameTable = new String[exceptionIndexTable.length];
+                        for(int i=0; i < exceptionIndexTable.length; i++) {
+                            exceptionNameTable[i] = constantPool.getClassNameForToString(exceptionIndexTable[i]);
+                        }
                     }
                     put("exceptionIndexTable",exceptionIndexTable);
+                    put("exceptionNameTable",exceptionNameTable);
                     break;
                 }
                 case "LineNumberTable" :{
@@ -1978,9 +1989,10 @@ public class JavaClassFile {
                     if(lineNumberTableLength == 0){
                         lineNumberTable = EMPTY_LINE_NUMBER_TABLE;
                     }else {
+                        Opcodes opcodes = parent.getOpcodes();
                         lineNumberTable = new LineNumber[lineNumberTableLength];
                         for(int i=0; i < lineNumberTable.length; i++) {
-                            lineNumberTable[i] = new LineNumber(reader.readUint16(),reader.readUint16());
+                            lineNumberTable[i] = new LineNumber(reader.readUint16(),reader.readUint16(),opcodes);
                         }
                     }
                     put("lineNumberTable",lineNumberTable);
@@ -2194,14 +2206,17 @@ public class JavaClassFile {
         public class LineNumber{
             private int startPc;    // Program Counter (PC) corresponds to line
             private int lineNumber; // number in source file
-            public LineNumber(int startPc, int lineNumber) {
+            private Opcodes opcodes;
+            public LineNumber(int startPc, int lineNumber,Opcodes opcodes) {
                 this.startPc = startPc;
                 this.lineNumber = lineNumber;
+                this.opcodes = opcodes;
             }
 
             @Override
             public String toString() {
                 return new StringJoiner(",", "{", "}")
+                        .add("\"startPcName\":\"" + opcodes.getOpcodeName(startPc)+"\"")
                         .add("\"startPc\":" + startPc)
                         .add("\"lineNumber\":" + lineNumber)
                         .toString();
@@ -3317,7 +3332,9 @@ public class JavaClassFile {
         public short[] getOpcodes() {
             return opcodes;
         }
-
+        public String getOpcodeName(int pc) {
+            return OPCODE_NAMES[opcodes[pc]];
+        }
         @Override
         public String toString(){
             StringJoiner joiner = new StringJoiner(",","[","]");
@@ -3337,11 +3354,14 @@ public class JavaClassFile {
         //这里换成自己的class包路径
         String path = "G:\\githubs\\spring-boot-protocol\\target\\classes\\com\\github\\netty\\protocol\\servlet";
         Map<String, JavaClassFile> javaClassMap = new HashMap<>();
-        for(File file : new File(path).listFiles()){
-            String fileName = file.getName();
-            if(fileName.endsWith(".class")){
-                JavaClassFile javaClassFile = new JavaClassFile(path, fileName);
-                javaClassMap.put(fileName, javaClassFile);
+        File[] files = new File(path).listFiles();
+        if(files != null) {
+            for (File file : files) {
+                String fileName = file.getName();
+                if (fileName.endsWith(".class")) {
+                    JavaClassFile javaClassFile = new JavaClassFile(path, fileName);
+                    javaClassMap.put(fileName, javaClassFile);
+                }
             }
         }
         System.out.println("end..");
