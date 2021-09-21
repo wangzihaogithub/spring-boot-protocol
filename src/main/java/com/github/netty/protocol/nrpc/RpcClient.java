@@ -32,7 +32,7 @@ import java.util.function.Function;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
-import static com.github.netty.protocol.nrpc.RpcContext.State.*;
+import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 
 /**
@@ -112,9 +112,14 @@ public class RpcClient extends AbstractNettyClient{
         return nettyRpcClientAopList;
     }
 
-    public void onStateUpdate(RpcContext<RpcClient> rpcContext){
+    public void onStateUpdate(RpcContext<RpcClient> rpcContext, RpcContext.State toState){
+        RpcContext.State formState = rpcContext.getState();
+        if(formState != null && formState.isStop()){
+            return;
+        }
+        rpcContext.setState(toState);
         for (RpcClientAop aop : nettyRpcClientAopList) {
-            aop.onStateUpdate(rpcContext);
+            aop.onStateUpdate(rpcContext,formState,toState);
         }
     }
 
@@ -752,12 +757,10 @@ public class RpcClient extends AbstractNettyClient{
             rpcRequest.setAck(ackFlag);
 
             rpcContext.setRequest(rpcRequest);
-            rpcContext.setState(INIT);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,INIT);
 
             rpcRequest.setData(rpcClient.dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
-            rpcContext.setState(WRITE_ING);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,WRITE_ING);
 
             RpcClientFuture future = null;
             try {
@@ -778,8 +781,7 @@ public class RpcClient extends AbstractNettyClient{
                     CONTEXT_LOCAL.set(rpcContext);
                     try {
                         if (channelFuture.isSuccess()) {
-                            rpcContext.setState(WRITE_FINISH);
-                            rpcClient.onStateUpdate(rpcContext);
+                            rpcClient.onStateUpdate(rpcContext,WRITE_FINISH);
                         } else {
                             channelFuture.channel().close().addListener(f -> rpcClient.connect());
                             rpcContext.setThrowable(channelFuture.cause());
@@ -808,8 +810,7 @@ public class RpcClient extends AbstractNettyClient{
                         rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
                     }
                     rpcContext.setResponse(rpcResponse);
-                    rpcContext.setState(READ_ING);
-                    rpcClient.onStateUpdate(rpcContext);
+                    rpcClient.onStateUpdate(rpcContext,READ_ING);
 
                     //If the server is not encoded, return directly
                     if (rpcResponse.getEncode() == BINARY) {
@@ -818,12 +819,11 @@ public class RpcClient extends AbstractNettyClient{
                         result = rpcClient.dataCodec.decodeResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
                     }
                     rpcContext.setResult(result);
-                    rpcContext.setState(READ_FINISH);
-                    rpcClient.onStateUpdate(rpcContext);
+                    rpcClient.onStateUpdate(rpcContext,READ_FINISH);
                 }
             }catch (Throwable e){
                 if(e instanceof RpcTimeoutException){
-                    rpcContext.setState(TIMEOUT);
+                    rpcClient.onStateUpdate(rpcContext,TIMEOUT);
                 }
                 rpcContext.setThrowable(e);
                 throw e;

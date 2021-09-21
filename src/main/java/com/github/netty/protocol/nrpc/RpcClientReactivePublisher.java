@@ -12,7 +12,7 @@ import org.reactivestreams.Subscription;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
-import static com.github.netty.protocol.nrpc.RpcContext.State.*;
+import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
 
 /**
@@ -50,8 +50,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         CONTEXT_LOCAL.set(rpcContext);
         try {
             rpcContext.setResponse(rpcResponse);
-            rpcContext.setState(READ_ING);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,READ_ING);
 
             handlerResponseIfNeedThrow(rpcResponse);
 
@@ -64,8 +63,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             }
 
             rpcContext.setResult(result);
-            rpcContext.setState(READ_FINISH);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,READ_FINISH);
 
             subscriber.onNext(result);
             subscriber.onComplete();
@@ -94,7 +92,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             () -> {
                 try {
                     CONTEXT_LOCAL.set(rpcContext);
-                    rpcContext.setState(TIMEOUT);
+                    rpcClient.onStateUpdate(rpcContext,TIMEOUT);
                     rpcContext.setThrowable(timeoutException);
                     subscriber.onError(timeoutException);
                 }finally {
@@ -137,20 +135,17 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setAck(ACK_YES);
 
             rpcContext.setRequest(rpcRequest);
-            rpcContext.setState(INIT);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,INIT);
 
             rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
-            rpcContext.setState(WRITE_ING);
-            rpcClient.onStateUpdate(rpcContext);
+            rpcClient.onStateUpdate(rpcContext,WRITE_ING);
 
             rpcClient.rpcDoneMap.put(requestId, this,timeout);
             channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) future -> {
                 CONTEXT_LOCAL.set(rpcContext);
                 try {
                     if (future.isSuccess()) {
-                        rpcContext.setState(WRITE_FINISH);
-                        rpcClient.onStateUpdate(rpcContext);
+                        rpcClient.onStateUpdate(rpcContext,WRITE_FINISH);
                     }else {
                         Throwable throwable = future.cause();
                         future.channel().close().addListener(f -> rpcClient.connect());

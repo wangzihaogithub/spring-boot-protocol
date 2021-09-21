@@ -17,7 +17,7 @@ public class RpcContext<INSTANCE> implements Recyclable {
     private Object result;
     private RpcMethod<INSTANCE> rpcMethod;
     private Throwable throwable;
-    private State state = State.INIT;
+    private State state;
     private long rpcBeginTimestamp;
     private long rpcEndTimestamp;
 
@@ -57,7 +57,7 @@ public class RpcContext<INSTANCE> implements Recyclable {
         return state;
     }
 
-    void setState(State state) {
+    public void setState(State state) {
         this.state = state;
     }
 
@@ -123,7 +123,7 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.throwable = null;
         this.localAddress = null;
         this.remoteAddress = null;
-        this.state = State.INIT;
+        this.state = null;
     }
 
     @Override
@@ -134,13 +134,28 @@ public class RpcContext<INSTANCE> implements Recyclable {
                 '}';
     }
 
-    public enum State{
-        INIT,
-        WRITE_ING,
-        WRITE_FINISH,
-        READ_ING,
-        READ_FINISH,
-        TIMEOUT
+    public interface State{
+        String name();
+        boolean isStop();
+    }
+
+    public enum RpcState implements State{
+        INIT(false),
+        WRITE_ING(false),
+        WRITE_FINISH(false),
+        READ_ING(false),
+        READ_FINISH(false),
+        TIMEOUT(true)
+        ;
+        private final boolean stop;
+        RpcState(boolean stop) {
+            this.stop = stop;
+        }
+
+        @Override
+        public boolean isStop() {
+            return stop;
+        }
     }
 
 }

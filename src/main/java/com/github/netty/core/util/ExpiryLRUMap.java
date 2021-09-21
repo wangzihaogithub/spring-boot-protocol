@@ -28,7 +28,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
             return "ExpiryLRUMap.NULL";
         }
     };
-    private static final ConcurrentSkipListSet<Node> EXPIRY_NODES = new ConcurrentSkipListSet<>((o1, o2) -> {
+    private static final ConcurrentSkipListSet<Node> NO_EXPIRY_NODES = new ConcurrentSkipListSet<>((o1, o2) -> {
         if (o1 == o2) {
             return 0;
         }
@@ -57,6 +57,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
      * 超过上限的 淘汰通知
      */
     private transient volatile Consumer<Node<K, V>> onEvictionConsumer = this::onEviction;
+    /**
+     * 用户主动删除 删除通知
+     */
+    private transient volatile Consumer<Node<K, V>> onRemoveConsumer = this::onRemove;
 
     /**
      * 默认永不过期 (相当于普通的 ConcurrentMap)
@@ -211,6 +215,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         this.onExpiryConsumer = onExpiryConsumer;
     }
 
+    public void setOnRemoveConsumer(Consumer<Node<K, V>> onRemoveConsumer) {
+        this.onRemoveConsumer = onRemoveConsumer;
+    }
+
     public boolean isReplaceNullValueFlag() {
         return replaceNullValueFlag;
     }
@@ -279,7 +287,15 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         if (old == null) {
             return null;
         } else {
+            notifyRemove(old);
             return old.getData();
+        }
+    }
+
+    public void notifyRemove(Node<K, V> node) {
+        Consumer<Node<K, V>> onRemoveConsumer = this.onRemoveConsumer;
+        if (onRemoveConsumer != null) {
+            onRemoveConsumer.accept(node);
         }
     }
 
@@ -364,7 +380,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     public boolean remove(Object key, Object value) {
         Node<K, V> old = map.get(key);
         if (old != null && Objects.equals(old.getData(), value)) {
-            map.remove(key);
+            map.remove(key, old);
+            notifyRemove(old);
             return true;
         }
         return false;
@@ -554,6 +571,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
 
     }
 
+    public void onRemove(Node<K, V> node) {
+
+    }
+
     @Override
     public boolean equals(Object o) {
         return this == o;
@@ -593,7 +614,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
             this.data = value;
             this.expiryLRUMap = expiryLRUMap;
             if (expiryLRUMap != null && expiryTimestamp != Long.MAX_VALUE) {
-                EXPIRY_NODES.add(this);
+                NO_EXPIRY_NODES.add(this);
             }
         }
 
@@ -720,7 +741,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
             if (INSTANCE_SET.isEmpty()) {
                 synchronized (INSTANCE_SET) {
                     if (INSTANCE_SET.isEmpty()) {
-                        EXPIRY_NODES.clear();
+                        NO_EXPIRY_NODES.clear();
                         ScheduledFuture<?> scheduledFuture = SCHEDULED_FUTURE;
                         scheduledFuture.cancel(false);
                         SCHEDULED_FUTURE = null;
@@ -728,27 +749,27 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
                 }
                 return;
             }
-            if (EXPIRY_NODES.isEmpty()) {
+            if (NO_EXPIRY_NODES.isEmpty()) {
                 return;
             }
             Node now = new Node<>(0, null, null, null);
-            NavigableSet<Node> headSet = EXPIRY_NODES.headSet(now);
-            if (headSet.isEmpty()) {
+            NavigableSet<Node> expiryNodes = NO_EXPIRY_NODES.headSet(now);
+            if (expiryNodes.isEmpty()) {
                 return;
             }
-            Iterator<Node> iterator = headSet.iterator();
+            Iterator<Node> iterator = expiryNodes.iterator();
             while (iterator.hasNext()) {
-                Node removeNode = iterator.next();
-                synchronized (removeNode) {
-                    boolean remove = removeNode.getExpiryLRUMap().map.remove(removeNode.getKey(), removeNode);
-                    if (!remove && !removeNode.covered) {
+                Node expiryRemoveNode = iterator.next();
+                synchronized (expiryRemoveNode) {
+                    boolean remove = expiryRemoveNode.getExpiryLRUMap().map.remove(expiryRemoveNode.getKey(), expiryRemoveNode);
+                    if (!remove && !expiryRemoveNode.covered) {
                         continue;
                     }
                 }
 
                 try {
                     iterator.remove();
-                    removeConsumer.accept(removeNode);
+                    removeConsumer.accept(expiryRemoveNode);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

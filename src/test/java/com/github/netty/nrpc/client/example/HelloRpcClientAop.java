@@ -44,7 +44,7 @@ public class HelloRpcClientAop implements com.github.netty.protocol.nrpc.RpcClie
     }
 
     @Override
-    public void onStateUpdate(RpcContext<RpcClient> rpcContext) {
+    public void onStateUpdate(RpcContext<RpcClient> rpcContext, RpcContext.State formState, RpcContext.State toState) {
 
     }
 }
