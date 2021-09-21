@@ -4,6 +4,7 @@ import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.socket.SocketChannel;
 import org.reactivestreams.Publisher;
@@ -140,8 +141,9 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
             rpcClient.onStateUpdate(rpcContext,WRITE_ING);
 
+            ChannelFuture writeAndFlushFuture = channel.writeAndFlush(rpcRequest);
             rpcClient.rpcDoneMap.put(requestId, this,timeout);
-            channel.writeAndFlush(rpcRequest).addListener((ChannelFutureListener) future -> {
+            writeAndFlushFuture.addListener((ChannelFutureListener) future -> {
                 CONTEXT_LOCAL.set(rpcContext);
                 try {
                     if (future.isSuccess()) {

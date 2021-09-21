@@ -8,6 +8,7 @@ import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
 import com.github.netty.protocol.mysql.listener.WriterLogFilePacketListener;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
+import com.github.netty.protocol.nrpc.JsonDataCodec;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.beans.factory.BeanFactory;
@@ -25,6 +26,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
@@ -72,6 +74,8 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("nRpcProtocol")
     @ConditionalOnMissingBean(NRpcProtocol.class)
     public NRpcProtocol nRpcProtocol(){
+        // Preheat codec
+        new JsonDataCodec();
         NRpcProtocolSpringAdapter protocol = new NRpcProtocolSpringAdapter(nettyProperties.getApplication());
         protocol.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
         protocol.setMethodOverwriteCheck(nettyProperties.getNrpc().isServerMethodOverwriteCheck());

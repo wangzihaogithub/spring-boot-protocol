@@ -51,7 +51,14 @@ public class JsonDataCodec implements DataCodec {
     private static int FEATURE_MASK = Feature.of(FEATURES);
 
     static {
+        // Preheat code
         try {
+            try (SerializeWriter out = new SerializeWriter(null, JSON.DEFAULT_GENERATE_FEATURE,
+                    SERIALIZER_FEATURES)) {
+                JSONSerializer serializer = new JSONSerializer(out, SerializeConfig.globalInstance);
+                serializer.write(new HashMap<>());
+                out.toBytes(CHARSET_UTF8);
+            }
             Class.forName("com.alibaba.fastjson.util.TypeUtils");
             Class.forName("com.alibaba.fastjson.JSON");
             Class.forName("com.alibaba.fastjson.util.ASMClassLoader");
