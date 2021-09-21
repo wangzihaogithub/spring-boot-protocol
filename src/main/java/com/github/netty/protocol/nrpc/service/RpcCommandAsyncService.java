@@ -1,6 +1,6 @@
 package com.github.netty.protocol.nrpc.service;
 
-import com.github.netty.annotation.Protocol;
+import com.github.netty.annotation.NRpcService;
 import org.reactivestreams.Publisher;
 
 /**
@@ -8,7 +8,7 @@ import org.reactivestreams.Publisher;
  * @author wangzihao
  * 2020/4/23/020
  */
-@Protocol.RpcService(value = "/_nrpc/command",timeout = 600)
+@NRpcService(value = "/_nrpc/command",timeout = 600)
 public interface RpcCommandAsyncService {
 
     Publisher<byte[]> ping();

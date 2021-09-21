@@ -1,5 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.annotation.NRpcMethod;
 import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
@@ -48,6 +49,7 @@ public class RpcMethod<INSTANCE> {
     private final String[] parameterNames;
     private final Type genericReturnType;
     private final INSTANCE instance;
+    private final NRpcMethod methodAnnotation;
     private final boolean returnCompletionStageFlag;
     private final boolean returnFutureFlag;
     private final boolean returnCompletableFutureFlag;
@@ -68,12 +70,14 @@ public class RpcMethod<INSTANCE> {
     };
 
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames, String methodName,
+                      NRpcMethod methodAnnotation,
                       boolean returnTypeJdk9PublisherFlag, boolean returnTypeReactivePublisherFlag,
                       boolean returnRxjava3ObservableFlag, boolean returnRxjava3FlowableFlag) {
         this.instance = instance;
         this.method = method;
         this.methodName = methodName;
         this.parameterNames = parameterNames;
+        this.methodAnnotation = methodAnnotation;
         this.returnTypeJdk9PublisherFlag = returnTypeJdk9PublisherFlag;
         this.returnTypeReactivePublisherFlag = returnTypeReactivePublisherFlag;
         this.returnRxjava3ObservableFlag = returnRxjava3ObservableFlag;
@@ -151,8 +155,9 @@ public class RpcMethod<INSTANCE> {
             boolean isReturnTypeReactivePublisher = isReturnType(REACTIVE_PUBLISHER_CLASS, method);
             boolean isReturnRxjava3ObservableFlag = isReturnType(RXJAVA3_OBSERVABLE_CLASS, method);
             boolean isReturnRxjava3FlowableFlag = isReturnType(RXJAVA3_FLOWABLE_CLASS, method);
+            NRpcMethod methodAnnotation = method.getDeclaredAnnotation(NRpcMethod.class);
             RpcMethod<INSTANCE> newMethod = new RpcMethod<>(instance, method, parameterNames, methodName,
-                    isReturnTypeJdk9Publisher, isReturnTypeReactivePublisher,
+                    methodAnnotation, isReturnTypeJdk9Publisher, isReturnTypeReactivePublisher,
                     isReturnRxjava3ObservableFlag, isReturnRxjava3FlowableFlag);
             RpcMethod<INSTANCE> oldMethod = methodMap.put(newMethod.getMethodDescriptorName(), newMethod);
             boolean existOverwrite = oldMethod != null;
@@ -201,6 +206,18 @@ public class RpcMethod<INSTANCE> {
 
     public MethodHandle getMethodHandle() {
         return methodHandle;
+    }
+
+    public NRpcMethod getMethodAnnotation() {
+        return methodAnnotation;
+    }
+
+    public Integer getTimeout() {
+        return methodAnnotation != null ? methodAnnotation.timeout() : null;
+    }
+
+    public boolean isTimeoutInterrupt() {
+        return methodAnnotation != null && methodAnnotation.timeoutInterrupt();
     }
 
     public boolean isInnerMethodFlag() {

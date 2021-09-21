@@ -1,6 +1,7 @@
 package com.github.netty.springboot.client;
 
-import com.github.netty.annotation.Protocol;
+import com.github.netty.annotation.NRpcMethod;
+import com.github.netty.annotation.NRpcParam;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.*;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
@@ -9,7 +10,6 @@ import io.netty.util.concurrent.FastThreadLocal;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.web.bind.annotation.*;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
@@ -28,7 +28,7 @@ import java.util.function.Supplier;
  * -----------------------------------------------------------------------
  *
  * Support rpc method annotation list.
- * @see Protocol.RpcParam
+ * @see NRpcParam
  * @see RequestMapping
  * @see RequestParam
  * @see RequestBody
@@ -44,14 +44,14 @@ public class NettyRpcClientProxy implements InvocationHandler {
     private final Class<?> interfaceClass;
     private final String rpcInstanceKey;
     private final String version;
-    private long timeout;
+    private int timeout;
     private NettyProperties properties;
     private Supplier<NettyRpcLoadBalanced> loadBalancedSupplier;
     private final AnnotationMethodToParameterNamesFunction annotationMethodToParameterNamesFunction = new AnnotationMethodToParameterNamesFunction(
-            Protocol.RpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
+            NRpcParam.class,RequestParam.class,RequestBody.class, RequestHeader.class,
             PathVariable.class,CookieValue.class, RequestPart.class);
     private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(
-            Protocol.RpcMethod.class,RequestMapping.class);
+            NRpcMethod.class,RequestMapping.class);
     private static final Map<InetSocketAddress,RpcClient> CLIENT_MAP = new ConcurrentHashMap<>(64);
     private static final FastThreadLocal<DefaultNettyRpcRequest> REQUEST_THREAD_LOCAL = new FastThreadLocal<DefaultNettyRpcRequest>(){
         @Override
@@ -155,11 +155,11 @@ public class NettyRpcClientProxy implements InvocationHandler {
             nettyRpcFilterList = null;
         }
     }
-    public long getTimeout() {
+    public int getTimeout() {
         return timeout;
     }
 
-    public void setTimeout(long timeout) {
+    public void setTimeout(int timeout) {
         if(timeout > 0) {
             this.timeout = timeout;
         }
@@ -248,7 +248,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
         private Method method;
         private Object[] args;
         private NettyRpcClientProxy clientProxy;
-        private long timeout;
+        private int timeout;
         private Object proxy;
         private RpcClient rpcClient;
         private InetSocketAddress remoteAddress;
@@ -304,12 +304,12 @@ public class NettyRpcClientProxy implements InvocationHandler {
         }
 
         @Override
-        public void setTimeout(long timeout) {
+        public void setTimeout(int timeout) {
             this.timeout = timeout;
         }
 
         @Override
-        public long getTimeout() {
+        public int getTimeout() {
             return timeout;
         }
 

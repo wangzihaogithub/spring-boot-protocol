@@ -16,6 +16,7 @@ public interface RpcServerAop {
     default void onDisconnectAfter(RpcServerChannelHandler channel){}
     default void onDecodeRequestBefore(RpcContext<RpcServerInstance> rpcContext, Map<String,Object> params){}
     default void onResponseAfter(RpcContext<RpcServerInstance> rpcContext){}
+    default void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, RpcContext.State formState, RpcContext.State toState){}
 
     FastThreadLocal<RpcContext<RpcServerInstance>> CONTEXT_LOCAL = new FastThreadLocal<>();
 }

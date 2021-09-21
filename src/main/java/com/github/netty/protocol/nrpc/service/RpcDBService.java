@@ -1,6 +1,7 @@
 package com.github.netty.protocol.nrpc.service;
 
-import com.github.netty.annotation.Protocol;
+import com.github.netty.annotation.NRpcParam;
+import com.github.netty.annotation.NRpcService;
 
 import java.util.List;
 
@@ -10,7 +11,7 @@ import java.util.List;
  * @author wangzihao
  * 2018/8/20/020
  */
-@Protocol.RpcService(value = "/_nrpc/db",timeout = 1500)
+@NRpcService(value = "/_nrpc/db",timeout = 1500)
 public interface RpcDBService {
 
     /**
@@ -19,8 +20,8 @@ public interface RpcDBService {
      * @param group group
      * @return boolean
      */
-    boolean exist2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
-    boolean exist(@Protocol.RpcParam("key") String key);
+    boolean exist2(@NRpcParam("key") String key, @NRpcParam("group") String group);
+    boolean exist(@NRpcParam("key") String key);
 
     /**
      * put
@@ -29,16 +30,16 @@ public interface RpcDBService {
      * @param expireSecond expireSecond
      * @param group group
      */
-    void put4(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data, @Protocol.RpcParam("expireSecond") int expireSecond, @Protocol.RpcParam("group") String group);
-    void put3(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data, @Protocol.RpcParam("expireSecond") int expireSecond);
-    void put(@Protocol.RpcParam("group") String key, @Protocol.RpcParam("data") byte[] data);
+    void put4(@NRpcParam("group") String key, @NRpcParam("data") byte[] data, @NRpcParam("expireSecond") int expireSecond, @NRpcParam("group") String group);
+    void put3(@NRpcParam("group") String key, @NRpcParam("data") byte[] data, @NRpcParam("expireSecond") int expireSecond);
+    void put(@NRpcParam("group") String key, @NRpcParam("data") byte[] data);
 
     /**
      * Gets the number of groups
      * @param group group
      * @return count
      */
-    int count(@Protocol.RpcParam("group") String group);
+    int count(@NRpcParam("group") String group);
 
     /**
      * To get the data
@@ -46,8 +47,8 @@ public interface RpcDBService {
      * @param group group
      * @return byte[] data
      */
-    byte[] get2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
-    byte[] get(@Protocol.RpcParam("key") String key);
+    byte[] get2(@NRpcParam("key") String key, @NRpcParam("group") String group);
+    byte[] get(@NRpcParam("key") String key);
 
     /**
      * changeKey
@@ -55,32 +56,32 @@ public interface RpcDBService {
      * @param newKey newKey
      * @param group group
      */
-    void changeKey3(@Protocol.RpcParam("oldKey") String oldKey, @Protocol.RpcParam("newKey") String newKey, @Protocol.RpcParam("group") String group);
-    void changeKey(@Protocol.RpcParam("oldKey") String oldKey, @Protocol.RpcParam("newKey") String newKey);
+    void changeKey3(@NRpcParam("oldKey") String oldKey, @NRpcParam("newKey") String newKey, @NRpcParam("group") String group);
+    void changeKey(@NRpcParam("oldKey") String oldKey, @NRpcParam("newKey") String newKey);
 
     /**
      * remove data
      * @param key key
      * @param group group
      */
-    void remove2(@Protocol.RpcParam("key") String key, @Protocol.RpcParam("group") String group);
-    void remove(@Protocol.RpcParam("key") String key);
+    void remove2(@NRpcParam("key") String key, @NRpcParam("group") String group);
+    void remove(@NRpcParam("key") String key);
 
     /**
      * remove data Batch
      * @param keys keys
      * @param group group
      */
-    void removeBatch2(@Protocol.RpcParam("keys") List<String> keys, @Protocol.RpcParam("group") String group);
-    void removeBatch(@Protocol.RpcParam("keys") List<String> keys);
+    void removeBatch2(@NRpcParam("keys") List<String> keys, @NRpcParam("group") String group);
+    void removeBatch(@NRpcParam("keys") List<String> keys);
 
 	/**
 	 * Set the max number for this group
 	 * @param maxSize the group maxSize
 	 * @param group group
 	 */
-    void setMaxSize2(@Protocol.RpcParam("maxSize")Integer maxSize,@Protocol.RpcParam("group") String group);
-	void setMaxSize(@Protocol.RpcParam("maxSize")Integer maxSize);
+    void setMaxSize2(@NRpcParam("maxSize")Integer maxSize,@NRpcParam("group") String group);
+	void setMaxSize(@NRpcParam("maxSize")Integer maxSize);
 
 
 }

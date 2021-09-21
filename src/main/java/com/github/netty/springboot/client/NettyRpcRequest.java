@@ -45,7 +45,7 @@ public interface NettyRpcRequest {
     String getRequestMappingName();
 
     /**
-     * you rpc service version {@link com.github.netty.annotation.Protocol.RpcService#version()}
+     * you rpc service version {@link com.github.netty.annotation.NRpcService#version()}
      * @return any string
      */
     String getVersion();
@@ -54,8 +54,8 @@ public interface NettyRpcRequest {
      * setting once request timeout. unit is millSecond
      * @param timeout timeout
      */
-    void setTimeout(long timeout);
-    long getTimeout();
+    void setTimeout(int timeout);
+    int getTimeout();
 
     /**
      * Yml configuration file

@@ -87,6 +87,7 @@ public class RpcPacket implements Recyclable {
         private String requestMappingName;
         private String version;
         private String methodName;
+        private int timeout;
 
         public static RequestPacket newInstance() {
             return RECYCLER.getInstance();
@@ -94,6 +95,14 @@ public class RpcPacket implements Recyclable {
 
         private RequestPacket() {
             super(TYPE_REQUEST);
+        }
+
+        public int getTimeout() {
+            return timeout;
+        }
+
+        public void setTimeout(int timeout) {
+            this.timeout = timeout;
         }
 
         public int getRequestId() {

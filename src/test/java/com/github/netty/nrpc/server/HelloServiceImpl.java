@@ -1,22 +1,24 @@
 package com.github.netty.nrpc.server;
 
-import com.github.netty.annotation.Protocol;
-import com.github.netty.nrpc.api.HelloService;
+import com.github.netty.annotation.NRpcMethod;
+import com.github.netty.annotation.NRpcService;
 import com.github.netty.nrpc.api.HelloDTO;
 import com.github.netty.nrpc.api.HelloData;
+import com.github.netty.nrpc.api.HelloService;
 
-@Protocol.RpcService
+@NRpcService
 public class HelloServiceImpl implements HelloService {
 
+    @NRpcMethod(timeoutInterrupt = true)
     @Override
     public HelloData sayHello(String name, Integer id, Boolean bool, HelloDTO request) {
-//        try {
-//            Thread.sleep(10000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         System.out.printf("sayHello name=%s,id=%d,bool=%s,request=%s\n",
-                name,id,bool,request);
+                name, id, bool, request);
         HelloData response = new HelloData();
         response.setSay("hi! " + name);
         return response;

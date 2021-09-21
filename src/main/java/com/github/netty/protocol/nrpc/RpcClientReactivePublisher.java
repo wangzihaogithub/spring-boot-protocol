@@ -30,9 +30,9 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     private final DataCodec dataCodec;
     private final String requestMappingName;
     private final String version;
-    private long timeout;
+    private int timeout;
 
-    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName,String version,long timeout) {
+    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName,String version,int timeout) {
         this.rpcContext = rpcContext;
         this.rpcClient = rpcContext.getRpcMethod().getInstance();
         this.dataCodec = rpcClient.getDataCodec();
@@ -134,13 +134,14 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setVersion(version);
             rpcRequest.setMethodName(rpcContext.getRpcMethod().getMethodName());
             rpcRequest.setAck(ACK_YES);
-
+            rpcRequest.setTimeout(timeout);
             rpcContext.setRequest(rpcRequest);
             rpcClient.onStateUpdate(rpcContext,INIT);
 
             rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
             rpcClient.onStateUpdate(rpcContext,WRITE_ING);
 
+            rpcRequest.setTimeout(timeout);
             ChannelFuture writeAndFlushFuture = channel.writeAndFlush(rpcRequest);
             rpcClient.rpcDoneMap.put(requestId, this,timeout);
             writeAndFlushFuture.addListener((ChannelFutureListener) future -> {

@@ -1,6 +1,7 @@
 package com.github.netty.protocol;
 
-import com.github.netty.annotation.Protocol;
+import com.github.netty.annotation.NRpcMethod;
+import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.*;
@@ -13,39 +14,44 @@ import io.netty.channel.ChannelPipeline;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestMappingName;
 
 /**
  * Internal RPC protocol registry
- *
- *  ACK flag : (0=Don't need, 1=Need)
- *   Request Packet (note:  1 = request type)
- *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----4B------+-------length-------------+
- * | header/version | type | ACK   | total length | Request ID | service length | service name   | method length | method name | data length |         data             |
- * |   NRPC/010     |  1   | 1    |     55       |     1      |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
- *-+----------------+------+------+--------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
- *
- *
- *   Response Packet (note: 2 = response type)
- *-+------8B--------+--1B--+--1B--+------4B------+-----4B-----+---2B---+--------1B------+--length--+---1B---+-----4B------+----------length----------+
+ * <p>
+ * ACK flag : (0=Don't need, 1=Need)
+ * Request Packet (note:  1 = request type)
+ * -+------8B--------+--1B--+--1B--+------4B------+-----4B-----+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----4B------+-------length-------------+
+ * | header/version | type | ACK   | total length | Request ID | timeout/ms | service length | service name   | method length | method name | data length |         data             |
+ * |   NRPC/010     |  1   | 1    |     55       |     1       |     1000   |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
+ * -+----------------+------+------+--------------+------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
+ * <p>
+ * <p>
+ * Response Packet (note: 2 = response type)
+ * -+------8B--------+--1B--+--1B--+------4B------+-----4B-----+---2B---+--------1B------+--length--+---1B---+-----4B------+----------length----------+
  * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
  * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
- *-+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
- *
- *
- *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
+ * -+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
+ * <p>
+ * <p>
+ * -+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
  * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
- *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
+ * -+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
  * 2018/11/25/025
  */
 public class NRpcProtocol extends AbstractProtocol {
+    private final List<RpcServerAop> rpcServerAopList = new ArrayList<>();
+    private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(NRpcMethod.class);
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private ApplicationX application;
+    private Supplier<ExecutorService> executorSupplier;
     /**
      * Maximum message length per pass
      */
@@ -55,10 +61,9 @@ public class NRpcProtocol extends AbstractProtocol {
      * so the name of the method to ensure that each class is unique)
      */
     private boolean methodOverwriteCheck = true;
-    private Map<Object,Instance> instanceMap = new LinkedHashMap<>();
+    private Map<Object, Instance> instanceMap = new LinkedHashMap<>();
     private String serverDefaultVersion;
-    private final List<RpcServerAop> rpcServerAopList = new ArrayList<>();
-    private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(Protocol.RpcMethod.class);
+
     public NRpcProtocol(ApplicationX application) {
         this.application = application;
     }
@@ -75,35 +80,36 @@ public class NRpcProtocol extends AbstractProtocol {
         this.methodOverwriteCheck = methodOverwriteCheck;
     }
 
-    public void setServerDefaultVersion(String serverDefaultVersion) {
-        this.serverDefaultVersion = serverDefaultVersion;
-    }
-
     public String getServerDefaultVersion() {
         return serverDefaultVersion;
     }
 
-    public void addInstance(Object instance){
-        addInstance(instance,getRequestMappingName(instance.getClass()),new ClassFileMethodToParameterNamesFunction(),annotationMethodToMethodNameFunction);
+    public void setServerDefaultVersion(String serverDefaultVersion) {
+        this.serverDefaultVersion = serverDefaultVersion;
     }
 
-    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction){
-        addInstance(instance,requestMappingName,methodToParameterNamesFunction,annotationMethodToMethodNameFunction);
+    public void addInstance(Object instance) {
+        addInstance(instance, getRequestMappingName(instance.getClass()), new ClassFileMethodToParameterNamesFunction(), annotationMethodToMethodNameFunction);
     }
 
-    public void addInstance(Object instance,String requestMappingName,Function<Method,String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction){
-        if(instance instanceof RpcClient.Proxy){
+    public void addInstance(Object instance, String requestMappingName, Function<Method, String[]> methodToParameterNamesFunction) {
+        addInstance(instance, requestMappingName, methodToParameterNamesFunction, annotationMethodToMethodNameFunction);
+    }
+
+    public void addInstance(Object instance, String requestMappingName, Function<Method, String[]> methodToParameterNamesFunction, Function<Method, String> methodToNameFunction) {
+        if (instance instanceof RpcClient.Proxy) {
             return;
         }
         String version = RpcServerInstance.getVersion(instance.getClass(), serverDefaultVersion);
-        instanceMap.put(instance, new Instance(instance,requestMappingName,version,methodToParameterNamesFunction,methodToNameFunction,methodOverwriteCheck));
+        Integer timeout = RpcServerInstance.getTimeout(instance.getClass());
+        instanceMap.put(instance, new Instance(instance, requestMappingName, version, timeout, methodToParameterNamesFunction, methodToNameFunction, methodOverwriteCheck));
         logger.info("addInstance({}, {}, {})",
-                RpcServerInstance.getServerInstanceKey(requestMappingName,version),
+                RpcServerInstance.getServerInstanceKey(requestMappingName, version),
                 instance.getClass().getSimpleName(),
                 methodToParameterNamesFunction.getClass().getSimpleName());
     }
 
-    public boolean existInstance(Object instance){
+    public boolean existInstance(Object instance) {
         return instanceMap.containsKey(instance);
     }
 
@@ -121,15 +127,24 @@ public class NRpcProtocol extends AbstractProtocol {
     public void addPipeline(Channel channel) throws Exception {
         super.addPipeline(channel);
         RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
+        rpcServerHandler.setExecutorSupplier(executorSupplier);
         rpcServerHandler.getAopList().addAll(rpcServerAopList);
         for (Instance instance : instanceMap.values()) {
-            rpcServerHandler.addRpcServerInstance(instance.requestMappingName,instance.version,
+            rpcServerHandler.addRpcServerInstance(instance.requestMappingName, instance.version,
                     instance.checkGetRpcServerInstance());
         }
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RpcDecoder(messageMaxLength));
         pipeline.addLast(new RpcEncoder());
         pipeline.addLast(rpcServerHandler);
+    }
+
+    public Supplier<ExecutorService> getExecutorSupplier() {
+        return executorSupplier;
+    }
+
+    public void setExecutorSupplier(Supplier<ExecutorService> executorSupplier) {
+        this.executorSupplier = executorSupplier;
     }
 
     @Override
@@ -139,12 +154,12 @@ public class NRpcProtocol extends AbstractProtocol {
 
     @Override
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
-        Collection list = application.getBeanForAnnotation(Protocol.RpcService.class);
+        Collection list = application.getBeanForAnnotation(NRpcService.class);
         rpcServerAopList.clear();
         rpcServerAopList.addAll(application.getBeanForType(RpcServerAop.class));
 
-        for(Object serviceImpl : list){
-            if(existInstance(serviceImpl)){
+        for (Object serviceImpl : list) {
+            if (existInstance(serviceImpl)) {
                 continue;
             }
             addInstance(serviceImpl);
@@ -153,20 +168,20 @@ public class NRpcProtocol extends AbstractProtocol {
         for (RpcServerAop rpcServerAop : rpcServerAopList) {
             rpcServerAop.onInitAfter(this);
         }
-        if(methodOverwriteCheck){
+        if (methodOverwriteCheck) {
             List<Exception> exceptionList = new ArrayList<>();
             for (Instance instance : instanceMap.values()) {
                 try {
                     instance.checkGetRpcServerInstance();
-                }catch (Exception e){
+                } catch (Exception e) {
                     exceptionList.add(e);
                 }
             }
-            if(!exceptionList.isEmpty()){
+            if (!exceptionList.isEmpty()) {
                 StringJoiner joiner = new StringJoiner("\n\n");
                 int i = 1;
                 for (Exception exception : exceptionList) {
-                    joiner.add("["+i+"] "+exception.getLocalizedMessage());
+                    joiner.add("[" + i + "] " + exception.getLocalizedMessage());
                     i++;
                 }
                 throw new UnsupportedOperationException("serverMethodOverwriteCheckList: \n" + joiner);
@@ -182,7 +197,7 @@ public class NRpcProtocol extends AbstractProtocol {
     /**
      * Add an instance of the extension
      */
-    protected void addInstancePlugins(){
+    protected void addInstancePlugins() {
         //The RPC basic command service is enabled by default
         addInstance(new RpcCommandServiceImpl());
         //Open DB service by default
@@ -201,23 +216,26 @@ public class NRpcProtocol extends AbstractProtocol {
         this.messageMaxLength = messageMaxLength;
     }
 
-    static class Instance{
+    static class Instance {
         private String requestMappingName;
         private String version;
+        private Integer timeout;
         private RpcServerInstance rpcServerInstance;
         private Exception rpcServerInstanceException;
-        Instance(Object instance, String requestMappingName, String version,Function<Method, String[]> methodToParameterNamesFunction,Function<Method,String> methodToNameFunction,boolean methodOverwriteCheck) {
+
+        Instance(Object instance, String requestMappingName, String version, Integer timeout, Function<Method, String[]> methodToParameterNamesFunction, Function<Method, String> methodToNameFunction, boolean methodOverwriteCheck) {
             this.requestMappingName = requestMappingName;
             this.version = version;
+            this.timeout = timeout;
             try {
-                this.rpcServerInstance = new RpcServerInstance(instance, null, methodToParameterNamesFunction, methodToNameFunction,methodOverwriteCheck);
-            }catch (Exception e){
+                this.rpcServerInstance = new RpcServerInstance(instance, null, version, timeout, methodToParameterNamesFunction, methodToNameFunction, methodOverwriteCheck);
+            } catch (Exception e) {
                 rpcServerInstanceException = e;
             }
         }
 
-        public RpcServerInstance checkGetRpcServerInstance() throws Exception{
-            if(rpcServerInstanceException != null){
+        public RpcServerInstance checkGetRpcServerInstance() throws Exception {
+            if (rpcServerInstanceException != null) {
                 throw rpcServerInstanceException;
             }
             return rpcServerInstance;

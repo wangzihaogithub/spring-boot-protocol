@@ -14,12 +14,16 @@ public enum RpcVersion {
     /**
      * spring-boot-protocol 2.0.1
      */
-    V2_0_1("NRPC/201", new byte[]{'N','R','P','C','/',2,0,1});
+    V2_0_1("NRPC/201", new byte[]{'N','R','P','C','/',2,0,1}),
+    /**
+     * spring-boot-protocol 2.1.8
+     */
+    V2_1_8("NRPC/218", new byte[]{'N','R','P','C','/',2,1,8});
 
     private String text;
     private byte[] textBytes;
 
-    public static final RpcVersion CURRENT_VERSION = RpcVersion.V2_0_1;
+    public static final RpcVersion CURRENT_VERSION = RpcVersion.V2_1_8;
 
     RpcVersion(String text, byte[] textBytes) {
         this.text = text;

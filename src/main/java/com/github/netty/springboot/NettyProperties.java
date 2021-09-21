@@ -1,5 +1,6 @@
 package com.github.netty.springboot;
 
+import com.github.netty.core.util.AbortPolicyWithReport;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
@@ -14,6 +15,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 import java.io.File;
 import java.io.Serializable;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
 
 /**
@@ -569,14 +571,125 @@ public class NettyProperties implements Serializable {
         private int serverMessageMaxLength = 10 * 1024 * 1024;
 
         /**
-         * RPC客户端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.Protocol.RpcService#version() }
+         * RPC客户端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.NRpcService#version() }
          */
         private String clientDefaultVersion = "";
 
         /**
-         * RPC服务端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.Protocol.RpcService#version() }
+         * RPC服务端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.NRpcService#version() }
          */
         private String serverDefaultVersion = "";
+        /**
+         * RPC服务端 - 业务线程池配置
+         */
+        @NestedConfigurationProperty
+        private final ServerThreadPool threadPool = new ServerThreadPool();
+
+        public static class ServerThreadPool {
+            /**
+             * 是否开启线程池. 注: (如果您应用大部分代码都是异步调用,请关闭线程池,QPS将提升30%)
+             */
+            private boolean enable = true;
+            /**
+             * 服务端 - 线程执行器（用于执行业务线程, 因为worker线程与channel是绑定的, 如果阻塞worker线程，会导致当前worker线程绑定的所有channel无法接收数据包，比如阻塞住http的分段传输）
+             */
+            private Class<? extends ExecutorService> executor = NettyThreadPoolExecutor.class;
+            private Class<? extends RejectedExecutionHandler> rejected = AbortPolicyWithReport.class;
+            private int coreThreads = 2;
+            private int maxThreads = 50;
+            private int keepAliveSeconds = 180;
+            private int queues = 0;
+            private boolean fixed = false;
+            private String poolName = "NettyX-nrpc";
+            /**
+             * 如果出现繁忙拒绝执行, 则会自动dump线程信息. 值为空字符串则不进行dump.
+             */
+            private String dumpPath = System.getProperty("user.home");
+
+            public boolean isEnable() {
+                return enable;
+            }
+
+            public void setEnable(boolean enable) {
+                this.enable = enable;
+            }
+
+            public String getDumpPath() {
+                return dumpPath;
+            }
+
+            public void setDumpPath(String dumpPath) {
+                this.dumpPath = dumpPath;
+            }
+
+            public String getPoolName() {
+                return poolName;
+            }
+
+            public void setPoolName(String poolName) {
+                this.poolName = poolName;
+            }
+
+            public Class<? extends RejectedExecutionHandler> getRejected() {
+                return rejected;
+            }
+
+            public void setRejected(Class<? extends RejectedExecutionHandler> rejected) {
+                this.rejected = rejected;
+            }
+
+            public int getKeepAliveSeconds() {
+                return keepAliveSeconds;
+            }
+
+            public void setKeepAliveSeconds(int keepAliveSeconds) {
+                this.keepAliveSeconds = keepAliveSeconds;
+            }
+
+            public Class<? extends ExecutorService> getExecutor() {
+                return executor;
+            }
+
+            public void setExecutor(Class<? extends ExecutorService> executor) {
+                this.executor = executor;
+            }
+
+            public int getCoreThreads() {
+                return coreThreads;
+            }
+
+            public void setCoreThreads(int coreThreads) {
+                this.coreThreads = coreThreads;
+            }
+
+            public int getMaxThreads() {
+                return maxThreads;
+            }
+
+            public void setMaxThreads(int maxThreads) {
+                this.maxThreads = maxThreads;
+            }
+
+            public int getQueues() {
+                return queues;
+            }
+
+            public void setQueues(int queues) {
+                this.queues = queues;
+            }
+
+            public boolean isFixed() {
+                return fixed;
+            }
+
+            public void setFixed(boolean fixed) {
+                this.fixed = fixed;
+            }
+        }
+
+        public ServerThreadPool getThreadPool() {
+            return threadPool;
+        }
 
         public boolean isClientReconnectScheduledTaskEnable() {
             return clientReconnectScheduledTaskEnable;
