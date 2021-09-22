@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -58,13 +59,13 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         rpcDoneMap.setOnExpiryConsumer(node -> {
             try {
                 RpcRunnable runnable = node.getData();
-                if (runnable.interruptCount == 0) {
-                    runnable.channelHandler.onStateUpdate(runnable.rpcContext, RpcContext.RpcState.TIMEOUT);
-                }
-                if (!runnable.done && runnable.timeoutInterrupt) {
-                    runnable.taskThread.interrupt();
-                    runnable.interruptCount++;
-                    if (!runnable.done) {
+                if (!runnable.done) {
+                    if (runnable.timeoutNotifyFlag.compareAndSet(false, true)) {
+                        runnable.executor.execute(runnable::onTimeout);
+                    }
+                    if (runnable.timeoutInterrupt) {
+                        runnable.taskThread.interrupt();
+                        runnable.interruptCount++;
                         rpcDoneMap.put(runnable, runnable, 100);
                     }
                 }
@@ -106,15 +107,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         return requestMappingName;
     }
 
-    public static RpcContext<RpcServerInstance> getRpcContext() {
-        RpcContext<RpcServerInstance> rpcContext = CONTEXT_LOCAL.get();
-        if (rpcContext == null) {
-            rpcContext = new RpcContext<>();
-            CONTEXT_LOCAL.set(rpcContext);
-        } else {
-            rpcContext.recycle();
-        }
-        return rpcContext;
+    public static RpcContext<RpcServerInstance> newRpcContext() {
+        return new RpcContext<>();
     }
 
     public List<RpcServerAop> getAopList() {
@@ -141,7 +135,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         this.context = ctx;
 
-        RpcContext<RpcServerInstance> rpcContext = getRpcContext();
+        RpcContext<RpcServerInstance> rpcContext = newRpcContext();
         rpcContext.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
         rpcContext.setLocalAddress((InetSocketAddress) ctx.channel().localAddress());
         CONTEXT_LOCAL.set(rpcContext);
@@ -160,7 +154,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        RpcContext<RpcServerInstance> rpcContext = getRpcContext();
+        RpcContext<RpcServerInstance> rpcContext = newRpcContext();
         rpcContext.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
         rpcContext.setLocalAddress((InetSocketAddress) ctx.channel().localAddress());
         CONTEXT_LOCAL.set(rpcContext);
@@ -182,11 +176,12 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         try {
             if (packet instanceof RequestPacket) {
                 RequestPacket request = (RequestPacket) packet;
-                rpcContext = getRpcContext();
+                rpcContext = newRpcContext();
                 try {
                     rpcContext.setRemoteAddress((InetSocketAddress) ctx.channel().remoteAddress());
                     rpcContext.setLocalAddress((InetSocketAddress) ctx.channel().localAddress());
                     rpcContext.setRequest(request);
+                    rpcContext.setRpcBeginTimestamp(System.currentTimeMillis());
 
                     // not found instance
                     String serverInstanceKey = RpcServerInstance.getServerInstanceKey(request.getRequestMappingName(), request.getVersion());
@@ -224,8 +219,9 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                             writeAndFlush(request.getAck(), response, rpcContext);
                         } else if (threadPool != null) {
                             // invoke method by async and call event
-                            RpcRunnable runnable = new RpcRunnable(rpcMethod, response, request, this, rpcContext);
                             int timeout = choseTimeout(rpcInstance.getTimeout(), rpcMethod.getTimeout(), request.getTimeout());
+                            rpcContext.setTimeout(timeout);
+                            RpcRunnable runnable = new RpcRunnable(threadPool, rpcMethod, timeout, response, request, this, rpcContext);
                             if (timeout > 0) {
                                 rpcDoneMap.put(runnable, runnable, timeout);
                             }
@@ -242,6 +238,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 } finally {
                     // call event
                     if (!async) {
+                        rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
                         CONTEXT_LOCAL.set(rpcContext);
                         onResponseAfter(rpcContext);
                     }
@@ -423,6 +420,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
     }
 
     public static class RpcRunnable implements Runnable {
+        final AtomicBoolean timeoutNotifyFlag = new AtomicBoolean();
         RpcMethod<RpcServerInstance> rpcMethod;
         RpcServerChannelHandler channelHandler;
         RequestPacket request;
@@ -432,15 +430,30 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         Thread taskThread;
         boolean done = false;
         boolean timeoutInterrupt;
+        int timeout;
+        Executor executor;
 
-        RpcRunnable(RpcMethod<RpcServerInstance> rpcMethod,
+        RpcRunnable(Executor executor, RpcMethod<RpcServerInstance> rpcMethod,
+                    int timeout,
                     ResponsePacket response, RequestPacket request, RpcServerChannelHandler channelHandler, RpcContext<RpcServerInstance> rpcContext) {
+            this.executor = executor;
             this.rpcMethod = rpcMethod;
+            this.timeout = timeout;
             this.response = response;
             this.timeoutInterrupt = rpcMethod.isTimeoutInterrupt();
             this.channelHandler = channelHandler;
             this.request = request;
             this.rpcContext = rpcContext;
+        }
+
+        public void onTimeout() {
+            if (done) {
+                return;
+            }
+            channelHandler.onStateUpdate(rpcContext, RpcContext.RpcState.TIMEOUT);
+            for (RpcServerAop aop : channelHandler.nettyRpcServerAopList) {
+                aop.onTimeout(rpcContext);
+            }
         }
 
         @Override
@@ -459,9 +472,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
             CONTEXT_LOCAL.set(rpcContext);
             try {
                 rpcMethod.getInstance().invoke(rpcMethod, response, request, rpcContext, channelHandler);
+                done = true;
                 channelHandler.writeAndFlush(request.getAck(), response, rpcContext);
             } finally {
                 done = true;
+                rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
                 try {
                     channelHandler.onResponseAfter(rpcContext);
                 } finally {

@@ -9,7 +9,7 @@ import com.github.netty.nrpc.api.HelloService;
 @NRpcService
 public class HelloServiceImpl implements HelloService {
 
-    @NRpcMethod(timeoutInterrupt = true)
+    @NRpcMethod(timeoutInterrupt = true, timeout = 0)
     @Override
     public HelloData sayHello(String name, Integer id, Boolean bool, HelloDTO request) {
         int i = 0;
@@ -17,7 +17,6 @@ public class HelloServiceImpl implements HelloService {
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
-                e.printStackTrace();
             }
         }
         System.out.printf("sayHello name=%s,id=%d,bool=%s,request=%s\n",

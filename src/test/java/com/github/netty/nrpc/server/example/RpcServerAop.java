@@ -37,12 +37,17 @@ public class RpcServerAop implements com.github.netty.protocol.nrpc.RpcServerAop
     }
 
     @Override
+    public void onTimeout(RpcContext<RpcServerInstance> rpcContext) {
+
+    }
+
+    @Override
     public void onResponseAfter(RpcContext<RpcServerInstance> rpcContext) {
 
     }
 
     @Override
     public void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, RpcContext.State formState, RpcContext.State toState) {
-        LoggerFactoryX.getLogger(getClass()).info("ctx = {}, form = {}, to = {}",rpcContext,formState,toState);
+        LoggerFactoryX.getLogger(getClass()).info("requestId = {}, form = {}, to = {}",rpcContext.getRequest().getRequestId(),formState,toState);
     }
 }

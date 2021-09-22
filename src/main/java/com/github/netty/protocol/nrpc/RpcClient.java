@@ -688,7 +688,7 @@ public class RpcClient extends AbstractNettyClient {
         }
 
         private Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
-            RpcMethod method = rpcContext.getRpcMethod();
+            RpcMethod<RpcClient> method = rpcContext.getRpcMethod();
             byte ackFlag = method.isReturnVoid() ? ACK_NO : ACK_YES;
 
             int requestId = rpcClient.newRequestId();
@@ -701,6 +701,7 @@ public class RpcClient extends AbstractNettyClient {
             rpcRequest.setTimeout(timeout);
 
             rpcContext.setRequest(rpcRequest);
+            rpcContext.setTimeout(timeout);
             rpcClient.onStateUpdate(rpcContext, INIT);
 
             rpcRequest.setData(rpcClient.dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));

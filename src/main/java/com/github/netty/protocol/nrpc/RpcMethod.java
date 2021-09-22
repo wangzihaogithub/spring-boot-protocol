@@ -5,7 +5,6 @@ import com.github.netty.core.util.ClassFileMethodToParameterNamesFunction;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ReflectUtil;
-import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -13,7 +12,6 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -62,12 +60,6 @@ public class RpcMethod<INSTANCE> {
     private final String parameterTypeDescriptorName;
     private final MethodHandle methodHandle;
     private final int parameterCount;
-    private FastThreadLocal<Object[]> methodHandleArgsLocal = new FastThreadLocal<Object[]>() {
-        @Override
-        protected Object[] initialValue() throws Exception {
-            return new Object[parameterCount + 1];
-        }
-    };
 
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames, String methodName,
                       NRpcMethod methodAnnotation,
@@ -298,14 +290,10 @@ public class RpcMethod<INSTANCE> {
 
     public Object invoke(Object instance, Object[] args) throws Throwable {
         if (methodHandle != null) {
-            Object[] methodHandleArgs = methodHandleArgsLocal.get();
-            try {
-                methodHandleArgs[0] = instance;
-                System.arraycopy(args, 0, methodHandleArgs, 1, args.length);
-                return methodHandle.invokeWithArguments(methodHandleArgs);
-            } finally {
-                Arrays.fill(methodHandleArgs, null);
-            }
+            Object[] methodHandleArgs = new Object[parameterCount + 1];
+            methodHandleArgs[0] = instance;
+            System.arraycopy(args, 0, methodHandleArgs, 1, args.length);
+            return methodHandle.invokeWithArguments(methodHandleArgs);
         } else {
             return method.invoke(instance, args);
         }

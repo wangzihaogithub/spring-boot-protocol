@@ -136,6 +136,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setAck(ACK_YES);
             rpcRequest.setTimeout(timeout);
             rpcContext.setRequest(rpcRequest);
+            rpcContext.setTimeout(timeout);
             rpcClient.onStateUpdate(rpcContext,INIT);
 
             rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));

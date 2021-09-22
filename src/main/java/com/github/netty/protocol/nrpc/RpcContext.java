@@ -20,6 +20,15 @@ public class RpcContext<INSTANCE> implements Recyclable {
     private State state;
     private long rpcBeginTimestamp;
     private long rpcEndTimestamp;
+    private int timeout;
+
+    public int getTimeout() {
+        return timeout;
+    }
+
+    void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
 
     public long getRpcBeginTimestamp() {
         return rpcBeginTimestamp;
