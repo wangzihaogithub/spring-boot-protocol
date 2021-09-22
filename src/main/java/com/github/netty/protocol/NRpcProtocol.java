@@ -14,6 +14,7 @@ import io.netty.channel.ChannelPipeline;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -51,7 +52,7 @@ public class NRpcProtocol extends AbstractProtocol {
     private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(NRpcMethod.class);
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private ApplicationX application;
-    private Supplier<ExecutorService> executorSupplier;
+    private Supplier<Executor> executorSupplier;
     /**
      * Maximum message length per pass
      */
@@ -139,11 +140,11 @@ public class NRpcProtocol extends AbstractProtocol {
         pipeline.addLast(rpcServerHandler);
     }
 
-    public Supplier<ExecutorService> getExecutorSupplier() {
+    public Supplier<Executor> getExecutorSupplier() {
         return executorSupplier;
     }
 
-    public void setExecutorSupplier(Supplier<ExecutorService> executorSupplier) {
+    public void setExecutorSupplier(Supplier<Executor> executorSupplier) {
         this.executorSupplier = executorSupplier;
     }
 

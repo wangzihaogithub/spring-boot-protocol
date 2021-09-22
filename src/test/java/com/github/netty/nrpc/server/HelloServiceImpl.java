@@ -12,10 +12,13 @@ public class HelloServiceImpl implements HelloService {
     @NRpcMethod(timeoutInterrupt = true)
     @Override
     public HelloData sayHello(String name, Integer id, Boolean bool, HelloDTO request) {
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        int i = 0;
+        while (i++ < 10) {
+            try {
+                Thread.sleep(10000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
         System.out.printf("sayHello name=%s,id=%d,bool=%s,request=%s\n",
                 name, id, bool, request);

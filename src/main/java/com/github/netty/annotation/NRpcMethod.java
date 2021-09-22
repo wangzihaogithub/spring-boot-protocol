@@ -22,5 +22,11 @@ public @interface NRpcMethod {
      */
     boolean timeoutInterrupt() default false;
 
+    /**
+     * timeout is -1 then never timeout
+     * timeout is 0 then use client timeout
+     * timeout other then use server timeout
+     * @return method timeout
+     */
     int timeout() default -1;
 }

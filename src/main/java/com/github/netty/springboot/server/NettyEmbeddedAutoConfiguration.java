@@ -230,8 +230,8 @@ public class NettyEmbeddedAutoConfiguration {
         return new LazyPool(this,pool,rejectedHandler);
     }
 
-    protected Supplier<ExecutorService> newExecutorSupplier(NettyProperties.Nrpc.ServerThreadPool pool, ConfigurableBeanFactory factory){
-        Supplier<ExecutorService> executorSupplier;
+    protected Supplier<Executor> newExecutorSupplier(NettyProperties.Nrpc.ServerThreadPool pool, ConfigurableBeanFactory factory){
+        Supplier<Executor> executorSupplier;
         if(pool.isEnable()) {
             if (pool.getExecutor() == NettyThreadPoolExecutor.class) {
                 RejectedExecutionHandler rejectedHandler;

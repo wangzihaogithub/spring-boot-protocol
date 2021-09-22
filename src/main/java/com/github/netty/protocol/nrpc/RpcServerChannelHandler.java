@@ -15,8 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.Executor;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -40,8 +39,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
      */
     private DataCodec dataCodec;
     private ChannelHandlerContext context;
-    private Supplier<ExecutorService> executorSupplier;
-    private ExecutorService executor;
+    private Supplier<Executor> executorSupplier;
+    private Executor executor;
 
     public RpcServerChannelHandler() {
         this(new JsonDataCodec());
@@ -59,9 +58,15 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         rpcDoneMap.setOnExpiryConsumer(node -> {
             try {
                 RpcRunnable runnable = node.getData();
-                runnable.channelHandler.onStateUpdate(runnable.rpcContext, RpcContext.RpcState.TIMEOUT);
-                if (runnable.timeoutInterrupt && runnable.future != null) {
-                    runnable.future.cancel(true);
+                if (runnable.interruptCount == 0) {
+                    runnable.channelHandler.onStateUpdate(runnable.rpcContext, RpcContext.RpcState.TIMEOUT);
+                }
+                if (!runnable.done && runnable.timeoutInterrupt) {
+                    runnable.taskThread.interrupt();
+                    runnable.interruptCount++;
+                    if (!runnable.done) {
+                        rpcDoneMap.put(runnable, runnable, 100);
+                    }
                 }
             } catch (Exception e) {
                 logger.warn("doneTimeout exception. server = {}, message = {}.", this, e.toString(), e);
@@ -124,11 +129,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         return context;
     }
 
-    public Supplier<ExecutorService> getExecutorSupplier() {
+    public Supplier<Executor> getExecutorSupplier() {
         return executorSupplier;
     }
 
-    public void setExecutorSupplier(Supplier<ExecutorService> executorSupplier) {
+    public void setExecutorSupplier(Supplier<Executor> executorSupplier) {
         this.executorSupplier = executorSupplier;
     }
 
@@ -171,7 +176,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
-        final ExecutorService threadPool = this.executor;
+        final Executor threadPool = this.executor;
         boolean async = false;
         RpcContext<RpcServerInstance> rpcContext = null;
         try {
@@ -216,27 +221,22 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                             response.setStatus(NO_SUCH_METHOD);
                             response.setMessage("not found method [" + request.getMethodName() + "]");
                             response.setData(null);
-                            writeAndFlush(request.getAck(), ctx, response, rpcContext);
+                            writeAndFlush(request.getAck(), response, rpcContext);
                         } else if (threadPool != null) {
                             // invoke method by async and call event
-                            boolean timeoutInterrupt = rpcMethod.isTimeoutInterrupt();
-                            RpcRunnable runnable = new RpcRunnable(rpcMethod, response, timeoutInterrupt, this, rpcInstance, request, rpcContext, ctx);
+                            RpcRunnable runnable = new RpcRunnable(rpcMethod, response, request, this, rpcContext);
                             int timeout = choseTimeout(rpcInstance.getTimeout(), rpcMethod.getTimeout(), request.getTimeout());
                             if (timeout > 0) {
                                 rpcDoneMap.put(runnable, runnable, timeout);
                             }
                             // execute by rpc thread pool
-                            if (timeoutInterrupt) {
-                                runnable.future = threadPool.submit(runnable);
-                            } else {
-                                threadPool.execute(runnable);
-                            }
+                            threadPool.execute(runnable);
                             async = true;
                         } else {
                             // invoke method by sync
                             CONTEXT_LOCAL.set(rpcContext);
                             rpcInstance.invoke(rpcMethod, response, request, rpcContext, this);
-                            writeAndFlush(request.getAck(), ctx, response, rpcContext);
+                            writeAndFlush(request.getAck(), response, rpcContext);
                         }
                     }
                 } finally {
@@ -265,21 +265,32 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         }
     }
 
+    /**
+     * timeout is -1 then never timeout
+     * timeout is 0 then use client timeout
+     * timeout other then use server timeout
+     *
+     * @param serverServiceTimeout serverServiceTimeout
+     * @param serverMethodTimeout  serverMethodTimeout
+     * @param clientTimeout        clientTimeout
+     * @return method timeout
+     */
     public int choseTimeout(Integer serverServiceTimeout, Integer serverMethodTimeout, int clientTimeout) {
-        Integer serverTimeout = serverMethodTimeout != null && serverMethodTimeout != -1 ?
-                serverMethodTimeout : serverServiceTimeout;
-
-        int timeout;
-        if (serverTimeout != null && serverTimeout > 0 && clientTimeout > 0) {
-            timeout = Math.min(serverTimeout, clientTimeout);
-        } else if (clientTimeout > 0) {
-            timeout = clientTimeout;
-        } else if (serverTimeout != null && serverTimeout > 0) {
-            timeout = serverTimeout;
+        if (serverMethodTimeout != null) {
+            if (serverMethodTimeout == 0) {
+                return clientTimeout;
+            } else {
+                return serverMethodTimeout;
+            }
+        } else if (serverServiceTimeout != null) {
+            if (serverServiceTimeout == 0) {
+                return clientTimeout;
+            } else {
+                return serverServiceTimeout;
+            }
         } else {
-            timeout = clientTimeout;
+            return clientTimeout;
         }
-        return timeout;
     }
 
     private void onResponseAfter(RpcContext<RpcServerInstance> rpcContext) {
@@ -288,11 +299,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         }
     }
 
-    private void writeAndFlush(int ack, ChannelHandlerContext channel, ResponsePacket response, RpcContext<RpcServerInstance> rpcContext) {
+    private void writeAndFlush(int ack, ResponsePacket response, RpcContext<RpcServerInstance> rpcContext) {
         boolean release = true;
         try {
             if (ack == ACK_YES) {
-                channel.writeAndFlush(response)
+                context.writeAndFlush(response)
                         .addListener((ChannelFutureListener) future -> {
                             if (future.isSuccess()) {
                                 onStateUpdate(rpcContext, RpcContext.RpcState.WRITE_FINISH);
@@ -412,25 +423,24 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
     }
 
     public static class RpcRunnable implements Runnable {
-        boolean timeoutInterrupt;
         RpcMethod<RpcServerInstance> rpcMethod;
-        ResponsePacket response;
         RpcServerChannelHandler channelHandler;
-        RpcServerInstance rpcInstance;
         RequestPacket request;
+        ResponsePacket response;
         RpcContext<RpcServerInstance> rpcContext;
-        ChannelHandlerContext channel;
-        Future future;
+        int interruptCount = 0;
+        Thread taskThread;
+        boolean done = false;
+        boolean timeoutInterrupt;
 
-        RpcRunnable(RpcMethod<RpcServerInstance> rpcMethod, ResponsePacket response, boolean timeoutInterrupt, RpcServerChannelHandler channelHandler, RpcServerInstance rpcInstance, RequestPacket request, RpcContext<RpcServerInstance> rpcContext, ChannelHandlerContext channel) {
+        RpcRunnable(RpcMethod<RpcServerInstance> rpcMethod,
+                    ResponsePacket response, RequestPacket request, RpcServerChannelHandler channelHandler, RpcContext<RpcServerInstance> rpcContext) {
             this.rpcMethod = rpcMethod;
             this.response = response;
-            this.timeoutInterrupt = timeoutInterrupt;
+            this.timeoutInterrupt = rpcMethod.isTimeoutInterrupt();
             this.channelHandler = channelHandler;
-            this.rpcInstance = rpcInstance;
             this.request = request;
             this.rpcContext = rpcContext;
-            this.channel = channel;
         }
 
         @Override
@@ -445,11 +455,13 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
         @Override
         public void run() {
+            taskThread = Thread.currentThread();
             CONTEXT_LOCAL.set(rpcContext);
             try {
-                rpcInstance.invoke(rpcMethod, response, request, rpcContext, channelHandler);
-                channelHandler.writeAndFlush(request.getAck(), channel, response, rpcContext);
+                rpcMethod.getInstance().invoke(rpcMethod, response, request, rpcContext, channelHandler);
+                channelHandler.writeAndFlush(request.getAck(), response, rpcContext);
             } finally {
+                done = true;
                 try {
                     channelHandler.onResponseAfter(rpcContext);
                 } finally {
