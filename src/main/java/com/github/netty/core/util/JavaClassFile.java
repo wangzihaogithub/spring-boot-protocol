@@ -7,6 +7,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * java类文件
@@ -45,7 +47,7 @@ public class JavaClassFile {
     private static final Attribute.BootstrapMethod[] EMPTY_BOOT_STRAP_METHOD = {};
     private static final Attribute.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
-    private static final String[] EMPTY_EXCEPTION_NAME_TABLE = {};
+    private static final String[] EMPTY_STRING = {};
     private long minorVersion;
     private JavaVersion majorVersion;
     private ConstantPool constantPool;
@@ -184,12 +186,16 @@ public class JavaClassFile {
     public Member getMethod(String methodName,Class<?>[] parameterTypes,Class<?> returnType){
         String methodDescriptor = Member.Type.getMethodDescriptor(parameterTypes,returnType);
         for(Member method : methods){
-            if(methodName.equals(method.name())
-                && methodDescriptor.equals(method.descriptorName())){
+            if(methodName.equals(method.getName())
+                && methodDescriptor.equals(method.getDescriptorName())){
                 return method;
             }
         }
         return null;
+    }
+
+    public List<Attribute.LocalVariable[]> getLocalVariableTableList(){
+        return Stream.of(getMethods()).map(Member::getLocalVariableTable).collect(Collectors.toList());
     }
 
     @Override
@@ -958,7 +964,8 @@ public class JavaClassFile {
         private Attribute[] attributes;
         private Class<?>[] javaArgumentTypes;
         private Type[] argumentTypes;
-
+        private String[] parameterNames;
+        private Attribute.LocalVariable[] localVariables;
         /**
          * 获取入参在局部变量表的位置
          * @return 局部变量表所在下标的数组
@@ -981,7 +988,7 @@ public class JavaClassFile {
 
         private Type[] getArgumentTypes(){
             if(argumentTypes == null){
-                argumentTypes = Type.getArgumentTypes(descriptorName());
+                argumentTypes = Type.getArgumentTypes(getDescriptorName());
             }
             return argumentTypes;
         }
@@ -1000,7 +1007,7 @@ public class JavaClassFile {
         }
 
         public java.lang.reflect.Member getJavaMember(Class target) throws NoSuchMethodException {
-            String name = name();
+            String name = getName();
             if(name == null){
                 throw new NoSuchMethodException("name is null");
             }
@@ -1012,38 +1019,75 @@ public class JavaClassFile {
             }
         }
 
-        public String name() {
+        public String[] getParameterNames(){
+            if(this.parameterNames == null) {
+                String[] parameterNames;
+                //获取入参在局部变量表的位置
+                int[] lvtIndices = getArgumentLocalVariableTableIndex();
+                if (lvtIndices.length == 0) {
+                    parameterNames = EMPTY_STRING;
+                } else {
+                    JavaClassFile.Attribute.LocalVariable[] localVariableTable = getLocalVariableTable();
+                    if (localVariableTable == null || localVariableTable.length == 0) {
+                        parameterNames = EMPTY_STRING;
+                    } else {
+                        parameterNames = new String[lvtIndices.length];
+                        //变量局部变量表
+                        for (int i = 0; i < localVariableTable.length; i++) {
+                            //根据入参位置,寻找方法入参的变量名称
+                            for (int j = 0; j < lvtIndices.length; j++) {
+                                if (i == lvtIndices[j]) {
+                                    parameterNames[j] = localVariableTable[i].name();
+                                }
+                            }
+                        }
+                    }
+                }
+                this.parameterNames = parameterNames;
+            }
+            return this.parameterNames;
+        }
+
+        public String getName() {
             return name;
         }
 
-        public String descriptorName() {
+        public String getDescriptorName() {
             return descriptorName;
         }
 
-        public Attribute.LocalVariable[] localVariableTable(){
+        public Attribute.LocalVariable[] getLocalVariableTable(){
+            if(localVariables == null) {
+                localVariables = findLocalVariable();
+            }
+            return localVariables;
+        }
+
+        private Attribute.LocalVariable[] findLocalVariable(){
             if(this.attributes == null){
-                return null;
+                return EMPTY_LOCAL_VARIABLE_TABLE;
             }
             for(Attribute attributeInfo : this.attributes){
-                if(attributeInfo.isAttrCode()){
-                    Attribute[] codeAttributes = attributeInfo.attributes();
-                    for(Attribute codeAttributeInfo : codeAttributes) {
-                        if(codeAttributeInfo.isAttrLocalVariableTable() || codeAttributeInfo.isAttrLocalVariableTypeTable()){
-                            return codeAttributeInfo.localVariableTable();
-                        }
-                    }
-                    return EMPTY_LOCAL_VARIABLE_TABLE;
+                if(!attributeInfo.isAttrCode()) {
+                    continue;
                 }
+                Attribute[] codeAttributes = attributeInfo.attributes();
+                for(Attribute codeAttributeInfo : codeAttributes) {
+                    if(codeAttributeInfo.isAttrLocalVariableTable() || codeAttributeInfo.isAttrLocalVariableTypeTable()){
+                        return codeAttributeInfo.localVariableTable();
+                    }
+                }
+                return EMPTY_LOCAL_VARIABLE_TABLE;
             }
-            return null;
+            return EMPTY_LOCAL_VARIABLE_TABLE;
         }
 
         @Override
         public String toString() {
             StringJoiner joiner = new StringJoiner(",","{","}");
             joiner.add("\"accessFlags\":\""+Modifier.toString(accessFlags)+"\"");
-            joiner.add("\"name\":\""+ name()+"\"");
-            joiner.add("\"descriptorName\":\""+ descriptorName()+"\"");
+            joiner.add("\"name\":\""+ getName()+"\"");
+            joiner.add("\"getDescriptorName\":\""+ getDescriptorName()+"\"");
             joiner.add("\"attributes\":"+toJsonArray(attributes));
             return joiner.toString();
         }
@@ -1968,7 +2012,7 @@ public class JavaClassFile {
                     String[] exceptionNameTable;
                     if(exceptionIndexTableLength == 0){
                         exceptionIndexTable = EMPTY_EXCEPTION_INDEX_TABLE;
-                        exceptionNameTable = EMPTY_EXCEPTION_NAME_TABLE;
+                        exceptionNameTable = EMPTY_STRING;
                     }else {
                         exceptionIndexTable = new int[exceptionIndexTableLength];
                         for(int i=0; i < exceptionIndexTable.length; i++) {
@@ -2012,7 +2056,7 @@ public class JavaClassFile {
                                 reader.readUint16(),reader.readUint16(),
                                 reader.readUint16(),reader.readUint16(),reader.readUint16());
                     }
-                    put("localVariableTable",localVariableTable);
+                    put("getLocalVariableTable",localVariableTable);
                     break;
                 }
                 case "InnerClasses" :{
@@ -2142,7 +2186,7 @@ public class JavaClassFile {
         }
 
         public LocalVariable[] localVariableTable() {
-            Object localVariableTable = get("localVariableTable");
+            Object localVariableTable = get("getLocalVariableTable");
             if(localVariableTable instanceof LocalVariable[]){
                 return (LocalVariable[]) localVariableTable;
             }
@@ -3352,7 +3396,7 @@ public class JavaClassFile {
         JavaClassFile classFile = new JavaClassFile(LinkedHashMap.class);
 
         //这里换成自己的class包路径
-        String path = "G:\\githubs\\spring-boot-protocol\\target\\classes\\com\\github\\netty\\protocol\\servlet";
+        String path = "D:\\java\\github\\spring-boot-protocol\\target\\classes\\com\\github\\netty\\protocol\\servlet";
         Map<String, JavaClassFile> javaClassMap = new HashMap<>();
         File[] files = new File(path).listFiles();
         if(files != null) {
@@ -3360,6 +3404,7 @@ public class JavaClassFile {
                 String fileName = file.getName();
                 if (fileName.endsWith(".class")) {
                     JavaClassFile javaClassFile = new JavaClassFile(path, fileName);
+                    List<Attribute.LocalVariable[]> localVariables = Stream.of(javaClassFile.getMethods()).map(Member::getLocalVariableTable).collect(Collectors.toList());
                     javaClassMap.put(fileName, javaClassFile);
                 }
             }
