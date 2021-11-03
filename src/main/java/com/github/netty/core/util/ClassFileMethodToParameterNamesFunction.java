@@ -1,7 +1,6 @@
 package com.github.netty.core.util;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.lang.instrument.IllegalClassFormatException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -20,29 +19,16 @@ public class ClassFileMethodToParameterNamesFunction implements Function<Method,
             16, ConcurrentReferenceHashMap.ReferenceType.WEAK);
 
     public static Map<java.lang.reflect.Member, String[]> readParameterNameMap(Class<?> clazz) {
-        InputStream classInputStream = clazz.getResourceAsStream(ReflectUtil.getClassFileName(clazz));
-        if (classInputStream == null) {
+        try {
+            JavaClassFile javaClassFile = new JavaClassFile(clazz);
+            Map<java.lang.reflect.Member, String[]> result = new HashMap<>(6);
+            for (JavaClassFile.Member member : javaClassFile.getMethods()) {
+                result.put(member.toJavaMember(), member.getParameterNames());
+            }
+            return result;
+        } catch (ClassNotFoundException | IOException | IllegalClassFormatException e) {
             return Collections.emptyMap();
         }
-
-        JavaClassFile javaClassFile;
-        try {
-            javaClassFile = new JavaClassFile(classInputStream);
-        } catch (IOException | IllegalClassFormatException e) {
-            throw new IllegalArgumentException(e.getMessage(), e.getCause());
-        }
-
-        Map<java.lang.reflect.Member, String[]> methodParameterNameMap = new HashMap<>(6);
-        for (JavaClassFile.Member methodMemberInfo : javaClassFile.getMethods()) {
-            java.lang.reflect.Member member;
-            try {
-                member = methodMemberInfo.getJavaMember(clazz);
-            } catch (NoSuchMethodException e) {
-                continue;
-            }
-            methodParameterNameMap.put(member, methodMemberInfo.getParameterNames());
-        }
-        return methodParameterNameMap;
     }
 
     public static void main(String[] args) {

@@ -2,6 +2,7 @@ package com.github.netty.core.util;
 
 import java.io.*;
 import java.lang.instrument.IllegalClassFormatException;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -46,6 +47,7 @@ public class JavaClassFile {
     private static final Attribute.StackMapFrame[] EMPTY_STACK_MAP_FRAME = {};
     private static final Attribute.BootstrapMethod[] EMPTY_BOOT_STRAP_METHOD = {};
     private static final Attribute.StackMapType[] EMPTY_STACK_MAP_TYPE = {};
+    private static final Attribute.MethodParameter[] EMPTY_METHOD_PARAMETER = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
     private static final String[] EMPTY_STRING = {};
     private long minorVersion;
@@ -58,6 +60,7 @@ public class JavaClassFile {
     private Member[] fields;
     private Member[] methods;
     private Attribute[] attributes;
+    private Class clazz;
 
     /**
      * Determine the name of the class file, relative to the containing
@@ -74,6 +77,7 @@ public class JavaClassFile {
 
     public JavaClassFile(Class clazz) throws ClassNotFoundException, IOException, IllegalClassFormatException {
         this(new ClassReader(clazz));
+        this.clazz = clazz;
     }
 
     public JavaClassFile(String path, String name) throws ClassNotFoundException, IOException, IllegalClassFormatException {
@@ -125,6 +129,7 @@ public class JavaClassFile {
         Member[] members = new Member[memberCount];
         for (int i =0; i<members.length; i++) {
             members[i] = new Member();
+            members[i].classFile = this;
             members[i].accessFlags = reader.readUint16();
             members[i].nameIndex = reader.readUint16();
             members[i].descriptorIndex = reader.readUint16();
@@ -166,14 +171,30 @@ public class JavaClassFile {
     public Member[] getMethods() {
         return methods;
     }
+    public Member.Type getThisClass(){
+        return Member.Type.getObjectType(getThisClassName());
+    }
+    public Class getThisJavaClass(){
+        if(clazz == null){
+            clazz = getThisClass().resolveClass();
+        }
+        return clazz;
+    }
     public String getThisClassName() {
         return constantPool.getClassName(thisClassIndex);
     }
     public String getSuperClassName() {
-        if (superClassIndex != 0 ){
+        if (superClassIndex != 0){
             return constantPool.getClassName(superClassIndex);
         }
         return "";
+    }
+    public Member.Type getSuperClass() {
+        if(superClassIndex != 0) {
+            return Member.Type.getObjectType(getSuperClassName());
+        }else{
+            return null;
+        }
     }
     public String[] getInterfaceNames() {
         String[] interfaceNames = new String[interfacesIndex.length];
@@ -182,7 +203,14 @@ public class JavaClassFile {
         }
         return interfaceNames;
     }
-
+    public Member.Type[] getInterfaceClass() {
+        String[] interfaceNames = getInterfaceNames();
+        Member.Type[] types = new Member.Type[interfaceNames.length];
+        for (int i = 0; i < interfaceNames.length; i++) {
+            types[i] = Member.Type.getObjectType(interfaceNames[i]);
+        }
+        return types;
+    }
     public Member getMethod(String methodName, Class<?>[] parameterTypes, Class<?> returnType){
         String methodDescriptor = Member.Type.getMethodDescriptor(parameterTypes,returnType);
         for(Member method : methods){
@@ -193,11 +221,9 @@ public class JavaClassFile {
         }
         return null;
     }
-
     public List<Attribute.LocalVariable[]> getLocalVariableTableList(){
         return Stream.of(getMethods()).map(Member::getLocalVariableTable).collect(Collectors.toList());
     }
-
     @Override
     public String toString() {
         return new StringJoiner(",", "{", "}")
@@ -379,17 +405,7 @@ public class JavaClassFile {
         }
 
         public ConstantInfo getConstantInfo(int index)  {
-            if(index >= constants.length){
-                throw new ArrayIndexOutOfBoundsException(index);
-            }
-//            if(index == 0) {
-//                throw new IllegalStateException("Constant pool at index 0 is null.");
-//            }
-            ConstantInfo cpInfo = constants[index];
-            if(cpInfo == null){
-                System.out.println("Bad constant pool index: "+ index);
-            }
-            return cpInfo;
+            return constants[index];
         }
 
         public ConstantNameAndTypeInfo getNameAndType(int index) {
@@ -965,7 +981,17 @@ public class JavaClassFile {
         private Class<?>[] javaArgumentTypes;
         private Type[] argumentTypes;
         private String[] parameterNames;
+        private Attribute.MethodParameter[] methodParameters;
+        /**
+         * 局部变量, List<ItemType>, 这里存的是 List
+         */
         private Attribute.LocalVariable[] localVariables;
+        /**
+         * 局部变量的泛型 List<ItemType>, 这里存的是 ItemType
+         */
+        private Attribute.LocalVariable[] localVariablesType;
+        private JavaClassFile classFile;
+
         /**
          * 获取入参在局部变量表的位置
          * @return 局部变量表所在下标的数组
@@ -998,24 +1024,25 @@ public class JavaClassFile {
                 Type[] argumentTypes = getArgumentTypes();
                 Class<?>[] javaArgumentTypes = new Class<?>[argumentTypes.length];
                 for (int i = 0; i < argumentTypes.length; i++) {
-                    javaArgumentTypes[i] = ReflectUtil.resolveClassName(
-                            argumentTypes[i].getClassName(),null);
+                    javaArgumentTypes[i] = argumentTypes[i].resolveClass();
                 }
                 this.javaArgumentTypes = javaArgumentTypes;
             }
             return javaArgumentTypes;
         }
 
-        public java.lang.reflect.Member getJavaMember(Class target) throws NoSuchMethodException {
+        public java.lang.reflect.Member toJavaMember() {
+            Class target = classFile.getThisJavaClass();
             String name = getName();
-            if(name == null){
-                throw new NoSuchMethodException("name is null");
-            }
             Class<?>[] argumentTypes = getJavaArgumentTypes();
-            if ("<init>".equals(name)) {
-                return target.getDeclaredConstructor(argumentTypes);
-            }else {
-                return target.getDeclaredMethod(name, argumentTypes);
+            try {
+                if ("<init>".equals(name)) {
+                    return target.getDeclaredConstructor(argumentTypes);
+                } else {
+                    return target.getDeclaredMethod(name, argumentTypes);
+                }
+            }catch (NoSuchMethodException e){
+                throw new IllegalStateException("toJavaMember error ",e);
             }
         }
 
@@ -1062,7 +1089,104 @@ public class JavaClassFile {
             }
             return localVariables;
         }
+        public Attribute.LocalVariable[] getLocalVariableTypeTable(){
+            if(localVariablesType == null) {
+                localVariablesType = findLocalVariableTypeTable();
+            }
+            return localVariablesType;
+        }
 
+        public Attribute.MethodParameter[] getMethodParameters(){
+            if(methodParameters == null) {
+                methodParameters = findMethodParameters();
+            }
+            return methodParameters;
+        }
+
+        public Opcodes getOpcodes(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(attributeInfo.isAttrCode()) {
+                        return attributeInfo.getOpcodes();
+                    }
+                }
+            }
+            return null;
+        }
+        public Attribute.CodeException[] getExceptionTable(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(attributeInfo.isAttrCode()) {
+                        return (Attribute.CodeException[]) attributeInfo.get("exceptionTable");
+                    }
+                }
+            }
+            return null;
+        }
+        public Integer getMaxStack(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(attributeInfo.isAttrCode()) {
+                        return (Integer)attributeInfo.get("maxStack");
+                    }
+
+                }
+            }
+            return null;
+        }
+        public Integer getMaxLocals(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(attributeInfo.isAttrCode()) {
+                        return (Integer)attributeInfo.get("maxLocals");
+                    }
+
+                }
+            }
+            return null;
+        }
+        public Attribute.LineNumber[] getLineNumberTable(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(!attributeInfo.isAttrCode()) {
+                        continue;
+                    }
+                    Attribute[] codeAttributes = attributeInfo.attributes();
+                    for(Attribute codeAttributeInfo : codeAttributes) {
+                        if(codeAttributeInfo.isLineNumberTable()){
+                            return (Attribute.LineNumber[]) codeAttributeInfo.get("lineNumberTable");
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        public Attribute.StackMapFrame[] getStackMapTable(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(!attributeInfo.isAttrCode()) {
+                        continue;
+                    }
+                    Attribute[] codeAttributes = attributeInfo.attributes();
+                    for(Attribute codeAttributeInfo : codeAttributes) {
+                        if(codeAttributeInfo.isStackMapTable()){
+                            return (Attribute.StackMapFrame[]) codeAttributeInfo.get("entries");
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+        public Attribute.Annotation[] getRuntimeVisibleAnnotations(){
+            if(this.attributes != null){
+                for(Attribute attributeInfo : this.attributes){
+                    if(attributeInfo.isRuntimeVisibleAnnotations()) {
+                        return (Attribute.Annotation[]) attributeInfo.get("annotations");
+                    }
+                }
+            }
+            return null;
+        }
         private Attribute.LocalVariable[] findLocalVariable(){
             if(this.attributes == null){
                 return EMPTY_LOCAL_VARIABLE_TABLE;
@@ -1073,13 +1197,43 @@ public class JavaClassFile {
                 }
                 Attribute[] codeAttributes = attributeInfo.attributes();
                 for(Attribute codeAttributeInfo : codeAttributes) {
-                    if(codeAttributeInfo.isAttrLocalVariableTable() || codeAttributeInfo.isAttrLocalVariableTypeTable()){
+                    if(codeAttributeInfo.isAttrLocalVariableTable()){
                         return codeAttributeInfo.localVariableTable();
                     }
                 }
                 return EMPTY_LOCAL_VARIABLE_TABLE;
             }
             return EMPTY_LOCAL_VARIABLE_TABLE;
+        }
+        private Attribute.LocalVariable[] findLocalVariableTypeTable(){
+            if(this.attributes == null){
+                return EMPTY_LOCAL_VARIABLE_TABLE;
+            }
+            for(Attribute attributeInfo : this.attributes){
+                if(!attributeInfo.isAttrCode()) {
+                    continue;
+                }
+                Attribute[] codeAttributes = attributeInfo.attributes();
+                for(Attribute codeAttributeInfo : codeAttributes) {
+                    if(codeAttributeInfo.isAttrLocalVariableTypeTable()){
+                        return codeAttributeInfo.localVariableTable();
+                    }
+                }
+                return EMPTY_LOCAL_VARIABLE_TABLE;
+            }
+            return EMPTY_LOCAL_VARIABLE_TABLE;
+        }
+
+        private Attribute.MethodParameter[] findMethodParameters(){
+            if(this.attributes == null){
+                return EMPTY_METHOD_PARAMETER;
+            }
+            for(Attribute attributeInfo : this.attributes){
+                if(attributeInfo.isMethodParameters()){
+                    return attributeInfo.methodParameters();
+                }
+            }
+            return EMPTY_METHOD_PARAMETER;
         }
 
         @Override
@@ -1164,6 +1318,173 @@ public class JavaClassFile {
             /** The {@code double} type. */
             public static final Type DOUBLE_TYPE =
                     new Type(DOUBLE, PRIMITIVE_DESCRIPTORS, DOUBLE, DOUBLE + 1);
+
+            /**
+             * Suffix for array class names: {@code "[]"}.
+             */
+            private static final String ARRAY_SUFFIX = "[]";
+
+            /**
+             * Prefix for internal array class names: {@code "["}.
+             */
+            private static final String INTERNAL_ARRAY_PREFIX = "[";
+
+            /**
+             * Prefix for internal non-primitive array class names: {@code "[L"}.
+             */
+            private static final String NON_PRIMITIVE_ARRAY_PREFIX = "[L";
+
+            /**
+             * The package separator character: {@code '.'}.
+             */
+            private static final char PACKAGE_SEPARATOR = '.';
+
+            /**
+             * Map with primitive wrapper type as key and corresponding primitive
+             * type as value, for example: Integer.class -> int.class.
+             */
+            private static final Map<Class<?>, Class<?>> PRIMITIVE_WRAPPER_TYPE_MAP = new IdentityHashMap<>(8);
+
+            /**
+             * Map with primitive type name as key and corresponding primitive
+             * type as value, for example: "int" -> "int.class".
+             */
+            private static final Map<String, Class<?>> PRIMITIVE_TYPE_NAME_MAP = new HashMap<>(32);
+
+            /**
+             * Map with common Java language class name as key and corresponding Class as value.
+             * Primarily for efficient deserialization of remote invocations.
+             */
+            private static final Map<String, Class<?>> COMMON_CLASS_CACHE = new HashMap<>(64);
+
+            static {
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Boolean.class, boolean.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Byte.class, byte.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Character.class, char.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Double.class, double.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Float.class, float.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Integer.class, int.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Long.class, long.class);
+                PRIMITIVE_WRAPPER_TYPE_MAP.put(Short.class, short.class);
+
+                // Map entry iteration is less expensive to initialize than forEach with lambdas
+                for (Map.Entry<Class<?>, Class<?>> entry : PRIMITIVE_WRAPPER_TYPE_MAP.entrySet()) {
+                    registerCommonClasses(entry.getKey());
+                }
+
+                Set<Class<?>> primitiveTypes = new HashSet<>(32);
+                primitiveTypes.addAll(PRIMITIVE_WRAPPER_TYPE_MAP.values());
+                Collections.addAll(primitiveTypes, boolean[].class, byte[].class, char[].class,
+                        double[].class, float[].class, int[].class, long[].class, short[].class);
+                primitiveTypes.add(void.class);
+                for (Class<?> primitiveType : primitiveTypes) {
+                    PRIMITIVE_TYPE_NAME_MAP.put(primitiveType.getName(), primitiveType);
+                }
+
+                registerCommonClasses(Boolean[].class, Byte[].class, Character[].class, Double[].class,
+                        Float[].class, Integer[].class, Long[].class, Short[].class);
+                registerCommonClasses(Number.class, Number[].class, String.class, String[].class,
+                        Class.class, Class[].class, Object.class, Object[].class);
+                registerCommonClasses(Throwable.class, Exception.class, RuntimeException.class,
+                        Error.class, StackTraceElement.class, StackTraceElement[].class);
+                registerCommonClasses(Enum.class, Iterable.class, Iterator.class, Enumeration.class,
+                        Collection.class, List.class, Set.class, Map.class, Map.Entry.class, Optional.class);
+
+                Class<?>[] javaLanguageInterfaceArray = {Serializable.class, Externalizable.class,
+                        Closeable.class, AutoCloseable.class, Cloneable.class, Comparable.class};
+                registerCommonClasses(javaLanguageInterfaceArray);
+            }
+
+            private static Class<?> resolvePrimitiveClassName(String name) {
+                Class<?> result = null;
+                // Most class names will be quite long, considering that they
+                // SHOULD sit in a package, so a length check is worthwhile.
+                if (name != null && name.length() <= 8) {
+                    // Could be a primitive - likely.
+                    result = PRIMITIVE_TYPE_NAME_MAP.get(name);
+                }
+                return result;
+            }
+
+            public static Class<?> forName(String name, ClassLoader classLoader)
+                    throws ClassNotFoundException, LinkageError {
+                Class<?> clazz = resolvePrimitiveClassName(name);
+                if (clazz == null) {
+                    clazz = COMMON_CLASS_CACHE.get(name);
+                }
+                if (clazz != null) {
+                    return clazz;
+                }
+
+                // "java.lang.String[]" style arrays
+                if (name.endsWith(ARRAY_SUFFIX)) {
+                    String elementClassName = name.substring(0, name.length() - ARRAY_SUFFIX.length());
+                    Class<?> elementClass = forName(elementClassName, classLoader);
+                    return Array.newInstance(elementClass, 0).getClass();
+                }
+
+                // "[Ljava.lang.String;" style arrays
+                if (name.startsWith(NON_PRIMITIVE_ARRAY_PREFIX) && name.endsWith(";")) {
+                    String elementName = name.substring(NON_PRIMITIVE_ARRAY_PREFIX.length(), name.length() - 1);
+                    Class<?> elementClass = forName(elementName, classLoader);
+                    return Array.newInstance(elementClass, 0).getClass();
+                }
+
+                // "[[I" or "[[Ljava.lang.String;" style arrays
+                if (name.startsWith(INTERNAL_ARRAY_PREFIX)) {
+                    String elementName = name.substring(INTERNAL_ARRAY_PREFIX.length());
+                    Class<?> elementClass = forName(elementName, classLoader);
+                    return Array.newInstance(elementClass, 0).getClass();
+                }
+
+                ClassLoader clToUse = classLoader;
+                if (clToUse == null) {
+                    clToUse = getDefaultClassLoader();
+                }
+                try {
+                    return Class.forName(name, false, clToUse);
+                } catch (ClassNotFoundException ex) {
+                    int lastDotIndex = name.lastIndexOf(PACKAGE_SEPARATOR);
+                    if (lastDotIndex != -1) {
+                        String innerClassName =
+                                name.substring(0, lastDotIndex) + '$' + name.substring(lastDotIndex + 1);
+                        try {
+                            return Class.forName(innerClassName, false, clToUse);
+                        } catch (ClassNotFoundException ex2) {
+                            // Swallow - let original exception get through
+                        }
+                    }
+                    throw ex;
+                }
+            }
+
+            public static ClassLoader getDefaultClassLoader() {
+                ClassLoader cl = null;
+                try {
+                    cl = Thread.currentThread().getContextClassLoader();
+                } catch (Throwable ex) {
+                    // Cannot access thread context ClassLoader - falling back...
+                }
+                if (cl == null) {
+                    // No thread context class loader -> use class loader of this class.
+                    cl = Type.class.getClassLoader();
+                    if (cl == null) {
+                        // getClassLoader() returning null indicates the bootstrap ClassLoader
+                        try {
+                            cl = ClassLoader.getSystemClassLoader();
+                        } catch (Throwable ex) {
+                            // Cannot access system ClassLoader - oh well, maybe the caller can live with null...
+                        }
+                    }
+                }
+                return cl;
+            }
+
+            private static void registerCommonClasses(Class<?>... commonClasses) {
+                for (Class<?> clazz : commonClasses) {
+                    COMMON_CLASS_CACHE.put(clazz.getName(), clazz);
+                }
+            }
 
             // -----------------------------------------------------------------------------------------------
             // Fields
@@ -1484,7 +1805,19 @@ public class JavaClassFile {
                         throw new IllegalArgumentException();
                 }
             }
-
+            public Class resolveClass(){
+                String className = getClassName();
+                try {
+                    return forName(className, null);
+                } catch (IllegalAccessError err) {
+                    throw new IllegalStateException("Readability mismatch in inheritance hierarchy of class [" +
+                            className + "]: " + err.getMessage(), err);
+                } catch (LinkageError err) {
+                    throw new IllegalArgumentException("Unresolvable class definition for class [" + className + "]", err);
+                } catch (ClassNotFoundException ex) {
+                    throw new IllegalArgumentException("Could not find class [" + className + "]", ex);
+                }
+            }
             // -----------------------------------------------------------------------------------------------
             // Methods to get class names, internal names or descriptors.
             // -----------------------------------------------------------------------------------------------
@@ -2140,7 +2473,7 @@ public class JavaClassFile {
                     int numberOfAnnotations = reader.readUint16();
                     Annotation[] annotations = new Annotation[numberOfAnnotations];
                     for(int i=0; i< numberOfAnnotations; i++){
-                        annotations[i] = new Annotation(reader);
+                        annotations[i] = new Annotation(reader,i);
                     }
                     put("annotations",annotations);
                     break;
@@ -2156,6 +2489,20 @@ public class JavaClassFile {
                     put("bootstrapMethods",bootstrapMethods);
                     for(int i=0; i< bootstrapMethods.length; i++){
                         bootstrapMethods[i] = new BootstrapMethod(reader);
+                    }
+                    break;
+                }
+                case "MethodParameters":{
+                    int parametersCount = reader.readUint8();
+                    MethodParameter[] methodParameters;
+                    if(parametersCount == 0){
+                        methodParameters = EMPTY_METHOD_PARAMETER;
+                    }else{
+                        methodParameters = new MethodParameter[parametersCount];
+                    }
+                    put("methodParameters",methodParameters);
+                    for (int i = 0; i < methodParameters.length; i++) {
+                        methodParameters[i] = new MethodParameter(reader,i);
                     }
                     break;
                 }
@@ -2180,11 +2527,21 @@ public class JavaClassFile {
         public boolean isAttrLocalVariableTypeTable(){
             return "LocalVariableTypeTable".equals(attrName());
         }
-
         public boolean isAttrCode(){
             return "Code".equals(attrName());
         }
-
+        public boolean isMethodParameters(){
+            return "MethodParameters".equals(attrName());
+        }
+        public boolean isRuntimeVisibleAnnotations(){
+            return "RuntimeVisibleAnnotations".equals(attrName());
+        }
+        public boolean isStackMapTable(){
+            return "StackMapTable".equals(attrName());
+        }
+        public boolean isLineNumberTable(){
+            return "LineNumberTable".equals(attrName());
+        }
         public LocalVariable[] localVariableTable() {
             Object localVariableTable = get("localVariableTable");
             if(localVariableTable instanceof LocalVariable[]){
@@ -2192,7 +2549,13 @@ public class JavaClassFile {
             }
             return null;
         }
-
+        public MethodParameter[] methodParameters() {
+            Object methodParameters = get("methodParameters");
+            if(methodParameters instanceof MethodParameter[]){
+                return (MethodParameter[]) methodParameters;
+            }
+            return null;
+        }
         public Attribute[] attributes() {
             Object attributes = get("attributes");
             if(attributes instanceof Attribute[]){
@@ -2256,7 +2619,15 @@ public class JavaClassFile {
                 this.lineNumber = lineNumber;
                 this.opcodes = opcodes;
             }
-
+            public Opcodes getOpcodes() {
+                return opcodes;
+            }
+            public int getLineNumber() {
+                return lineNumber;
+            }
+            public int getStartPc() {
+                return startPc;
+            }
             @Override
             public String toString() {
                 return new StringJoiner(",", "{", "}")
@@ -2533,7 +2904,63 @@ public class JavaClassFile {
                 return joiner.toString();
             }
         }
-
+        public class MethodParameter{
+            /**
+             * 项目的值name_index必须为零或constant_pool 表中的有效索引。
+             * 如果该项的值name_index为零，则该parameters元素表示没有名称的形式参数。
+             * 如果项目的值name_index不为零，则constant_pool该索引处的 条目必须是一个 CONSTANT_Utf8_info结构
+             */
+            private int nameIndex;
+            /**
+             * 0x0010 ( ACC_FINAL)
+             * 表示已声明形式参数 final。
+             *
+             * 0x1000 ( ACC_SYNTHETIC)
+             * 表示根据编写源代码的语言规范（JLS §13.1），形参未在源代码中显式或隐式声明。（形参是生成此class文件的编译器的实现工件 。）
+             *
+             * 0x8000 ( ACC_MANDATED)
+             * 表示根据编写源代码的语言规范（JLS §13.1），在源代码中隐式声明了形参。
+             */
+            private int accessFlags;
+            private int index;
+            public static final int FINAL = 0x00000010;
+            public static final int SYNTHETIC = 0x00001000;
+            public static final int MANDATED  = 0x00008000;
+            public MethodParameter(ClassReader reader, int index) {
+                this.index = index;
+                this.nameIndex = reader.readUint16();
+                this.accessFlags = reader.readUint16();
+            }
+            public String getName() {
+                String realName = getRealName();
+                if(realName == null || realName.isEmpty()) {
+                    return "arg" + index;
+                } else {
+                    return realName;
+                }
+            }
+            public String getRealName() {
+                return constantPool.getUtf8ForToString(nameIndex);
+            }
+            public int getAccessFlags() {
+                return accessFlags;
+            }
+            public int getIndex() {
+                return index;
+            }
+            @Override
+            public String toString() {
+                StringJoiner joiner = new StringJoiner(",", "{", "}")
+                        .add("\"index\":" + index)
+                        .add("\"name\":\"" + constantPool.getUtf8ForToString(nameIndex)+"\"")
+                        .add("\"nameIndex\":" + nameIndex)
+                        .add("\"accessFlags\":" + accessFlags)
+                        .add("\"accFinal\":" + ((accessFlags & FINAL) != 0))
+                        .add("\"accSynthetic\":" + ((accessFlags & SYNTHETIC) != 0))
+                        .add("\"accMandated\":" + ((accessFlags & MANDATED) != 0));
+                return joiner.toString();
+            }
+        }
         public class BootstrapMethod{
             private int bootstrapMethodRef;
             private int[] bootstrapArguments;
@@ -2559,20 +2986,22 @@ public class JavaClassFile {
         }
 
         public class Annotation{
+            private int index;
             private int typeIndex;
             private ElementValue[] elementValues;
-            public Annotation(ClassReader reader) {
+            public Annotation(ClassReader reader, int index) {
+                this.index = index;
                 this.typeIndex = reader.readUint16();
                 this.elementValues = new ElementValue[reader.readUint16()];
                 for(int i = 0; i< elementValues.length; i++){
                     int valueIndex = reader.readUint16();
                     char tag = (char) reader.readInt8();
-                    this.elementValues[i] = newElementValue(tag,reader);
+                    this.elementValues[i] = newElementValue(tag,reader,i);
                     this.elementValues[i].valueIndex = valueIndex;
                 }
             }
 
-            public Annotation.ElementValue newElementValue(char tag,ClassReader reader){
+            public Annotation.ElementValue newElementValue(char tag,ClassReader reader,int index){
                 Annotation.ElementValue newElementValue;
                 switch (tag) {
                     case 'e': {
@@ -2584,7 +3013,7 @@ public class JavaClassFile {
                     }
                     case '@':{
                         Annotation.AnnotationElementValue elementValue = new Annotation.AnnotationElementValue();
-                        elementValue.annotationValue = new Annotation(reader);
+                        elementValue.annotationValue = new Annotation(reader,index);
                         newElementValue = elementValue;
                         break;
                     }
@@ -2599,7 +3028,7 @@ public class JavaClassFile {
                         ElementValue[] elementValues = new ElementValue[reader.readUint16()];
                         for(int i=0; i<elementValues.length; i++){
                             char elementTag = (char) reader.readInt8();
-                            elementValues[i] = newElementValue(elementTag,reader);
+                            elementValues[i] = newElementValue(elementTag,reader,i);
                         }
                         elementValue.arrayValue = elementValues;
                         newElementValue = elementValue;
@@ -2670,6 +3099,7 @@ public class JavaClassFile {
             @Override
             public String toString() {
                 return new StringJoiner(",", "{", "}")
+                        .add("\"index\":" + index)
                         .add("\"typeIndex\":" + typeIndex)
                         .add("\"type\":\"" + constantPool.getUtf8ForToString(typeIndex) + "\"")
                         .add("\"elementValues\":" + toJsonArray(elementValues))
