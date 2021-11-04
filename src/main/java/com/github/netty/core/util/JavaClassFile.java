@@ -105,8 +105,8 @@ public class JavaClassFile {
         this.thisClassIndex = reader.readUint16();
         this.superClassIndex = reader.readUint16();
         this.interfacesIndex = reader.readUint16s();
-        this.fields = readMembers(reader);
-        this.methods = readMembers(reader);
+        this.fields = readMembers(reader,false);
+        this.methods = readMembers(reader,true);
         this.attributes = readAttributes(reader,null);
         reader.close();
     }
@@ -124,11 +124,12 @@ public class JavaClassFile {
         return new ConstantPool(constantPoolCount,reader);
     }
 
-    private Member[] readMembers(ClassReader reader)  {
+    private Member[] readMembers(ClassReader reader,boolean method)  {
         int memberCount = reader.readUint16();
         Member[] members = new Member[memberCount];
         for (int i =0; i<members.length; i++) {
             members[i] = new Member();
+            members[i].method = method;
             members[i].classFile = this;
             members[i].accessFlags = reader.readUint16();
             members[i].nameIndex = reader.readUint16();
@@ -171,12 +172,12 @@ public class JavaClassFile {
     public Member[] getMethods() {
         return methods;
     }
-    public Member.Type getThisClass(){
+    public Member.Type getThisType(){
         return Member.Type.getObjectType(getThisClassName());
     }
-    public Class getThisJavaClass(){
+    public Class getThisClass(){
         if(clazz == null){
-            clazz = getThisClass().resolveClass();
+            clazz = getThisType().resolveClass();
         }
         return clazz;
     }
@@ -189,9 +190,22 @@ public class JavaClassFile {
         }
         return "";
     }
-    public Member.Type getSuperClass() {
+    public JavaClassFile getSuperClassFile() throws IllegalClassFormatException, IOException, ClassNotFoundException {
+        if (superClassIndex != 0){
+            return new JavaClassFile(getSuperClass());
+        }
+        return null;
+    }
+    public Member.Type getSuperType() {
         if(superClassIndex != 0) {
             return Member.Type.getObjectType(getSuperClassName());
+        }else{
+            return null;
+        }
+    }
+    public Class getSuperClass() {
+        if(superClassIndex != 0) {
+            return getSuperType().resolveClass();
         }else{
             return null;
         }
@@ -203,11 +217,19 @@ public class JavaClassFile {
         }
         return interfaceNames;
     }
-    public Member.Type[] getInterfaceClass() {
+    public Member.Type[] getInterfaceTypes() {
         String[] interfaceNames = getInterfaceNames();
         Member.Type[] types = new Member.Type[interfaceNames.length];
         for (int i = 0; i < interfaceNames.length; i++) {
             types[i] = Member.Type.getObjectType(interfaceNames[i]);
+        }
+        return types;
+    }
+    public Class[] getInterfaceClasses() {
+        String[] interfaceNames = getInterfaceNames();
+        Class[] types = new Class[interfaceNames.length];
+        for (int i = 0; i < interfaceNames.length; i++) {
+            types[i] = Member.Type.getObjectType(interfaceNames[i]).resolveClass();
         }
         return types;
     }
@@ -247,7 +269,7 @@ public class JavaClassFile {
                 .toString();
     }
 
-    public static String toJsonArray(Object array) {
+    private static String toJsonArray(Object array) {
         if (array == null) {
             return "null";
         }
@@ -320,7 +342,7 @@ public class JavaClassFile {
                     return version;
                 }
             }
-            throw new IllegalArgumentException("major");
+            throw new IllegalArgumentException("bad major");
         }
     }
 
@@ -972,6 +994,7 @@ public class JavaClassFile {
     }
 
     public static class Member {
+        private boolean method;
         private int accessFlags;
         private int nameIndex;
         private int descriptorIndex;
@@ -991,13 +1014,15 @@ public class JavaClassFile {
          */
         private Attribute.LocalVariable[] localVariablesType;
         private JavaClassFile classFile;
-
+        public int getAccessFlags() {
+            return accessFlags;
+        }
         /**
          * 获取入参在局部变量表的位置
          * @return 局部变量表所在下标的数组
          */
         public int[] getArgumentLocalVariableTableIndex() {
-            Type[] argumentTypes = getArgumentTypes();
+            Type[] argumentTypes = getMethodArgumentTypes();
             int[] lvtIndex = new int[argumentTypes.length];
             int nextIndex = Modifier.isStatic(accessFlags) ? 0 : 1;//静态没有this
             for (int i = 0; i < argumentTypes.length; i++) {
@@ -1011,17 +1036,94 @@ public class JavaClassFile {
             }
             return lvtIndex;
         }
-
-        private Type[] getArgumentTypes(){
-            if(argumentTypes == null){
+        public boolean isStatic(){
+            return Modifier.isStatic(accessFlags);
+        }
+        public boolean isField(){
+            return !method;
+        }
+        public boolean isMethod(){
+            return method;
+        }
+        public boolean isConstructor(){
+            return method && "<init>".equals(name);
+        }
+        public boolean isStaticConstructor(){
+            return method && isStatic() && "<clinit>".equals(name);
+        }
+        public Type getFieldType(){
+            if(isField()){
+                return Type.getType(getDescriptorName());
+            }
+            return null;
+        }
+        public Type getMethodReturnType(){
+            if(isMethod()) {
+                return Type.getReturnType(getDescriptorName());
+            }
+            return null;
+        }
+        public String getSignature(){
+            for (Attribute attribute : attributes) {
+                if(attribute.isSignature()) {
+                    ConstantPool.ConstantUtf8Info utf8Info = (ConstantPool.ConstantUtf8Info) attribute.get("signature");
+                    return utf8Info.value();
+                }
+            }
+            return null;
+        }
+        public Type getSignatureType(){
+            for (Attribute attribute : attributes) {
+                if(attribute.isSignature()) {
+                    String signatureType = (String) attribute.get("signatureType");
+                    return signatureType !=null? Type.getType(signatureType) : null;
+                }
+            }
+            return null;
+        }
+        public Class getSignatureClass(){
+            Type signatureType = getSignatureType();
+            return signatureType == null? null : signatureType.resolveClass();
+        }
+        /**
+         * 获取泛型 多个嵌套那种复杂的暂时没实现, 目前只支持单个泛型
+         * 自己想实现可以用原始数据自己解析 {@link #getSignature()}
+         * @return
+         */
+        public Type getSignatureGenericType(){
+            for (Attribute attribute : attributes) {
+                if(attribute.isSignature()) {
+                    String signatureGeneric = (String) attribute.get("signatureGeneric");
+                    return signatureGeneric !=null? Type.getType(signatureGeneric) : null;
+                }
+            }
+            return null;
+        }
+        public Class getSignatureGenericClass(){
+            Type genericType = getSignatureGenericType();
+            return genericType == null? null : genericType.resolveClass();
+        }
+        public Class getMethodReturnClass(){
+            if(isMethod()) {
+                return getMethodReturnType().resolveClass();
+            }
+            return null;
+        }
+        public Class getFieldClass(){
+            if(isField()){
+                return getFieldType().resolveClass();
+            }
+            return null;
+        }
+        public Type[] getMethodArgumentTypes(){
+            if(argumentTypes == null && isMethod()){
                 argumentTypes = Type.getArgumentTypes(getDescriptorName());
             }
             return argumentTypes;
         }
-
-        public Class<?>[] getJavaArgumentTypes(){
+        public Class<?>[] getMethodArgumentClasses(){
             if(javaArgumentTypes == null){
-                Type[] argumentTypes = getArgumentTypes();
+                Type[] argumentTypes = getMethodArgumentTypes();
                 Class<?>[] javaArgumentTypes = new Class<?>[argumentTypes.length];
                 for (int i = 0; i < argumentTypes.length; i++) {
                     javaArgumentTypes[i] = argumentTypes[i].resolveClass();
@@ -1032,17 +1134,28 @@ public class JavaClassFile {
         }
 
         public java.lang.reflect.Member toJavaMember() {
-            Class target = classFile.getThisJavaClass();
-            String name = getName();
-            Class<?>[] argumentTypes = getJavaArgumentTypes();
-            try {
-                if ("<init>".equals(name)) {
-                    return target.getDeclaredConstructor(argumentTypes);
-                } else {
-                    return target.getDeclaredMethod(name, argumentTypes);
+            Class target = classFile.getThisClass();
+            if(isMethod()) {
+                Class<?>[] argumentTypes = getMethodArgumentClasses();
+                try {
+                    if (isConstructor()) {
+                        return target.getDeclaredConstructor(argumentTypes);
+                    } else if(isStaticConstructor()){
+                        return null;
+                    } else if(isStatic()){
+                        return target.getMethod(name, argumentTypes);
+                    } else {
+                        return target.getDeclaredMethod(name, argumentTypes);
+                    }
+                } catch (NoSuchMethodException e) {
+                    throw new IllegalStateException("toJavaMember error ", e);
                 }
-            }catch (NoSuchMethodException e){
-                throw new IllegalStateException("toJavaMember error ",e);
+            }else {
+                try {
+                    return target.getDeclaredField(name);
+                } catch (NoSuchFieldException e) {
+                    throw new IllegalStateException("toJavaMember error ", e);
+                }
             }
         }
 
@@ -2431,8 +2544,36 @@ public class JavaClassFile {
                 }
                 case "Signature" :{
                     int signatureIndex = reader.readUint16();
+                    ConstantPool.ConstantUtf8Info info = (ConstantPool.ConstantUtf8Info) constantPool.getConstantInfo(signatureIndex);
+                    String signature = info.value();
+
+                    StringBuilder typeBuilder = new StringBuilder();
+                    StringBuilder genericBuilder = new StringBuilder();
+                    // 复杂的暂时没实现. Ljava/util/Map<Ljava/lang/String;Ljava/util/List<Lcom/ig/hr/response/TalentProjectDetailResp;>;>;
+                    // Ljava/util/List<Lcom/ig/hr/response/TalentProjectDetailResp;>;
+                    int count = 0;
+                    boolean generic = false;
+                    for (int i = 0; i < signature.length(); i++) {
+                        char c = signature.charAt(i);
+                        if(c == '<'){
+                            generic = true;
+                        }else if(c == '>') {
+                            generic = false;
+                        }else if(c == ';'){
+                            count++;
+                            genericBuilder.append(';');
+                        }else if(generic){
+                            genericBuilder.append(c);
+                        }else{
+                            typeBuilder.append(c);
+                        }
+                    }
                     put("signatureIndex",signatureIndex);
-                    put("signature",constantPool.getConstantInfo(signatureIndex));
+                    put("signature",info);
+                    if(count == 1) {
+                        put("signatureType", typeBuilder.toString());
+                        put("signatureGeneric", genericBuilder.toString());
+                    }
                     break;
                 }
                 case "StackMap" :{
@@ -2516,11 +2657,9 @@ public class JavaClassFile {
         public int length() {
             return (int) get("length");
         }
-
         public String attrName() {
             return (String) get("attrName");
         }
-
         public boolean isAttrLocalVariableTable(){
             return "LocalVariableTable".equals(attrName());
         }
@@ -2541,6 +2680,9 @@ public class JavaClassFile {
         }
         public boolean isLineNumberTable(){
             return "LineNumberTable".equals(attrName());
+        }
+        public boolean isSignature(){
+            return "Signature".equals(attrName());
         }
         public LocalVariable[] localVariableTable() {
             Object localVariableTable = get("localVariableTable");
