@@ -1107,7 +1107,7 @@ public class JavaClassFile {
         public boolean isDefaultMethod() {
             // Default methods are public non-abstract instance methods
             // declared in an interface.
-            return ((accessFlags & (Modifier.ABSTRACT | Modifier.PUBLIC | Modifier.STATIC)) ==
+            return method && ((accessFlags & (Modifier.ABSTRACT | Modifier.PUBLIC | Modifier.STATIC)) ==
                     Modifier.PUBLIC) && classFile.isInterface();
         }
         public boolean isStatic(){
