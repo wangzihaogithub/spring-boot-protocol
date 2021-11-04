@@ -246,6 +246,9 @@ public class JavaClassFile {
     public List<Attribute.LocalVariable[]> getLocalVariableTableList(){
         return Stream.of(getMethods()).map(Member::getLocalVariableTable).collect(Collectors.toList());
     }
+    public boolean isInterface() {
+        return Modifier.isInterface(accessFlags);
+    }
     @Override
     public String toString() {
         return new StringJoiner(",", "{", "}")
@@ -993,6 +996,71 @@ public class JavaClassFile {
         }
     }
 
+    public static class StaticConstructor implements java.lang.reflect.Member{
+        private static final int ACCESS_MODIFIERS =
+                Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
+        private final Member member;
+        public StaticConstructor(Member member) {
+            this.member = member;
+        }
+
+        @Override
+        public Class<?> getDeclaringClass() {
+            return member.classFile.getThisClass();
+        }
+
+        @Override
+        public String getName() {
+            return member.name;
+        }
+
+        @Override
+        public int getModifiers() {
+            return member.accessFlags;
+        }
+
+        @Override
+        public boolean isSynthetic() {
+            return (member.accessFlags & 0x00001000) != 0;
+        }
+
+        @Override
+        public String toString() {
+            try {
+                StringBuilder sb = new StringBuilder();
+                boolean isDefault = member.isDefaultMethod();
+                int mod = getModifiers();
+                if (mod != 0 && !isDefault) {
+                    sb.append(Modifier.toString(mod)).append(' ');
+                } else {
+                    int access_mod = mod & ACCESS_MODIFIERS;
+                    if (access_mod != 0) {
+                        sb.append(Modifier.toString(access_mod)).append(' ');
+                    }
+                    if (isDefault) {
+                        sb.append("default ");
+                    }
+                    mod = (mod & ~ACCESS_MODIFIERS);
+                    if (mod != 0) {
+                        sb.append(Modifier.toString(mod)).append(' ');
+                    }
+                }
+                sb.append(getDeclaringClass().getTypeName());
+                sb.append('(');
+                Member.Type[] types = member.getMethodArgumentTypes();
+                for (int j = 0; j < types.length; j++) {
+                    sb.append(types[j].getClassName());
+                    if (j < (types.length - 1)) {
+                        sb.append(",");
+                    }
+                }
+                sb.append(')');
+                return sb.toString();
+            } catch (Exception e) {
+                return "<" + e + ">";
+            }
+        }
+    }
     public static class Member {
         private boolean method;
         private int accessFlags;
@@ -1035,6 +1103,12 @@ public class JavaClassFile {
                 }
             }
             return lvtIndex;
+        }
+        public boolean isDefaultMethod() {
+            // Default methods are public non-abstract instance methods
+            // declared in an interface.
+            return ((accessFlags & (Modifier.ABSTRACT | Modifier.PUBLIC | Modifier.STATIC)) ==
+                    Modifier.PUBLIC) && classFile.isInterface();
         }
         public boolean isStatic(){
             return Modifier.isStatic(accessFlags);
@@ -1141,7 +1215,7 @@ public class JavaClassFile {
                     if (isConstructor()) {
                         return target.getDeclaredConstructor(argumentTypes);
                     } else if(isStaticConstructor()){
-                        return null;
+                        return new StaticConstructor(this);
                     } else if(isStatic()){
                         return target.getMethod(name, argumentTypes);
                     } else {
