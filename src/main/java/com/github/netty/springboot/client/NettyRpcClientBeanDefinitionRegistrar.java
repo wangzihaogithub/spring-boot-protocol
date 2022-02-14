@@ -4,6 +4,8 @@ import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
+import com.github.netty.springboot.SpringUtil;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.BeanCreationException;
@@ -208,7 +210,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if(beanFactory.containsBean(beanName) && beanFactory.isSingleton(beanName)) {
+        if(SpringUtil.isSingletonBean(beanFactory, beanName)) {
             nettyPropertiesSupplier.get().getApplication()
                     .addSingletonBeanDefinition(bean, beanName, false);
         }

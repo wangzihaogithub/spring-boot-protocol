@@ -6,6 +6,7 @@ import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.springboot.NettyProperties;
+import com.github.netty.springboot.SpringUtil;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ClientAuth;
@@ -54,7 +55,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if(beanFactory.containsBean(beanName) && beanFactory.isSingleton(beanName)) {
+        if(SpringUtil.isSingletonBean(beanFactory, beanName)) {
             application.addSingletonBeanDefinition(bean, beanName, false);
         }
         if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
