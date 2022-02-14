@@ -1,11 +1,10 @@
 package com.github.netty.springboot;
 
-import com.github.netty.core.util.AbortPolicyWithReport;
-import com.github.netty.core.util.ApplicationX;
-import com.github.netty.core.util.NettyThreadPoolExecutor;
+import com.github.netty.core.util.*;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
+import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
@@ -27,7 +26,6 @@ import java.util.concurrent.RejectedExecutionHandler;
 @ConfigurationProperties(prefix = "server.netty", ignoreUnknownFields = true)
 public class NettyProperties implements Serializable {
     private static final long serialVersionUID = 1L;
-
     /**
      * 服务端 - TCP级别最大同时在线的连接数
      */
@@ -514,6 +512,10 @@ public class NettyProperties implements Serializable {
     }
 
     public static class Nrpc {
+        /**
+         * 编码-fastjson最快，jdk需要实现序列化接口
+         */
+        private Codec codec = Codec.jdk;
 
         /**
          * RPC客户端-工作线程数   注: (0 = cpu核数 * 2 )
@@ -684,6 +686,24 @@ public class NettyProperties implements Serializable {
 
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
+            }
+        }
+
+        public enum Codec{
+            fastjson,
+            jackson,
+            jdk,
+            auto
+        }
+
+        public Codec getCodec() {
+            return codec;
+        }
+
+        public void setCodec(Codec codec) {
+            this.codec = codec;
+            if (codec != null) {
+                System.setProperty(DataCodecUtil.SYSTEM_PROPERTY_CODEC_KEY, codec.name());
             }
         }
 

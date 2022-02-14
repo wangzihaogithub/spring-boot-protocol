@@ -1,6 +1,8 @@
 package com.github.netty.nrpc.api;
 
-public class HelloData {
+import java.io.Serializable;
+
+public class HelloData implements Serializable {
     private String say;
 
     public String getSay() {

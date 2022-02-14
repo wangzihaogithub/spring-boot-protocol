@@ -182,7 +182,7 @@ public class RpcMethod<INSTANCE> {
         Class<?> clazz;
         try {
             clazz = Class.forName(className);
-        } catch (ClassNotFoundException e) {
+        } catch (Throwable e) {
             clazz = null;
         }
         return clazz;

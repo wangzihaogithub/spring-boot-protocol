@@ -1,6 +1,8 @@
 package com.github.netty.nrpc.api;
 
-public class HelloDTO {
+import java.io.Serializable;
+
+public class HelloDTO implements Serializable {
     private String name;
     private Integer id;
 

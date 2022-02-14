@@ -14,10 +14,10 @@ public class HelloServiceImpl implements HelloService {
     public HelloData sayHello(String name, Integer id, Boolean bool, HelloDTO request) {
         int i = 0;
         while (i++ < 10) {
-            try {
-                Thread.sleep(10000);
-            } catch (InterruptedException e) {
-            }
+//            try {
+//                Thread.sleep(10000);
+//            } catch (InterruptedException e) {
+//            }
         }
         System.out.printf("sayHello name=%s,id=%d,bool=%s,request=%s\n",
                 name, id, bool, request);

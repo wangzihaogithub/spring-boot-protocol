@@ -1,6 +1,8 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.annotation.NRpcService;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ReflectUtil;
 
 import java.lang.reflect.Method;
@@ -19,6 +21,8 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.SERVER_ERR
  * @author wangzihao
  */
 public class RpcServerInstance {
+    private static final LoggerX logger = LoggerFactoryX.getLogger(RpcServerInstance.class);
+
     private Object instance;
     private Map<String, RpcMethod<RpcServerInstance>> rpcMethodMap;
     private DataCodec dataCodec;
@@ -141,6 +145,7 @@ public class RpcServerInstance {
             rpcResponse.setStatus(SERVER_ERROR);
             rpcResponse.setMessage(message);
             rpcResponse.setData(null);
+            logger.error("invoke error = {}", t.toString(), t);
         } finally {
             server.onStateUpdate(rpcContext, WRITE_ING);
         }

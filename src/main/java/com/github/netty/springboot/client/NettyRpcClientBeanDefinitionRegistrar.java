@@ -1,6 +1,9 @@
 package com.github.netty.springboot.client;
 
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.nrpc.RpcClient;
+import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
@@ -45,6 +48,7 @@ import java.util.function.Supplier;
  */
 public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar,
         ResourceLoaderAware, BeanClassLoaderAware, EnvironmentAware, BeanFactoryAware, BeanPostProcessor {
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
     private Environment environment;
@@ -204,13 +208,18 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
         this.beanFactory = beanFactory;
-	    this.nettyRpcLoadBalancedSupplier = ()->beanFactory.getBean(NettyRpcLoadBalanced.class);
-	    this.nettyPropertiesSupplier = ()->beanFactory.getBean(NettyProperties.class);
+	    this.nettyRpcLoadBalancedSupplier = () -> beanFactory.getBean(NettyRpcLoadBalanced.class);
+	    this.nettyPropertiesSupplier = () -> {
+            NettyProperties properties = beanFactory.getBean(NettyProperties.class);
+            logger.info("used codec = {}", DataCodecUtil.getDataCodec());
+            this.nettyPropertiesSupplier = () -> properties;
+            return properties;
+        };
     }
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if(SpringUtil.isSingletonBean(beanFactory, beanName)) {
+        if(SpringUtil.isSingletonBean(beanFactory, beanName) && !(bean instanceof NettyProperties)) {
             nettyPropertiesSupplier.get().getApplication()
                     .addSingletonBeanDefinition(bean, beanName, false);
         }

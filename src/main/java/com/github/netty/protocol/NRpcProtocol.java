@@ -6,6 +6,7 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.*;
+import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.protocol.nrpc.service.RpcCommandServiceImpl;
 import com.github.netty.protocol.nrpc.service.RpcDBServiceImpl;
 import io.netty.buffer.ByteBuf;
@@ -15,7 +16,6 @@ import io.netty.channel.ChannelPipeline;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -188,6 +188,7 @@ public class NRpcProtocol extends AbstractProtocol {
                 throw new UnsupportedOperationException("serverMethodOverwriteCheckList: \n" + joiner);
             }
         }
+        logger.info("used codec = {}", DataCodecUtil.getDataCodec());
     }
 
     @Override

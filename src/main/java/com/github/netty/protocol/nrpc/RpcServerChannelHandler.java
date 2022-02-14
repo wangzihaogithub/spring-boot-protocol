@@ -4,6 +4,8 @@ import com.github.netty.annotation.NRpcMethod;
 import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
+import com.github.netty.protocol.nrpc.codec.FastJsonDataCodec;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -44,7 +46,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
     private Executor executor;
 
     public RpcServerChannelHandler() {
-        this(new JsonDataCodec());
+        this(DataCodecUtil.newDataCodec());
     }
 
     public RpcServerChannelHandler(DataCodec dataCodec) {

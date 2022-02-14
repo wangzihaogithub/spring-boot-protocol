@@ -65,8 +65,8 @@ public class RpcPacket implements Recyclable {
         StringJoiner joiner = new StringJoiner(",","{","}")
                 .add("\"class\":\""+getClass().getSimpleName()+"\"")
                 .add("\"ack\":"+ack)
-                .add("\"packetType\":"+packetType)
-                .add("\"data\":"+ (data ==null?"null":"\""+new String(data).replace("\"", "\\\\\"") +"\""));
+                .add("\"packetType\":"+packetType);
+//                .add("\"data\":"+ (data ==null?"null":"\""+new String(data).replace("\"", "\\\\\"") +"\""));
         toStringAppend(joiner);
         return joiner.toString();
     }

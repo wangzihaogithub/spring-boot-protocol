@@ -1,91 +1,56 @@
-package com.github.netty.protocol.nrpc;
+package com.github.netty.protocol.nrpc.codec;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.parser.Feature;
-import com.alibaba.fastjson.parser.ParserConfig;
-import com.alibaba.fastjson.serializer.JSONSerializer;
-import com.alibaba.fastjson.serializer.SerializeConfig;
-import com.alibaba.fastjson.serializer.SerializeWriter;
-import com.alibaba.fastjson.serializer.SerializerFeature;
-import com.alibaba.fastjson.util.TypeUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
+import com.github.netty.core.util.TypeUtil;
+import com.github.netty.protocol.nrpc.DataCodec;
+import com.github.netty.protocol.nrpc.RpcClient;
+import com.github.netty.protocol.nrpc.RpcMethod;
+import com.github.netty.protocol.nrpc.RpcServerInstance;
+import com.github.netty.protocol.nrpc.exception.RpcDecodeException;
+import com.github.netty.protocol.nrpc.exception.RpcEncodeException;
 import io.netty.util.concurrent.FastThreadLocal;
 
 import java.lang.reflect.Type;
-import java.nio.charset.CharsetDecoder;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
+ * com.fasterxml.jackson
+ *
  * @author wangzihao
  */
-public class JsonDataCodec implements DataCodec {
+public class JacksonDataCodec implements DataCodec {
     private static final byte[] EMPTY = {};
     private static final FastThreadLocal<Map<String, Object>> PARAMETER_MAP_LOCAL = new FastThreadLocal<Map<String, Object>>() {
         @Override
         protected Map<String, Object> initialValue() throws Exception {
-            return new HashMap<>(32);
+            return new LinkedHashMap<>(32);
         }
     };
-    private static final FastThreadLocal<CharsetDecoder> CHARSET_DECODER_LOCAL = new FastThreadLocal<CharsetDecoder>() {
-        @Override
-        protected CharsetDecoder initialValue() throws Exception {
-            return CHARSET_UTF8.newDecoder();
-        }
-    };
-    private static SerializerFeature[] SERIALIZER_FEATURES = {
-//            SerializerFeature.WriteClassName
-    };
-    private static Feature[] FEATURES = {
-            Feature.AutoCloseSource,
-            Feature.InternFieldNames,
-            Feature.UseBigDecimal,
-            Feature.AllowUnQuotedFieldNames,
-            Feature.AllowSingleQuotes,
-            Feature.AllowArbitraryCommas,
-            Feature.SortFeidFastMatch,
-            Feature.IgnoreNotMatch
-    };
-    private static int FEATURE_MASK = Feature.of(FEATURES);
-
-    static {
-        // Preheat code
-        try {
-            try (SerializeWriter out = new SerializeWriter(null, JSON.DEFAULT_GENERATE_FEATURE,
-                    SERIALIZER_FEATURES)) {
-                JSONSerializer serializer = new JSONSerializer(out, SerializeConfig.globalInstance);
-                serializer.write(new HashMap<>());
-                out.toBytes(CHARSET_UTF8);
-            }
-            Class.forName("com.alibaba.fastjson.util.TypeUtils");
-            Class.forName("com.alibaba.fastjson.JSON");
-            Class.forName("com.alibaba.fastjson.util.ASMClassLoader");
-            Class.forName("com.alibaba.fastjson.util.IOUtils");
-        } catch (ClassNotFoundException e) {
-            //
-        }
-    }
-
-    private ParserConfig parserConfig;
+    private static ObjectMapper globalObjectMapper = new ObjectMapper();
     private List<Consumer<Map<String, Object>>> encodeRequestConsumerList = new CopyOnWriteArrayList<>();
     private List<Consumer<Map<String, Object>>> decodeRequestConsumerList = new CopyOnWriteArrayList<>();
+    private ObjectMapper objectMapper;
 
-    public JsonDataCodec() {
-        this(new ParserConfig());
+    public JacksonDataCodec() {
+        this(globalObjectMapper);
     }
 
-    public JsonDataCodec(ParserConfig parserConfig) {
-        this.parserConfig = parserConfig;
+    public JacksonDataCodec(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
     }
 
-    public static SerializerFeature[] getSerializerFeatures() {
-        return SERIALIZER_FEATURES;
+    public static ObjectMapper getGlobalObjectMapper() {
+        return globalObjectMapper;
     }
 
-    public static void setSerializerFeatures(SerializerFeature[] serializerFeatures) {
-        SERIALIZER_FEATURES = serializerFeatures;
+    public static void setGlobalObjectMapper(ObjectMapper globalObjectMapper) {
+        JacksonDataCodec.globalObjectMapper = globalObjectMapper;
     }
 
     @Override
@@ -120,7 +85,11 @@ public class JsonDataCodec implements DataCodec {
             if (parameterMap.isEmpty()) {
                 return EMPTY;
             } else {
-                return JSON.toJSONBytes(parameterMap, SERIALIZER_FEATURES);
+                try {
+                    return objectMapper.writeValueAsBytes(parameterMap);
+                } catch (JsonProcessingException e) {
+                    throw new RpcEncodeException("encodeRequestData " + rpcMethod + " jackson error " + e, e);
+                }
             }
         } finally {
             parameterMap.clear();
@@ -131,7 +100,11 @@ public class JsonDataCodec implements DataCodec {
     public Object[] decodeRequestData(byte[] data, RpcMethod<RpcServerInstance> rpcMethod) {
         Map parameterMap;
         if (data != null && data.length != 0) {
-            parameterMap = (Map) JSON.parse(data, 0, data.length, CHARSET_DECODER_LOCAL.get(), FEATURE_MASK);
+            try {
+                parameterMap = objectMapper.readValue(data, LinkedHashMap.class);
+            } catch (Exception e) {
+                throw new RpcDecodeException("decodeRequestData " + rpcMethod + " jackson error " + e, e);
+            }
         } else {
             parameterMap = PARAMETER_MAP_LOCAL.get();
         }
@@ -166,12 +139,10 @@ public class JsonDataCodec implements DataCodec {
         if (data == null) {
             return EMPTY;
         }
-
-        try (SerializeWriter out = new SerializeWriter(null, JSON.DEFAULT_GENERATE_FEATURE,
-                SERIALIZER_FEATURES)) {
-            JSONSerializer serializer = new JSONSerializer(out, SerializeConfig.globalInstance);
-            serializer.write(data);
-            return out.toBytes(CHARSET_UTF8);
+        try {
+            return objectMapper.writeValueAsBytes(data);
+        } catch (Exception e) {
+            throw new RpcEncodeException("encodeResponseData " + rpcMethod + " jackson error " + e, e);
         }
     }
 
@@ -180,8 +151,13 @@ public class JsonDataCodec implements DataCodec {
         if (data == null || data.length == 0) {
             return null;
         }
+
         Type returnType = rpcMethod.getGenericReturnType();
-        return JSON.parseObject(data, 0, data.length, CHARSET_UTF8, returnType, FEATURES);
+        try {
+            return objectMapper.readValue(data, TypeFactory.defaultInstance().constructType(returnType));
+        } catch (Exception e) {
+            throw new RpcDecodeException("decodeResponseData " + rpcMethod + " jackson error " + e, e);
+        }
     }
 
     protected boolean isNeedCast(Object value, Class<?> type) {
@@ -189,15 +165,12 @@ public class JsonDataCodec implements DataCodec {
             return false;
         }
         //The class information corresponding to type is the superclass or superinterface of the class information corresponding to arg object. Simply understood, type is the superclass or interface of arg
-        if (type.isAssignableFrom(value.getClass())) {
-            return false;
-        }
-        return true;
+        return !type.isAssignableFrom(value.getClass());
     }
 
     protected Object cast(Object value, Class<?> type) {
         try {
-            return TypeUtils.cast(value, type, parserConfig);
+            return TypeUtil.cast(value, type);
         } catch (Exception e) {
             return value;
         }

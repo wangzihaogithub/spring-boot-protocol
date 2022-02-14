@@ -6,6 +6,8 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
+import com.github.netty.protocol.nrpc.codec.FastJsonDataCodec;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
@@ -109,7 +111,7 @@ public class RpcClient extends AbstractNettyClient {
     }
 
     public RpcClient(String namePre, InetSocketAddress remoteAddress) {
-        this(namePre, remoteAddress, new JsonDataCodec());
+        this(namePre, remoteAddress, DataCodecUtil.newDataCodec());
     }
 
     public RpcClient(String namePre, InetSocketAddress remoteAddress, DataCodec dataCodec) {

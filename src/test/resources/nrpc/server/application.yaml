@@ -3,6 +3,7 @@ server:
   netty:
     nrpc:
       server-default-version: my1.0
+      codec: fastjson
 spring:
   application:
     name: nrpc-server

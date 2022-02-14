@@ -35,9 +35,9 @@ public class HttpController {
         HelloDTO request = new HelloDTO();
         request.setId(1);
         request.setName("wang");
-//        HelloData helloResponse = helloClient.sayHello(name, 1, false,request);
-//        return helloResponse;
-        return new HelloData();
+        HelloData helloResponse = helloClient.sayHello(name, 1, false,request);
+        return helloResponse;
+//        return new HelloData();
     }
 
     @RequestMapping("/sayHelloAsync")

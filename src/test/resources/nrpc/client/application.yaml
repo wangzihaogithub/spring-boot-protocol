@@ -9,6 +9,7 @@ server:
       client-server-response-timeout: 1000
       client-reconnect-scheduled-task-enable: false
       client-reconnect-scheduled-interval-ms: 5000
+      codec: fastjson
 spring:
   application:
     name: nrpc-client
