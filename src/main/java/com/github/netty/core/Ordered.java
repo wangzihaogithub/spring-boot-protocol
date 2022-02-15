@@ -21,7 +21,7 @@ public interface Ordered {
      * return -1 or 1. not return 0
      */
     Comparator<Ordered> COMPARATOR = (c1, c2) ->
-            c1.getOrder() < c2.getOrder() ? -1 : 1;
+            c1 == c2 ? 0 : c1.getOrder() < c2.getOrder() ? -1 : 1;
 
 
     /**
