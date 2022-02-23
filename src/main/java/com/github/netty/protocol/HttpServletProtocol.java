@@ -154,17 +154,57 @@ public class HttpServletProtocol extends AbstractProtocol {
     @Override
     public boolean canSupport(ByteBuf msg) {
         int protocolEndIndex = IOUtil.indexOf(msg, HttpConstants.LF);
-        if(protocolEndIndex < 9){
+        if (protocolEndIndex == -1 && msg.readableBytes() > 7) {
+            // client multiple write packages. cause browser out of length.
+            if (msg.getByte(0) == 'G'
+                    && msg.getByte(1) == 'E'
+                    && msg.getByte(2) == 'T'
+                    && msg.getByte(3) == ' '
+                    && msg.getByte(4) == '/') {
+                return true;
+            } else if (msg.getByte(0) == 'P'
+                    && msg.getByte(1) == 'O'
+                    && msg.getByte(2) == 'S'
+                    && msg.getByte(3) == 'T'
+                    && msg.getByte(4) == ' '
+                    && msg.getByte(5) == '/') {
+                return true;
+            } else if (msg.getByte(0) == 'P'
+                    && msg.getByte(1) == 'U'
+                    && msg.getByte(2) == 'T'
+                    && msg.getByte(3) == ' '
+                    && msg.getByte(4) == '/') {
+                return true;
+            } else if (msg.getByte(0) == 'D'
+                    && msg.getByte(1) == 'E'
+                    && msg.getByte(2) == 'L'
+                    && msg.getByte(3) == 'E'
+                    && msg.getByte(4) == 'T'
+                    && msg.getByte(5) == 'E'
+                    && msg.getByte(6) == ' '
+                    && msg.getByte(7) == '/') {
+                return true;
+            } else if (msg.getByte(0) == 'P'
+                    && msg.getByte(1) == 'A'
+                    && msg.getByte(2) == 'T'
+                    && msg.getByte(3) == 'C'
+                    && msg.getByte(4) == 'H'
+                    && msg.getByte(5) == ' '
+                    && msg.getByte(6) == '/') {
+                return true;
+            } else {
+                return false;
+            }
+        } else if (protocolEndIndex < 9) {
             return false;
-        }
-
-        if(msg.getByte(protocolEndIndex - 9) == 'H'
+        } else if (msg.getByte(protocolEndIndex - 9) == 'H'
                 && msg.getByte(protocolEndIndex - 8) == 'T'
                 && msg.getByte(protocolEndIndex - 7) == 'T'
-                &&  msg.getByte(protocolEndIndex - 6) == 'P'){
+                && msg.getByte(protocolEndIndex - 6) == 'P') {
             return true;
+        } else {
+            return false;
         }
-        return false;
     }
 
     @Override
