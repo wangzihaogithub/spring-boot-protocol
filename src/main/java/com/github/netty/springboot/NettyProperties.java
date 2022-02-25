@@ -299,6 +299,10 @@ public class NettyProperties implements Serializable {
          * 错误页是否展示详细异常信息.
          */
         private boolean showExceptionMessage = true;
+        /**
+         * 启动失败是否停止程序.
+         */
+        private boolean startupFailExit = true;
 
         public static class ServerThreadPool {
             /**
@@ -400,6 +404,14 @@ public class NettyProperties implements Serializable {
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public boolean isStartupFailExit() {
+            return startupFailExit;
+        }
+
+        public void setStartupFailExit(boolean startupFailExit) {
+            this.startupFailExit = startupFailExit;
         }
 
         public String[] getNotExistBodyParameter() {

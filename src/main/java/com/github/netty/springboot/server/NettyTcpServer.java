@@ -88,7 +88,14 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
         //Exception thrown
         Throwable cause = future.cause();
         if(cause != null){
-            PlatformDependent.throwException(cause);
+            if (properties.getHttpServlet().isStartupFailExit()) {
+                logger.error("server startup fail. cause={}", cause.toString(),cause);
+                System.exit(-1);
+                return;
+            }else {
+                PlatformDependent.throwException(cause);
+                return;
+            }
         }
 
         logger.info("{} start (version = {}, port = {}, pid = {}, protocol = {}, os = {}) ...",

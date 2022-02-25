@@ -99,7 +99,9 @@ public class StartupServer extends AbstractNettyServer {
         //Exception thrown
         Throwable cause = future.cause();
         if(cause != null){
-            PlatformDependent.throwException(cause);
+            logger.error("server startup fail. cause={}", cause.toString(),cause);
+            System.exit(-1);
+            return;
         }
 
         logger.info("{} start (version = {}, port = {}, pid = {}, protocol = {}, os = {}) ...",
