@@ -79,12 +79,6 @@ public class HttpServletProtocol extends AbstractProtocol {
         initFilter(servletContext);
 
         listenerManager.onServletContainerInitializerStartup(Collections.emptySet(),servletContext);
-
-        LOGGER.info(
-                "Netty servlet on port: {}, with context path '{}'",
-                servletContext.getServerAddress().getPort(),
-                servletContext.getContextPath()
-                );
     }
 
     @Override

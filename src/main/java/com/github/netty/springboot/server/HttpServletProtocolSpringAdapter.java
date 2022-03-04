@@ -2,6 +2,8 @@ package com.github.netty.springboot.server;
 
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.util.ApplicationX;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.*;
@@ -41,6 +43,7 @@ import static org.springframework.util.ClassUtils.getMethod;
  * 2018/11/12/012
  */
 public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implements BeanPostProcessor, BeanFactoryAware {
+    private static final LoggerX LOGGER = LoggerFactoryX.getLogger(HttpServletProtocol.class);
     private final NettyProperties properties;
     private final ApplicationX application;
     private BeanFactory beanFactory;
@@ -80,6 +83,12 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                 throw exception;
             }
         }
+
+        LOGGER.info(
+                "Netty servlet on port: {}, with context path '{}'",
+                servletContext.getServerAddress().getPort(),
+                servletContext.getContextPath()
+        );
 //        application.scanner("com.github.netty").inject();
     }
 
