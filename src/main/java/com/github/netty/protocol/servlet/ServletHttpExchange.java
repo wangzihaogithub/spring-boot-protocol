@@ -32,6 +32,7 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private ServletContext servletContext;
     private boolean isHttpKeepAlive;
     private final AtomicInteger close = new AtomicInteger(CLOSE_NO);
+    private boolean websocket;
     public static final int CLOSE_NO = 0;
     public static final int CLOSE_ING = 1;
     public static final int CLOSE_YES = 2;
@@ -91,6 +92,14 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
 
     public static void setHttpExchange(ChannelHandlerContext channelHandlerContext, ServletHttpExchange httpExchange){
         setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE,httpExchange);
+    }
+
+    public void setWebsocket(boolean websocket) {
+        this.websocket = websocket;
+    }
+
+    public boolean isWebsocket() {
+        return websocket;
     }
 
     public ServletHttpSession getHttpSession(){
@@ -234,6 +243,9 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
 
     @Override
     public void close() {
+        if(websocket){
+            return;
+        }
         recycle();
     }
 

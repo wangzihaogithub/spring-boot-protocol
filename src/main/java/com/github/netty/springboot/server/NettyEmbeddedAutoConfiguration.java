@@ -70,6 +70,7 @@ public class NettyEmbeddedAutoConfiguration {
 
     /**
      * Add the RPC protocol registry
+     * @param factory factory
      * @return NRpcProtocol
      */
     @Bean("nRpcProtocol")

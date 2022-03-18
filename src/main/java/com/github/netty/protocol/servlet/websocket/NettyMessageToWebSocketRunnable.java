@@ -4,6 +4,7 @@ import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.TypeUtil;
+import com.github.netty.protocol.servlet.ServletHttpExchange;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.*;
 
@@ -20,8 +21,9 @@ import java.util.Set;
 public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     private static final Recycler<WebsocketRunnable> RECYCLER = new Recycler<>(WebsocketRunnable::new);
     private MessageToRunnable parent;
+    private ServletHttpExchange exchange;
 
-    public NettyMessageToWebSocketRunnable(MessageToRunnable parent) {
+    public NettyMessageToWebSocketRunnable(MessageToRunnable parent, ServletHttpExchange exchange) {
         this.parent = parent;
     }
 
@@ -37,6 +39,17 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
             return parent.onMessage(context,msg);
         }
         throw new IllegalStateException("["+msg.getClass().getName()+"] Message data type that cannot be processed");
+    }
+
+    @Override
+    public Runnable onClose(ChannelHandlerContext context) {
+        if(exchange != null){
+            exchange.setWebsocket(false);
+        }
+        if(parent != null){
+            return parent.onClose(context);
+        }
+        return null;
     }
 
     /**

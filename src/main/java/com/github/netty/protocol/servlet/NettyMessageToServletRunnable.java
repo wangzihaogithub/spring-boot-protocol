@@ -109,11 +109,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     @Override
     public Runnable onClose(ChannelHandlerContext context) {
         ServletHttpExchange exchange = this.exchange;
-        if (exchange != null && exchange.isAsyncStartIng()) {
-            ServletAsyncContext asyncContext = exchange.getAsyncContext();
-            if (asyncContext != null) {
-                asyncContext.complete();
+        if (exchange != null) {
+            if(exchange.isAsyncStartIng()) {
+                ServletAsyncContext asyncContext = exchange.getAsyncContext();
+                if (asyncContext != null) {
+                    asyncContext.complete();
+                }
             }
+            exchange.close();
         }
         return null;
     }
@@ -257,7 +260,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         }
                     } else {
                         //Not asynchronous direct collection
-                        servletHttpExchange.recycle();
+                        servletHttpExchange.close();
                     }
                     recycle();
                 }
