@@ -1,4 +1,4 @@
-package com.github.netty.websocket.example;
+package com.github.netty.stomp.example;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

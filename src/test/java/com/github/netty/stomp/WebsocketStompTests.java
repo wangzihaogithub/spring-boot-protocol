@@ -1,4 +1,4 @@
-package com.github.netty.websocket;
+package com.github.netty.stomp;
 
 import com.github.netty.nrpc.NRpcTests;
 import org.junit.runner.RunWith;
@@ -32,8 +32,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = NRpcTests.class)
-public class WebsocketTests {
-    private static final Logger logger = LoggerFactory.getLogger(WebsocketTests.class);
+public class WebsocketStompTests {
+    private static final Logger logger = LoggerFactory.getLogger(WebsocketStompTests.class);
     private static final WebSocketStompClient client = new WebSocketStompClient(new SockJsClient(Arrays.asList(new WebSocketTransport(new StandardWebSocketClient()))));
     static {
         ThreadPoolTaskScheduler taskScheduler = new ThreadPoolTaskScheduler();

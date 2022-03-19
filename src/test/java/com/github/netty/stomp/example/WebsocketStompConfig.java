@@ -1,4 +1,4 @@
-package com.github.netty.websocket.example;
+package com.github.netty.stomp.example;
 
 import com.github.netty.springboot.server.NettyRequestUpgradeStrategy;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -23,7 +23,7 @@ import java.util.Map;
 @EnableWebSocketMessageBroker
 @EnableWebSocket
 @Configuration
-public class WebsocketConfig implements WebSocketMessageBrokerConfigurer {
+public class WebsocketStompConfig implements WebSocketMessageBrokerConfigurer {
 
     /**
      * 容器策略, 这里选用netty
