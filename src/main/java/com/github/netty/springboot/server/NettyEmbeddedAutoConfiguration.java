@@ -72,6 +72,7 @@ public class NettyEmbeddedAutoConfiguration {
      * Add the RPC protocol registry
      * @param factory factory
      * @return NRpcProtocol
+     * @throws ClassNotFoundException ClassNotFoundException
      */
     @Bean("nRpcProtocol")
     @ConditionalOnMissingBean(NRpcProtocol.class)

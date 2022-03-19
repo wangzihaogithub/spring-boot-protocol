@@ -43,7 +43,7 @@ public class WebSocketSession implements Session {
     private int maxTextMessageBufferSize;
     private long maxIdleTimeout;
     private long aynsSendTimeout;
-    private final int rsv;
+    private int rsv;
     private final Channel channel;
     private final WebSocketServerHandshaker13Extension webSocketServerHandshaker;
     private final Endpoint localEndpoint;
@@ -75,7 +75,7 @@ public class WebSocketSession implements Session {
         this.aynsSendTimeout = webSocketContainer.getDefaultAsyncSendTimeout();
         this.channel = channel;
         this.webSocketServerHandshaker = webSocketServerHandshaker;
-        this.rsv = webSocketServerHandshaker.getRsv();
+//        this.rsv = webSocketServerHandshaker.getRsv();
         this.maxTextMessageBufferSize = webSocketServerHandshaker.maxFramePayloadLength();
         this.maxBinaryMessageBufferSize = webSocketServerHandshaker.maxFramePayloadLength();
         this.localEndpoint = localEndpoint;

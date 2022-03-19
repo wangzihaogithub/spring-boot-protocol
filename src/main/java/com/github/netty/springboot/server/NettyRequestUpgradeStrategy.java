@@ -44,7 +44,6 @@ import java.util.Map;
  * @author wangzihao
  */
 public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
-    public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     private int maxFramePayloadLength;
 
     public NettyRequestUpgradeStrategy() {
@@ -92,13 +91,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
 
     @Override
     protected WebSocketServerContainer getContainer(HttpServletRequest request) {
-        ServletContext servletContext = request.getServletContext();
-        Object websocketServerContainer = servletContext.getAttribute(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE);
-        if (!(websocketServerContainer instanceof WebSocketServerContainer)) {
-            websocketServerContainer = new WebSocketServerContainer();
-            servletContext.setAttribute(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE, websocketServerContainer);
-        }
-        return (WebSocketServerContainer) websocketServerContainer;
+        return (WebSocketServerContainer) super.getContainer(request);
     }
 
     /**

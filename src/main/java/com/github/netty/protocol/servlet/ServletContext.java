@@ -6,6 +6,7 @@ import com.github.netty.protocol.servlet.util.FilterMapper;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import com.github.netty.protocol.servlet.util.UrlMapper;
+import com.github.netty.protocol.servlet.websocket.WebSocketServerContainer;
 import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
 import io.netty.handler.codec.http.multipart.DiskAttribute;
 import io.netty.handler.codec.http.multipart.DiskFileUpload;
@@ -37,6 +38,7 @@ import java.util.function.Supplier;
  */
 public class ServletContext implements javax.servlet.ServletContext {
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     /**
      * Default: 20 minutes,
      */
@@ -502,6 +504,12 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public Object getAttribute(String name) {
+        if(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE.equals(name)){
+            try {
+                attributeMap.put(name, new WebSocketServerContainer());
+            }catch (Exception ignored){
+            }
+        }
         return attributeMap.get(name);
     }
 
