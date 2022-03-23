@@ -17,26 +17,24 @@ import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.EmptyHttpHeaders;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker;
 import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.util.LinkedCaseInsensitiveMap;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.socket.WebSocketExtension;
 import org.springframework.web.socket.server.HandshakeFailureException;
 import org.springframework.web.socket.server.standard.AbstractStandardUpgradeStrategy;
 import org.springframework.web.socket.server.standard.ServerEndpointRegistration;
 
-import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.websocket.Endpoint;
 import javax.websocket.Extension;
+import javax.websocket.WebSocketContainer;
 import javax.websocket.server.ServerEndpointConfig;
 import java.security.Principal;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Websocket version number: the version number of draft 8 to draft 12 is 8, and the version number of draft 13 and later is the same as the draft number
@@ -47,7 +45,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
     private int maxFramePayloadLength;
 
     public NettyRequestUpgradeStrategy() {
-        this(64 * 1024);
+        this(65536);
     }
 
     public NettyRequestUpgradeStrategy(int maxFramePayloadLength) {
@@ -74,7 +72,12 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         Map<String, String> pathParams = new LinkedHashMap<>(3);
 
         ServerEndpointRegistration endpointConfig = new ServerEndpointRegistration(servletRequest.getRequestURI(), endpoint);
-        endpointConfig.setSubprotocols(Arrays.asList(WebSocketServerHandshaker.SUB_PROTOCOL_WILDCARD, selectedProtocol));
+        List<String> subprotocols = new ArrayList<>();
+        subprotocols.add("*");
+        if (selectedProtocol != null && !subprotocols.contains(selectedProtocol)) {
+            subprotocols.add(selectedProtocol);
+        }
+        endpointConfig.setSubprotocols(subprotocols);
         if (selectedExtensions != null) {
             endpointConfig.setExtensions(selectedExtensions);
         }
@@ -87,6 +90,19 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
             throw new HandshakeFailureException(
                     "Servlet request failed to upgrade to WebSocket: " + servletRequest.getRequestURL(), e);
         }
+    }
+
+    @Override
+    protected List<WebSocketExtension> getInstalledExtensions(WebSocketContainer container) {
+        List<WebSocketExtension> result = new ArrayList<>();
+        for (Extension extension : container.getInstalledExtensions()) {
+            Map<String, String> parameters = new LinkedCaseInsensitiveMap<>(Locale.ENGLISH);
+            for (Extension.Parameter parameter : extension.getParameters()) {
+                parameters.put(parameter.getName(), parameter.getValue());
+            }
+            result.add(new WebSocketExtension(extension.getName(), parameters));
+        }
+        return result;
     }
 
     @Override
@@ -114,7 +130,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         ServletHttpExchange exchange = servletRequest.getServletHttpExchange();
         exchange.setWebsocket(true);
         String queryString = servletRequest.getQueryString();
-        String httpSessionId = servletRequest.getSession().getId();
+        String httpSessionId = servletRequest.getRequestedSessionId();
         String webSocketURL = getWebSocketLocation(servletRequest);
         Map<String, List<String>> requestParameterMap = getRequestParameterMap(servletRequest);
 

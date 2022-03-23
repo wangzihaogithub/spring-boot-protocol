@@ -11,21 +11,21 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * WebSocket Server Container. Note: only the server is implemented, but the client is not
+ *
  * @author wangzihao
  */
-public class WebSocketServerContainer implements WebSocketContainer,ServerContainer {
+public class WebSocketServerContainer implements WebSocketContainer, ServerContainer {
+    private static final CloseReason AUTHENTICATED_HTTP_SESSION_CLOSED = new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY,
+            "This connection was established under an authenticated " +
+                    "HTTP session that has ended.");
     private final Map<Endpoint, Set<Session>> endpointSessionMap = new HashMap<>();
-    private final Map<Session,Session> sessions = new ConcurrentHashMap<>();
+    private final Map<Session, Session> sessions = new ConcurrentHashMap<>();
     private final Object endPointSessionMapLock = new Object();
-
+    private final ConcurrentMap<String, Set<Session>> authenticatedSessions = new ConcurrentHashMap<>();
     private long defaultAsyncTimeout = -1;
     private int maxBinaryMessageBufferSize = 8 * 1024;
     private int maxTextMessageBufferSize = 8 * 1024;
     private volatile long defaultMaxSessionIdleTimeout = 0;
-    private final ConcurrentMap<String,Set<Session>> authenticatedSessions = new ConcurrentHashMap<>();
-    private static final CloseReason AUTHENTICATED_HTTP_SESSION_CLOSED = new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY,
-                    "This connection was established under an authenticated " +
-                            "HTTP session that has ended.");
 
     public WebSocketServerContainer() {
     }
@@ -68,18 +68,36 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
 
     /**
      * {@inheritDoc}
-     *
+     * <p>
      * Currently, this implementation does not support any extensions.
      */
     @Override
     public Set<Extension> getInstalledExtensions() {
-        return Collections.emptySet();
+        WsExtension deflate = new WsExtension("permessage-deflate");
+//        boolean clientContextTakeover = true;
+//        boolean serverContextTakeover = true;
+//        int serverMaxWindowBits = -1;
+//        int clientMaxWindowBits = -1;
+//        if (!serverContextTakeover) {
+//            deflate.addParameter("server_no_context_takeover", null);
+//        }
+//        if (serverMaxWindowBits != -1) {
+//            deflate.addParameter("server_max_window_bits",
+//                    Integer.toString(serverMaxWindowBits));
+//        }
+//        if (!clientContextTakeover) {
+//            deflate.addParameter("client_no_context_takeover", null);
+//        }
+//        if (clientMaxWindowBits != -1) {
+//            deflate.addParameter("client_max_window_bits",
+//                    Integer.toString(clientMaxWindowBits));
+//        }
+        return Collections.singleton(deflate);
     }
-
 
     /**
      * {@inheritDoc}
-     *
+     * <p>
      * The default value for this implementation is -1.
      */
     @Override
@@ -87,10 +105,9 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
         return defaultAsyncTimeout;
     }
 
-
     /**
      * {@inheritDoc}
-     *
+     * <p>
      * The default value for this implementation is -1.
      */
     @Override
@@ -128,8 +145,7 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
 
     }
 
-
-    protected void registerSession(Endpoint endpoint, Session wsSession) {
+    public void registerSession(Endpoint endpoint, WebSocketSession wsSession) {
         if (!wsSession.isOpen()) {
             // The session was closed during onOpen. No need to supportPipeline it.
             return;
@@ -148,13 +164,12 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
         sessions.put(wsSession, wsSession);
     }
 
-
-    protected void unregisterSession(Endpoint endpoint, Session wsSession) {
+    public void unregisterSession(Endpoint endpoint, WebSocketSession wsSession) {
         synchronized (endPointSessionMapLock) {
             Set<Session> wsSessions = endpointSessionMap.get(endpoint);
             if (wsSessions != null) {
                 wsSessions.remove(wsSession);
-                if (wsSessions.size() == 0) {
+                if (wsSessions.isEmpty()) {
                     endpointSessionMap.remove(endpoint);
                 }
             }
@@ -162,20 +177,20 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
         sessions.remove(wsSession);
     }
 
-    private void registerAuthenticatedSession(Session wsSession,
-                                              String httpSessionId) {
+    public void registerAuthenticatedSession(WebSocketSession wsSession,
+                                             String httpSessionId) {
         Set<Session> wsSessions = authenticatedSessions.get(httpSessionId);
         if (wsSessions == null) {
             wsSessions = Collections.newSetFromMap(
-                    new ConcurrentHashMap<Session,Boolean>());
+                    new ConcurrentHashMap<Session, Boolean>());
             authenticatedSessions.putIfAbsent(httpSessionId, wsSessions);
             wsSessions = authenticatedSessions.get(httpSessionId);
         }
         wsSessions.add(wsSession);
     }
 
-    private void unregisterAuthenticatedSession(Session wsSession,
-                                                String httpSessionId) {
+    public void unregisterAuthenticatedSession(WebSocketSession wsSession,
+                                               String httpSessionId) {
         Set<Session> wsSessions = authenticatedSessions.get(httpSessionId);
         // wsSessions will be null if the HTTP session has ended
         if (wsSessions != null) {
@@ -198,7 +213,6 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
         }
     }
 
-
     public Set<Session> getOpenSessions(Endpoint endpoint) {
         HashSet<Session> result = new HashSet<>();
         synchronized (endPointSessionMapLock) {
@@ -208,5 +222,62 @@ public class WebSocketServerContainer implements WebSocketContainer,ServerContai
             }
         }
         return result;
+    }
+
+    public static class WsExtension implements Extension {
+        private final String name;
+        private final List<Parameter> parameters = new ArrayList<>();
+
+        WsExtension(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof Extension) {
+                return Objects.equals(name, ((Extension) obj).getName());
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        public void addParameter(String name, String value) {
+            parameters.add(new WsExtensionParameter(name, value));
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public List<Parameter> getParameters() {
+            return parameters;
+        }
+
+        public static class WsExtensionParameter implements Parameter {
+            private final String name;
+            private final String value;
+
+            WsExtensionParameter(String name, String value) {
+                this.name = name;
+                this.value = value;
+            }
+
+            @Override
+            public String getName() {
+                return name;
+            }
+
+            @Override
+            public String getValue() {
+                return value;
+            }
+        }
     }
 }

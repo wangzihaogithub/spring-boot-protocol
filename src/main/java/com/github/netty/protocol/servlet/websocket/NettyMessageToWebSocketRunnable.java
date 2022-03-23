@@ -1,8 +1,8 @@
 package com.github.netty.protocol.servlet.websocket;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.TypeUtil;
 import com.github.netty.protocol.servlet.ServletHttpExchange;
 import io.netty.channel.ChannelHandlerContext;
@@ -16,6 +16,7 @@ import java.util.Set;
 /**
  * WebSocketMessageToRunnable
  * Life cycle connection
+ *
  * @author wangzihao
  */
 public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
@@ -29,24 +30,24 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
 
     @Override
     public Runnable onMessage(ChannelHandlerContext context, Object msg) {
-        if(msg instanceof WebSocketFrame) {
+        if (msg instanceof WebSocketFrame) {
             WebsocketRunnable task = RECYCLER.getInstance();
             task.context = context;
             task.frame = (WebSocketFrame) msg;
             return task;
         }
-        if(parent != null){
-            return parent.onMessage(context,msg);
+        if (parent != null) {
+            return parent.onMessage(context, msg);
         }
-        throw new IllegalStateException("["+msg.getClass().getName()+"] Message data type that cannot be processed");
+        throw new IllegalStateException("[" + msg.getClass().getName() + "] Message data type that cannot be processed");
     }
 
     @Override
     public Runnable onClose(ChannelHandlerContext context) {
-        if(exchange != null){
+        if (exchange != null) {
             exchange.setWebsocket(false);
         }
-        if(parent != null){
+        if (parent != null) {
             return parent.onClose(context);
         }
         return null;
@@ -55,11 +56,11 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     /**
      * Websocket task
      */
-    public static class WebsocketRunnable implements Runnable,Recyclable {
+    public static class WebsocketRunnable implements Runnable, Recyclable {
         private ChannelHandlerContext context;
         private WebSocketFrame frame;
 
-        public WebSocketSession getWebSocketSession(){
+        public WebSocketSession getWebSocketSession() {
             return WebSocketSession.getSession(context.channel());
         }
 
@@ -85,7 +86,7 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
 
                 // Close the message
                 if (frame instanceof CloseWebSocketFrame) {
-                    wsSession.getWebSocketServerHandshaker().close(context.channel(), (CloseWebSocketFrame) frame.retain());
+                    wsSession.closeByClient((CloseWebSocketFrame) frame);
                     return;
                 }
 
@@ -106,34 +107,42 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
                 if (frame instanceof TextWebSocketFrame) {
                     onWebsocketMessage(wsSession, frame, ((TextWebSocketFrame) frame).text());
                 }
-            }finally {
+            } finally {
                 WebsocketRunnable.this.recycle();
             }
         }
 
-        private void onWebsocketMessage(WebSocketSession wsSession, WebSocketFrame frame, Object message){
+        private void onWebsocketMessage(WebSocketSession wsSession, WebSocketFrame frame, Object message) {
             Class messageType = message.getClass();
 
             Set<MessageHandler> messageHandlers = wsSession.getMessageHandlers();
-            for(MessageHandler handler : messageHandlers){
-                if(handler instanceof MessageHandler.Partial){
-                    MessageHandler.Partial<Object> partial =((MessageHandler.Partial<Object>) handler);
+            for (MessageHandler handler : messageHandlers) {
+                if (handler instanceof MessageHandler.Partial) {
+                    MessageHandler.Partial<Object> partial = ((MessageHandler.Partial<Object>) handler);
                     TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Partial.class, partial.getClass());
-                    if(typeResult == null
+                    if (typeResult == null
                             || typeResult.getClazz() == Object.class
-                            || typeResult.getClazz().isAssignableFrom(messageType)){
-                        partial.onMessage(message,frame.isFinalFragment());
+                            || typeResult.getClazz().isAssignableFrom(messageType)) {
+                        try {
+                            partial.onMessage(message, frame.isFinalFragment());
+                        } catch (Throwable e) {
+                            wsSession.onError(e);
+                        }
                     }
                     continue;
                 }
 
-                if(handler instanceof MessageHandler.Whole){
-                    MessageHandler.Whole<Object> whole =((MessageHandler.Whole<Object>) handler);
-                    TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Whole.class,whole.getClass());
-                    if(typeResult == null
+                if (handler instanceof MessageHandler.Whole) {
+                    MessageHandler.Whole<Object> whole = ((MessageHandler.Whole<Object>) handler);
+                    TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Whole.class, whole.getClass());
+                    if (typeResult == null
                             || typeResult.getClazz() == Object.class
-                            || typeResult.getClazz().isAssignableFrom(messageType)){
-                        whole.onMessage(message);
+                            || typeResult.getClazz().isAssignableFrom(messageType)) {
+                        try {
+                            whole.onMessage(message);
+                        } catch (Throwable e) {
+                            wsSession.onError(e);
+                        }
                     }
                 }
             }
@@ -141,7 +150,7 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
 
         @Override
         public void recycle() {
-            if(context instanceof Recyclable) {
+            if (context instanceof Recyclable) {
                 ((Recyclable) context).recycle();
             }
             context = null;

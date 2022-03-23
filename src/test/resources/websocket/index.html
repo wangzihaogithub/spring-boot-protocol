@@ -6,8 +6,11 @@
 
 <body>
 <input id="text" type="text" />
-<button onclick="send()">Send</button>
-<button onclick="closeWebSocket()">Close</button>
+<input id="byte" type="checkbox"/>是否发送字节流
+<div>
+  <button onclick="send()">Send</button>
+  <button onclick="closeWebSocket()">Close</button>
+</div>
 <div id="message"></div>
 </body>
 
@@ -59,6 +62,9 @@
   //发送消息
   function send() {
     var message = document.getElementById('text').value;
+    if(document.getElementById('byte').checked){
+      message = new Blob([message],{type:"text/plain"});
+    }
     websocket.send(message);
   }
 </script>
