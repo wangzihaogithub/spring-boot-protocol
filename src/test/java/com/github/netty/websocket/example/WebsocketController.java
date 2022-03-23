@@ -62,7 +62,7 @@ public class WebsocketController extends AbstractWebSocketHandler implements Web
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        log.info("注册websocket {}", getClass());
+        log.info("应用启动时注册 websocket Controller {}", getClass());
         registry.addHandler(this, "/my-websocket")
                 .addInterceptors(this).setAllowedOrigins("*");
     }
@@ -89,7 +89,7 @@ public class WebsocketController extends AbstractWebSocketHandler implements Web
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-        log.info("WebSocket服务端关闭: 关闭连接状态: " + status);
+        log.info("WebSocket关闭: " + status);
         sessionMap.remove(session.getId());
     }
 
@@ -105,7 +105,7 @@ public class WebsocketController extends AbstractWebSocketHandler implements Web
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        log.info("WebSocket服务端异常:连接异常信息: " + exception.toString(), exception);
+        log.info("WebSocket异常:异常信息: " + exception.toString(), exception);
     }
 
 }
