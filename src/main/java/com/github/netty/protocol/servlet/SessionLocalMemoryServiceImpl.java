@@ -130,8 +130,8 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
                 }
                 try {
                     int sleepTime = maxInactiveInterval * 1000;
-                    if(logger.isDebugEnabled()) {
-                        logger.debug("plan next Check {}", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(System.currentTimeMillis() + sleepTime)));
+                    if(logger.isTraceEnabled()) {
+                        logger.trace("plan next Check {}", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(System.currentTimeMillis() + sleepTime)));
                     }
                     Thread.sleep(sleepTime);
                 } catch (InterruptedException e) {
