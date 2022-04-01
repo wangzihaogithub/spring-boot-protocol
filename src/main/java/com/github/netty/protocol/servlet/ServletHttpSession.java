@@ -235,7 +235,6 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
             attributeMap.clear();
             attributeMap = null;
         }
-        servletContext = null;
         maxInactiveInterval = -1;
     }
 
