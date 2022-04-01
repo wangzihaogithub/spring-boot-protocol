@@ -664,7 +664,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             if(contextPath.length() > 0){
                 servletPath = servletPath.replaceFirst(contextPath,"");
             }
-            this.servletPath = servletPath;
+            this.servletPath = normPath(servletPath);
         }
         return this.servletPath;
     }
@@ -1370,5 +1370,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.fileUploadList.clear();
         this.attributeMap.clear();
         RECYCLER.recycleInstance(this);
+    }
+
+    private static String normPath(String path) {
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        return path;
     }
 }

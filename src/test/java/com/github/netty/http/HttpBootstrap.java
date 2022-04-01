@@ -15,7 +15,7 @@ public class HttpBootstrap {
 
     public static void main(String[] args) {
         NettyReportRunnable.start();
-        System.getProperties().put("spring.config.location", CONFIG_URL);
+        System.getProperties().put("spring.config.location", CONFIG_URL.toString());
         SpringApplication.run(HttpBootstrap.class, args);
     }
 

@@ -1,6 +1,5 @@
 package com.github.netty.protocol.nrpc.codec;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.github.netty.core.util.TypeUtil;
@@ -87,7 +86,7 @@ public class JacksonDataCodec implements DataCodec {
             } else {
                 try {
                     return objectMapper.writeValueAsBytes(parameterMap);
-                } catch (JsonProcessingException e) {
+                } catch (Exception e) {
                     throw new RpcEncodeException("encodeRequestData " + rpcMethod + " jackson error " + e, e);
                 }
             }

@@ -1,7 +1,6 @@
 package com.github.netty.stomp;
 
 import com.github.netty.nrpc.NRpcTests;
-import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,7 +9,6 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
-import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -30,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * @author wangzihao
  */
-@RunWith(SpringRunner.class)
 @SpringBootTest(classes = NRpcTests.class)
 public class WebsocketStompTests {
     private static final Logger logger = LoggerFactory.getLogger(WebsocketStompTests.class);

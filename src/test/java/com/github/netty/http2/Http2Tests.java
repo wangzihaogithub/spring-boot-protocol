@@ -7,21 +7,16 @@ import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.logging.LogLevel;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
-import java.io.IOException;
+import javax.net.ssl.SSLException;
+import java.net.MalformedURLException;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(classes = Http2Tests.class)
 public class Http2Tests {
 
-    @Test
-    public void test() throws IOException, ExecutionException, InterruptedException {
+    public static void main(String[] args) throws Exception {
         NettyHttp2Client http2Client = new NettyHttp2Client("https://maimai.cn")
                 .logger(LogLevel.INFO)
                 .maxPendingSize(550000);
