@@ -71,7 +71,6 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 		    return;
 	    }
         getServletContext().getSessionService().saveSession(unwrap());
-	    getServletContext().log("saveHttpSession : sessionId="+id);
     }
 
     public void remove(){
@@ -79,7 +78,6 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     		return;
 	    }
         getServletContext().getSessionService().removeSession(getId());
-	    getServletContext().log("removeHttpSession : sessionId="+id);
     }
 
     @Override
@@ -266,6 +264,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         currAccessedTime = System.currentTimeMillis();
         lastAccessedTime = currAccessedTime;
         accessCount.incrementAndGet();
+        servletContext.getSessionService().saveSession(unwrap());
         return this;
     }
 

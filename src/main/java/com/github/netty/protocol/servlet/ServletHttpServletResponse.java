@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.ChunkedWriteHandler;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.HttpConstants;
@@ -8,7 +7,6 @@ import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.MediaType;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
