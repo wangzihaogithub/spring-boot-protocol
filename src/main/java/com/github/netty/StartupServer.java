@@ -189,6 +189,11 @@ public class StartupServer extends AbstractNettyServer {
         return serverListeners;
     }
 
+    public void addProtocol(AbstractProtocol protocol){
+        protocolHandlers.add(protocol);
+        serverListeners.add(protocol);
+    }
+
     public DynamicProtocolChannelHandler getDynamicProtocolChannelHandler() {
         return dynamicProtocolChannelHandler;
     }

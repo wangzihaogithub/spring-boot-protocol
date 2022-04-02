@@ -17,7 +17,7 @@ public class WebsocketStompBootstrap {
             "/stomp/application.yaml");
 
     public static void main(String[] args) {
-        System.getProperties().put("spring.config.location",CONFIG_URL);
+        System.getProperties().put("spring.config.location",CONFIG_URL.toString());
         SpringApplication.run(WebsocketStompBootstrap.class,args);
     }
 

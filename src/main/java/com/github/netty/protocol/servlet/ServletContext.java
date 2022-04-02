@@ -248,7 +248,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public void setContextPath(String contextPath) {
-        this.contextPath = contextPath;
+        this.contextPath = normPath(contextPath);
         this.filterUrlMapper.setRootPath(contextPath);
         this.servletUrlMapper.setRootPath(contextPath);
     }
@@ -792,4 +792,19 @@ public class ServletContext implements javax.servlet.ServletContext {
         throw new UnsupportedOperationException("addJspFile");
     }
 
+    public static String normPath(String path) {
+        if(path.isEmpty()){
+            return path;
+        }
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        while (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        return path;
+    }
 }
