@@ -7,15 +7,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 public class MyHttpServlet extends HttpServlet {
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         resp.getWriter().write("hi! doGet");
     }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        resp.getWriter().write("hi! doPost");
-    }
-
 }

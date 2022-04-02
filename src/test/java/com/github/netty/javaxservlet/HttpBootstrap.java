@@ -15,7 +15,6 @@ public class HttpBootstrap {
 
     private static HttpServletProtocol newHttpProtocol() {
         ServletContext servletContext = new ServletContext();
-        servletContext.setContextPath("/1");
         servletContext.addServlet("myHttpServlet", new MyHttpServlet())
                 .addMapping("/test");
 
