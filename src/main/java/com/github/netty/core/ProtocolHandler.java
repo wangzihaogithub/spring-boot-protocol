@@ -14,7 +14,9 @@ public interface ProtocolHandler extends Ordered{
      * Get the protocol name
      * @return name
      */
-    String getProtocolName();
+    default String getProtocolName(){
+        return getClass().getSimpleName();
+    }
 
     /**
      * Support protocol
