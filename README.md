@@ -121,17 +121,25 @@ github地址 : https://github.com/wangzihaogithub
 
 #### 更多功能例子example-> [请点击这里查看示例代码](https://github.com/wangzihaogithub/netty-example "https://github.com/wangzihaogithub/netty-example")
 
-##### 示例1. Springboot版,使用HTTP或websocket模块(使用springboot后,默认是强制开启http的)
+##### 示例1. Springboot版,使用HTTP或websocket模块(使用springboot后,默认是开启http的)
         
-        1. 引入依赖
+        1. 引入http依赖
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <version>${spring-boot.version}</version>
         </dependency>
         
-        2.编写启动类
+        2. 可选！如果需要websocket，可以引入这个包，否则可以不引入
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+            <version>${spring-boot.version}</version>
+        </dependency>
         
+        3.编写启动类
+        
+        // @EnableWebSocket // 如果引入了websocket，可以打这个注解开启
         @EnableNettyEmbedded//切换容器的注解
         @SpringBootApplication
         public class ExampleApplication {
@@ -140,10 +148,238 @@ github地址 : https://github.com/wangzihaogithub
           }
         }
         
-        2. 启动后,控制台已经看到http协议出现了,开启成功! 可以用浏览器打开或websocket服务了.  protocol = [http, NRPC/218]
+        3. 启动后,控制台已经看到http协议出现了,开启成功! 可以用浏览器打开或websocket服务了.  protocol = [http, NRPC/218]
         2022-04-10 09:58:04.652  INFO 2716 --- [er-Boss-NIO-3-1] c.g.n.springboot.server.NettyTcpServer   : NettyTcpServer@1 start (version = 2.2.3, port = 8080, pid = 2716, protocol = [http, NRPC/218], os = windows 10) ...
         2022-04-10 09:58:04.673  INFO 2716 --- [           main] c.github.netty.mqtt.MqttBrokerBootstrap  : Started MqttBrokerBootstrap in 2.235 seconds (JVM running for 3.807)
-
+        
+        4. 编写http代码
+        @RestController
+        @RequestMapping
+        public class HttpController {
+            private final Logger logger = LoggerFactory.getLogger(getClass());
+        
+            /**
+             * 访问地址： http://localhost:8080/test/hello
+             * @param name name
+             * @return hi! 小明
+             */
+            @RequestMapping("/hello")
+            public String hello(String name, @RequestParam Map query,
+                                   @RequestBody(required = false) Map body,
+                                HttpServletRequest request, HttpServletResponse response) {
+                return "hi! " + name;
+            }
+        
+            /**
+             * Servlet原生的上传测试
+             * @param request
+             * @param response
+             * @return
+             * @throws IOException
+             */
+            @RequestMapping("/uploadForServlet")
+            public ResponseEntity<String> uploadForServlet(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                Collection<Part> parts = request.getParts();
+        
+                for (Part part : parts) {
+                    InputStream inputStream = part.getInputStream();
+                    int available = inputStream.available();
+                    inputStream.close();
+                    String fileNameOrFieldName = Objects.toString(part.getSubmittedFileName(), part.getName());
+                    Assert.isTrue(available != -1, fileNameOrFieldName);
+                    logger.info("uploadForServlet -> file = {}, length = {}", fileNameOrFieldName,available);
+                }
+        
+                for (Map.Entry<String, String[]> entry : request.getParameterMap().entrySet()) {
+                    Assert.isTrue(entry.getKey().length() > 0, Arrays.toString(entry.getValue()));
+                    logger.info("uploadForServlet -> field = {}, value = {}",entry.getKey(),entry.getValue());
+                }
+                return new ResponseEntity<>("success", HttpStatus.OK);
+            }
+        
+            /**
+             * spring的上传测试
+             * @param params 文本参数
+             * @param request MultipartHttpServletRequest
+             * @return
+             * @throws IOException
+             */
+            @RequestMapping("/uploadForSpring")
+            public ResponseEntity<String> uploadForSpring(@RequestParam Map<String,String> params, MultipartHttpServletRequest request) throws IOException {
+                for (List<MultipartFile> files : request.getMultiFileMap().values()) {
+                    for (MultipartFile file : files) {
+                        InputStream inputStream = file.getInputStream();
+                        int available = inputStream.available();
+                        inputStream.close();
+                        String fileNameOrFieldName = Objects.toString(file.getOriginalFilename(), file.getName());
+                        Assert.isTrue(available != -1, fileNameOrFieldName);
+                        logger.info("uploadForSpring -> file = {}, length = {}", fileNameOrFieldName,available);
+                    }
+                }
+        
+                for (Map.Entry<String, String> entry : params.entrySet()) {
+                    Assert.isTrue(entry.getKey().length() > 0, entry.getValue());
+                    logger.info("uploadForSpring -> field = {}, value = {}",entry.getKey(),entry.getValue());
+                }
+                return new ResponseEntity<>("success", HttpStatus.OK);
+            }
+        
+            /**
+             * apache common-fileupload的上传测试
+             * @param request
+             * @param response
+             * @return
+             * @throws IOException
+             * @throws FileUploadException
+             */
+            @RequestMapping("/uploadForApache")
+            public ResponseEntity<String> uploadForApache(HttpServletRequest request, HttpServletResponse response) throws IOException, FileUploadException {
+                boolean isMultipart = ServletFileUpload.isMultipartContent(request);
+                if (isMultipart) {
+                    ServletFileUpload upload = new ServletFileUpload();
+                    Map<String, String> params = new HashMap<>();
+                    FileItemIterator iter = upload.getItemIterator(request);
+                    while (iter.hasNext()) {
+                        FileItemStream item = iter.next();
+                        if (item.isFormField()) {
+                            String fieldName = item.getFieldName();
+                            String value = Streams.asString(item.openStream());
+                            params.put(fieldName, value);
+                            Assert.isTrue(fieldName.length() > 0, value);
+                            logger.info("uploadForApache -> field = {}, value = {}",fieldName,value);
+                        } else {
+                            try (InputStream is = item.openStream()) {
+                                int available = is.available();
+                                Path copyFileTo = Paths.get(System.getProperty("user.dir"), item.getName());
+                                Files.copy(is, copyFileTo,
+                                        StandardCopyOption.REPLACE_EXISTING);
+        
+                                Assert.isTrue(available != -1, item.getName());
+                                logger.info("uploadForApache -> 上传至 = {}, file = {}, length = {}",copyFileTo,item.getName(),available);
+                            }
+                        }
+                    }
+                }
+                return new ResponseEntity<>("success", HttpStatus.OK);
+            }
+        
+            @RequestMapping("/downloadFile")
+            public ResponseEntity<String> downloadFile(@RequestParam(required = false,defaultValue = "7") Integer size,HttpServletRequest request, HttpServletResponse response) throws Exception {
+                String fileName = "CentOS-7-x86_64-DVD-2003.iso";
+        
+        //        byte[] file = new byte[1024 * 1024 * size];
+        //        for (int i = 0; i < file.length; i++) {
+        //            file[i] = (byte) i;
+        //        }
+                handleDownloadStream(fileName, new FileInputStream(new File("D:\\aaa.txt")), request, response);
+                return new ResponseEntity<>(HttpStatus.OK);
+            }
+        
+            @RequestMapping("/downloadFile1")
+            public ResponseEntity<String> downloadFile1(HttpServletRequest request, HttpServletResponse response) throws Exception {
+                NettyOutputStream outputStream = (NettyOutputStream) response.getOutputStream();
+                outputStream.write(new File("C:\\Users\\Administrator\\Downloads\\android-x86-8.1-r5.iso"));
+                return new ResponseEntity<>(HttpStatus.OK);
+            }
+        
+            public void handleDownloadStream(String fileName, InputStream inputStream, HttpServletRequest request, HttpServletResponse res) throws IOException {
+                byte[] buffer = new byte[4 * 1024];
+                OutputStream os;
+                try {
+                    os = new BufferedOutputStream(res.getOutputStream());
+                    res.reset();
+                    String agent = request.getHeader("User-Agent");
+                    if (agent == null) {
+                        return;
+                    }
+                    agent = agent.toUpperCase();
+        
+                    //ie浏览器,火狐,Edge浏览器
+                    if (agent.indexOf("MSIE") > 0 || agent.indexOf("RV:11.0") > 0 || agent.indexOf("EDGE") > 0 || agent.indexOf("SAFARI") > -1) {
+                        fileName = URLEncoder.encode(fileName, "utf8").replaceAll("\\+", "%20");
+                    } else {
+                        fileName = new String(fileName.getBytes(StandardCharsets.UTF_8), "ISO8859_1");
+                    }
+                    //safari RFC 5987标准
+                    if (agent.contains("SAFARI")) {
+                        res.addHeader("content-disposition", "attachment;filename*=UTF-8''" + fileName);
+                    } else {
+                        res.addHeader("Content-disposition", "attachment; filename=\"" + fileName + '"');
+                    }
+                    res.setContentType("application/octet-stream");
+                    res.setCharacterEncoding("UTF-8");
+                    res.setContentLength(inputStream.available());
+                    int length = 0;
+                    while ((length = inputStream.read(buffer)) != -1) {
+                        os.write(buffer, 0, length);
+                    }
+                    os.flush();
+        
+                } catch (Exception e) {
+                    e.printStackTrace();
+                } finally {
+                    IOUtils.closeQuietly(inputStream);
+                }
+            }
+        }
+        
+        5.如果引入了websocket，可以编写websocket服务端代码
+        
+        @Component
+        public class WebsocketController extends AbstractWebSocketHandler implements WebSocketConfigurer, HandshakeInterceptor {
+            public static final Map<String, NativeWebSocketSession> sessionMap = new ConcurrentHashMap<>();
+            private static final Logger log = LoggerFactory.getLogger(WebsocketController.class);
+        
+            @Override
+            public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+                log.info("应用启动时注册 websocket Controller {}", getClass());
+                registry.addHandler(this, "/my-websocket")
+                        .addInterceptors(this).setAllowedOrigins("*");
+            }
+        
+            @Override
+            public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Map<String, Object> attributes) throws Exception {
+                log.info("握手前登录身份验证");
+                attributes.put("request", request);
+                attributes.put("response", response);
+                attributes.put("wsHandler", wsHandler);
+                return true;
+            }
+        
+            @Override
+            public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler wsHandler, Exception exception) {
+                log.info("握手后记录日志");
+            }
+        
+            @Override
+            public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+                log.info("建立链接保存会话");
+                sessionMap.put(session.getId(), (NativeWebSocketSession) session);
+            }
+        
+            @Override
+            public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+                log.info("WebSocket关闭: " + status);
+                sessionMap.remove(session.getId());
+            }
+        
+            @Override
+            protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+                log.info("接受来自客户端发送的文本信息: " + message.getPayload());
+            }
+        
+            @Override
+            protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) throws Exception {
+                log.info("接受来自客户端发送的二进制信息: " + message.getPayload().toString());
+            }
+        
+            @Override
+            public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+                log.info("WebSocket异常:异常信息: " + exception.toString(), exception);
+            }
+        
+        }
+        
 ##### 示例2. 纯java版,不引入springboot, 使用HTTP或websocket模块
 
         public class HttpBootstrap {
