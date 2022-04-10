@@ -119,8 +119,10 @@ github地址 : https://github.com/wangzihaogithub
 	2019-02-28 22:06:16.193  INFO 9096 --- [           main] c.g.example.ProtocolApplication10004     : Started ProtocolApplication10004 in 2.508 seconds (JVM running for 3.247)    
 ---
 
-#### 更多功能例子example-> [请点击这里查看示例代码](https://github.com/wangzihaogithub/netty-example "https://github.com/wangzihaogithub/netty-example")
+#### 示例代码 -> [https://github.com/wangzihaogithub/netty-example](https://github.com/wangzihaogithub/netty-example "https://github.com/wangzihaogithub/netty-example")
 
+#### 示例代码！ /src/test包下有使用示例代码 ->  [https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test](https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test "https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test")
+ 
 ##### 示例1. Springboot版,使用HTTP或websocket模块(使用springboot后,默认是开启http的)
         
         1. 引入http依赖
