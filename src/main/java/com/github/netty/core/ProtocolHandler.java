@@ -14,16 +14,20 @@ public interface ProtocolHandler extends Ordered{
      * Get the protocol name
      * @return name
      */
-    default String getProtocolName(){
-        return getClass().getSimpleName();
+    default String getProtocolName() {
+        String name = getClass().getSimpleName();
+        if (name.isEmpty()) {
+            name = getClass().getName();
+        }
+        return name;
     }
 
     /**
      * Support protocol
-     * @param msg client first message
+     * @param clientFirstMsg client first message
      * @return true=Support, false=no Support
      */
-    boolean canSupport(ByteBuf msg);
+    boolean canSupport(ByteBuf clientFirstMsg);
 
     /**
      * Support protocol
