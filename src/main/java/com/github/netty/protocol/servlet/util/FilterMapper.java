@@ -11,7 +11,7 @@ import java.util.*;
  * Created on 2017-08-25 11:32.
  */
 public class FilterMapper<T> {
-	private String rootPath;
+    private String rootPath;
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
     private final Object lock = new Object();
 
@@ -38,7 +38,7 @@ public class FilterMapper<T> {
         this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
-    public void clear(){
+    public void clear() {
         synchronized (lock) {
             array = new Element[0];
         }
@@ -48,8 +48,7 @@ public class FilterMapper<T> {
      * Add a filter mapping at the end of the current set of filter
      * mappings.
      *
-     * @param filterMap
-     *            The filter mapping to be added
+     * @param filterMap The filter mapping to be added
      */
     private void add(Element filterMap) {
         synchronized (lock) {
@@ -63,8 +62,7 @@ public class FilterMapper<T> {
      * Add a filter mapping before the mappings defined in the deployment
      * descriptor but after any other mappings added via this method.
      *
-     * @param filterMap
-     *            The filter mapping to be added
+     * @param filterMap The filter mapping to be added
      */
     private void addBefore(Element filterMap) {
         synchronized (lock) {
@@ -109,8 +107,8 @@ public class FilterMapper<T> {
         }
     }
 
-	public void setRootPath(String rootPath) {
-        while (rootPath.startsWith("/")){
+    public void setRootPath(String rootPath) {
+        while (rootPath.startsWith("/")) {
             rootPath = rootPath.substring(1);
         }
         rootPath = "/" + rootPath;
@@ -125,53 +123,70 @@ public class FilterMapper<T> {
             this.rootPath = rootPath;
             this.array = newElements;
         }
-	}
+    }
 
-	/**
+    /**
      * Add mapping
-     * @param urlPattern  urlPattern
-     * @param object     object
-     * @param objectName objectName
-     * @param isMatchAfter isMatchAfter
+     *
+     * @param urlPattern      urlPattern
+     * @param object          object
+     * @param objectName      objectName
+     * @param isMatchAfter    isMatchAfter
      * @param dispatcherTypes dispatcherTypes
      * @throws IllegalArgumentException IllegalArgumentException
      */
-    public void addMapping(String urlPattern, T object, String objectName,boolean isMatchAfter,EnumSet<DispatcherType> dispatcherTypes) throws IllegalArgumentException {
+    public void addMapping(String urlPattern, T object, String objectName, boolean isMatchAfter, EnumSet<DispatcherType> dispatcherTypes) throws IllegalArgumentException {
         Objects.requireNonNull(urlPattern);
 
-        Element<T> element = new Element<>(rootPath, urlPattern, object, objectName,dispatcherTypes);
-        if(isMatchAfter){
-	        add(element);
-        }else {
-	        addBefore(element);
+        Element<T> element = new Element<>(rootPath, urlPattern, object, objectName, dispatcherTypes);
+        if (isMatchAfter) {
+            add(element);
+        } else {
+            addBefore(element);
         }
     }
 
     /**
      * Gets a servlet path
+     *
      * @param absoluteUri An absolute path
      * @return servlet path
      */
     public String getServletPath(String absoluteUri) {
+        String path = normPath(absoluteUri);
         for (Element<T> element : array) {
-            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
+            if (antPathMatcher.match(element.pattern, path, "*")) {
                 return element.servletPath;
             }
         }
         return absoluteUri;
     }
 
+    public static String normPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return path;
+        }
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if(path.length() > 1) {
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+        }
+        return path;
+    }
+
     /**
      * Gets a mapping object
+     *
      * @param absoluteUri An absolute path
      * @return T object
      */
     public Element<T> getMappingObjectByUri(String absoluteUri) {
-        if(!absoluteUri.isEmpty() && absoluteUri.charAt(absoluteUri.length() - 1) == '/'){
-            absoluteUri = absoluteUri.substring(0,absoluteUri.length()-1);
-        }
+        String path = normPath(absoluteUri);
         for (Element<T> element : this.array) {
-            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
+            if (antPathMatcher.match(element.pattern, path, "*")) {
                 return element;
             }
         }
@@ -180,19 +195,18 @@ public class FilterMapper<T> {
 
     /**
      * Add multiple mapping objects
-     * @param list add in list
+     *
+     * @param list           add in list
      * @param dispatcherType current dispatcherType
-     * @param absoluteUri An absolute path
+     * @param absoluteUri    An absolute path
      */
     public void addMappingObjectsByUri(String absoluteUri, DispatcherType dispatcherType, List<Element<T>> list) {
-        if(!absoluteUri.isEmpty() && absoluteUri.charAt(absoluteUri.length() - 1) == '/'){
-            absoluteUri = absoluteUri.substring(0,absoluteUri.length()-1);
-        }
+        String path = normPath(absoluteUri);
         for (Element<T> element : this.array) {
-            if(element.dispatcherTypes != null && !element.dispatcherTypes.contains(dispatcherType)){
+            if (element.dispatcherTypes != null && !element.dispatcherTypes.contains(dispatcherType)) {
                 continue;
             }
-            if(antPathMatcher.match(element.pattern,absoluteUri,"*")){
+            if (antPathMatcher.match(element.pattern, path, "*")) {
                 list.add(element);
             }
         }
@@ -209,39 +223,42 @@ public class FilterMapper<T> {
         boolean allPatternFlag;
         boolean defaultFlag;
         EnumSet<DispatcherType> dispatcherTypes;
-        public Element(String objectName,T object){
+
+        public Element(String objectName, T object) {
             this.objectName = objectName;
             this.object = object;
         }
-        public Element(String rootPath,String originalPattern, T object, String objectName,EnumSet<DispatcherType> dispatcherTypes) {
+
+        public Element(String rootPath, String originalPattern, T object, String objectName, EnumSet<DispatcherType> dispatcherTypes) {
             this.dispatcherTypes = dispatcherTypes;
             this.allPatternFlag = "/".equals(originalPattern)
                     || "/*".equals(originalPattern)
                     || "*".equals(originalPattern)
                     || "/**".equals(originalPattern);
-            if(rootPath != null){
+            if (rootPath != null) {
                 this.pattern = rootPath.concat(originalPattern);
-            }else {
+            } else {
                 this.pattern = originalPattern;
             }
-            if(pattern.endsWith("/")){
+            if (pattern.endsWith("/")) {
                 do {
-                    pattern = pattern.substring(0,pattern.length() -1);
-                }while(pattern.endsWith("/"));
+                    pattern = pattern.substring(0, pattern.length() - 1);
+                } while (pattern.endsWith("/"));
                 pattern = pattern + "/*";
             }
 
+            this.pattern = normPath(this.pattern);
             this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
             this.objectName = objectName;
             StringJoiner joiner = new StringJoiner("/");
             String[] pattens = pattern.split("/");
-            for(int i=0; i<pattens.length; i++){
+            for (int i = 0; i < pattens.length; i++) {
                 String path = pattens[i];
-                if(path.contains("*")){
+                if (path.contains("*")) {
                     wildcardPatternFlag = true;
-                    if(i == pattens.length - 1) {
+                    if (i == pattens.length - 1) {
                         continue;
                     }
                 }
@@ -293,11 +310,11 @@ public class FilterMapper<T> {
 
     public static void main(String[] args) {
         FilterMapper<Object> urlMapper = new FilterMapper<>();
-        urlMapper.addMapping("/t/","","default",false,null);
-        urlMapper.addMapping("/t/","","1",false,null);
-        urlMapper.addMapping("/t/","","2",false,null);
-        urlMapper.addMapping("/*","","3",false,null);
-        urlMapper.addMapping("/*.do","","4",false,null);
+        urlMapper.addMapping("/t/", "", "default", false, null);
+        urlMapper.addMapping("/t/", "", "1", false, null);
+        urlMapper.addMapping("/t/", "", "2", false, null);
+        urlMapper.addMapping("/*", "", "3", false, null);
+        urlMapper.addMapping("/*.do", "", "4", false, null);
 
 //        urlMapper.setRootPath("test");
 

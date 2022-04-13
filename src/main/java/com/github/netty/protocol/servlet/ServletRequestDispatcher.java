@@ -9,6 +9,7 @@ import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Servlet request scheduling
@@ -27,7 +28,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
     /**
      * Match mapping
      */
-    UrlMapper.Element<ServletRegistration> mapperElement;
+    private UrlMapper.Element<ServletRegistration> mapperElement;
     /**
      * The filter chain
      */
@@ -37,10 +38,52 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
 
     private ServletRequestDispatcher() {}
 
+    public static void main(String[] args) {
+        UrlMapper.Element<ServletRegistration> mapper = new UrlMapper.Element<>("", "/xx/*", null, "name", 1);
+        String pathInfo = getPathInfo("/xx/ab.html?name=w", mapper);
+        System.out.println("pathInfo = " + pathInfo + "," + Objects.equals("ab.html", pathInfo));
+    }
+
     public static ServletRequestDispatcher newInstance(ServletFilterChain filterChain) {
         ServletRequestDispatcher instance = RECYCLER.getInstance();
         instance.filterChain = filterChain;
         return instance;
+    }
+
+    public static String getPathInfo(String path, UrlMapper.Element<ServletRegistration> mapper){
+        if(path == null){
+            return null;
+        }
+        if (mapper.isAllPatternFlag() || !mapper.getPattern().endsWith("*")) {
+            return null;
+        }
+        int firstWildcardIndex = mapper.getFirstWildcardIndex();
+        if (firstWildcardIndex != -1) {
+            int begin = -1;
+            for (int i = 0; i < path.length(); i++) {
+                switch (path.charAt(i)) {
+                    case '/': {
+                        break;
+                    }
+                    case '?': {
+                        if (begin == -1) {
+                            return null;
+                        } else if (begin > i) {
+                            return null;
+                        } else {
+                            return path.substring(begin, i);
+                        }
+                    }
+                    default: {
+                        if (begin == -1) {
+                            begin = i + firstWildcardIndex;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -94,6 +137,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
             }
         }
         forwardRequest.setDispatcherType(dispatcherType);
+        forwardRequest.setDispatcher(this);
         dispatch(forwardRequest,forwardResponse);
     }
 
@@ -142,8 +186,10 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
             }
         }
         includeRequest.setDispatcherType(dispatcherType);
+        includeRequest.setDispatcher(this);
         dispatch(includeRequest,includeResponse);
     }
+
     /**
      * dispatch
      * @param request request
@@ -153,10 +199,6 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      */
     public void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
         try {
-            if(request instanceof ServletHttpServletRequest){
-                ((ServletHttpServletRequest) request).setAsyncSupportedFlag(filterChain.getServletRegistration().isAsyncSupported());
-            }
-
             filterChain.doFilter(request, response);
         }finally {
             recycle();
@@ -208,7 +250,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
             asyncRequest.setAttribute(AsyncContext.ASYNC_REQUEST_URI, asyncRequest.getRequestURI());
             asyncRequest.setAttribute(AsyncContext.ASYNC_SERVLET_PATH, asyncRequest.getServletPath());
         }
-
+        asyncRequest.setDispatcher(this);
         //Return to the task
         dispatch(asyncRequest, asyncResponse);
     }
@@ -230,6 +272,14 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
             return name;
         }
         return filterChain.getServletRegistration().getName();
+    }
+
+    public ServletFilterChain getFilterChain() {
+        return filterChain;
+    }
+
+    public UrlMapper.Element<ServletRegistration> getMapperElement() {
+        return mapperElement;
     }
 
     void setMapperElement(UrlMapper.Element<ServletRegistration> mapperElement) {

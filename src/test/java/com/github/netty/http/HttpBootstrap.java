@@ -14,7 +14,7 @@ public class HttpBootstrap {
             "/http/application.yaml");
 
     public static void main(String[] args) {
-        NettyReportRunnable.start();
+//        NettyReportRunnable.start();
         System.getProperties().put("spring.config.location", CONFIG_URL.toString());
         SpringApplication.run(HttpBootstrap.class, args);
     }

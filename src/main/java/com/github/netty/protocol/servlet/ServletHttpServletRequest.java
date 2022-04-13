@@ -59,6 +59,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private SessionTrackingMode sessionIdSource;
     private MultipartConfigElement multipartConfigElement;
     private ServletSecurityElement servletSecurityElement;
+    private ServletRequestDispatcher dispatcher;
     private ResourceManager resourceManager;
 
     private boolean decodePathsFlag = false;
@@ -206,6 +207,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     void setDispatcherType(DispatcherType dispatcherType) {
         this.dispatcherType = dispatcherType;
+    }
+
+    void setDispatcher(ServletRequestDispatcher dispatcher) {
+        this.dispatcher = dispatcher;
     }
 
     public int getFileSizeThreshold(){
@@ -481,24 +486,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * Parsing path
      */
     private void decodePaths(){
-        // TODO: 10-16/0016 Add pathInfo, web. XML configuration /* or /a/*
         String requestURI = nettyRequest.uri();
         String queryString;
         int queryInx = requestURI.indexOf('?');
-        if (queryInx > -1) {
+        if (queryInx != -1) {
             queryString = requestURI.substring(queryInx + 1);
             requestURI = requestURI.substring(0, queryInx);
-        }else {
-        	queryString = null;
+        } else {
+            queryString = null;
         }
-	    if(requestURI.length() > 1 && requestURI.charAt(0) == '/' && requestURI.charAt(1) == '/'){
-		    requestURI = requestURI.substring(1);
-	    }
-
-        this.requestURI = requestURI;
+        this.requestURI = com.github.netty.protocol.servlet.ServletContext.normPath(requestURI);
         this.queryString = queryString;
-        // 1.Plus the pathInfo
-        this.pathInfo = null;
         this.decodePathsFlag = true;
     }
 
@@ -628,9 +626,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     @Override
     public String getPathInfo() {
-        // TODO: 10-16 /0016 ServletPath and PathInfo should be complementary, depending on the url-pattern matching path
-        if(!decodePathsFlag){
-            decodePaths();
+        if (this.pathInfo == null && dispatcher != null) {
+            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
         }
         return this.pathInfo;
     }
@@ -1324,7 +1321,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 		    httpSession.clear();
 	    }
         this.inputStream.recycle();
-        this.nettyRequest = null;
 
         if(!fileUploadList.isEmpty()) {
             for (Part part : fileUploadList) {
@@ -1339,6 +1335,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             this.postRequestDecoder = null;
         }
 
+        if(servletHttpExchange.isAbort()){
+            return;
+        }
+        this.nettyRequest = null;
         this.decodeBodyFlag.set(false);
         this.decodeParameterByUrlFlag = false;
         this.remoteSchemeFlag = false;
@@ -1365,6 +1365,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.multipartConfigElement = null;
         this.servletSecurityElement = null;
         this.dispatcherType = null;
+        this.dispatcher = null;
 
         this.parameterMap.clear();
         this.fileUploadList.clear();

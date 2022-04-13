@@ -23,7 +23,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
     private String queryString = null;
     private String requestURI = null;
     private String servletPath = null;
-
+    private ServletRequestDispatcher dispatcher;
     private Map<String, String[]> parameterMap = null;
 
     private boolean decodePathsFlag = false;
@@ -66,13 +66,17 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
     }
 
     @Override
-    public ServletContext getServletContext() {
+    public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return servletAsyncContext.getServletContext();
     }
 
     @Override
     public void setRequest(ServletRequest servletRequest) {
         throw new UnsupportedOperationException("Unsupported Method On Forward setRequest ");
+    }
+
+    public void setDispatcher(ServletRequestDispatcher dispatcher) {
+        this.dispatcher = dispatcher;
     }
 
     @Override
@@ -109,8 +113,8 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
 
     @Override
     public String getPathInfo() {
-        if(!decodePathsFlag){
-            decodePaths();
+        if (this.pathInfo == null && dispatcher != null) {
+            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
         }
         return pathInfo;
     }
@@ -133,10 +137,15 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
 
     @Override
     public String getServletPath() {
-        if(!decodePathsFlag){
-            decodePaths();
+        if(this.servletPath == null){
+            String servletPath = getServletContext().getServletPath(getRequestURI());
+            String contextPath = getServletContext().getContextPath();
+            if(contextPath.length() > 0){
+                servletPath = servletPath.replaceFirst(contextPath,"");
+            }
+            this.servletPath = com.github.netty.protocol.servlet.ServletContext.normPath(servletPath);
         }
-        return servletPath;
+        return this.servletPath;
     }
 
     public void setPaths(String pathInfo,String queryString,String requestURI,String servletPath) {
@@ -204,42 +213,19 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper{
      * Parsing path
      */
     private void decodePaths(){
-        ServletContext servletContext = getServletContext();
-        String contextPath = servletContext.getContextPath();
-        boolean existContextPath = contextPath != null && contextPath.length() > 0;
-
-        String sourceURI = dispatchPath;
-        if (sourceURI.indexOf('\\') > -1) {
-            sourceURI = sourceURI.replace('\\', '/');
-        }
-        String servletPath = existContextPath? sourceURI.replace(contextPath, "") : sourceURI;
-        if (servletPath.isEmpty() || servletPath.charAt(0)!= '/') {
-            servletPath = '/' + servletPath;
-        }
-
-        //Parsing the queryString
-        int queryInx = servletPath.indexOf('?');
-        if (queryInx > -1) {
-            this.queryString = servletPath.substring(queryInx + 1, servletPath.length());
-            servletPath = servletPath.substring(0, queryInx);
-        }
-
-        //Parse the requestURI and ensure that the requestURI prefix is + /
-        String requestURI;
-        if(existContextPath){
-            if(contextPath.startsWith("/")){
-                requestURI = contextPath + servletPath;
-            }else {
-                requestURI = '/' + contextPath + servletPath;
+        String requestURI = dispatchPath;
+        if(requestURI != null) {
+            String queryString;
+            int queryInx = requestURI.indexOf('?');
+            if (queryInx != -1) {
+                queryString = requestURI.substring(queryInx + 1);
+                requestURI = requestURI.substring(0, queryInx);
+            } else {
+                queryString = null;
             }
-        }else {
-            requestURI = servletPath;
+            this.requestURI = com.github.netty.protocol.servlet.ServletContext.normPath(requestURI);
+            this.queryString = queryString;
         }
-
-        this.servletPath = servletPath;
-        this.requestURI = requestURI;
-        // 1.Plus the pathInfo
-        this.pathInfo = null;
         this.decodePathsFlag = true;
     }
 

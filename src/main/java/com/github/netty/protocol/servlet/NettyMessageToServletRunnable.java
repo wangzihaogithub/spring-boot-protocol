@@ -12,6 +12,7 @@ import io.netty.handler.codec.http.*;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -111,9 +112,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         ServletHttpExchange exchange = this.exchange;
         if (exchange != null) {
             if(exchange.isAsyncStartIng()) {
+                exchange.abort();
                 ServletAsyncContext asyncContext = exchange.getAsyncContext();
-                if (asyncContext != null) {
-                    asyncContext.complete();
+                if (asyncContext != null && !asyncContext.isComplete()) {
+                    asyncContext.complete(new ClosedChannelException());
                 }
             }
             exchange.close();
@@ -227,6 +229,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
                     return;
                 }
+                httpServletRequest.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
+                httpServletRequest.setDispatcher(dispatcher);
                 dispatcher.dispatch(httpServletRequest, httpServletResponse);
             } catch (ServletException se) {
                 realThrowable = se.getRootCause();

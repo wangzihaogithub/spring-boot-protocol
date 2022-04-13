@@ -150,6 +150,9 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
+        if(isComplete()){
+
+        }
         status.set(STATUS_DISPATCH);
         String contextPath = context.getContextPath();
         String dispatcherPath = contextPath == null || contextPath.isEmpty() ? path : contextPath + path;
@@ -207,6 +210,10 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public void complete() {
+        complete(null);
+    }
+
+    public void complete(Throwable rootThrowable){
         if (isComplete()) {
             return;
         }
@@ -217,7 +224,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         try {
             //Notify the complete
             if (asyncListenerWrapperList != null) {
-                Throwable throwable = null;
+                Throwable throwable = rootThrowable;
                 boolean eventNotify = false;
                 for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
                     eventNotify = throwable != null;
@@ -361,6 +368,14 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     public boolean isComplete() {
         return status.get() == STATUS_COMPLETE;
+    }
+
+    public ServletHttpExchange getExchange() {
+        return servletHttpExchange;
+    }
+
+    public boolean isChannelActive() {
+        return servletHttpExchange != null && servletHttpExchange.isChannelActive();
     }
 
     private static class ServletAsyncListenerWrapper {

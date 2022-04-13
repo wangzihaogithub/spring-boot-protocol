@@ -477,6 +477,10 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private class CloseListener implements ChannelFutureListener {
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
+            ServletHttpExchange exchange = servletHttpExchange;
+            if(exchange != null && exchange.isAbort()){
+                return;
+            }
             nettyResponse.recycle();
             errorState.set(0);
             bufferSize = -1;

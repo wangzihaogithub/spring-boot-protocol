@@ -802,8 +802,10 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (!path.startsWith("/")) {
             path = "/" + path;
         }
-        while (path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
+        if(path.length() > 1) {
+            while (path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
         }
         return path;
     }
