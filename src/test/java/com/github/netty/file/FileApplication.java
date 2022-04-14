@@ -1,11 +1,11 @@
-package com.github.netty.fileservice;
+package com.github.netty.file;
 
 import com.github.netty.StartupServer;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.DefaultServlet;
 import com.github.netty.protocol.servlet.ServletContext;
 
-public class DemoApplication {
+public class FileApplication {
     public static void main(String[] args) {
         StartupServer server = new StartupServer(80);
         server.addProtocol(newHttpProtocol());
