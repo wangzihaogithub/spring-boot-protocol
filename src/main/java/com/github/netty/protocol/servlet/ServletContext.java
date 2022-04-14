@@ -18,8 +18,6 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionIdListener;
 import javax.servlet.http.HttpSessionListener;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
@@ -463,19 +461,6 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public String getInitParameter(String name) {
         return initParamMap.get(name);
-    }
-
-    public <T>T getInitParameter(String name,T def) {
-        String value = getInitParameter(name);
-        if(value == null){
-            return def;
-        }
-        Class<?> clazz = def.getClass();
-        Object valCast = TypeUtil.cast((Object) value,clazz);
-        if(valCast != null && valCast.getClass().isAssignableFrom(clazz)){
-            return (T) valCast;
-        }
-        return def;
     }
 
     @Override

@@ -18,111 +18,13 @@ package com.github.netty.core.util;
 import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.sql.Timestamp;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author wenshao[szujobs@hotmail.com]
  */
 public class TypeUtil {
-
-    public static boolean   compatibleWithJavaBean      = false;
-    
-    /** Output the input data according to the case of the field name */
-    public static boolean   compatibleWithFieldName      = false;
-    
-    private static boolean  oracleTimestampMethodInited = false;
-    private static Method   oracleTimestampMethod;
-
-    private static boolean  oracleDateMethodInited      = false;
-    private static Method   oracleDateMethod;
-
-    static {
-        try {
-            compatibleWithJavaBean = true;
-            compatibleWithFieldName = true;
-        } catch (Throwable e) {
-            // skip
-        }
-    }
-
-    /**
-     * 寻找声明的泛型
-     * @param object 实例对象
-     * @param parametrizedSuperclass 声明泛型的类
-     * @param typeParamName 泛型名称
-     * @return 泛型的实际类型
-     */
-    public static Class<?> findGenericType(final Object object, Class<?> parametrizedSuperclass, String typeParamName) {
-        final Class<?> thisClass = object.getClass();
-        Class<?> currentClass = thisClass;
-        for (;;) {
-            if (currentClass.getSuperclass() == parametrizedSuperclass) {
-                int typeParamIndex = -1;
-                TypeVariable<?>[] typeParams = currentClass.getSuperclass().getTypeParameters();
-                for (int i = 0; i < typeParams.length; i ++) {
-                    if (typeParamName.equals(typeParams[i].getName())) {
-                        typeParamIndex = i;
-                        break;
-                    }
-                }
-                if (typeParamIndex < 0) {
-                    throw new IllegalStateException(
-                            "unknown type parameter '" + typeParamName + "': " + parametrizedSuperclass);
-                }
-                Type genericSuperType = currentClass.getGenericSuperclass();
-                if (!(genericSuperType instanceof ParameterizedType)) {
-                    return Object.class;
-                }
-                Type[] actualTypeParams = ((ParameterizedType) genericSuperType).getActualTypeArguments();
-                Type actualTypeParam = actualTypeParams[typeParamIndex];
-                if (actualTypeParam instanceof ParameterizedType) {
-                    actualTypeParam = ((ParameterizedType) actualTypeParam).getRawType();
-                }
-                if (actualTypeParam instanceof Class) {
-                    return (Class<?>) actualTypeParam;
-                }
-                if (actualTypeParam instanceof GenericArrayType) {
-                    Type componentType = ((GenericArrayType) actualTypeParam).getGenericComponentType();
-                    if (componentType instanceof ParameterizedType) {
-                        componentType = ((ParameterizedType) componentType).getRawType();
-                    }
-                    if (componentType instanceof Class) {
-                        return Array.newInstance((Class<?>) componentType, 0).getClass();
-                    }
-                }
-                if (actualTypeParam instanceof TypeVariable) {
-                    // Resolved type parameter points to another type parameter.
-                    TypeVariable<?> v = (TypeVariable<?>) actualTypeParam;
-                    currentClass = thisClass;
-                    if (!(v.getGenericDeclaration() instanceof Class)) {
-                        return Object.class;
-                    }
-
-                    parametrizedSuperclass = (Class<?>) v.getGenericDeclaration();
-                    typeParamName = v.getName();
-                    if (parametrizedSuperclass.isAssignableFrom(thisClass)) {
-                        continue;
-                    } else {
-                        return Object.class;
-                    }
-                }
-                return fail(thisClass, typeParamName);
-            }
-            currentClass = currentClass.getSuperclass();
-            if (currentClass == null) {
-                return fail(thisClass, typeParamName);
-            }
-        }
-    }
-
-    private static Class<?> fail(Class<?> type, String typeParamName) {
-        throw new IllegalStateException(
-                "cannot determine the type of the type parameter '" + typeParamName + "': " + type);
-    }
 
     public static boolean isPrimitive(Class<?> clazz) {
         if (clazz.isPrimitive()) {
@@ -246,11 +148,41 @@ public class TypeUtil {
         }
     }
 
+    public static class TypeResult {
+        private final Class<?> clazz;
+        private final int index;
+        private int dimension;
+
+        public TypeResult(Class<?> clazz, int index, int dimension) {
+            this.clazz= clazz;
+            this.index = index;
+            this.dimension = dimension;
+        }
+
+        public Class<?> getClazz() {
+            return clazz;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public int getDimension() {
+            return dimension;
+        }
+
+        public void incrementDimension(int inc) {
+            dimension += inc;
+        }
+    }
+
     public static String castToString(Object value) {
         if (value == null) {
             return null;
         }
-
+        if (value instanceof BigDecimal) {
+            return ((BigDecimal) value).stripTrailingZeros().toPlainString();
+        }
         return value.toString();
     }
 
@@ -266,8 +198,8 @@ public class TypeUtil {
         if (value instanceof String) {
             String strVal = (String) value;
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
 
@@ -316,8 +248,8 @@ public class TypeUtil {
             String strVal = (String) value;
 
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
 
@@ -344,11 +276,6 @@ public class TypeUtil {
         if (strVal.length() == 0) {
             return null;
         }
-
-        if (value instanceof Map && ((Map) value).size() == 0) {
-            return null;
-        }
-
         return new BigDecimal(strVal);
     }
 
@@ -367,8 +294,8 @@ public class TypeUtil {
 
         String strVal = value.toString();
         if (strVal.length() == 0 //
-            || "null".equals(strVal) //
-            || "NULL".equals(strVal)) {
+                || "null".equals(strVal) //
+                || "NULL".equals(strVal)) {
             return null;
         }
 
@@ -387,13 +314,9 @@ public class TypeUtil {
         if (value instanceof String) {
             String strVal = value.toString();
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
-            }
-            
-            if (strVal.indexOf(',') != 0) {
-                strVal = strVal.replaceAll(",", "");
             }
 
             return Float.parseFloat(strVal);
@@ -414,13 +337,9 @@ public class TypeUtil {
         if (value instanceof String) {
             String strVal = value.toString();
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
-            }
-
-            if (strVal.indexOf(',') != 0) {
-                strVal = strVal.replaceAll(",", "");
             }
 
             return Double.parseDouble(strVal);
@@ -442,155 +361,215 @@ public class TypeUtil {
             return ((Calendar) value).getTime();
         }
 
-        long longValue = -1;
-
         if (value instanceof Number) {
-            longValue = ((Number) value).longValue();
+            long longValue = ((Number) value).longValue();
             return new Date(longValue);
         }
 
         if (value instanceof String) {
             String strVal = (String) value;
-            
-//            JSONScanner dateLexer = new JSONScanner(strVal);
-//            try {
-//                if (dateLexer.scanISO8601DateIfMatch(false)) {
-//                    Calendar calendar = dateLexer.getCalendar();
-//                    return calendar.getTime();
-//                }
-//            } finally {
-//                dateLexer.close();
-//            }
-            
-            if (strVal.startsWith("/Date(") && strVal.endsWith(")/")) {
-                String dotnetDateStr = strVal.substring(6, strVal.length() - 2);
-                strVal = dotnetDateStr;
-            }
-
-            if (strVal.indexOf('-') != -1) {
-                String format;
-                if (strVal.length() == "yyyy-MM-dd HH:mm:ss".length()) {
-                    format = "yyyy-MM-dd HH:mm:ss";;
-                } else if (strVal.length() == 10) {
-                    format = "yyyy-MM-dd";
-                } else if (strVal.length() == "yyyy-MM-dd HH:mm:ss".length()) {
-                    format = "yyyy-MM-dd HH:mm:ss";
-                } else {
-                    format = "yyyy-MM-dd HH:mm:ss.SSS";
-                }
-
-                SimpleDateFormat dateFormat = new SimpleDateFormat(format);
-                try {
-                    return (Date) dateFormat.parse(strVal);
-                } catch (ParseException e) {
-                    throw new IllegalArgumentException("can not cast to Date, value : " + strVal);
-                }
-            }
-
-            if (strVal.length() == 0) {
+            if (strVal.length() == 0 //
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
-
-            longValue = Long.parseLong(strVal);
-        }
-
-        if (longValue < 0) {
-            Class<?> clazz = value.getClass();
-            if ("oracle.sql.TIMESTAMP".equals(clazz.getName())) {
-                if (oracleTimestampMethod == null && !oracleTimestampMethodInited) {
-                    try {
-                        oracleTimestampMethod = clazz.getMethod("toJdbc");
-                    } catch (NoSuchMethodException e) {
-                        // skip
-                    } finally {
-                        oracleTimestampMethodInited = true;
-                    }
-                }
-
-                Object result;
-                try {
-                    result = oracleTimestampMethod.invoke(value);
-                } catch (Exception e) {
-                    throw new IllegalArgumentException("can not cast oracle.sql.TIMESTAMP to Date", e);
-                }
-                return (Date) result;
+            Date date = parseDate(strVal);
+            if (date != null) {
+                return date;
             }
-
-            if ("oracle.sql.DATE".equals(clazz.getName())) {
-                if (oracleDateMethod == null && !oracleDateMethodInited) {
-                    try {
-                        oracleDateMethod = clazz.getMethod("toJdbc");
-                    } catch (NoSuchMethodException e) {
-                        // skip
-                    } finally {
-                        oracleDateMethodInited = true;
-                    }
-                }
-
-                Object result;
-                try {
-                    result = oracleDateMethod.invoke(value);
-                } catch (Exception e) {
-                    throw new IllegalArgumentException("can not cast oracle.sql.DATE to Date", e);
-                }
-                return (Date) result;
-            }
-
-            throw new IllegalArgumentException("can not cast to Date, value : " + value);
         }
+        throw new IllegalArgumentException("can not cast to Date, value : " + value);
+    }
 
-        return new Date(longValue);
+    /**
+     * <p>Checks if the String contains only unicode digits.
+     * A decimal point is not a unicode digit and returns false.</p>
+     *
+     * <p><code>null</code> will return <code>false</code>.
+     * An empty String ("") will return <code>false</code>.</p>
+     *
+     * <pre>
+     * StringUtils.isNumeric(null)   = false
+     * StringUtils.isNumeric("")     = false
+     * StringUtils.isNumeric("  ")   = false
+     * StringUtils.isNumeric("123")  = true
+     * StringUtils.isNumeric("12 3") = false
+     * StringUtils.isNumeric("ab2c") = false
+     * StringUtils.isNumeric("12-3") = false
+     * StringUtils.isNumeric("12.3") = false
+     * </pre>
+     *
+     * @param str the String to check, may be null
+     * @return <code>true</code> if only contains digits, and is non-null
+     */
+    public static boolean isNumeric(String str) {
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+        int sz = str.length();
+        for (int i = 0; i < sz; i++) {
+            if (!Character.isDigit(str.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Integer[] parseIntegerNumbers(String str) {
+        if (str == null) {
+            return new Integer[0];
+        }
+        List<Integer> result = new ArrayList<>();
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            if (c >= '0' && c <= '9') {
+                builder.append(c);
+            } else if (builder.length() > 0) {
+                result.add(Integer.valueOf(builder.toString()));
+                builder.setLength(0);
+            }
+        }
+        if (builder.length() > 0) {
+            result.add(Integer.valueOf(builder.toString()));
+        }
+        return result.toArray(new Integer[0]);
+    }
+
+    public static Timestamp parseDate(String noHasZoneAnyDateString) {
+        if (noHasZoneAnyDateString == null || noHasZoneAnyDateString.isEmpty()) {
+            return null;
+        }
+        int shotTimestampLength = 10;
+        int longTimestampLength = 13;
+        if (noHasZoneAnyDateString.length() == shotTimestampLength || noHasZoneAnyDateString.length() == longTimestampLength) {
+            if (isNumeric(noHasZoneAnyDateString)) {
+                long timestamp = Long.parseLong(noHasZoneAnyDateString);
+                if (noHasZoneAnyDateString.length() == shotTimestampLength) {
+                    timestamp = timestamp * 1000;
+                }
+                return new Timestamp(timestamp);
+            }
+        }
+        if ("null".equals(noHasZoneAnyDateString)) {
+            return null;
+        }
+        if ("NULL".equals(noHasZoneAnyDateString)) {
+            return null;
+        }
+        Integer[] numbers = parseIntegerNumbers(noHasZoneAnyDateString);
+        if (numbers.length == 0) {
+            return null;
+        } else {
+            if (numbers[0] > 2999 || numbers[0] < 1900) {
+                return null;
+            }
+            if (numbers.length >= 2) {
+                if (numbers[1] > 12 || numbers[1] <= 0) {
+                    return null;
+                }
+            }
+            if (numbers.length >= 3) {
+                if (numbers[2] > 31 || numbers[2] <= 0) {
+                    return null;
+                }
+            }
+            if (numbers.length >= 4) {
+                if (numbers[3] > 24 || numbers[3] < 0) {
+                    return null;
+                }
+            }
+            if (numbers.length >= 5) {
+                if (numbers[4] >= 60 || numbers[4] < 0) {
+                    return null;
+                }
+            }
+            if (numbers.length >= 6) {
+                if (numbers[5] >= 60 || numbers[5] < 0) {
+                    return null;
+                }
+            }
+            try {
+                Calendar calendar = Calendar.getInstance();
+                calendar.set(Calendar.MONTH, 0);
+                calendar.set(Calendar.DAY_OF_MONTH, 1);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+                if (numbers.length == 1) {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                } else if (numbers.length == 2) {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                    if (noHasZoneAnyDateString.contains("Q") &&
+                            (noHasZoneAnyDateString.contains("Q1") || noHasZoneAnyDateString.contains("Q2") || noHasZoneAnyDateString.contains("Q3") || noHasZoneAnyDateString.contains("Q4"))) {
+                        calendar.set(Calendar.MONTH, ((numbers[1] - 1) * 3));
+                    } else {
+                        calendar.set(Calendar.MONTH, numbers[1] - 1);
+                    }
+                } else if (numbers.length == 3) {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                    calendar.set(Calendar.MONTH, numbers[1] - 1);
+                    calendar.set(Calendar.DAY_OF_MONTH, numbers[2]);
+                } else if (numbers.length == 4) {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                    calendar.set(Calendar.MONTH, numbers[1] - 1);
+                    calendar.set(Calendar.DAY_OF_MONTH, numbers[2]);
+                    calendar.set(Calendar.HOUR_OF_DAY, numbers[3]);
+                } else if (numbers.length == 5) {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                    calendar.set(Calendar.MONTH, numbers[1] - 1);
+                    calendar.set(Calendar.DAY_OF_MONTH, numbers[2]);
+                    calendar.set(Calendar.HOUR_OF_DAY, numbers[3]);
+                    calendar.set(Calendar.MINUTE, numbers[4]);
+                } else {
+                    calendar.set(Calendar.YEAR, numbers[0]);
+                    calendar.set(Calendar.MONTH, numbers[1] - 1);
+                    calendar.set(Calendar.DAY_OF_MONTH, numbers[2]);
+                    calendar.set(Calendar.HOUR_OF_DAY, numbers[3]);
+                    calendar.set(Calendar.MINUTE, numbers[4]);
+                    calendar.set(Calendar.SECOND, numbers[5]);
+                }
+                return new Timestamp(calendar.getTimeInMillis());
+            } catch (Exception e) {
+                return null;
+            }
+        }
     }
 
     public static java.sql.Date castToSqlDate(Object value) {
         if (value == null) {
             return null;
         }
-
         if (value instanceof java.sql.Date) {
             return (java.sql.Date) value;
         }
-
         if (value instanceof Date) {
             return new java.sql.Date(((Date) value).getTime());
         }
-
         if (value instanceof Calendar) {
             return new java.sql.Date(((Calendar) value).getTimeInMillis());
         }
 
-        long longValue = 0;
-
         if (value instanceof Number) {
-            longValue = ((Number) value).longValue();
+            long longValue = ((Number) value).longValue();
+            return new java.sql.Date(longValue);
         }
 
         if (value instanceof String) {
             String strVal = (String) value;
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
-
-            if (isNumber(strVal)) {
-                longValue = Long.parseLong(strVal);
-            } else {
-//                JSONScanner scanner = new JSONScanner(strVal);
-//                if (scanner.scanISO8601DateIfMatch(false)) {
-//                    longValue = scanner.getCalendar().getTime().getTime();
-//                } else {
-//                    throw new IllegalArgumentException("can not cast to Timestamp, value : " + strVal);
-//                }
+            Date date = parseDate(strVal);
+            if (date != null) {
+                return new java.sql.Date(date.getTime());
             }
         }
+        throw new IllegalArgumentException("can not cast to Date, value : " + value);
 
-        if (longValue <= 0) {
-            //  忽略 1970-01-01 之前的时间处理？
-            throw new IllegalArgumentException("can not cast to Date, value : " + value);
-        }
-
-        return new java.sql.Date(longValue);
     }
 
     public static java.sql.Timestamp castToTimestamp(Object value) {
@@ -610,54 +589,24 @@ public class TypeUtil {
             return new java.sql.Timestamp(((Date) value).getTime());
         }
 
-        long longValue = 0;
-
         if (value instanceof Number) {
-            longValue = ((Number) value).longValue();
+            long longValue = ((Number) value).longValue();
+            return new java.sql.Timestamp(longValue);
         }
 
         if (value instanceof String) {
             String strVal = (String) value;
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
-
-            if (isNumber(strVal)) {
-                longValue = Long.parseLong(strVal);
-            } else {
-//                JSONScanner scanner = new JSONScanner(strVal);
-//                if (scanner.scanISO8601DateIfMatch(false)) {
-//                    longValue = scanner.getCalendar().getTime().getTime();
-//                } else {
-//                    throw new IllegalArgumentException("can not cast to Timestamp, value : " + strVal);
-//                }
+            Timestamp date = parseDate(strVal);
+            if (date != null) {
+                return date;
             }
         }
-
-        if (longValue <= 0) {
-            throw new IllegalArgumentException("can not cast to Timestamp, value : " + value);
-        }
-
-        return new java.sql.Timestamp(longValue);
-    }
-
-    public static boolean isNumber(String str) {
-        for (int i = 0; i < str.length(); ++i) {
-            char ch = str.charAt(i);
-            if (ch == '+' || ch == '-') {
-                if (i != 0) {
-                    return false;
-                } else {
-                    continue;
-                }
-            } else if (ch < '0' || ch > '9') {
-                return false;
-            }
-        }
-
-        return true;
+        throw new IllegalArgumentException("can not cast to Timestamp, value : " + value);
     }
 
     public static Long castToLong(Object value) {
@@ -672,13 +621,9 @@ public class TypeUtil {
         if (value instanceof String) {
             String strVal = (String) value;
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
-            }
-            
-            if (strVal.indexOf(',') != 0) {
-                strVal = strVal.replaceAll(",", "");
             }
 
             try {
@@ -688,19 +633,6 @@ public class TypeUtil {
             }
         }
         return null;
-    }
-
-    public static int castToInt(Object value,int def) {
-        Integer ret;
-        try {
-            ret = castToInt(value);
-            if(ret != null){
-                return ret;
-            }
-        }catch (Exception e){
-            //
-        }
-        return def;
     }
 
     public static Integer castToInt(Object value) {
@@ -720,36 +652,20 @@ public class TypeUtil {
             String strVal = (String) value;
 
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
-            }
-            
-            if (strVal.indexOf(',') != 0) {
-                strVal = strVal.replaceAll(",", "");
             }
 
             try {
                 return Integer.parseInt(strVal);
-            }catch (Exception e){
+            } catch (Exception e) {
                 return null;
             }
         }
 
         if (value instanceof Boolean) {
-            return ((Boolean) value).booleanValue() ? 1 : 0;
-        }
-
-        if (value instanceof Map) {
-            Map map = (Map) value;
-            if (map.size() == 2
-                    && map.containsKey("andIncrement")
-                    && map.containsKey("andDecrement")) {
-                Iterator iter = map.values().iterator();
-                iter.next();
-                Object value2 = iter.next();
-                return castToInt(value2);
-            }
+            return (Boolean) value ? 1 : 0;
         }
 
         throw new IllegalArgumentException("can not cast to int, value : " + value);
@@ -783,18 +699,18 @@ public class TypeUtil {
             String strVal = (String) value;
 
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
 
             if ("true".equalsIgnoreCase(strVal) //
-                || "1".equals(strVal)) {
+                    || "1".equals(strVal)) {
                 return Boolean.TRUE;
             }
-            
+
             if ("false".equalsIgnoreCase(strVal) //
-                || "0".equals(strVal)) {
+                    || "0".equals(strVal)) {
                 return Boolean.FALSE;
             }
 
@@ -812,7 +728,15 @@ public class TypeUtil {
         throw new IllegalArgumentException("can not cast to boolean, value : " + value);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    /**
+     * 转换类型
+     *
+     * @param obj   需要转换的对象
+     * @param clazz 转换至类型
+     * @param <T>   类型
+     * @return 转换后的对象
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <T> T cast(Object obj, Class<T> clazz) {
         if (obj == null) {
             if (clazz == int.class) {
@@ -840,23 +764,12 @@ public class TypeUtil {
         if (clazz == obj.getClass()) {
             return (T) obj;
         }
-
-//        if (obj instanceof Map) {
-//            if (clazz == Map.class) {
-//                return (T) obj;
-//            }
-//
-//            Map map = (Map) obj;
-//            if (clazz == Object.class && !map.containsKey(JSON.DEFAULT_TYPE_KEY)) {
-//                return (T) obj;
-//            }
-//
-//            return castToJavaBean((Map<String, Object>) obj, clazz, config);
-//        }
+        if (clazz.isAssignableFrom(obj.getClass())) {
+            return (T) obj;
+        }
 
         if (clazz.isArray()) {
             if (obj instanceof Collection) {
-
                 Collection collection = (Collection) obj;
                 int index = 0;
                 Object array = Array.newInstance(clazz.getComponentType(), collection.size());
@@ -873,11 +786,6 @@ public class TypeUtil {
                 return (T) castToBytes(obj);
             }
         }
-
-        if (clazz.isAssignableFrom(obj.getClass())) {
-            return (T) obj;
-        }
-
         if (clazz == boolean.class || clazz == Boolean.class) {
             return (T) castToBoolean(obj);
         }
@@ -958,8 +866,8 @@ public class TypeUtil {
             String strVal = (String) obj;
 
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
 
@@ -971,9 +879,8 @@ public class TypeUtil {
                 return (T) toLocale(strVal);
             }
         }
-
-        return null;
-//        throw new IllegalArgumentException("can not cast to : " + clazz.getName());
+//        return BeanUtil.transform(obj, clazz);
+        throw new IllegalArgumentException("can not cast to : " + clazz.getName());
     }
 
     public static Locale toLocale(String strVal) {
@@ -990,7 +897,7 @@ public class TypeUtil {
         return new Locale(items[0], items[1], items[2]);
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <T> T castToEnum(Object obj, Class<T> clazz) {
         try {
             if (obj instanceof String) {
@@ -999,7 +906,12 @@ public class TypeUtil {
                     return null;
                 }
 
-                return (T) Enum.valueOf((Class<? extends Enum>) clazz, name);
+                char charAt0 = name.charAt(0);
+                if (charAt0 >= '0' && charAt0 <= '9') {
+                    obj = Integer.valueOf(name);
+                } else {
+                    return (T) java.lang.Enum.valueOf((Class<? extends java.lang.Enum>) clazz, name);
+                }
             }
 
             if (obj instanceof Number) {
@@ -1033,8 +945,8 @@ public class TypeUtil {
         if (obj instanceof String) {
             String strVal = (String) obj;
             if (strVal.length() == 0 //
-                || "null".equals(strVal) //
-                || "NULL".equals(strVal)) {
+                    || "null".equals(strVal) //
+                    || "NULL".equals(strVal)) {
                 return null;
             }
         }
@@ -1046,14 +958,14 @@ public class TypeUtil {
         throw new IllegalArgumentException("can not cast to : " + type);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
+    @SuppressWarnings({"rawtypes", "unchecked"})
     public static <T> T cast(Object obj, ParameterizedType type) {
         Type rawTye = type.getRawType();
 
         if (rawTye == Set.class || rawTye == HashSet.class //
-            || rawTye == TreeSet.class //
-            || rawTye == List.class //
-            || rawTye == ArrayList.class) {
+                || rawTye == TreeSet.class //
+                || rawTye == List.class //
+                || rawTye == ArrayList.class) {
             Type itemType = type.getActualTypeArguments()[0];
 
             if (obj instanceof Iterable) {
@@ -1066,7 +978,7 @@ public class TypeUtil {
                     collection = new ArrayList();
                 }
 
-                for (Iterator it = ((Iterable) obj).iterator(); it.hasNext();) {
+                for (Iterator it = ((Iterable) obj).iterator(); it.hasNext(); ) {
                     Object item = it.next();
                     collection.add(cast(item, itemType));
                 }
@@ -1108,242 +1020,6 @@ public class TypeUtil {
         }
 
         throw new IllegalArgumentException("can not cast to : " + type);
-    }
-
-    private static ConcurrentMap<String, Class<?>> mappings = new ConcurrentHashMap<String, Class<?>>(16, 0.75f, 1);
-
-    static {
-        addBaseClassMappings();
-    }
-
-    private static void addBaseClassMappings() {
-        mappings.put("byte", byte.class);
-        mappings.put("short", short.class);
-        mappings.put("int", int.class);
-        mappings.put("long", long.class);
-        mappings.put("float", float.class);
-        mappings.put("double", double.class);
-        mappings.put("boolean", boolean.class);
-        mappings.put("char", char.class);
-
-        mappings.put("[byte", byte[].class);
-        mappings.put("[short", short[].class);
-        mappings.put("[int", int[].class);
-        mappings.put("[long", long[].class);
-        mappings.put("[float", float[].class);
-        mappings.put("[double", double[].class);
-        mappings.put("[boolean", boolean[].class);
-        mappings.put("[char", char[].class);
-
-        mappings.put("[B", byte[].class);
-        mappings.put("[S", short[].class);
-        mappings.put("[I", int[].class);
-        mappings.put("[J", long[].class);
-        mappings.put("[F", float[].class);
-        mappings.put("[D", double[].class);
-        mappings.put("[C", char[].class);
-        mappings.put("[Z", boolean[].class);
-
-        Class<?>[] classes = new Class[] {
-                Object.class,
-                Cloneable.class,
-                loadClass("java.lang.AutoCloseable"),
-                Exception.class,
-                RuntimeException.class,
-                IllegalAccessError.class,
-                IllegalAccessException.class,
-                IllegalArgumentException.class,
-                IllegalMonitorStateException.class,
-                IllegalStateException.class,
-                IllegalThreadStateException.class,
-                IndexOutOfBoundsException.class,
-                InstantiationError.class,
-                InstantiationException.class,
-                InternalError.class,
-                InterruptedException.class,
-                LinkageError.class,
-                NegativeArraySizeException.class,
-                NoClassDefFoundError.class,
-                NoSuchFieldError.class,
-                NoSuchFieldException.class,
-                NoSuchMethodError.class,
-                NoSuchMethodException.class,
-                NullPointerException.class,
-                NumberFormatException.class,
-                OutOfMemoryError.class,
-                SecurityException.class,
-                StackOverflowError.class,
-                StringIndexOutOfBoundsException.class,
-                TypeNotPresentException.class,
-                VerifyError.class,
-                StackTraceElement.class,
-                HashMap.class,
-                Hashtable.class,
-                TreeMap.class,
-                IdentityHashMap.class,
-                WeakHashMap.class,
-                LinkedHashMap.class,
-                HashSet.class,
-                LinkedHashSet.class,
-                TreeSet.class,
-                java.util.concurrent.TimeUnit.class,
-                ConcurrentHashMap.class,
-                loadClass("java.util.concurrent.ConcurrentSkipListMap"),
-                loadClass("java.util.concurrent.ConcurrentSkipListSet"),
-                java.util.concurrent.atomic.AtomicInteger.class,
-                java.util.concurrent.atomic.AtomicLong.class,
-                Collections.EMPTY_MAP.getClass(),
-                BitSet.class,
-                Calendar.class,
-                Date.class,
-                Locale.class,
-                UUID.class,
-                java.sql.Time.class,
-                java.sql.Date.class,
-                java.sql.Timestamp.class,
-                SimpleDateFormat.class
-//                com.alibaba.fastjson.JSONObject.class,
-        };
-
-        for (Class clazz : classes) {
-            if (clazz == null) {
-                continue;
-            }
-            mappings.put(clazz.getName(), clazz);
-        }
-
-        String[] awt = new String[] {
-                "java.awt.Rectangle",
-                "java.awt.Point",
-                "java.awt.Font",
-                "java.awt.Color"};
-        for (String className : awt) {
-            Class<?> clazz = loadClass(className);
-            if (clazz == null) {
-                break;
-            }
-            mappings.put(clazz.getName(), clazz);
-        }
-
-        String[] spring = new String[] {
-                "org.springframework.util.LinkedMultiValueMap",
-                "org.springframework.util.LinkedCaseInsensitiveMap",
-                "org.springframework.remoting.support.RemoteInvocation",
-                "org.springframework.remoting.support.RemoteInvocationResult"
-        };
-        for (String className : spring) {
-            Class<?> clazz = loadClass(className);
-            if (clazz == null) {
-                break;
-            }
-            mappings.put(clazz.getName(), clazz);
-        }
-    }
-
-    public static Class<?> loadClass(String className) {
-        return loadClass(className, null);
-    }
-    
-    public static Class<?> loadClass(String className, ClassLoader classLoader) {
-        if (className == null || className.length() == 0) {
-            return null;
-        }
-
-        Class<?> clazz = mappings.get(className);
-
-        if (clazz != null) {
-            return clazz;
-        }
-
-        if (className.charAt(0) == '[') {
-            Class<?> componentType = loadClass(className.substring(1), classLoader);
-            return Array.newInstance(componentType, 0).getClass();
-        }
-
-        if (className.startsWith("L") && className.endsWith(";")) {
-            String newClassName = className.substring(1, className.length() - 1);
-            return loadClass(newClassName, classLoader);
-        }
-
-        try {
-            if (classLoader != null) {
-                clazz = classLoader.loadClass(className);
-                mappings.put(className, clazz);
-
-                return clazz;
-            }
-        } catch (Throwable e) {
-            // skip
-        }
-
-        try {
-            ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-
-            if (contextClassLoader != null && contextClassLoader != classLoader) {
-                clazz = contextClassLoader.loadClass(className);
-                mappings.put(className, clazz);
-
-                return clazz;
-            }
-        } catch (Throwable e) {
-            // skip
-        }
-
-        try {
-            clazz = Class.forName(className);
-            mappings.put(className, clazz);
-
-            return clazz;
-        } catch (Throwable e) {
-            // skip
-        }
-
-        return clazz;
-    }
-
-    public static Class<?> getClass(Type type) {
-        if (type.getClass() == Class.class) {
-            return (Class<?>) type;
-        }
-
-        if (type instanceof ParameterizedType) {
-            return getClass(((ParameterizedType) type).getRawType());
-        }
-
-        if (type instanceof TypeVariable) {
-            Type boundType = ((TypeVariable<?>) type).getBounds()[0];
-            return (Class<?>) boundType;
-        }
-
-        return Object.class;
-    }
-
-    public static class TypeResult {
-        private final Class<?> clazz;
-        private final int index;
-        private int dimension;
-
-        public TypeResult(Class<?> clazz, int index, int dimension) {
-            this.clazz= clazz;
-            this.index = index;
-            this.dimension = dimension;
-        }
-
-        public Class<?> getClazz() {
-            return clazz;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-
-        public int getDimension() {
-            return dimension;
-        }
-
-        public void incrementDimension(int inc) {
-            dimension += inc;
-        }
     }
 
 }
