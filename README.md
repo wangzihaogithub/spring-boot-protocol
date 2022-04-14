@@ -240,7 +240,7 @@ github地址 : https://github.com/wangzihaogithub
             }
             private static HttpServletProtocol newHttpProtocol() {
                 ServletContext servletContext = new ServletContext();
-                servletContext.setDocBase("D://demo", "/webapp"); // 静态资源文件夹
+                servletContext.setDocBase("D://demo", "/webapp"); // 静态资源文件夹(非必填,默认用临时目录)
                 servletContext.addServlet("myHttpServlet", new com.github.netty.protocol.servlet.DefaultServlet())
                         .addMapping("/*");
                 return new HttpServletProtocol(servletContext);
