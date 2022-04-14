@@ -19,7 +19,7 @@ public class ResourceManager {
      * lock file
      * Prevent folder from being deleted
      */
-    private final FileInputStream lock;
+    private final RandomAccessFile lock;
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String rootPath;
     private ClassLoader classLoader;
@@ -50,16 +50,16 @@ public class ResourceManager {
         }
         this.workspace = workspace;
         this.classLoader = classLoader == null ? getClass().getClassLoader() : classLoader;
-        FileInputStream lock;
+        RandomAccessFile lock;
         try {
             File file = writeFile(new byte[]{1}, "/", ".lock", true);
-            lock = new FileInputStream(file);
+            lock = new RandomAccessFile(file,"rwd");
         } catch (IOException e) {
             lock = null;
             logger.warn("ResourceManager lock file create fail {}", e.toString());
         }
         this.lock = lock;
-        logger.info("ResourceManager rootPath={},workspace={}", rootPath, workspace);
+        logger.info("ResourceManager rootPath : '{}', workspace : '{}'", rootPath, workspace);
     }
 
     @Override

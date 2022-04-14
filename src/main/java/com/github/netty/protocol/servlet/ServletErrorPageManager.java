@@ -87,7 +87,24 @@ public class ServletErrorPageManager {
     public void handleErrorPage(ServletErrorPage errorPage, Throwable throwable, HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
         if (errorPage == null) {
             if (throwable != null) {
-                logger.error("a unknown error. No error page handler", throwable.toString(), throwable);
+                String msg = "a unknown error! " + throwable;
+                logger.error(msg, throwable);
+                try {
+                    httpServletResponse.setCharacterEncoding("utf-8");
+                    httpServletResponse.setContentType("text/html");
+                    httpServletResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    httpServletResponse.getWriter().write("<!DOCTYPE html>\n" +
+                            "<html lang=\"en\">\n" +
+                            "<head>\n" +
+                            "    <meta charset=\"UTF-8\">\n" +
+                            "    <title>a unknown error!</title>\n" +
+                            "</head>\n" +
+                            "<body>\n" +
+                            "<p>" + msg + "</p>\n" +
+                            "</body>\n" +
+                            "</html>");
+                } catch (IOException ignored) {
+                }
             }
             return;
         }

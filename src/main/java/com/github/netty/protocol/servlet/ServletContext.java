@@ -105,7 +105,6 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
-        setDocBase(createTempDir("netty-docbase").getAbsolutePath());
     }
 
     public void setMaxBufferBytes(int maxBufferBytes) {
@@ -150,28 +149,16 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public void setDocBase(String docBase,String workspace){
-        this.resourceManager = new ResourceManager(docBase,workspace,classLoader);
+        ResourceManager old = this.resourceManager;
+        this.resourceManager = new ResourceManager(docBase, workspace, classLoader);
         this.resourceManager.mkdirs("/");
-
+        if (old != null) {
+            logger.warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
+        }
         DiskFileUpload.deleteOnExitTemporaryFile = true;
         DiskAttribute.deleteOnExitTemporaryFile = true;
         DiskFileUpload.baseDirectory = resourceManager.getRealPath("/");
         DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
-    }
-
-    protected static File createTempDir(String prefix) {
-        try {
-            File tempDir = File.createTempFile(prefix + ".", "");
-            tempDir.delete();
-            tempDir.mkdir();
-            tempDir.deleteOnExit();
-            return tempDir;
-        }catch (IOException ex) {
-            throw new IllegalStateException(
-                    "Unable to create tempDir. java.io.tmpdir is set to "
-                            + System.getProperty("java.io.tmpdir"),
-                    ex);
-        }
     }
 
     public Executor getAsyncExecutor() {

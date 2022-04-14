@@ -71,7 +71,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                         } else if (begin > i) {
                             return null;
                         } else {
-                            return path.substring(begin, i);
+                            return ServletContext.normPath(path.substring(begin, i));
                         }
                     }
                     default: {
@@ -81,6 +81,9 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                         break;
                     }
                 }
+            }
+            if(begin != -1){
+                return ServletContext.normPath(path.substring(begin));
             }
         }
         return null;

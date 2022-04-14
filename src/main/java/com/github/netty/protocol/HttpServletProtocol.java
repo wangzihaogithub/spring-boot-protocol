@@ -22,6 +22,8 @@ import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
+import java.io.File;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +72,8 @@ public class HttpServletProtocol extends AbstractProtocol {
     @Override
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         servletContext.setServerAddress(server.getServerAddress());
+        configurableServletContext();
+
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if(listenerManager.hasServletContextListener()){
             listenerManager.onServletContextInitialized(new ServletContextEvent(servletContext));
@@ -90,6 +94,27 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         destroyFilter();
         destroyServlet();
+    }
+
+    protected void configurableServletContext() throws Exception {
+        if(servletContext.getResourceManager() == null) {
+            servletContext.setDocBase(createTempDir("netty-docbase").getAbsolutePath());
+        }
+    }
+
+    static File createTempDir(String prefix) {
+        try {
+            File tempDir = File.createTempFile(prefix + ".", "");
+            tempDir.delete();
+            tempDir.mkdir();
+            tempDir.deleteOnExit();
+            return tempDir;
+        }catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Unable to create tempDir. java.io.tmpdir is set to "
+                            + System.getProperty("java.io.tmpdir"),
+                    ex);
+        }
     }
 
     /**

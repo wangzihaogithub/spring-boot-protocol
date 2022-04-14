@@ -6,7 +6,7 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.protocol.servlet.ServletDefaultHttpServlet;
+import com.github.netty.protocol.servlet.DefaultServlet;
 import com.github.netty.protocol.servlet.ServletRegistration;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.boot.web.reactive.server.ConfigurableReactiveWebServerFactory;
@@ -88,7 +88,7 @@ public class NettyTcpServerFactory
         try {
             //The default servlet
             if (super.isRegisterDefaultServlet()) {
-                servletContext.addServlet("default",new ServletDefaultHttpServlet())
+                servletContext.addServlet("default",new DefaultServlet())
                         .addMapping("/");
             }
 

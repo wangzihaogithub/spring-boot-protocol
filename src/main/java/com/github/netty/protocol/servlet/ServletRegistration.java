@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ServletRegistration implements javax.servlet.ServletRegistration, javax.servlet.ServletRegistration.Dynamic {
     private String servletName;
-    private Servlet servlet;
+    private final Servlet servlet;
     private ServletConfig servletConfig;
     private ServletContext servletContext;
     private UrlMapper<ServletRegistration> urlMapper;
@@ -47,12 +47,12 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
             super.clear();
         }
     };
-    private AtomicBoolean initServlet = new AtomicBoolean();
+    private volatile boolean initServlet = false;
     private Set<String> servletSecuritys = new LinkedHashSet<>();
 
     public ServletRegistration(String servletName, Servlet servlet, ServletContext servletContext, UrlMapper<ServletRegistration> urlMapper) {
         this.servletName = servletName;
-        this.servlet = servlet;
+        this.servlet = Objects.requireNonNull(servlet);
         this.servletContext = servletContext;
         this.urlMapper = urlMapper;
         this.servletConfig = new ServletConfig() {
@@ -102,12 +102,12 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
         return loadOnStartup;
     }
 
-    public boolean isInitServletCas(boolean expect, boolean update) {
-        return initServlet.compareAndSet(expect,update);
+    public void setInitServlet(boolean initServlet) {
+        this.initServlet = initServlet;
     }
 
     public boolean isInitServlet() {
-        return initServlet.get();
+        return initServlet;
     }
 
     @Override

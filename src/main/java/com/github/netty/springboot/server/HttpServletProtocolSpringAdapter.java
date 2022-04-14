@@ -76,7 +76,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
         if(webServerFactory != null) {
             try {
-                configurableServletContext(webServerFactory);
+                configurableServletContext();
             } catch (Exception e) {
                 BeanInitializationException exception = new BeanInitializationException(e.getMessage(), e);
                 exception.setStackTrace(e.getStackTrace());
@@ -100,31 +100,32 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         return (Number) value;
     }
 
-    protected void configurableServletContext(AbstractServletWebServerFactory configurableWebServer) throws Exception {
+    @Override
+    protected void configurableServletContext() throws Exception {
         ServletContext servletContext = getServletContext();
         ServerProperties serverProperties = application.getBean(ServerProperties.class,null,false);
         MultipartProperties multipartProperties = application.getBean(MultipartProperties.class,null,false);
 
-        InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(configurableWebServer.getAddress(),configurableWebServer.getPort());
+        InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(webServerFactory.getAddress(),webServerFactory.getPort());
         //Server port
         servletContext.setServerAddress(address);
         servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
         servletContext.setAutoFlush(properties.getHttpServlet().getAutoFlushIdleMs() > 0);
         servletContext.setUploadFileTimeoutMs(properties.getHttpServlet().getUploadFileTimeoutMs());
-        servletContext.setContextPath(configurableWebServer.getContextPath());
-        servletContext.setServerHeader(configurableWebServer.getServerHeader());
-        servletContext.setServletContextName(configurableWebServer.getDisplayName());
+        servletContext.setContextPath(webServerFactory.getContextPath());
+        servletContext.setServerHeader(webServerFactory.getServerHeader());
+        servletContext.setServletContextName(webServerFactory.getDisplayName());
         servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
         servletContext.getErrorPageManager().setShowErrorMessage(properties.getHttpServlet().isShowExceptionMessage());
         //Session timeout
-        servletContext.setSessionTimeout((int) configurableWebServer.getSession().getTimeout().getSeconds());
+        servletContext.setSessionTimeout((int) webServerFactory.getSession().getTimeout().getSeconds());
         servletContext.setSessionService(newSessionService(properties,servletContext));
-        for (MimeMappings.Mapping mapping :configurableWebServer.getMimeMappings()) {
+        for (MimeMappings.Mapping mapping :webServerFactory.getMimeMappings()) {
             servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
         }
         servletContext.getNotExistBodyParameters().addAll(Arrays.asList(properties.getHttpServlet().getNotExistBodyParameter()));
 
-        Compression compression = configurableWebServer.getCompression();
+        Compression compression = webServerFactory.getCompression();
         if(compression != null && compression.getEnabled()) {
             super.setEnableContentCompression(compression.getEnabled());
             super.setContentSizeThreshold((getNumberBytes(compression, "getMinResponseSize")).intValue());
@@ -149,18 +150,18 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         if(location != null && !location.isEmpty()){
             servletContext.setDocBase(location,"");
         }else {
-            servletContext.setDocBase(configurableWebServer.getDocumentRoot().getAbsolutePath());
+            servletContext.setDocBase(webServerFactory.getDocumentRoot().getAbsolutePath());
         }
 
         //Error page
-        for(ErrorPage errorPage : configurableWebServer.getErrorPages()) {
+        for(ErrorPage errorPage : webServerFactory.getErrorPages()) {
             ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(),errorPage.getException(),errorPage.getPath());
             servletContext.getErrorPageManager().add(servletErrorPage);
         }
 
-        Ssl ssl = configurableWebServer.getSsl();
+        Ssl ssl = webServerFactory.getSsl();
         if(ssl != null && ssl.isEnabled()){
-            SslStoreProvider sslStoreProvider = configurableWebServer.getSslStoreProvider();
+            SslStoreProvider sslStoreProvider = webServerFactory.getSslStoreProvider();
             KeyManagerFactory keyManagerFactory = getKeyManagerFactory(ssl,sslStoreProvider);
             SslContextBuilder sslContextBuilder = getSslContext(keyManagerFactory,ssl,sslStoreProvider);
             super.setSslContextBuilder(sslContextBuilder);
