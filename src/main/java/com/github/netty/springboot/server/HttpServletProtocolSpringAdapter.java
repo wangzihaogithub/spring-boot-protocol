@@ -74,18 +74,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         ServletContext servletContext = getServletContext();
         application.addSingletonBean(servletContext);
 
-        if(webServerFactory != null) {
-            try {
-                configurableServletContext();
-            } catch (Exception e) {
-                BeanInitializationException exception = new BeanInitializationException(e.getMessage(), e);
-                exception.setStackTrace(e.getStackTrace());
-                throw exception;
-            }
-        }
-
-        LOGGER.info(
-                "Netty servlet on port: {}, with context path '{}'",
+        LOGGER.info("Netty servlet on port: {}, with context path '{}'",
                 servletContext.getServerAddress().getPort(),
                 servletContext.getContextPath()
         );
@@ -102,69 +91,78 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     @Override
     protected void configurableServletContext() throws Exception {
-        ServletContext servletContext = getServletContext();
-        ServerProperties serverProperties = application.getBean(ServerProperties.class,null,false);
-        MultipartProperties multipartProperties = application.getBean(MultipartProperties.class,null,false);
-
-        InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(webServerFactory.getAddress(),webServerFactory.getPort());
-        //Server port
-        servletContext.setServerAddress(address);
-        servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
-        servletContext.setAutoFlush(properties.getHttpServlet().getAutoFlushIdleMs() > 0);
-        servletContext.setUploadFileTimeoutMs(properties.getHttpServlet().getUploadFileTimeoutMs());
-        servletContext.setContextPath(webServerFactory.getContextPath());
-        servletContext.setServerHeader(webServerFactory.getServerHeader());
-        servletContext.setServletContextName(webServerFactory.getDisplayName());
-        servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
-        servletContext.getErrorPageManager().setShowErrorMessage(properties.getHttpServlet().isShowExceptionMessage());
-        //Session timeout
-        servletContext.setSessionTimeout((int) webServerFactory.getSession().getTimeout().getSeconds());
-        servletContext.setSessionService(newSessionService(properties,servletContext));
-        for (MimeMappings.Mapping mapping :webServerFactory.getMimeMappings()) {
-            servletContext.getMimeMappings().add(mapping.getExtension(),mapping.getMimeType());
+        if(webServerFactory == null){
+            return;
         }
-        servletContext.getNotExistBodyParameters().addAll(Arrays.asList(properties.getHttpServlet().getNotExistBodyParameter()));
+        try {
+            ServletContext servletContext = getServletContext();
+            ServerProperties serverProperties = application.getBean(ServerProperties.class, null, false);
+            MultipartProperties multipartProperties = application.getBean(MultipartProperties.class, null, false);
 
-        Compression compression = webServerFactory.getCompression();
-        if(compression != null && compression.getEnabled()) {
-            super.setEnableContentCompression(compression.getEnabled());
-            super.setContentSizeThreshold((getNumberBytes(compression, "getMinResponseSize")).intValue());
-            super.setCompressionMimeTypes(compression.getMimeTypes().clone());
-            super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
-        }
-        if (serverProperties != null) {
-            super.setMaxHeaderSize((getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
-        }
-        String location = null;
-        if(multipartProperties != null && multipartProperties.getEnabled()){
-            Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
-            Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
-            Number fileSizeThreshold = getNumberBytes(multipartProperties, "getFileSizeThreshold");
+            InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(webServerFactory.getAddress(), webServerFactory.getPort());
+            //Server port
+            servletContext.setServerAddress(address);
+            servletContext.setEnableLookupFlag(properties.getHttpServlet().isEnableNsLookup());
+            servletContext.setAutoFlush(properties.getHttpServlet().getAutoFlushIdleMs() > 0);
+            servletContext.setUploadFileTimeoutMs(properties.getHttpServlet().getUploadFileTimeoutMs());
+            servletContext.setContextPath(webServerFactory.getContextPath());
+            servletContext.setServerHeader(webServerFactory.getServerHeader());
+            servletContext.setServletContextName(webServerFactory.getDisplayName());
+            servletContext.setResponseWriterChunkMaxHeapByteLength(properties.getHttpServlet().getResponseWriterChunkMaxHeapByteLength());
+            servletContext.getErrorPageManager().setShowErrorMessage(properties.getHttpServlet().isShowExceptionMessage());
+            //Session timeout
+            servletContext.setSessionTimeout((int) webServerFactory.getSession().getTimeout().getSeconds());
+            servletContext.setSessionService(newSessionService(properties, servletContext));
+            for (MimeMappings.Mapping mapping : webServerFactory.getMimeMappings()) {
+                servletContext.getMimeMappings().add(mapping.getExtension(), mapping.getMimeType());
+            }
+            servletContext.getNotExistBodyParameters().addAll(Arrays.asList(properties.getHttpServlet().getNotExistBodyParameter()));
 
-            super.setMaxChunkSize(maxRequestSize.longValue());
-            super.setMaxContentLength(maxFileSize.longValue());
-            servletContext.setUploadMinSize(fileSizeThreshold.longValue());
-            location = multipartProperties.getLocation();
-        }
+            Compression compression = webServerFactory.getCompression();
+            if (compression != null && compression.getEnabled()) {
+                super.setEnableContentCompression(compression.getEnabled());
+                super.setContentSizeThreshold((getNumberBytes(compression, "getMinResponseSize")).intValue());
+                super.setCompressionMimeTypes(compression.getMimeTypes().clone());
+                super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
+            }
+            if (serverProperties != null) {
+                super.setMaxHeaderSize((getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
+            }
+            String location = null;
+            if (multipartProperties != null && multipartProperties.getEnabled()) {
+                Number maxRequestSize = getNumberBytes(multipartProperties, "getMaxRequestSize");
+                Number maxFileSize = getNumberBytes(multipartProperties, "getMaxFileSize");
+                Number fileSizeThreshold = getNumberBytes(multipartProperties, "getFileSizeThreshold");
 
-        if(location != null && !location.isEmpty()){
-            servletContext.setDocBase(location,"");
-        }else {
-            servletContext.setDocBase(webServerFactory.getDocumentRoot().getAbsolutePath());
-        }
+                super.setMaxChunkSize(maxRequestSize.longValue());
+                super.setMaxContentLength(maxFileSize.longValue());
+                servletContext.setUploadMinSize(fileSizeThreshold.longValue());
+                location = multipartProperties.getLocation();
+            }
 
-        //Error page
-        for(ErrorPage errorPage : webServerFactory.getErrorPages()) {
-            ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(),errorPage.getException(),errorPage.getPath());
-            servletContext.getErrorPageManager().add(servletErrorPage);
-        }
+            if (location != null && !location.isEmpty()) {
+                servletContext.setDocBase(location, "");
+            } else {
+                servletContext.setDocBase(webServerFactory.getDocumentRoot().getAbsolutePath());
+            }
 
-        Ssl ssl = webServerFactory.getSsl();
-        if(ssl != null && ssl.isEnabled()){
-            SslStoreProvider sslStoreProvider = webServerFactory.getSslStoreProvider();
-            KeyManagerFactory keyManagerFactory = getKeyManagerFactory(ssl,sslStoreProvider);
-            SslContextBuilder sslContextBuilder = getSslContext(keyManagerFactory,ssl,sslStoreProvider);
-            super.setSslContextBuilder(sslContextBuilder);
+            //Error page
+            for (ErrorPage errorPage : webServerFactory.getErrorPages()) {
+                ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(), errorPage.getException(), errorPage.getPath());
+                servletContext.getErrorPageManager().add(servletErrorPage);
+            }
+
+            Ssl ssl = webServerFactory.getSsl();
+            if (ssl != null && ssl.isEnabled()) {
+                SslStoreProvider sslStoreProvider = webServerFactory.getSslStoreProvider();
+                KeyManagerFactory keyManagerFactory = getKeyManagerFactory(ssl, sslStoreProvider);
+                SslContextBuilder sslContextBuilder = getSslContext(keyManagerFactory, ssl, sslStoreProvider);
+                super.setSslContextBuilder(sslContextBuilder);
+            }
+        } catch (Exception e) {
+            BeanInitializationException exception = new BeanInitializationException(e.getMessage(), e);
+            exception.setStackTrace(e.getStackTrace());
+            throw exception;
         }
     }
 
