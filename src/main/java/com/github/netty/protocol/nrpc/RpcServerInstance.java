@@ -129,7 +129,7 @@ public class RpcServerInstance {
                 rpcResponse.setEncode(DataCodec.Encode.BINARY);
                 rpcResponse.setData((byte[]) result);
             } else {
-                rpcResponse.setEncode(DataCodec.Encode.JSON);
+                rpcResponse.setEncode(DataCodec.Encode.APP);
                 rpcResponse.setData(dataCodec.encodeResponseData(result, rpcMethod));
             }
             rpcResponse.setStatus(OK);

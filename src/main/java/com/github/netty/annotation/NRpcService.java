@@ -1,5 +1,6 @@
 package com.github.netty.annotation;
 
+import com.github.netty.core.util.ApplicationX;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -12,6 +13,7 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@ApplicationX.Component
 @Controller
 @ResponseBody
 public @interface NRpcService {
@@ -39,6 +41,7 @@ public @interface NRpcService {
      * timeout is -1 then never timeout
      * timeout is 0 then use client timeout
      * timeout other then use server timeout
+     *
      * @return method timeout (milliseconds)
      */
     int timeout() default DEFAULT_TIME_OUT;

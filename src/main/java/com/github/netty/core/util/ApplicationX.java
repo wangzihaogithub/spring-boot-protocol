@@ -107,7 +107,7 @@ public class ApplicationX {
                 "org.springframework.beans.factory.annotation.Qualifier");
         addClasses(orderedAnnotations,
                 "org.springframework.core.annotation.Order");
-        addSingletonBeanDefinition(this);
+        addSingletonBean(this);
         addBeanPostProcessor(new RegisteredBeanPostProcessor(this));
         addBeanPostProcessor(new AutowiredConstructorPostProcessor(this));
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdownHook,"app.shutdownHook-"+ SHUTDOWN_HOOK_ID_INCR.getAndIncrement()));
@@ -141,19 +141,19 @@ public class ApplicationX {
         }
     }
 
-    public Object addSingletonBeanDefinition(Object instance){
-        return addSingletonBeanDefinition(instance,null,true,null);
+    public Object addSingletonBean(Object instance){
+        return addSingletonBean(instance,null,true,null);
     }
 
-    public Object addSingletonBeanDefinition(Object instance, String beanName){
-        return addSingletonBeanDefinition(instance,beanName,true,null);
+    public Object addSingletonBean(Object instance, String beanName){
+        return addSingletonBean(instance,beanName,true,null);
     }
 
-    public Object addSingletonBeanDefinition(Object instance, String beanName, boolean isLifecycle){
-        return addSingletonBeanDefinition(instance,beanName,isLifecycle,null);
+    public Object addSingletonBean(Object instance, String beanName, boolean isLifecycle){
+        return addSingletonBean(instance,beanName,isLifecycle,null);
     }
 
-    public Object addSingletonBeanDefinition(Object instance, String beanName, boolean isLifecycle, BiConsumer<String,BeanDefinition> beanDefinitionConfig){
+    public Object addSingletonBean(Object instance, String beanName, boolean isLifecycle, BiConsumer<String,BeanDefinition> beanDefinitionConfig){
         Class beanType = instance.getClass();
         BeanDefinition definition = newBeanDefinition(beanType);
         definition.setBeanSupplier(()->instance);
@@ -453,6 +453,9 @@ public class ApplicationX {
             }
         }
         public int inject(){
+            return inject(false);
+        }
+        public int inject(boolean lazy){
             this.injectBeginTimestamp = System.currentTimeMillis();
             try {
                 LinkedList<String> beanNameList = new LinkedList<>();
@@ -469,8 +472,10 @@ public class ApplicationX {
                         }
                     }
                 }
-                for (String beanName : beanNameList) {
-                    getBean(beanName, null, true);
+                if(!lazy) {
+                    for (String beanName : beanNameList) {
+                        getBean(beanName, null, true);
+                    }
                 }
                 beanDefinitionMap.clear();
                 scannerAnnotationCacheMap.clear();
@@ -508,7 +513,7 @@ public class ApplicationX {
     }
 
     public ApplicationX addBeanFactory(Class type, AbstractBeanFactory beanFactory){
-        addSingletonBeanDefinition(beanFactory);
+        addSingletonBean(beanFactory);
         beanFactoryMap.put(type,beanFactory);
         return this;
     }

@@ -87,7 +87,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
             ctx.channel().close().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
-                    logger.info("Closed client channel due to exception in processing");
+                    logger.debug("Closed client channel due to exception in processing");
                 }
             });
         }

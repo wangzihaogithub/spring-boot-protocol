@@ -8,7 +8,6 @@ import com.github.netty.springboot.EnableNettyRpcClients;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.NettyRpcClient;
 import com.github.netty.springboot.SpringUtil;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.BeanCreationException;
@@ -221,7 +220,7 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         if(SpringUtil.isSingletonBean(beanFactory, beanName) && !(bean instanceof NettyProperties)) {
             nettyPropertiesSupplier.get().getApplication()
-                    .addSingletonBeanDefinition(bean, beanName, false);
+                    .addSingletonBean(bean, beanName, false);
         }
         return bean;
     }

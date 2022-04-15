@@ -249,7 +249,63 @@ github地址 : https://github.com/wangzihaogithub
         
         2. 启动后,控制台已经看到http协议出现了,开启成功! 可以用浏览器打开或websocket服务了.  protocol = [http]
         10:10:26.026 [NettyX-Server-Boss-NIO-1-1] INFO com.github.netty.StartupServer - StartupServer@1 start (version = 2.2.3, port = 8080, pid = 6972, protocol = [http], os = windows 10) ...
+
+
+##### 示例2. 纯java版,不引入springboot, 使用nprc(rpc-message)模块
+
+        package com.github.netty.javanrpc.server;
     
+         // rpc server demo
+        public class RpcServerApplication {
+            
+            public static void main(String[] args) {
+                StartupServer server = new StartupServer(80);
+                server.addProtocol(newHttpProtocol());
+                server.addProtocol(newRpcMessageProtocol());
+                server.start();
+            }
+        
+            private static NRpcProtocol newRpcMessageProtocol() {
+                ApplicationX applicationX = new ApplicationX();
+                applicationX.scanner(true,"com.github.netty.javanrpc.server")
+                        .inject();
+                return new NRpcProtocol(applicationX);
+            }
+        
+            @ApplicationX.Component
+            @NRpcService(value = "/demo", version = "1.0.0")
+            public static class DemoService {
+                public Map hello(String name) {
+                    Map result = new LinkedHashMap();
+                    result.put("name", name);
+                    result.put("timestamp", System.currentTimeMillis());
+                    return result;
+                }
+            }
+        }
+        
+        
+        // rpc client demo
+        public class RpcClientApplication {
+        
+            public static void main(String[] args){
+                RpcClient rpcClient = new RpcClient("localhost", 80);
+                DemoClient demoClient = rpcClient.newInstance(DemoClient.class);
+                Map result = demoClient.hello("wang");
+        
+                System.out.println("result = " + result);
+            }
+        
+            @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
+            public interface DemoClient {
+                Map hello(@NRpcParam("name") String name);
+            }
+        }
+            
+        2. 启动后,控制台已经看到http协议出现了,开启成功! 可以运行客户端RpcClientApplication#main方法进行调用.  protocol = [nrpc]
+        10:10:26.026 [NettyX-Server-Boss-NIO-1-1] INFO com.github.netty.StartupServer - StartupServer@1 start (version = 2.2.5, port = 8080, pid = 6972, protocol = [http, nrpc], os = windows 10) ...
+
+
 ##### 示例3. Springboot版,开启MQTT-Broker模块(需要手工开启), 注! 本项目是MQTT-Broker, 不是MQTT生产者与消费者
         
         1. 引入依赖

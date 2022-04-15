@@ -68,7 +68,7 @@ public class DefaultServlet extends HttpServlet {
             if (homePage != null) {
                 sendFile(request, response, homePage, "text/html");
             } else {
-                sendNotFound(request, response);
+                sendDir(request, response, resource, requestURI);
             }
         }
     }
@@ -101,6 +101,11 @@ public class DefaultServlet extends HttpServlet {
 
     protected void sendNotFound(HttpServletRequest request, HttpServletResponse response) throws IOException {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
+    }
+
+    protected void sendDir(HttpServletRequest request, HttpServletResponse response, File dir, String requestDir) throws IOException {
+        // security hidden dir. send not found file.
+        sendNotFound(request, response);
     }
 
     protected void sendFile(HttpServletRequest request, HttpServletResponse response, File file, String contentType) throws IOException {

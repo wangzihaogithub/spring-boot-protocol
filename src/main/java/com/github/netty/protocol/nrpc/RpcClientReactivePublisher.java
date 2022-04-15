@@ -65,13 +65,12 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
 
             rpcContext.setResult(result);
             rpcClient.onStateUpdate(rpcContext,READ_FINISH);
-
             subscriber.onNext(result);
-            subscriber.onComplete();
         }catch (Throwable t){
             rpcContext.setThrowable(t);
             subscriber.onError(t);
         }finally {
+            subscriber.onComplete();
             try {
                 for (RpcClientAop aop : rpcClient.getAopList()) {
                     aop.onResponseAfter(rpcContext);
@@ -97,6 +96,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
                     rpcContext.setThrowable(timeoutException);
                     subscriber.onError(timeoutException);
                 }finally {
+                    subscriber.onComplete();
                     try {
                         for (RpcClientAop aop : rpcClient.getAopList()) {
                             aop.onTimeout(rpcContext);

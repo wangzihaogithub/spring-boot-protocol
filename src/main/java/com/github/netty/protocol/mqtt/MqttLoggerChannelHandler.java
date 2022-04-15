@@ -56,7 +56,7 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         String clientID = MqttUtil.clientID(ctx.channel());
         if (clientID != null && !clientID.isEmpty()) {
-            logger.info("Channel closed <{}>", clientID);
+            logger.debug("Channel closed <{}>", clientID);
         }
         ctx.fireChannelInactive();
     }
@@ -75,16 +75,16 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
                 break;
             case CONNECT:
             case DISCONNECT:
-                logger.info("{} {} <{}>", direction, messageType, clientID);
+                logger.debug("{} {} <{}>", direction, messageType, clientID);
                 break;
             case SUBSCRIBE:
                 MqttSubscribeMessage subscribe = (MqttSubscribeMessage) msg;
-                logger.info("{} SUBSCRIBE <{}> to topics {}", direction, clientID,
+                logger.debug("{} SUBSCRIBE <{}> to topics {}", direction, clientID,
                     subscribe.payload().topicSubscriptions());
                 break;
             case UNSUBSCRIBE:
                 MqttUnsubscribeMessage unsubscribe = (MqttUnsubscribeMessage) msg;
-                logger.info("{} UNSUBSCRIBE <{}> to topics <{}>", direction, clientID, unsubscribe.payload().topics());
+                logger.debug("{} UNSUBSCRIBE <{}> to topics <{}>", direction, clientID, unsubscribe.payload().topics());
                 break;
             case PUBLISH:
                 MqttPublishMessage publish = (MqttPublishMessage) msg;
@@ -95,12 +95,12 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
             case PUBREL:
             case PUBACK:
             case UNSUBACK:
-                logger.info("{} {} <{}> packetID <{}>", direction, messageType, clientID, MqttUtil.messageId(msg));
+                logger.debug("{} {} <{}> packetID <{}>", direction, messageType, clientID, MqttUtil.messageId(msg));
                 break;
             case SUBACK:
                 MqttSubAckMessage suback = (MqttSubAckMessage) msg;
                 final List<Integer> grantedQoSLevels = suback.payload().grantedQoSLevels();
-                logger.info("{} SUBACK <{}> packetID <{}>, grantedQoses {}", direction, clientID, MqttUtil.messageId(msg),
+                logger.debug("{} SUBACK <{}> packetID <{}>, grantedQoses {}", direction, clientID, MqttUtil.messageId(msg),
                     grantedQoSLevels);
                 break;
             default:

@@ -376,7 +376,7 @@ public class RpcClient extends AbstractNettyClient {
             }
         }
         if (yieldCount != 0 && enableRpcHeartLog) {
-            logger.info("RpcClient waitWritable... yieldCount={}", yieldCount);
+            logger.debug("RpcClient waitWritable... yieldCount={}", yieldCount);
         }
         return socketChannel;
     }
@@ -422,7 +422,7 @@ public class RpcClient extends AbstractNettyClient {
                 Thread.yield();
             }
             if (enableRpcHeartLog) {
-                logger.info("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+                logger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
             }
             return super.getChannel();
         }
@@ -465,11 +465,11 @@ public class RpcClient extends AbstractNettyClient {
     protected void connectAfter(ChannelFuture future) {
         if (future.isSuccess()) {
             if (enableRpcHeartLog) {
-                logger.info("RpcClient connect success... {}", future.channel());
+                logger.debug("RpcClient connect success... {}", future.channel());
             }
         } else {
             if (enableRpcHeartLog) {
-                logger.info("RpcClient connect fail... {}", future.channel());
+                logger.debug("RpcClient connect fail... {}", future.channel());
             }
         }
     }
@@ -824,7 +824,7 @@ public class RpcClient extends AbstractNettyClient {
                     state = State.UP;
                 }
                 if (enableRpcHeartLog) {
-                    logger.info("RpcClient heart UP by readerIdle {}...{}", new String(bytes), RpcClient.super.getChannel());
+                    logger.debug("RpcClient heart UP by readerIdle {}...{}", new String(bytes), RpcClient.super.getChannel());
                 }
             }
 
@@ -838,7 +838,7 @@ public class RpcClient extends AbstractNettyClient {
                     channel.close();
                 }
                 if (enableRpcHeartLog) {
-                    logger.info("RpcClient heart DOWN by readerIdle ...{} {}", RpcClient.super.getChannel(), t.toString());
+                    logger.debug("RpcClient heart DOWN by readerIdle ...{} {}", RpcClient.super.getChannel(), t.toString());
                 }
             }
 

@@ -59,7 +59,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
         if(SpringUtil.isSingletonBean(beanFactory, beanName)) {
-            application.addSingletonBeanDefinition(bean, beanName, false);
+            application.addSingletonBean(bean, beanName, false);
         }
         if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
             this.webServerFactory = (AbstractServletWebServerFactory) bean;
@@ -72,7 +72,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         super.onServerStart(server);
 
         ServletContext servletContext = getServletContext();
-        application.addSingletonBeanDefinition(servletContext);
+        application.addSingletonBean(servletContext);
 
         if(webServerFactory != null) {
             try {

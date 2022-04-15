@@ -64,11 +64,11 @@
 //            rpcClient.onStateUpdate(rpcContext);
 //
 //            subscriber.onNext(result);
-//            subscriber.onComplete();
 //        }catch (Throwable t){
 //            rpcContext.setThrowable(t);
 //            subscriber.onError(t);
 //        }finally {
+//            subscriber.onComplete();
 //            try {
 //                for (RpcClientAop aop : rpcClient.getAopList()) {
 //                    aop.onResponseAfter(rpcContext);

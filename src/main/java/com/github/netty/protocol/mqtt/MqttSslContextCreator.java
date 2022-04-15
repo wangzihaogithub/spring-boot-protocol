@@ -49,7 +49,7 @@ public class MqttSslContextCreator {
     }
 
     public SslContext initSSLContext() {
-        logger.info("Checking SSL configuration properties...");
+        logger.debug("Checking SSL configuration properties...");
 
         final String keyPassword = props.getProperty(BrokerConstants.KEY_MANAGER_PASSWORD_PROPERTY_NAME);
         if (keyPassword == null || keyPassword.isEmpty()) {
@@ -80,7 +80,7 @@ public class MqttSslContextCreator {
             }
             contextBuilder.sslProvider(sslProvider);
             SslContext sslContext = contextBuilder.build();
-            logger.info("The SSL context has been initialized successfully.");
+            logger.debug("The SSL context has been initialized successfully.");
             return sslContext;
         } catch (GeneralSecurityException | IOException ex) {
             logger.error("Unable to initialize SSL context.", ex);
@@ -90,7 +90,7 @@ public class MqttSslContextCreator {
 
     private KeyStore loadKeyStore() throws IOException, GeneralSecurityException {
         final String jksPath = props.getProperty(BrokerConstants.JKS_PATH_PROPERTY_NAME);
-        logger.info("Initializing SSL context. KeystorePath = {}.", jksPath);
+        logger.debug("Initializing SSL context. KeystorePath = {}.", jksPath);
         if (jksPath == null || jksPath.isEmpty()) {
             logger.warn("The keystore path is null or empty. The SSL context won't be initialized.");
             return null;
@@ -102,7 +102,7 @@ public class MqttSslContextCreator {
         }
         String ksType = props.getProperty(BrokerConstants.KEY_STORE_TYPE, "jks");
         final KeyStore keyStore = KeyStore.getInstance(ksType);
-        logger.info("Loading keystore. KeystorePath = {}.", jksPath);
+        logger.debug("Loading keystore. KeystorePath = {}.", jksPath);
         try (InputStream jksInputStream = jksDatastore(jksPath)) {
             keyStore.load(jksInputStream, keyStorePassword.toCharArray());
         }
@@ -111,10 +111,10 @@ public class MqttSslContextCreator {
 
     private SslContextBuilder builderWithJdkProvider(KeyStore ks, String keyPassword)
             throws GeneralSecurityException {
-        logger.info("Initializing key manager...");
+        logger.debug("Initializing key manager...");
         final KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, keyPassword.toCharArray());
-        logger.info("Initializing SSL context...");
+        logger.debug("Initializing SSL context...");
         return SslContextBuilder.forServer(kmf);
     }
 
@@ -161,13 +161,13 @@ public class MqttSslContextCreator {
     private InputStream jksDatastore(String jksPath) throws FileNotFoundException {
         URL jksUrl = getClass().getClassLoader().getResource(jksPath);
         if (jksUrl != null) {
-            logger.info("Starting with jks at {}, jks normal {}", jksUrl.toExternalForm(), jksUrl);
+            logger.debug("Starting with jks at {}, jks normal {}", jksUrl.toExternalForm(), jksUrl);
             return getClass().getClassLoader().getResourceAsStream(jksPath);
         }
         logger.warn("No keystore has been found in the bundled resources. Scanning filesystem...");
         File jksFile = new File(jksPath);
         if (jksFile.exists()) {
-            logger.info("Loading external keystore. Url = {}.", jksFile.getAbsolutePath());
+            logger.debug("Loading external keystore. Url = {}.", jksFile.getAbsolutePath());
             return new FileInputStream(jksFile);
         }
         throw new FileNotFoundException("The keystore file does not exist. Url = " + jksFile.getAbsolutePath());

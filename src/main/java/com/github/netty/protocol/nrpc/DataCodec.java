@@ -73,9 +73,9 @@ public interface DataCodec {
          */
         BINARY((byte) 0),
         /**
-         * json data encode
+         * app data encode
          */
-        JSON((byte) 1);
+        APP((byte) 1);
 
         private int code;
 
