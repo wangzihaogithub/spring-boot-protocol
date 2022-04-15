@@ -151,7 +151,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
         if(isComplete()){
-
+            return;
         }
         status.set(STATUS_DISPATCH);
         String contextPath = context.getContextPath();
