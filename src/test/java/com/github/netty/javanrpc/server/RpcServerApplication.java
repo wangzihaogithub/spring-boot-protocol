@@ -42,6 +42,7 @@ public class RpcServerApplication {
             Map result = new LinkedHashMap();
             result.put("name", name);
             result.put("timestamp", System.currentTimeMillis());
+            System.out.println("result = " + result);
             return result;
         }
     }

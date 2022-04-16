@@ -290,15 +290,34 @@ github地址 : https://github.com/wangzihaogithub
         
             public static void main(String[] args){
                 RpcClient rpcClient = new RpcClient("localhost", 80);
+                
                 DemoClient demoClient = rpcClient.newInstance(DemoClient.class);
+                DemoMessageClient demoMessageClient = rpcClient.newInstance(DemoMessageClient.class);
+                DemoAsyncClient demoAsyncClient = rpcClient.newInstance(DemoAsyncClient.class);
+                
                 Map result = demoClient.hello("wang");
-        
                 System.out.println("result = " + result);
+                demoAsyncClient.hello("wang").whenComplete((data, exception) -> {
+                    System.out.println("data = " + data);
+                    System.out.println("exception = " + exception);
+                });
+                // ...
             }
         
             @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
             public interface DemoClient {
                 Map hello(@NRpcParam("name") String name);
+            }
+            
+            @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
+            public interface DemoAsyncClient {
+                CompletableFuture<Map> hello(@NRpcParam("name") String name);
+            }
+         
+            @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
+            public interface DemoMessageClient {
+                // void is only send a message. not need to wait peer server for a reply
+                void hello(@NRpcParam("name") String name);
             }
         }
             
