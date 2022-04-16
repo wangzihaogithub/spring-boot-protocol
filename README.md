@@ -232,7 +232,7 @@ github地址 : https://github.com/wangzihaogithub
         
 ##### 示例2. 纯java版,不引入springboot, 使用HTTP模块
 
-        1. 引入http依赖
+        1. 引入依赖
         
         <!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol -->
         <dependency>
@@ -264,7 +264,7 @@ github地址 : https://github.com/wangzihaogithub
 
 ##### 示例2. 纯java版,不引入springboot, 使用nprc(rpc-message)模块
 
-        1. 引入http依赖(需要大于2.2.6版本)
+        1. 引入依赖(需要大于2.2.6版本)
         
         <!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol -->
         <dependency>
