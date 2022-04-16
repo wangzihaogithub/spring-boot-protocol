@@ -1,7 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -12,7 +11,7 @@ import java.util.function.Consumer;
  * @author wangzihao
  */
 public interface DataCodec {
-    Charset CHARSET_UTF8 = StandardCharsets.UTF_8;
+    Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
     /**
      * Request data - encoding
@@ -24,13 +23,22 @@ public interface DataCodec {
     byte[] encodeRequestData(Object[] data, RpcMethod<RpcClient> rpcMethod);
 
     /**
-     * Response data - decoding
+     * Response last data - decoding
      *
      * @param data      data
      * @param rpcMethod rpcMethod
      * @return Object
      */
     Object decodeResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod);
+
+    /**
+     * Response chunk data - decoding
+     *
+     * @param data      data
+     * @param rpcMethod rpcMethod
+     * @return Object
+     */
+    Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod);
 
     /**
      * Response data - encoding

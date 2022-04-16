@@ -4,9 +4,8 @@ import com.github.netty.protocol.mysql.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.DecoderException;
-import io.netty.handler.codec.TooLongFrameException;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -60,7 +59,7 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 			}
 
 			if (capabilities.contains(CapabilityFlags.CLIENT_PLUGIN_AUTH)) {
-				response.authPluginName(CodecUtils.readNullTerminatedString(packet, StandardCharsets.UTF_8));
+				response.authPluginName(CodecUtils.readNullTerminatedString(packet, Charset.forName("UTF-8")));
 			}
 
 			if (capabilities.contains(CapabilityFlags.CLIENT_CONNECT_ATTRS)) {
@@ -69,8 +68,8 @@ public class ClientConnectionDecoder extends AbstractPacketDecoder implements Cl
 				long endIndex = readIndex + keyValueLen;
 				while (packet.readerIndex() < endIndex) {
 					response.addAttribute(
-							CodecUtils.readLengthEncodedString(packet, StandardCharsets.UTF_8),
-							CodecUtils.readLengthEncodedString(packet, StandardCharsets.UTF_8));
+							CodecUtils.readLengthEncodedString(packet, Charset.forName("UTF-8")),
+							CodecUtils.readLengthEncodedString(packet, Charset.forName("UTF-8")));
 				}
 			}
 		}

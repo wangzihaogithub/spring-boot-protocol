@@ -7,7 +7,6 @@ import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
-import com.github.netty.protocol.nrpc.codec.FastJsonDataCodec;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
@@ -153,9 +152,9 @@ public class RpcClient extends AbstractNettyClient {
         return nettyRpcClientAopList;
     }
 
-    public void onStateUpdate(RpcContext<RpcClient> rpcContext, RpcContext.State toState) {
-        RpcContext.State formState = rpcContext.getState();
-        if (formState != null && formState.isStop()) {
+    public void onStateUpdate(RpcContext<RpcClient> rpcContext, com.github.netty.protocol.nrpc.State toState) {
+        com.github.netty.protocol.nrpc.State formState = rpcContext.getState();
+        if (formState != null && formState.isComplete()) {
             return;
         }
         rpcContext.setState(toState);
@@ -781,6 +780,9 @@ public class RpcClient extends AbstractNettyClient {
                 }
                 try {
                     boolean isTimeout = rpcContext.getState() == TIMEOUT;
+                    if (!isTimeout) {
+                        rpcClient.onStateUpdate(rpcContext, END);
+                    }
                     for (RpcClientAop aop : rpcClient.nettyRpcClientAopList) {
                         if (isTimeout) {
                             aop.onTimeout(rpcContext);
@@ -853,13 +855,17 @@ public class RpcClient extends AbstractNettyClient {
 
         @Override
         protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
-            if (packet instanceof ResponsePacket) {
-                ResponsePacket rpcResponse = (ResponsePacket) packet;
-
-                RpcDone rpcDone = rpcDoneMap.remove(rpcResponse.getRequestId());
+            if (packet instanceof ResponseChunkPacket) {
+                ResponseChunkPacket chunk = (ResponseChunkPacket) packet;
+                RpcDone rpcDone = rpcDoneMap.get(chunk.getRequestId());
                 if (rpcDone != null) {
-                    //Handed over to the thread that sent the message
-                    rpcDone.done(rpcResponse);
+                    rpcDone.chunk(chunk);
+                }
+            } else if (packet instanceof ResponseLastPacket) {
+                ResponseLastPacket last = (ResponseLastPacket) packet;
+                RpcDone rpcDone = rpcDoneMap.remove(last.getRequestId());
+                if (rpcDone != null) {
+                    rpcDone.done(last);
                 }
             } else {
                 logger.debug("client received packet={}", String.valueOf(packet));

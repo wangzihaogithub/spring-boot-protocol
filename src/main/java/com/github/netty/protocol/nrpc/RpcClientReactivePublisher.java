@@ -18,10 +18,11 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
 
 /**
  * async response.
+ *
  * @author wangzihao
- *  2019/11/3/019
+ * 2019/11/3/019
  */
-public class RpcClientReactivePublisher implements Publisher<Object>,Subscription,RpcDone {
+public class RpcClientReactivePublisher implements Publisher<Object>, Subscription, RpcDone {
     private long currentRequestCount;
     private volatile boolean cancelFlag = false;
     private volatile Subscriber<? super Object> subscriber;
@@ -31,8 +32,9 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     private final String requestMappingName;
     private final String version;
     private int timeout;
+    private ChunkListener chunkListener;
 
-    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName,String version,int timeout) {
+    RpcClientReactivePublisher(RpcContext<RpcClient> rpcContext, String requestMappingName, String version, int timeout) {
         this.rpcContext = rpcContext;
         this.rpcClient = rpcContext.getRpcMethod().getInstance();
         this.dataCodec = rpcClient.getDataCodec();
@@ -42,8 +44,33 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     }
 
     @Override
-    public void done(RpcPacket.ResponsePacket rpcResponse) {
-        if(cancelFlag){
+    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse) {
+        if (cancelFlag || !rpcContext.getRpcMethod().isReturnChunkCompletionStageFlag()) {
+            RecyclableUtil.release(rpcResponse);
+            return;
+        }
+        ChunkListener chunkListener = this.chunkListener;
+        if (chunkListener != null) {
+            CONTEXT_LOCAL.set(rpcContext);
+            try {
+                Object result;
+                if (rpcResponse.getEncode() == BINARY) {
+                    result = rpcResponse.getData();
+                } else {
+                    result = dataCodec.decodeChunkResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
+                }
+                chunkListener.onChunk(result);
+                rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
+            } finally {
+                RecyclableUtil.release(rpcResponse);
+                CONTEXT_LOCAL.set(null);
+            }
+        }
+    }
+
+    @Override
+    public void done(RpcPacket.ResponseLastPacket rpcResponse) {
+        if (cancelFlag) {
             RecyclableUtil.release(rpcResponse);
             return;
         }
@@ -51,7 +78,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
         CONTEXT_LOCAL.set(rpcContext);
         try {
             rpcContext.setResponse(rpcResponse);
-            rpcClient.onStateUpdate(rpcContext,READ_ING);
+            rpcClient.onStateUpdate(rpcContext, READ_ING);
 
             handlerResponseIfNeedThrow(rpcResponse);
 
@@ -64,18 +91,19 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             }
 
             rpcContext.setResult(result);
-            rpcClient.onStateUpdate(rpcContext,READ_FINISH);
+            rpcClient.onStateUpdate(rpcContext, READ_FINISH);
             subscriber.onNext(result);
-        }catch (Throwable t){
+        } catch (Throwable t) {
             rpcContext.setThrowable(t);
             subscriber.onError(t);
-        }finally {
+        } finally {
             subscriber.onComplete();
+            rpcClient.onStateUpdate(rpcContext, END);
             try {
                 for (RpcClientAop aop : rpcClient.getAopList()) {
                     aop.onResponseAfter(rpcContext);
                 }
-            }finally {
+            } finally {
                 RecyclableUtil.release(rpcResponse);
                 CONTEXT_LOCAL.set(null);
             }
@@ -83,38 +111,38 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     }
 
     @Override
-    public void doneTimeout(int requestId,long createTimestamp, long expiryTimestamp) {
+    public void doneTimeout(int requestId, long createTimestamp, long expiryTimestamp) {
         rpcContext.setRpcEndTimestamp(expiryTimestamp);
-        RpcTimeoutException timeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + (expiryTimestamp - createTimestamp)+
-                "], timeout = ["+(System.currentTimeMillis() - createTimestamp) +"], [" + toString() + "]", true,
-                createTimestamp,expiryTimestamp);
+        RpcTimeoutException timeoutException = new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + (expiryTimestamp - createTimestamp) +
+                "], timeout = [" + (System.currentTimeMillis() - createTimestamp) + "], [" + toString() + "]", true,
+                createTimestamp, expiryTimestamp);
         rpcContext.getRpcMethod().getInstance().getWorker().execute(
-            () -> {
-                try {
-                    CONTEXT_LOCAL.set(rpcContext);
-                    rpcClient.onStateUpdate(rpcContext,TIMEOUT);
-                    rpcContext.setThrowable(timeoutException);
-                    subscriber.onError(timeoutException);
-                }finally {
-                    subscriber.onComplete();
+                () -> {
                     try {
-                        for (RpcClientAop aop : rpcClient.getAopList()) {
-                            aop.onTimeout(rpcContext);
-                        }
+                        CONTEXT_LOCAL.set(rpcContext);
+                        rpcClient.onStateUpdate(rpcContext, TIMEOUT);
+                        rpcContext.setThrowable(timeoutException);
+                        subscriber.onError(timeoutException);
                     } finally {
-                        CONTEXT_LOCAL.set(null);
+                        subscriber.onComplete();
+                        try {
+                            for (RpcClientAop aop : rpcClient.getAopList()) {
+                                aop.onTimeout(rpcContext);
+                            }
+                        } finally {
+                            CONTEXT_LOCAL.set(null);
+                        }
                     }
                 }
-            }
         );
     }
 
     @Override
     public void request(long n) {
-        if(n <= 0){
+        if (n <= 0) {
             throw new IllegalArgumentException("non-positive request");
         }
-        if(cancelFlag){
+        if (cancelFlag) {
             return;
         }
         rpcContext.setRpcBeginTimestamp(System.currentTimeMillis());
@@ -137,36 +165,36 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
             rpcRequest.setTimeout(timeout);
             rpcContext.setRequest(rpcRequest);
             rpcContext.setTimeout(timeout);
-            rpcClient.onStateUpdate(rpcContext,INIT);
+            rpcClient.onStateUpdate(rpcContext, INIT);
 
             rpcRequest.setData(dataCodec.encodeRequestData(rpcContext.getArgs(), rpcContext.getRpcMethod()));
-            rpcClient.onStateUpdate(rpcContext,WRITE_ING);
+            rpcClient.onStateUpdate(rpcContext, WRITE_ING);
 
             rpcRequest.setTimeout(timeout);
             ChannelFuture writeAndFlushFuture = channel.writeAndFlush(rpcRequest);
-            rpcClient.rpcDoneMap.put(requestId, this,timeout);
+            rpcClient.rpcDoneMap.put(requestId, this, timeout);
             writeAndFlushFuture.addListener((ChannelFutureListener) future -> {
                 CONTEXT_LOCAL.set(rpcContext);
                 try {
                     if (future.isSuccess()) {
-                        rpcClient.onStateUpdate(rpcContext,WRITE_FINISH);
-                    }else {
+                        rpcClient.onStateUpdate(rpcContext, WRITE_FINISH);
+                    } else {
                         Throwable throwable = future.cause();
                         future.channel().close().addListener(f -> rpcClient.connect());
-                        handlerRpcWriterException(new RpcWriteException("rpc write exception. "+throwable,throwable),requestId);
+                        handlerRpcWriterException(new RpcWriteException("rpc write exception. " + throwable, throwable), requestId);
                     }
                 } finally {
                     CONTEXT_LOCAL.set(null);
                 }
             });
-        }catch (RpcException rpcException){
-            handlerRpcWriterException(rpcException,requestId);
-        }finally {
+        } catch (RpcException rpcException) {
+            handlerRpcWriterException(rpcException, requestId);
+        } finally {
             CONTEXT_LOCAL.set(null);
         }
     }
 
-    private void handlerRpcWriterException(RpcException rpcException,int requestId){
+    private void handlerRpcWriterException(RpcException rpcException, int requestId) {
         rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
         rpcClient.rpcDoneMap.remove(requestId);
         rpcContext.setThrowable(rpcException);
@@ -181,10 +209,13 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     @Override
     public void subscribe(Subscriber<? super Object> subscriber) {
         this.subscriber = subscriber;
+        if (subscriber instanceof ChunkListener) {
+            this.chunkListener = (ChunkListener) subscriber;
+        }
         CONTEXT_LOCAL.set(rpcContext);
         try {
             subscriber.onSubscribe(this);
-        }finally {
+        } finally {
             CONTEXT_LOCAL.set(null);
         }
     }
@@ -196,8 +227,8 @@ public class RpcClientReactivePublisher implements Publisher<Object>,Subscriptio
     @Override
     public String toString() {
         RpcPacket.RequestPacket request = rpcContext.getRequest();
-        return "RpcClientReactivePublisher@"+super.hashCode()+"{state="+rpcContext.getState()+","
-                + requestMappingName +":"+ version + '/' + (request == null? "" : request.getMethodName())+"}";
+        return "RpcClientReactivePublisher@" + super.hashCode() + "{state=" + rpcContext.getState() + ","
+                + requestMappingName + ":" + version + '/' + (request == null ? "" : request.getMethodName()) + "}";
     }
 
     public boolean isCancel() {

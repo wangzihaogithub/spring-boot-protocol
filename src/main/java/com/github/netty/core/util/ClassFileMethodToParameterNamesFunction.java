@@ -2,6 +2,7 @@ package com.github.netty.core.util;
 
 import java.io.IOException;
 import java.lang.instrument.IllegalClassFormatException;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class ClassFileMethodToParameterNamesFunction implements Function<Method, String[]> {
+    private static LoggerX logger = LoggerFactoryX.getLogger(ClassFileMethodToParameterNamesFunction.class);
     private static final String[] EMPTY = {};
     private final Map<Class<?>, Map<java.lang.reflect.Member, String[]>> parameterNamesCache = new ConcurrentReferenceHashMap<>(
             16, ConcurrentReferenceHashMap.ReferenceType.WEAK);
@@ -23,7 +25,13 @@ public class ClassFileMethodToParameterNamesFunction implements Function<Method,
             JavaClassFile javaClassFile = new JavaClassFile(clazz);
             Map<java.lang.reflect.Member, String[]> result = new HashMap<>(6);
             for (JavaClassFile.Member member : javaClassFile.getMethods()) {
-                result.put(member.toJavaMember(), member.getParameterNames());
+                try {
+                    Member javaMember = member.toJavaMember();
+                    String[] parameterNames = member.getParameterNames();
+                    result.put(javaMember, parameterNames);
+                } catch (Exception e) {
+                    logger.warn("readParameterNameMap member = {}, error = {}", member, e.toString());
+                }
             }
             return result;
         } catch (ClassNotFoundException | IOException | IllegalClassFormatException e) {

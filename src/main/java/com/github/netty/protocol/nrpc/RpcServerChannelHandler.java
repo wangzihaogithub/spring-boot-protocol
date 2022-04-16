@@ -5,7 +5,6 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
-import com.github.netty.protocol.nrpc.codec.FastJsonDataCodec;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -15,6 +14,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -24,7 +24,7 @@ import java.util.function.Supplier;
 
 import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
-import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.NO_SUCH_METHOD;
+import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.*;
 import static com.github.netty.protocol.nrpc.RpcServerAop.CONTEXT_LOCAL;
 
 /**
@@ -34,6 +34,8 @@ import static com.github.netty.protocol.nrpc.RpcServerAop.CONTEXT_LOCAL;
  * 2018/9/16/016
  */
 public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, Object> {
+    private static final LoggerX logger = LoggerFactoryX.getLogger(RpcServerChannelHandler.class);
+
     protected final ExpiryLRUMap<RpcRunnable, RpcRunnable> rpcDoneMap = new ExpiryLRUMap<>(512, Long.MAX_VALUE, Long.MAX_VALUE, null);
     private final Map<String, RpcServerInstance> serviceInstanceMap = new ConcurrentHashMap<>(8);
     private final List<RpcServerAop> nettyRpcServerAopList = new CopyOnWriteArrayList<>();
@@ -190,7 +192,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                     RpcServerInstance rpcInstance = serviceInstanceMap.get(serverInstanceKey);
                     if (rpcInstance == null) {
                         if (request.getAck() == ACK_YES) {
-                            ResponsePacket response = ResponsePacket.newInstance();
+                            ResponseLastPacket response = ResponsePacket.newLastPacket();
                             rpcContext.setResponse(response);
                             boolean release = true;
                             try {
@@ -209,7 +211,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                     } else {
                         RpcMethod<RpcServerInstance> rpcMethod = rpcInstance.getRpcMethod(request.getMethodName());
                         rpcContext.setRpcMethod(rpcMethod);
-                        ResponsePacket response = ResponsePacket.newInstance();
+                        ResponseLastPacket response = ResponsePacket.newLastPacket();
                         rpcContext.setResponse(response);
                         response.setRequestId(request.getRequestId());
                         // not found method
@@ -218,12 +220,12 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                             response.setStatus(NO_SUCH_METHOD);
                             response.setMessage("not found method [" + request.getMethodName() + "]");
                             response.setData(null);
-                            writeAndFlush(request.getAck(), response, rpcContext);
+                            writeAndFlush(request.getAck(), response, rpcContext, RpcContext.RpcState.WRITE_FINISH);
                         } else if (threadPool != null) {
                             // invoke method by async and call event
                             int timeout = choseTimeout(rpcInstance.getTimeout(), rpcMethod.getTimeout(), request.getTimeout());
                             rpcContext.setTimeout(timeout);
-                            RpcRunnable runnable = new RpcRunnable(threadPool, rpcMethod, timeout, response, request, this, rpcContext);
+                            RpcRunnable runnable = new RpcRunnable(threadPool, rpcMethod, timeout, response, request, dataCodec, this, rpcContext);
                             if (timeout > 0) {
                                 rpcDoneMap.put(runnable, runnable, timeout);
                             }
@@ -233,8 +235,14 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                         } else {
                             // invoke method by sync
                             CONTEXT_LOCAL.set(rpcContext);
-                            rpcInstance.invoke(rpcMethod, response, request, rpcContext, this);
-                            writeAndFlush(request.getAck(), response, rpcContext);
+                            Object result = null;
+                            Throwable throwable = null;
+                            try {
+                                result = rpcInstance.invoke(rpcMethod, request, rpcContext, this);
+                            } catch (Throwable t) {
+                                throwable = t;
+                            }
+                            async = handleInvokeResult(request, response, rpcContext, this, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH);
                         }
                     }
                 } finally {
@@ -262,6 +270,76 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 }
             }
         }
+    }
+
+    private static boolean handleInvokeResult(RequestPacket request, ResponseLastPacket lastResponse, RpcContext<RpcServerInstance> rpcContext, RpcServerChannelHandler channelHandler, RpcMethod<RpcServerInstance> rpcMethod, Object result, Throwable throwable, State state) {
+        if (result instanceof Throwable) {
+            result = result.toString();
+        }
+        rpcContext.setResult(result);
+
+        ResponsePacket response;
+        if (throwable != null) {
+            rpcContext.setThrowable(throwable);
+            String message = getMessage(throwable);
+            Throwable cause = getCause(throwable);
+            if (cause != null && cause != throwable) {
+                message = message + ". cause=" + getMessage(cause);
+            }
+            response = lastResponse;
+            response.setEncode(DataCodec.Encode.BINARY);
+            response.setData(null);
+            response.setStatus(SERVER_ERROR);
+            response.setMessage(message);
+            logger.error("invoke error = {}", throwable.toString(), throwable);
+        } else if (result instanceof Emitter) {
+            Emitter<?, ?> emitter = (Emitter) result;
+            emitter.setSendHandler((result1, state1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, null, state1));
+            return true;
+        } else if (result instanceof CompletableFuture) {
+            ((CompletableFuture) result).whenComplete((result1, throwable1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, null, state));
+            return true;
+        } else if (result instanceof byte[]) {
+            if (state == RpcContext.RpcState.WRITE_CHUNK) {
+                response = ResponsePacket.newChunkPacket(lastResponse);
+            } else {
+                response = lastResponse;
+            }
+            response.setEncode(DataCodec.Encode.BINARY);
+            response.setData((byte[]) result);
+            response.setStatus(OK);
+            response.setMessage("ok");
+        } else {
+            if (state == RpcContext.RpcState.WRITE_CHUNK) {
+                response = ResponsePacket.newChunkPacket(lastResponse);
+            } else {
+                response = lastResponse;
+            }
+            response.setEncode(DataCodec.Encode.APP);
+            response.setData(channelHandler.dataCodec.encodeResponseData(result, rpcMethod));
+            response.setStatus(OK);
+            response.setMessage("ok");
+        }
+        channelHandler.writeAndFlush(request.getAck(), response, rpcContext, state);
+        return false;
+    }
+
+    private static Throwable getCause(Throwable throwable) {
+        if (throwable == null || throwable.getCause() == null) {
+            return null;
+        }
+        while (true) {
+            Throwable cause = throwable;
+            throwable = throwable.getCause();
+            if (throwable == null) {
+                return cause;
+            }
+        }
+    }
+
+    private static String getMessage(Throwable t) {
+        String message = t.getMessage();
+        return message == null ? t.toString() : message;
     }
 
     /**
@@ -298,21 +376,27 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         }
     }
 
-    private void writeAndFlush(int ack, ResponsePacket response, RpcContext<RpcServerInstance> rpcContext) {
+    private void writeAndFlush(int ack, ResponsePacket response, RpcContext<RpcServerInstance> rpcContext, State rpcState) {
         boolean release = true;
         try {
             if (ack == ACK_YES) {
                 context.writeAndFlush(response)
                         .addListener((ChannelFutureListener) future -> {
                             if (future.isSuccess()) {
-                                onStateUpdate(rpcContext, RpcContext.RpcState.WRITE_FINISH);
+                                onStateUpdate(rpcContext, rpcState);
+                                if (rpcState == RpcContext.RpcState.WRITE_FINISH) {
+                                    onStateUpdate(rpcContext, RpcContext.RpcState.END);
+                                }
                             } else {
                                 future.channel().close();
                             }
                         });
                 release = false;
             } else {
-                onStateUpdate(rpcContext, RpcContext.RpcState.WRITE_FINISH);
+                onStateUpdate(rpcContext, rpcState);
+                if (rpcState == RpcContext.RpcState.WRITE_FINISH) {
+                    onStateUpdate(rpcContext, RpcContext.RpcState.END);
+                }
             }
         } finally {
             if (release) {
@@ -321,9 +405,9 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         }
     }
 
-    public void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, RpcContext.State toState) {
-        RpcContext.State formState = rpcContext.getState();
-        if (formState != null && formState.isStop()) {
+    public void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, State toState) {
+        State formState = rpcContext.getState();
+        if (formState != null && formState.isComplete()) {
             return;
         }
         rpcContext.setState(toState);
@@ -426,7 +510,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         RpcMethod<RpcServerInstance> rpcMethod;
         RpcServerChannelHandler channelHandler;
         RequestPacket request;
-        ResponsePacket response;
+        ResponseLastPacket response;
+        DataCodec dataCodec;
         RpcContext<RpcServerInstance> rpcContext;
         int interruptCount = 0;
         Thread taskThread;
@@ -437,13 +522,16 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
         RpcRunnable(Executor executor, RpcMethod<RpcServerInstance> rpcMethod,
                     int timeout,
-                    ResponsePacket response, RequestPacket request, RpcServerChannelHandler channelHandler, RpcContext<RpcServerInstance> rpcContext) {
+                    ResponseLastPacket response, RequestPacket request,
+                    DataCodec dataCodec,
+                    RpcServerChannelHandler channelHandler, RpcContext<RpcServerInstance> rpcContext) {
             this.executor = executor;
             this.rpcMethod = rpcMethod;
             this.timeout = timeout;
             this.response = response;
             this.timeoutInterrupt = rpcMethod.isTimeoutInterrupt();
             this.channelHandler = channelHandler;
+            this.dataCodec = dataCodec;
             this.request = request;
             this.rpcContext = rpcContext;
         }
@@ -472,19 +560,21 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         public void run() {
             taskThread = Thread.currentThread();
             CONTEXT_LOCAL.set(rpcContext);
+            Object result = null;
+            Throwable throwable = null;
             try {
-                rpcMethod.getInstance().invoke(rpcMethod, response, request, rpcContext, channelHandler);
-                done = true;
-                channelHandler.writeAndFlush(request.getAck(), response, rpcContext);
+                result = rpcMethod.getInstance().invoke(rpcMethod, request, rpcContext, channelHandler);
+            } catch (Throwable t) {
+                throwable = t;
+            }
+            done = true;
+            handleInvokeResult(request, response, rpcContext, channelHandler, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH);
+            rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
+            try {
+                channelHandler.onResponseAfter(rpcContext);
             } finally {
-                done = true;
-                rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
-                try {
-                    channelHandler.onResponseAfter(rpcContext);
-                } finally {
-                    request.recycle();
-                    CONTEXT_LOCAL.remove();
-                }
+                request.recycle();
+                CONTEXT_LOCAL.remove();
             }
         }
     }

@@ -2,6 +2,7 @@ package com.github.netty.nrpc.client.example;
 
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcContext;
+import com.github.netty.protocol.nrpc.State;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -44,7 +45,7 @@ public class HelloRpcClientAop implements com.github.netty.protocol.nrpc.RpcClie
     }
 
     @Override
-    public void onStateUpdate(RpcContext<RpcClient> rpcContext, RpcContext.State formState, RpcContext.State toState) {
+    public void onStateUpdate(RpcContext<RpcClient> rpcContext, State formState, State toState) {
 
     }
 }

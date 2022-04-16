@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 
 /**
  * rpc context
+ *
  * @author wangzihao
  */
 public class RpcContext<INSTANCE> implements Recyclable {
@@ -118,7 +119,7 @@ public class RpcContext<INSTANCE> implements Recyclable {
         this.rpcMethod = rpcMethod;
     }
 
-    public boolean isInnerMethod(){
+    public boolean isInnerMethod() {
         return rpcMethod.isInnerMethodFlag();
     }
 
@@ -138,32 +139,34 @@ public class RpcContext<INSTANCE> implements Recyclable {
     @Override
     public String toString() {
         return "RpcContext{" +
-                "requestId=" + (request == null? null:request.getRequestId()) +
+                "requestId=" + (request == null ? null : request.getRequestId()) +
                 ", state=" + state +
                 '}';
     }
 
-    public interface State{
-        String name();
-        boolean isStop();
-    }
-
-    public enum RpcState implements State{
+    public enum RpcState implements State {
         INIT(false),
+
         WRITE_ING(false),
+        WRITE_CHUNK(false),
         WRITE_FINISH(false),
+
         READ_ING(false),
+        READ_CHUNK(false),
         READ_FINISH(false),
-        TIMEOUT(true)
-        ;
-        private final boolean stop;
-        RpcState(boolean stop) {
-            this.stop = stop;
+
+        END(true),
+        TIMEOUT(true);
+
+        private final boolean complete;
+
+        RpcState(boolean complete) {
+            this.complete = complete;
         }
 
         @Override
-        public boolean isStop() {
-            return stop;
+        public boolean isComplete() {
+            return complete;
         }
     }
 

@@ -5,6 +5,7 @@ import com.github.netty.protocol.NRpcProtocol;
 import com.github.netty.protocol.nrpc.RpcContext;
 import com.github.netty.protocol.nrpc.RpcServerChannelHandler;
 import com.github.netty.protocol.nrpc.RpcServerInstance;
+import com.github.netty.protocol.nrpc.State;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -47,7 +48,7 @@ public class RpcServerAop implements com.github.netty.protocol.nrpc.RpcServerAop
     }
 
     @Override
-    public void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, RpcContext.State formState, RpcContext.State toState) {
+    public void onStateUpdate(RpcContext<RpcServerInstance> rpcContext, State formState, State toState) {
         LoggerFactoryX.getLogger(getClass()).info("requestId = {}, form = {}, to = {}",rpcContext.getRequest().getRequestId(),formState,toState);
     }
 }

@@ -6,7 +6,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 
 import static com.github.netty.core.util.IOUtil.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
@@ -37,7 +37,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
      * Fixed 8 length
      */
     public static final byte[] PROTOCOL_HEADER = RpcVersion.CURRENT_VERSION.getTextBytes();
-    public static final Charset RPC_CHARSET = StandardCharsets.UTF_8;
+    public static final Charset RPC_CHARSET = Charset.forName("UTF-8");
     /**
      * Fixed request length (note : Not including the total length.)
      * (Request ID)4B + (timeout/ms)4B + (service name length)1B + (service version length)1B + (method length)1B + (data length)4B
@@ -61,7 +61,8 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
                     encodePacket((RequestPacket) packet, out);
                     break;
                 }
-                case TYPE_RESPONSE: {
+                case TYPE_RESPONSE_CHUNK:
+                case TYPE_RESPONSE_LAST: {
                     encodePacket((ResponsePacket) packet, out);
                     break;
                 }
@@ -159,7 +160,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.writeBytes(PROTOCOL_HEADER);
 
         //(1 byte Unsigned) RPC packet type
-        out.writeByte(RpcPacket.TYPE_RESPONSE);
+        out.writeByte(packet.getPacketType());
 
         //(1 byte Unsigned) RPC packet ack
         out.writeByte(packet.getAck());

@@ -23,12 +23,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.ParseException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Parses the acl configuration file. If a line starts with # it's comment. Blank lines are skipped.
@@ -60,7 +59,7 @@ public final class ACLFileParser {
             return AuthorizationsCollector.emptyImmutableCollector();
         }
         try {
-            Reader reader = Files.newBufferedReader(file.toPath(), UTF_8);
+            Reader reader = Files.newBufferedReader(file.toPath(), Charset.forName("UTF-8"));
             return parse(reader);
         } catch (IOException fex) {
             LOG.warn(

@@ -113,8 +113,9 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
                 }
                 return packet;
             }
-            case RpcPacket.TYPE_RESPONSE:{
-                ResponsePacket packet = ResponsePacket.newInstance();
+            case RpcPacket.TYPE_RESPONSE_CHUNK:
+            case RpcPacket.TYPE_RESPONSE_LAST:{
+                ResponsePacket packet = ResponsePacket.newInstance(rpcType);
                 packet.setPacketLength(totalPacketLength);
                 //Ack
                 packet.setAck(ack);

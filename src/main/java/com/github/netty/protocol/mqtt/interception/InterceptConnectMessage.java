@@ -18,7 +18,7 @@ package com.github.netty.protocol.mqtt.interception;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 
 public class InterceptConnectMessage extends InterceptAbstractMessage {
 
@@ -74,7 +74,7 @@ public class InterceptConnectMessage extends InterceptAbstractMessage {
     }
 
     public byte[] getPassword() {
-        return msg.payload().password().getBytes(StandardCharsets.UTF_8);
+        return msg.payload().passwordInBytes();
     }
 
     public String getWillTopic() {
@@ -82,6 +82,6 @@ public class InterceptConnectMessage extends InterceptAbstractMessage {
     }
 
     public byte[] getWillMessage() {
-        return msg.payload().willMessage().getBytes(StandardCharsets.UTF_8);
+        return msg.payload().willMessageInBytes();
     }
 }

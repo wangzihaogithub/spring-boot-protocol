@@ -23,7 +23,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.text.ParseException;
 import java.util.Properties;
@@ -56,7 +56,7 @@ class ConfigurationParser {
             return;
         }
         try {
-            Reader reader = Files.newBufferedReader(file.toPath(), StandardCharsets.UTF_8);
+            Reader reader = Files.newBufferedReader(file.toPath(), Charset.forName("UTF-8"));
             parse(reader);
         } catch (IOException fex) {
             LOG.warn("parsing not existing file {}, fallback on default configuration!", file.getAbsolutePath(), fex);

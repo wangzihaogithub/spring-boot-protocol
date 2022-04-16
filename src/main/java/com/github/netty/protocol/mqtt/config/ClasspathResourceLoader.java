@@ -22,7 +22,7 @@ import com.github.netty.core.util.LoggerX;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 
 public class ClasspathResourceLoader implements IResourceLoader {
 
@@ -53,7 +53,7 @@ public class ClasspathResourceLoader implements IResourceLoader {
     public Reader loadResource(String relativePath) {
         LOG.info("Loading resource. RelativePath = {}.", relativePath);
         InputStream is = this.classLoader.getResourceAsStream(relativePath);
-        return is != null ? new InputStreamReader(is, StandardCharsets.UTF_8) : null;
+        return is != null ? new InputStreamReader(is, Charset.forName("UTF-8")) : null;
     }
 
     @Override

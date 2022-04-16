@@ -21,8 +21,6 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.SERVER_ERR
  * @author wangzihao
  */
 public class RpcServerInstance {
-    private static final LoggerX logger = LoggerFactoryX.getLogger(RpcServerInstance.class);
-
     private Object instance;
     private Map<String, RpcMethod<RpcServerInstance>> rpcMethodMap;
     private DataCodec dataCodec;
@@ -112,9 +110,8 @@ public class RpcServerInstance {
         return methodToParameterNamesFunction;
     }
 
-    public void invoke(RpcMethod<RpcServerInstance> rpcMethod,
-                       ResponsePacket rpcResponse, RequestPacket rpcRequest,
-                       RpcContext<RpcServerInstance> rpcContext, RpcServerChannelHandler server) {
+    public Object invoke(RpcMethod<RpcServerInstance> rpcMethod, RequestPacket rpcRequest,
+                         RpcContext<RpcServerInstance> rpcContext, RpcServerChannelHandler server) throws Throwable {
         server.onStateUpdate(rpcContext, INIT);
         try {
             Object[] args = dataCodec.decodeRequestData(rpcRequest.getData(), rpcMethod);
@@ -123,44 +120,9 @@ public class RpcServerInstance {
 
             Object result = rpcMethod.invoke(instance, args);
             server.onStateUpdate(rpcContext, READ_FINISH);
-            rpcContext.setResult(result);
-            //Whether to code or not
-            if (result instanceof byte[]) {
-                rpcResponse.setEncode(DataCodec.Encode.BINARY);
-                rpcResponse.setData((byte[]) result);
-            } else {
-                rpcResponse.setEncode(DataCodec.Encode.APP);
-                rpcResponse.setData(dataCodec.encodeResponseData(result, rpcMethod));
-            }
-            rpcResponse.setStatus(OK);
-            rpcResponse.setMessage("ok");
-        } catch (Throwable t) {
-            rpcContext.setThrowable(t);
-            String message = getMessage(t);
-            Throwable cause = getCause(t);
-            if (cause != null) {
-                message = message + ". cause=" + getMessage(cause);
-            }
-            rpcResponse.setEncode(DataCodec.Encode.BINARY);
-            rpcResponse.setStatus(SERVER_ERROR);
-            rpcResponse.setMessage(message);
-            rpcResponse.setData(null);
-            logger.error("invoke error = {}", t.toString(), t);
+            return result;
         } finally {
             server.onStateUpdate(rpcContext, WRITE_ING);
-        }
-    }
-
-    private Throwable getCause(Throwable throwable) {
-        if (throwable.getCause() == null) {
-            return null;
-        }
-        while (true) {
-            Throwable cause = throwable;
-            throwable = throwable.getCause();
-            if (throwable == null) {
-                return cause;
-            }
         }
     }
 
@@ -170,11 +132,6 @@ public class RpcServerInstance {
 
     public void setDataCodec(DataCodec dataCodec) {
         this.dataCodec = dataCodec;
-    }
-
-    private String getMessage(Throwable t) {
-        String message = t.getMessage();
-        return message == null ? t.toString() : message;
     }
 
     public Object getInstance() {

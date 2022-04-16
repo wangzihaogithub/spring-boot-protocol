@@ -8,10 +8,16 @@ import com.github.netty.protocol.nrpc.exception.RpcResponseException;
  */
 public interface RpcDone {
     /**
+     * on chunk callback
+     * @param rpcResponse rpcResponse
+     */
+    void chunk(RpcPacket.ResponseChunkPacket rpcResponse);
+
+    /**
      * on done callback
      * @param rpcResponse rpcResponse
      */
-    void done(RpcPacket.ResponsePacket rpcResponse);
+    void done(RpcPacket.ResponseLastPacket rpcResponse);
 
     /**
      * on timeout

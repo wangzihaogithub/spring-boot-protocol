@@ -22,9 +22,8 @@ import com.github.netty.core.util.LoggerX;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class FileResourceLoader implements IResourceLoader {
 
@@ -71,7 +70,7 @@ public class FileResourceLoader implements IResourceLoader {
             throw new ResourceIsDirectoryException("File \"" + f + "\" is a directory!");
         }
         try {
-            return Files.newBufferedReader(f.toPath(), UTF_8);
+            return Files.newBufferedReader(f.toPath(), Charset.forName("UTF-8"));
         } catch (IOException e) {
             LOG.error("The file does not exist. Path = {}.", f.getAbsolutePath());
             return null;

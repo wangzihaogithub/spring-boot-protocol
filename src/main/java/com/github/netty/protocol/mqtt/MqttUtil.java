@@ -24,7 +24,7 @@ import io.netty.handler.codec.mqtt.MqttMessageIdVariableHeader;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.Map;
 
 /**
@@ -100,7 +100,7 @@ public final class MqttUtil {
         } else {
             bytesContent = copy.array();
         }
-        return new String(bytesContent, StandardCharsets.UTF_8);
+        return new String(bytesContent, Charset.forName("UTF-8"));
     }
 
     private MqttUtil() {

@@ -10,7 +10,7 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.util.AttributeKey;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
@@ -173,7 +173,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
     protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf msg){
         if(msg != null) {
-            logger.warn("Received no support protocol. message=[{}]", msg.toString(StandardCharsets.UTF_8));
+            logger.warn("Received no support protocol. message=[{}]", msg.toString(Charset.forName("UTF-8")));
             if (msg.refCnt() > 0) {
                 msg.release();
             }

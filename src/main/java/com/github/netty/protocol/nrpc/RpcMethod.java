@@ -46,8 +46,10 @@ public class RpcMethod<INSTANCE> {
     private final Class<?>[] parameterTypes;
     private final String[] parameterNames;
     private final Type genericReturnType;
+    private final Type chunkGenericReturnType;
     private final INSTANCE instance;
     private final NRpcMethod methodAnnotation;
+    private final boolean returnChunkCompletionStageFlag;
     private final boolean returnCompletionStageFlag;
     private final boolean returnFutureFlag;
     private final boolean returnCompletableFutureFlag;
@@ -74,6 +76,7 @@ public class RpcMethod<INSTANCE> {
         this.returnTypeReactivePublisherFlag = returnTypeReactivePublisherFlag;
         this.returnRxjava3ObservableFlag = returnRxjava3ObservableFlag;
         this.returnRxjava3FlowableFlag = returnRxjava3FlowableFlag;
+        this.returnChunkCompletionStageFlag = RpcClientCompletableFuture.class.isAssignableFrom(method.getReturnType());
         this.returnCompletableFutureFlag = CompletableFuture.class.isAssignableFrom(method.getReturnType());
         this.returnCompletionStageFlag = CompletionStage.class.isAssignableFrom(method.getReturnType());
         this.returnFutureFlag = Future.class.isAssignableFrom(method.getReturnType());
@@ -81,9 +84,14 @@ public class RpcMethod<INSTANCE> {
         if (returnTypeJdk9PublisherFlag || returnTypeReactivePublisherFlag
                 || returnRxjava3ObservableFlag || returnRxjava3FlowableFlag
                 || returnCompletableFutureFlag || returnCompletionStageFlag || returnFutureFlag) {
-            this.genericReturnType = getParameterizedType(method);
+            this.genericReturnType = getParameterizedType(method, 0);
         } else {
             this.genericReturnType = method.getGenericReturnType();
+        }
+        if (returnChunkCompletionStageFlag) {
+            this.chunkGenericReturnType = getParameterizedType(method, 1);
+        } else {
+            this.chunkGenericReturnType = null;
         }
         this.innerMethodFlag = RpcServerInstance.isRpcInnerClass(method.getDeclaringClass());
         this.parameterTypeDescriptorName = Stream.of(parameterTypes)
@@ -169,10 +177,10 @@ public class RpcMethod<INSTANCE> {
         return Objects.equals(type, method.getReturnType());
     }
 
-    private static Type getParameterizedType(Method method) {
+    private static Type getParameterizedType(Method method, int index) {
         Type genericReturnType = method.getGenericReturnType();
         if (genericReturnType instanceof ParameterizedType) {
-            return ((ParameterizedType) genericReturnType).getActualTypeArguments()[0];
+            return ((ParameterizedType) genericReturnType).getActualTypeArguments()[index];
         }
         throw new IllegalStateException("If the method returns the type of Publisher class, you must add generics " +
                 method.getDeclaringClass().getSimpleName() + "], method=[" + method.getName() + "]");
@@ -216,6 +224,10 @@ public class RpcMethod<INSTANCE> {
         return innerMethodFlag;
     }
 
+    public boolean isReturnChunkCompletionStageFlag() {
+        return returnChunkCompletionStageFlag;
+    }
+
     public boolean isReturnCompletableFutureFlag() {
         return returnCompletableFutureFlag;
     }
@@ -250,6 +262,10 @@ public class RpcMethod<INSTANCE> {
 
     public Type getGenericReturnType() {
         return genericReturnType;
+    }
+
+    public Type getChunkGenericReturnType() {
+        return chunkGenericReturnType;
     }
 
     public boolean isReturnVoid() {

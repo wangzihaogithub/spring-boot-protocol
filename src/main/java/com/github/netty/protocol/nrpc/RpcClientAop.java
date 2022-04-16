@@ -16,7 +16,7 @@ public interface RpcClientAop {
     default void onEncodeRequestBefore(RpcContext<RpcClient> rpcContext, Map<String,Object> params){}
     default void onTimeout(RpcContext<RpcClient> rpcContext){}
     default void onResponseAfter(RpcContext<RpcClient> rpcContext){}
-    default void onStateUpdate(RpcContext<RpcClient> rpcContext,RpcContext.State formState,RpcContext.State toState){}
+    default void onStateUpdate(RpcContext<RpcClient> rpcContext, State formState, State toState){}
 
     FastThreadLocal<RpcContext<RpcClient>> CONTEXT_LOCAL = new FastThreadLocal<>();
 }

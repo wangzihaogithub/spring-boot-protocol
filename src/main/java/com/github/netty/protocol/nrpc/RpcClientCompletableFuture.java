@@ -3,32 +3,61 @@ package com.github.netty.protocol.nrpc;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * support CompletableFuture async response.
+ *
  * @author wangzihao
- *  2020/05/30/019
+ * 2020/05/30/019
  */
-public class RpcClientCompletableFuture extends CompletableFuture<Object> {
+public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends CompletableFuture<COMPLETE_RESULT> {
+    private final Collection<Consumer<CHUNK>> chunkConsumerList = new LinkedList<>();
+
     RpcClientCompletableFuture(RpcClientReactivePublisher source) {
         source.subscribe(new SubscriberAdapter(this));
     }
 
-    private static class SubscriberAdapter implements Subscriber<Object>{
-        private final CompletableFuture<Object> completableFuture;
-        private Object result;
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk(Consumer<CHUNK> consumer) {
+        getChunkConsumerList().add(consumer);
+        return this;
+    }
+
+    public Collection<Consumer<CHUNK>> getChunkConsumerList() {
+        return chunkConsumerList;
+    }
+
+    public void callbackChunkConsumerList(CHUNK chunk) {
+        for (Consumer<CHUNK> chunkConsumer : getChunkConsumerList()) {
+            chunkConsumer.accept(chunk);
+        }
+    }
+
+    public static class SubscriberAdapter<RESULT, CHUNK> implements Subscriber<RESULT>, ChunkListener<CHUNK> {
+        private final RpcClientCompletableFuture<RESULT, CHUNK> completableFuture;
+        private RESULT result;
         private Throwable throwable;
-        private SubscriberAdapter(CompletableFuture<Object> completableFuture) {
+
+        private SubscriberAdapter(RpcClientCompletableFuture<RESULT, CHUNK> completableFuture) {
             this.completableFuture = completableFuture;
         }
+
         @Override
         public void onSubscribe(Subscription s) {
             s.request(1);
         }
 
         @Override
-        public void onNext(Object o) {
+        public void onChunk(CHUNK chunk) {
+            completableFuture.callbackChunkConsumerList(chunk);
+        }
+
+        @Override
+        public void onNext(RESULT o) {
             this.result = o;
         }
 
@@ -40,12 +69,12 @@ public class RpcClientCompletableFuture extends CompletableFuture<Object> {
         @Override
         public void onComplete() {
             Throwable throwable = this.throwable;
-            Object result = this.result;
+            RESULT result = this.result;
             this.throwable = null;
             this.result = null;
-            if(throwable != null) {
+            if (throwable != null) {
                 completableFuture.completeExceptionally(throwable);
-            }else {
+            } else {
                 completableFuture.complete(result);
             }
         }

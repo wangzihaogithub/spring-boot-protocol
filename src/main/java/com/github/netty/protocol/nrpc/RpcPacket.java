@@ -12,7 +12,8 @@ import java.util.StringJoiner;
  */
 public class RpcPacket implements Recyclable {
     public static final byte TYPE_REQUEST = 1;
-    public static final byte TYPE_RESPONSE = 2;
+    public static final byte TYPE_RESPONSE_LAST = 2;
+    public static final byte TYPE_RESPONSE_CHUNK = 5;
     public static final byte TYPE_PING = 3;
     public static final byte TYPE_PONG = 4;
 
@@ -28,7 +29,7 @@ public class RpcPacket implements Recyclable {
     private byte[] data;
     private long packetLength;
 
-    public RpcPacket(int packetType){
+    public RpcPacket(int packetType) {
         this.packetType = packetType;
     }
 
@@ -62,16 +63,17 @@ public class RpcPacket implements Recyclable {
 
     @Override
     public String toString() {
-        StringJoiner joiner = new StringJoiner(",","{","}")
-                .add("\"class\":\""+getClass().getSimpleName()+"\"")
-                .add("\"ack\":"+ack)
-                .add("\"packetType\":"+packetType);
+        StringJoiner joiner = new StringJoiner(",", "{", "}")
+                .add("\"class\":\"" + getClass().getSimpleName() + "\"")
+                .add("\"ack\":" + ack)
+                .add("\"packetType\":" + packetType);
 //                .add("\"data\":"+ (data ==null?"null":"\""+new String(data).replace("\"", "\\\\\"") +"\""));
         toStringAppend(joiner);
         return joiner.toString();
     }
 
-    protected void toStringAppend(StringJoiner joiner) {}
+    protected void toStringAppend(StringJoiner joiner) {
+    }
 
     @Override
     public void recycle() {
@@ -144,19 +146,18 @@ public class RpcPacket implements Recyclable {
 
         @Override
         public void toStringAppend(StringJoiner joiner) {
-            joiner.add("\"requestId\":"+requestId);
-            joiner.add("\"requestMappingName\":\""+requestMappingName+"\"");
-            joiner.add("\"version\":\""+version+"\"");
-            joiner.add("\"methodName\":\""+methodName+"\"");
-            joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
+            joiner.add("\"requestId\":" + requestId);
+            joiner.add("\"requestMappingName\":\"" + requestMappingName + "\"");
+            joiner.add("\"version\":\"" + version + "\"");
+            joiner.add("\"methodName\":\"" + methodName + "\"");
+            joiner.add("\"dataLength\":" + (getData() == null ? "null" : getData().length));
         }
     }
 
     /**
      * Rpc Response
      */
-    public static class ResponsePacket extends RpcPacket{
-        private static final Recycler<ResponsePacket> RECYCLER = new Recycler<>(ResponsePacket::new);
+    public static class ResponsePacket extends RpcPacket {
         private int requestId;
         private int status;
         private String message;
@@ -171,11 +172,38 @@ public class RpcPacket implements Recyclable {
         public static final int SERVER_ERROR = 500;
 
         private ResponsePacket() {
-            super(TYPE_RESPONSE);
+            super(TYPE_RESPONSE_LAST);
         }
 
-        public static ResponsePacket newInstance() {
-            return RECYCLER.getInstance();
+        protected ResponsePacket(int rpcType) {
+            super(rpcType);
+        }
+
+        public static ResponsePacket newInstance(int rpcType) {
+            switch (rpcType) {
+                case TYPE_RESPONSE_CHUNK: {
+                    return new ResponseChunkPacket();
+                }
+                case TYPE_RESPONSE_LAST: {
+                    return new ResponseLastPacket();
+                }
+                default: {
+                    return new ResponsePacket();
+                }
+            }
+        }
+
+        public static ResponseLastPacket newLastPacket() {
+            return new ResponseLastPacket();
+        }
+
+        public static ResponseChunkPacket newChunkPacket(ResponseLastPacket last) {
+            ResponseChunkPacket chunk = new ResponseChunkPacket();
+            chunk.setRequestId(last.getRequestId());
+            chunk.setMessage("");
+            chunk.setAck(ACK_YES);
+            chunk.setStatus(OK);
+            return chunk;
         }
 
         public int getRequestId() {
@@ -217,18 +245,36 @@ public class RpcPacket implements Recyclable {
 //            this.setData(null);
 //            RECYCLER.recycleInstance(this);
         }
+
         @Override
         public void toStringAppend(StringJoiner joiner) {
-            joiner.add("\"requestId\":"+requestId);
-            joiner.add("\"status\":"+status);
-            if(message == null){
+            joiner.add("\"requestId\":" + requestId);
+            joiner.add("\"status\":" + status);
+            if (message == null) {
                 joiner.add("\"message\":null");
-            }else {
+            } else {
                 joiner.add("\"message\":\"" + message.replace("\"", "\\\\\"") + "\"");
             }
-            joiner.add("\"encode\":\""+encode+"\"");
-            joiner.add("\"dataLength\":"+(getData() == null ? "null" : getData().length));
+            joiner.add("\"encode\":\"" + encode + "\"");
+            joiner.add("\"dataLength\":" + (getData() == null ? "null" : getData().length));
         }
     }
 
+    /**
+     * Rpc chunk Response
+     */
+    public static class ResponseChunkPacket extends ResponsePacket {
+        public ResponseChunkPacket() {
+            super(TYPE_RESPONSE_CHUNK);
+        }
+    }
+
+    /**
+     * Rpc last Response
+     */
+    public static class ResponseLastPacket extends ResponsePacket {
+        public ResponseLastPacket() {
+            super(TYPE_RESPONSE_LAST);
+        }
+    }
 }

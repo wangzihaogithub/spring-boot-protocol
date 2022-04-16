@@ -5,6 +5,7 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.NRpcProtocol;
+import com.github.netty.protocol.nrpc.RpcEmitter;
 import com.github.netty.protocol.servlet.DefaultServlet;
 import com.github.netty.protocol.servlet.ServletContext;
 
@@ -30,7 +31,7 @@ public class RpcServerApplication {
 
     private static NRpcProtocol newRpcMessageProtocol() {
         ApplicationX applicationX = new ApplicationX();
-        applicationX.scanner(true,"com.github.netty.javanrpc.server")
+        applicationX.scanner(true, "com.github.netty.javanrpc.server")
                 .inject();
         return new NRpcProtocol(applicationX);
     }
@@ -38,12 +39,20 @@ public class RpcServerApplication {
     @ApplicationX.Component
     @NRpcService(value = "/demo", version = "1.0.0")
     public static class DemoService {
-        public Map hello(String name) {
+        public RpcEmitter<Map, Integer> hello(String name) {
             Map result = new LinkedHashMap();
             result.put("name", name);
             result.put("timestamp", System.currentTimeMillis());
             System.out.println("result = " + result);
-            return result;
+
+            RpcEmitter<Map, Integer> emitter = new RpcEmitter<>();
+            new Thread(() -> {
+                for (int i = 0; i < 100; i++) {
+                    emitter.send(i);
+                }
+                emitter.complete(result);
+            }).start();
+            return emitter;
         }
     }
 }

@@ -6,7 +6,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -667,7 +667,7 @@ public class JavaClassFile {
                 this.index = index;
                 length = reader.readUint16();
                 byte[] bytes = reader.readInt8s(length);
-                value = new String(bytes, StandardCharsets.UTF_8);
+                value = new String(bytes, Charset.forName("UTF-8"));
             }
             public String value() {
                 return value;

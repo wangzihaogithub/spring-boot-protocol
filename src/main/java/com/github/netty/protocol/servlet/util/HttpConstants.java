@@ -1,7 +1,6 @@
 package com.github.netty.protocol.servlet.util;
 
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 
 /**
  *
@@ -18,7 +17,7 @@ public class HttpConstants {
     public static final int HTTPS_PORT = 443;
     public static final int HTTP_PORT = 80;
     public static final String HTTP = "http";
-    public static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
+    public static final Charset DEFAULT_CHARSET = Charset.forName("UTF-8");
     public static final String DEFAULT_SESSION_COOKIE_PATH = "/";
 
 }
