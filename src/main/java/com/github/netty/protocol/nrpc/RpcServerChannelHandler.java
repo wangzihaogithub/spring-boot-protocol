@@ -297,7 +297,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
             emitter.setSendHandler((result1, state1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, null, state1));
             return true;
         } else if (result instanceof CompletableFuture) {
-            ((CompletableFuture) result).whenComplete((result1, throwable1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, null, state));
+            ((CompletableFuture<?>) result).whenComplete((result1, throwable1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, throwable1, state));
             return true;
         } else if (result instanceof byte[]) {
             if (state == RpcContext.RpcState.WRITE_CHUNK) {

@@ -11,6 +11,7 @@ import com.github.netty.protocol.servlet.ServletContext;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 public class RpcServerApplication {
 
@@ -53,6 +54,24 @@ public class RpcServerApplication {
                 emitter.complete(result);
             }).start();
             return emitter;
+        }
+
+        public CompletableFuture<Map> method1(String name) {
+            CompletableFuture<Map> future = new CompletableFuture<>();
+            new Thread(()->{
+                try {
+                    Map result = new LinkedHashMap();
+                    result.put("name", name);
+                    result.put("timestamp", System.currentTimeMillis());
+                    System.out.println("result = " + result);
+
+                    Thread.sleep(5000);
+                    future.complete(result);
+                } catch (Exception e) {
+                    future.completeExceptionally(e);
+                }
+            }).start();
+            return future;
         }
     }
 }

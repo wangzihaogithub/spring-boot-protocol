@@ -575,11 +575,13 @@ public class RpcClient extends AbstractNettyClient {
         private final Map<String, RpcMethod<RpcClient>> rpcMethodMap;
         private final RpcClient rpcClient;
         private int timeout;
+        private int defaultTimeout;
 
         private Sender(RpcClient rpcClient, int timeout, String requestMappingName, String version, Map<String, RpcMethod<RpcClient>> rpcMethodMap) {
             this.rpcClient = rpcClient;
             this.rpcMethodMap = rpcMethodMap;
             this.timeout = timeout;
+            this.defaultTimeout = timeout;
             this.version = version;
             this.requestMappingName = requestMappingName;
         }
@@ -639,7 +641,7 @@ public class RpcClient extends AbstractNettyClient {
             if (rpcMethod == null) {
                 return null;
             }
-
+            int timeout = choseTimeout(defaultTimeout, rpcMethod.getTimeout(), this.timeout);
             Object result;
             if (rpcMethod.isReturnRxjava3ObservableFlag()) {
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
@@ -686,6 +688,41 @@ public class RpcClient extends AbstractNettyClient {
                 }
             }
             return result;
+        }
+
+        /**
+         * timeout is -1 then never timeout
+         * timeout is 0 then use client timeout
+         * timeout other then use server timeout
+         *
+         * @param defaultTimeout      clientServiceTimeout
+         * @param clientMethodTimeout clientMethodTimeout
+         * @param clientTimeout       setter method clientTimeout
+         * @return method timeout
+         */
+        public int choseTimeout(int defaultTimeout, Integer clientMethodTimeout, int clientTimeout) {
+            int resultTimeout;
+            if (defaultTimeout == clientTimeout) {
+                if (clientMethodTimeout != null) {
+                    resultTimeout = clientMethodTimeout;
+                } else {
+                    resultTimeout = clientTimeout;
+                }
+            } else {
+                resultTimeout = clientTimeout;
+            }
+            if (resultTimeout == 0) {
+                if (clientMethodTimeout != null && clientMethodTimeout != 0) {
+                    resultTimeout = clientMethodTimeout;
+                } else if (clientTimeout != 0) {
+                    resultTimeout = clientTimeout;
+                } else if (defaultTimeout != 0) {
+                    resultTimeout = defaultTimeout;
+                } else {
+                    resultTimeout = -1;
+                }
+            }
+            return resultTimeout;
         }
 
         private Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {

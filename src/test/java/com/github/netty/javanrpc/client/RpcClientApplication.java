@@ -1,5 +1,6 @@
 package com.github.netty.javanrpc.client;
 
+import com.github.netty.annotation.NRpcMethod;
 import com.github.netty.annotation.NRpcParam;
 import com.github.netty.annotation.NRpcService;
 import com.github.netty.protocol.nrpc.RpcClient;
@@ -20,6 +21,11 @@ public class RpcClientApplication {
 
         try {
             demoMessageClient.hello("wang");
+
+            demoAsyncClient.method1("wang").whenComplete((result,exception)->{
+                System.out.println("method1 result = " + result);
+                System.out.println("method1 exception = " + exception);
+            });
 
             // 仅仅发一个消息
             Map result = demoClient.hello("wang");
@@ -55,6 +61,9 @@ public class RpcClientApplication {
     @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
     public interface DemoAsyncClient {
         CompletableFuture<Map> hello(@NRpcParam("name") String name);
+
+        @NRpcMethod(value = "method1", timeout = 6000)
+        CompletableFuture<Map> method1(@NRpcParam("name") String name);
     }
 
     @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
