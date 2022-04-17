@@ -26,11 +26,21 @@ public class RpcClientApplication {
             System.out.println("result = " + result);
 
             // 一问多答
-            demoStreamClient.hello("wang").whenChunk(chunk -> {
-                System.out.println("chunk = " + chunk);
+            demoStreamClient.hello("wang")
+            //.chunkScheduler(Executors.newFixedThreadPool(10))
+            .whenChunk(chunk -> {
+                System.out.println("回答 chunk = " + chunk);
+            }).whenChunk((chunk, index) -> {
+                System.out.println("当第N次回答. chunk = " + chunk + ", index = " + index);
+            }).whenChunk1(firstChunk -> {
+                System.out.println("当第一次回答. firstChunk = " + firstChunk);
+            }).whenChunk2(secondChunk -> {
+                System.out.println("当第二次回答. secondChunk = " + secondChunk);
+            }).whenChunk3(thirdChunk -> {
+                System.out.println("当第三次回答. thirdChunk = " + thirdChunk);
             }).whenComplete((data, exception) -> {
-                System.out.println("data = " + data);
-                System.out.println("exception = " + exception);
+                System.out.println("最终结果的data = " + data);
+                System.out.println("最终结果的exception = " + exception);
             });
         } catch (Exception e) {
             e.printStackTrace();

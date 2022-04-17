@@ -5,8 +5,8 @@ import java.util.Queue;
 import java.util.function.BiConsumer;
 
 public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
-    private Queue<Object> chunkList = new LinkedList<>();
-    private Object lastResult;
+    private final Queue<Object> earlyChunkList = new LinkedList<>();
+    private Object earlyCompleteResult;
     private volatile BiConsumer<Object, State> sendHandler;
 
     @Override
@@ -17,7 +17,7 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
         if (sendHandler == null) {
             synchronized (this) {
                 if (sendHandler == null) {
-                    chunkList.add(chunk);
+                    earlyChunkList.add(chunk);
                 } else {
                     sendHandler.accept(chunk, RpcContext.RpcState.WRITE_CHUNK);
                 }
@@ -28,31 +28,29 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
     }
 
     @Override
-    public void complete(RESULT lastResult) {
+    public void complete(RESULT completeResult) {
         if (sendHandler == null) {
             synchronized (this) {
                 if (sendHandler == null) {
-                    this.lastResult = lastResult;
+                    this.earlyCompleteResult = completeResult;
                 } else {
-                    sendHandler.accept(lastResult, RpcContext.RpcState.WRITE_FINISH);
+                    sendHandler.accept(completeResult, RpcContext.RpcState.WRITE_FINISH);
                 }
             }
         } else {
-            sendHandler.accept(lastResult, RpcContext.RpcState.WRITE_FINISH);
+            sendHandler.accept(completeResult, RpcContext.RpcState.WRITE_FINISH);
         }
     }
 
-    @Override
     public void setSendHandler(BiConsumer<Object, State> sendHandler) {
         synchronized (this) {
             Object chunk;
-            while (null != (chunk = chunkList.poll())) {
+            while (null != (chunk = earlyChunkList.poll())) {
                 sendHandler.accept(chunk, RpcContext.RpcState.WRITE_CHUNK);
             }
-            this.chunkList = null;
-            if (lastResult != null) {
-                sendHandler.accept(lastResult, RpcContext.RpcState.WRITE_FINISH);
-                this.lastResult = null;
+            if (earlyCompleteResult != null) {
+                sendHandler.accept(earlyCompleteResult, RpcContext.RpcState.WRITE_FINISH);
+                this.earlyCompleteResult = null;
             }
             this.sendHandler = sendHandler;
         }

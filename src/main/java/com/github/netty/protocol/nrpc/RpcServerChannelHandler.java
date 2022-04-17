@@ -292,8 +292,8 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
             response.setStatus(SERVER_ERROR);
             response.setMessage(message);
             logger.error("invoke error = {}", throwable.toString(), throwable);
-        } else if (result instanceof Emitter) {
-            Emitter<?, ?> emitter = (Emitter) result;
+        } else if (result instanceof RpcEmitter) {
+            RpcEmitter<?, ?> emitter = (RpcEmitter) result;
             emitter.setSendHandler((result1, state1) -> handleInvokeResult(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, null, state1));
             return true;
         } else if (result instanceof CompletableFuture) {
