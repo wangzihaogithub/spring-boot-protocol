@@ -42,7 +42,7 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
         }
     }
 
-    public void setSendHandler(BiConsumer<Object, State> sendHandler) {
+    protected void setSendHandler(BiConsumer<Object, State> sendHandler) {
         synchronized (this) {
             Object chunk;
             while (null != (chunk = earlyChunkList.poll())) {
