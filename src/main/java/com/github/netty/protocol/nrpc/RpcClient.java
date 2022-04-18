@@ -79,6 +79,7 @@ public class RpcClient extends AbstractNettyClient {
     private int idleTimeMs = 5000;
     private int reconnectScheduledIntervalMs = 5000;
     private long connectTimeout = 1000;
+    private int messageMaxLength = 10 * 1024 * 1024;
     private RpcDBService rpcDBService;
     private RpcCommandService rpcCommandService;
     /**
@@ -169,6 +170,14 @@ public class RpcClient extends AbstractNettyClient {
 
     public void setEnableReconnectScheduledTask(boolean enableReconnectScheduledTask) {
         this.enableReconnectScheduledTask = enableReconnectScheduledTask;
+    }
+
+    public int getMessageMaxLength() {
+        return messageMaxLength;
+    }
+
+    public void setMessageMaxLength(int messageMaxLength) {
+        this.messageMaxLength = messageMaxLength;
     }
 
     public BiConsumer<Long, RpcClient> getReconnectTaskSuccessConsumer() {
@@ -302,7 +311,7 @@ public class RpcClient extends AbstractNettyClient {
                 ChannelPipeline pipeline = channel.pipeline();
                 pipeline.addLast(new IdleStateHandler(idleTimeMs, 0, 0, TimeUnit.MILLISECONDS));
                 pipeline.addLast(new RpcEncoder());
-                pipeline.addLast(new RpcDecoder());
+                pipeline.addLast(new RpcDecoder(messageMaxLength));
                 pipeline.addLast(new ReceiverChannelHandler());
             }
         };
