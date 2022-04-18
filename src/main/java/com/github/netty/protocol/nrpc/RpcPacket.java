@@ -2,6 +2,7 @@ package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 
 import java.util.StringJoiner;
 

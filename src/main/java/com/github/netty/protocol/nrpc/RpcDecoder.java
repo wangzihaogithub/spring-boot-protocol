@@ -1,5 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;

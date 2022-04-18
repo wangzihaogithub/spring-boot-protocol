@@ -1,4 +1,8 @@
-package com.github.netty.protocol.nrpc;
+package com.github.netty.protocol.nrpc.codec;
+
+import com.github.netty.protocol.nrpc.RpcClient;
+import com.github.netty.protocol.nrpc.RpcMethod;
+import com.github.netty.protocol.nrpc.RpcServerInstance;
 
 import java.nio.charset.Charset;
 import java.util.List;

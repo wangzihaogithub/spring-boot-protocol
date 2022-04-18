@@ -4,6 +4,7 @@ import com.github.netty.annotation.NRpcMethod;
 import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.*;
 import static com.github.netty.protocol.nrpc.RpcServerAop.CONTEXT_LOCAL;

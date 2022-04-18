@@ -6,6 +6,7 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
@@ -36,7 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
