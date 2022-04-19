@@ -8,7 +8,6 @@ import com.alibaba.fastjson.serializer.SerializeConfig;
 import com.alibaba.fastjson.serializer.SerializeWriter;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.util.TypeUtils;
-import com.github.netty.protocol.nrpc.DataCodec;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcMethod;
 import com.github.netty.protocol.nrpc.RpcServerInstance;

@@ -1,5 +1,7 @@
-package com.github.netty.protocol.nrpc;
+package com.github.netty.protocol.nrpc.codec;
 
+import com.github.netty.protocol.nrpc.RpcPacket;
+import com.github.netty.protocol.nrpc.RpcVersion;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;

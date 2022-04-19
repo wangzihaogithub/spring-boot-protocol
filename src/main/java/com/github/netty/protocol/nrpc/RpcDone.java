@@ -7,6 +7,11 @@ import com.github.netty.protocol.nrpc.exception.RpcResponseException;
  * @author wangzihao
  */
 public interface RpcDone {
+    @FunctionalInterface
+    interface ChunkListener<CHUNK> {
+        void onChunk(CHUNK chunk);
+    }
+
     /**
      * on chunk callback
      * @param rpcResponse rpcResponse

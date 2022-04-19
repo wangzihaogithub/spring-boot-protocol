@@ -1,6 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.core.util.RecyclableUtil;
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
@@ -11,7 +12,7 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;

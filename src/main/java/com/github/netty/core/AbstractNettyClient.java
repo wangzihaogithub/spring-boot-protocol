@@ -11,6 +11,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
+import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author wangzihao
  *  2018/8/18/018
  */
-public abstract class AbstractNettyClient{
+public abstract class AbstractNettyClient implements Closeable {
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final String name;
     private final String namePre;
@@ -212,6 +213,13 @@ public abstract class AbstractNettyClient{
             AbstractNettyClient.this.channel = null;
             stopAfter(future);
         });
+    }
+
+    @Override
+    public void close() {
+        if(channel != null){
+            stop();
+        }
     }
 
     protected void stopAfter(ChannelFuture future){

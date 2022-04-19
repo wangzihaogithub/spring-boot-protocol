@@ -15,6 +15,7 @@ import io.netty.channel.unix.UnixChannelOption;
 import io.netty.util.concurrent.Future;
 import io.netty.util.internal.PlatformDependent;
 
+import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -23,7 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * An abstract netty server
  * @author wangzihao
  */
-public abstract class AbstractNettyServer implements Runnable{
+public abstract class AbstractNettyServer implements Runnable, Closeable {
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String name;
 
@@ -168,9 +169,7 @@ public abstract class AbstractNettyServer implements Runnable{
     }
 
     public void stop() {
-        if(serverChannel == null){
-            return;
-        }
+
         serverChannel.close().addListener((ChannelFutureListener) closeFuture -> {
             if (boss == null) {
                 return;
@@ -181,6 +180,13 @@ public abstract class AbstractNettyServer implements Runnable{
                 }
             });
         });
+    }
+
+    @Override
+    public void close(){
+        if(serverChannel != null){
+            stop();
+        }
     }
 
     public ServerSocketChannel getServerChannel() {

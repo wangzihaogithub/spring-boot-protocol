@@ -4,8 +4,8 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -18,8 +18,8 @@ import java.util.function.Consumer;
  * 2020/05/30/019
  */
 public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends CompletableFuture<COMPLETE_RESULT> {
-    private final Collection<Consumer<CHUNK>> chunkConsumerList = new LinkedList<>();
-    private final Collection<BiConsumer<CHUNK, Integer>> chunkIndexConsumerList = new LinkedList<>();
+    private final Collection<Consumer<CHUNK>> chunkConsumerList = new ConcurrentLinkedQueue<>();
+    private final Collection<BiConsumer<CHUNK, Integer>> chunkIndexConsumerList = new ConcurrentLinkedQueue<>();
     private boolean lockCallbackMethod = false;
     private Executor chunkScheduler;
 
@@ -135,7 +135,7 @@ public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends Completa
         }
     }
 
-    public static class SubscriberAdapter<RESULT, CHUNK> implements Subscriber<RESULT>, ChunkListener<CHUNK> {
+    public static class SubscriberAdapter<RESULT, CHUNK> implements Subscriber<RESULT>, RpcDone.ChunkListener<CHUNK> {
         private final RpcClientCompletableFuture<RESULT, CHUNK> completableFuture;
         private final AtomicInteger chunkIndex = new AtomicInteger();
         private RESULT result;

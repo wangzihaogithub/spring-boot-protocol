@@ -6,7 +6,10 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyClient;
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.nrpc.codec.DataCodec;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
+import com.github.netty.protocol.nrpc.codec.RpcDecoder;
+import com.github.netty.protocol.nrpc.codec.RpcEncoder;
 import com.github.netty.protocol.nrpc.exception.RpcConnectException;
 import com.github.netty.protocol.nrpc.exception.RpcException;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
@@ -36,7 +39,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import static com.github.netty.protocol.nrpc.DataCodec.Encode.BINARY;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
@@ -79,6 +82,7 @@ public class RpcClient extends AbstractNettyClient {
     private int idleTimeMs = 5000;
     private int reconnectScheduledIntervalMs = 5000;
     private long connectTimeout = 1000;
+    private int messageMaxLength = 10 * 1024 * 1024;
     private RpcDBService rpcDBService;
     private RpcCommandService rpcCommandService;
     /**
@@ -169,6 +173,14 @@ public class RpcClient extends AbstractNettyClient {
 
     public void setEnableReconnectScheduledTask(boolean enableReconnectScheduledTask) {
         this.enableReconnectScheduledTask = enableReconnectScheduledTask;
+    }
+
+    public int getMessageMaxLength() {
+        return messageMaxLength;
+    }
+
+    public void setMessageMaxLength(int messageMaxLength) {
+        this.messageMaxLength = messageMaxLength;
     }
 
     public BiConsumer<Long, RpcClient> getReconnectTaskSuccessConsumer() {
@@ -302,7 +314,7 @@ public class RpcClient extends AbstractNettyClient {
                 ChannelPipeline pipeline = channel.pipeline();
                 pipeline.addLast(new IdleStateHandler(idleTimeMs, 0, 0, TimeUnit.MILLISECONDS));
                 pipeline.addLast(new RpcEncoder());
-                pipeline.addLast(new RpcDecoder());
+                pipeline.addLast(new RpcDecoder(messageMaxLength));
                 pipeline.addLast(new ReceiverChannelHandler());
             }
         };

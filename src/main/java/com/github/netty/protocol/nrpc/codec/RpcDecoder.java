@@ -1,5 +1,6 @@
-package com.github.netty.protocol.nrpc;
+package com.github.netty.protocol.nrpc.codec;
 
+import com.github.netty.protocol.nrpc.RpcPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
@@ -7,8 +8,8 @@ import io.netty.util.ReferenceCountUtil;
 
 import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
 import static com.github.netty.core.util.IOUtil.INT_LENGTH;
-import static com.github.netty.protocol.nrpc.RpcEncoder.PROTOCOL_HEADER;
-import static com.github.netty.protocol.nrpc.RpcEncoder.RPC_CHARSET;
+import static com.github.netty.protocol.nrpc.codec.RpcEncoder.PROTOCOL_HEADER;
+import static com.github.netty.protocol.nrpc.codec.RpcEncoder.RPC_CHARSET;
 import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
 import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
 

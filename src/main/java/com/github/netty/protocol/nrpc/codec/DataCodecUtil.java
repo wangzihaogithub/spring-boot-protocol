@@ -1,7 +1,6 @@
 package com.github.netty.protocol.nrpc.codec;
 
 import com.github.netty.core.util.SystemPropertyUtil;
-import com.github.netty.protocol.nrpc.DataCodec;
 
 public class DataCodecUtil {
     public static final String SYSTEM_PROPERTY_CODEC_KEY = "netty-nrpc.codec";

@@ -3,7 +3,6 @@ package com.github.netty.protocol.nrpc.codec;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.github.netty.core.util.TypeUtil;
-import com.github.netty.protocol.nrpc.DataCodec;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcMethod;
 import com.github.netty.protocol.nrpc.RpcServerInstance;
