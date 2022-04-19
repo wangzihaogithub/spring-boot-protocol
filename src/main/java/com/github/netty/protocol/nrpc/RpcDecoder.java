@@ -140,6 +140,11 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
                 }else {
                     packet.setData(null);
                 }
+
+                //Chunk id
+                if(packet instanceof RpcPacket.ResponseChunkPacket){
+                    ((RpcPacket.ResponseChunkPacket) packet).setChunkId(msg.readUnsignedShort());
+                }
                 return packet;
             }
             default:{

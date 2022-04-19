@@ -151,7 +151,7 @@ public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends Completa
         }
 
         @Override
-        public void onChunk(CHUNK chunk) {
+        public void onChunk(CHUNK chunk, RpcPacket.ResponseChunkPacket rpcResponse) {
             completableFuture.callbackChunkConsumerList(chunk, chunkIndex.getAndIncrement());
         }
 

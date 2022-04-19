@@ -196,6 +196,12 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
             writeTotalLength += writeCurrentLength;
         }
 
+        // (2 byte Unsigned)  chunk id
+        if(packet instanceof ResponseChunkPacket){
+            writeTotalLength += SHORT_LENGTH;
+            out.writeShort(((ResponseChunkPacket) packet).getChunkId());
+        }
+
         //set total length
         out.setInt(writerTotalLengthIndex, writeTotalLength);
     }

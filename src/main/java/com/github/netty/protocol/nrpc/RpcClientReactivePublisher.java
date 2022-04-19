@@ -59,7 +59,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
                 } else {
                     result = dataCodec.decodeChunkResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
                 }
-                chunkListener.onChunk(result);
+                chunkListener.onChunk(result, rpcResponse);
                 rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
             } finally {
                 RecyclableUtil.release(rpcResponse);

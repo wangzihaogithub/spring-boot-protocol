@@ -5,6 +5,7 @@ import com.github.netty.annotation.NRpcParam;
 import com.github.netty.annotation.NRpcService;
 import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcClientCompletableFuture;
+import com.github.netty.protocol.nrpc.RpcEmitter;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
