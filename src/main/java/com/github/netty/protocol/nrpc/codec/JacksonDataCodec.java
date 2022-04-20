@@ -172,6 +172,18 @@ public class JacksonDataCodec implements DataCodec {
         }
     }
 
+    @Override
+    public byte[] encodeChunkResponseData(Object data) {
+        if (data == null) {
+            return EMPTY;
+        }
+        try {
+            return objectMapper.writeValueAsBytes(data);
+        } catch (Exception e) {
+            throw new RpcEncodeException("encodeChunkResponseData " + data.getClass() + " jackson error " + e, e);
+        }
+    }
+
     protected boolean isNeedCast(Object value, Class<?> type) {
         if (value == null) {
             return false;

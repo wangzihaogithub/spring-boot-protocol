@@ -63,6 +63,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
                     encodePacket((RequestPacket) packet, out);
                     break;
                 }
+                case TYPE_RESPONSE_CHUNK_ACK:
                 case TYPE_RESPONSE_CHUNK:
                 case TYPE_RESPONSE_LAST: {
                     encodePacket((ResponsePacket) packet, out);
@@ -198,10 +199,14 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
             writeTotalLength += writeCurrentLength;
         }
 
-        // (2 byte Unsigned)  chunk id
-        if(packet instanceof ResponseChunkPacket){
+        if (packet instanceof ResponseChunkPacket) {
+            // (2 byte Unsigned)  chunk id
             writeTotalLength += SHORT_LENGTH;
             out.writeShort(((ResponseChunkPacket) packet).getChunkId());
+        } else if (packet instanceof ResponseChunkAckPacket) {
+            // (2 byte Unsigned)  ack chunk id
+            writeTotalLength += SHORT_LENGTH;
+            out.writeShort(((ResponseChunkAckPacket) packet).getAckChunkId());
         }
 
         //set total length

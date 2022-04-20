@@ -15,8 +15,7 @@ public class RpcPacket implements Recyclable {
     public static final byte TYPE_REQUEST = 1;
     public static final byte TYPE_RESPONSE_LAST = 2;
     public static final byte TYPE_RESPONSE_CHUNK = 5;
-    public static final byte TYPE_PING = 3;
-    public static final byte TYPE_PONG = 4;
+    public static final byte TYPE_RESPONSE_CHUNK_ACK = 6;
 
     public static final byte ACK_NO = 0;
     public static final byte ACK_YES = 1;
@@ -188,6 +187,9 @@ public class RpcPacket implements Recyclable {
                 case TYPE_RESPONSE_LAST: {
                     return new ResponseLastPacket();
                 }
+                case TYPE_RESPONSE_CHUNK_ACK: {
+                    return new ResponseChunkAckPacket();
+                }
                 default: {
                     return new ResponsePacket();
                 }
@@ -198,12 +200,22 @@ public class RpcPacket implements Recyclable {
             return new ResponseLastPacket();
         }
 
-        public static ResponseChunkPacket newChunkPacket(ResponseLastPacket last, int chunkId) {
+        public static ResponseChunkPacket newChunkPacket(int requestId, int chunkId) {
             ResponseChunkPacket chunk = new ResponseChunkPacket();
             chunk.setChunkId(chunkId);
-            chunk.setRequestId(last.getRequestId());
+            chunk.setRequestId(requestId);
             chunk.setMessage("");
             chunk.setAck(ACK_YES);
+            chunk.setStatus(OK);
+            return chunk;
+        }
+
+        public static ResponseChunkAckPacket newChunkAckPacket(int requestId, int ackChunkId) {
+            ResponseChunkAckPacket chunk = new ResponseChunkAckPacket();
+            chunk.setAckChunkId(ackChunkId);
+            chunk.setRequestId(requestId);
+            chunk.setMessage("");
+            chunk.setAck(ACK_NO);
             chunk.setStatus(OK);
             return chunk;
         }
@@ -267,6 +279,7 @@ public class RpcPacket implements Recyclable {
      */
     public static class ResponseChunkPacket extends ResponsePacket {
         private int chunkId;
+
         public ResponseChunkPacket() {
             super(TYPE_RESPONSE_CHUNK);
         }
@@ -283,6 +296,31 @@ public class RpcPacket implements Recyclable {
         public void toStringAppend(StringJoiner joiner) {
             super.toStringAppend(joiner);
             joiner.add("\"chunkId\":" + chunkId);
+        }
+    }
+
+    /**
+     * Rpc chunk ack Response
+     */
+    public static class ResponseChunkAckPacket extends ResponsePacket {
+        private int ackChunkId;
+
+        public ResponseChunkAckPacket() {
+            super(TYPE_RESPONSE_CHUNK_ACK);
+        }
+
+        public int getAckChunkId() {
+            return ackChunkId;
+        }
+
+        public void setAckChunkId(int ackChunkId) {
+            this.ackChunkId = ackChunkId;
+        }
+
+        @Override
+        public void toStringAppend(StringJoiner joiner) {
+            super.toStringAppend(joiner);
+            joiner.add("\"ackChunkId\":" + ackChunkId);
         }
     }
 

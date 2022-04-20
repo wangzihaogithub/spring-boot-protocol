@@ -17,6 +17,10 @@ import java.util.function.Consumer;
 public interface DataCodec {
     Charset CHARSET_UTF8 = Charset.forName("UTF-8");
 
+    default String buildThrowableRpcMessage(Throwable throwable) {
+        return DataCodecUtil.buildThrowableRpcMessage(throwable);
+    }
+
     /**
      * Request data - encoding
      *
@@ -43,6 +47,14 @@ public interface DataCodec {
      * @return Object
      */
     Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod);
+
+    /**
+     * Response chun data - encoding
+     *
+     * @param data data
+     * @return byte[]
+     */
+    byte[] encodeChunkResponseData(Object data);
 
     /**
      * Response data - encoding

@@ -681,7 +681,7 @@ public class RpcClient extends AbstractNettyClient {
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
                 rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientCompletableFuture(new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
+                result = new RpcClientCompletableFuture(rpcClient.getDataCodec(), new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
             } else {
                 RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
                 if (rpcContext == null) {
@@ -908,7 +908,7 @@ public class RpcClient extends AbstractNettyClient {
                 ResponseChunkPacket chunk = (ResponseChunkPacket) packet;
                 RpcDone rpcDone = rpcDoneMap.get(chunk.getRequestId());
                 if (rpcDone != null) {
-                    rpcDone.chunk(chunk);
+                    rpcDone.chunk(chunk, ctx);
                 }
             } else if (packet instanceof ResponseLastPacket) {
                 ResponseLastPacket last = (ResponseLastPacket) packet;

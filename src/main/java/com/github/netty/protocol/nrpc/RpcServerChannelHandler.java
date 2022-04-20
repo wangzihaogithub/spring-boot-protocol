@@ -198,18 +198,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 RequestPacket request = (RequestPacket) packet;
                 rpcContext = newRpcContext();
                 async = handleRequestPacket(rpcContext, request, ctx);
-            } else if (packet instanceof ResponseChunkPacket) {
-                ResponseChunkPacket response = (ResponseChunkPacket) packet;
-                ChunkAckCallback callback = rpcChunkAckCallbackMap.remove(response.getChunkId());
+            } else if (packet instanceof ResponseChunkAckPacket) {
+                ResponseChunkAckPacket response = (ResponseChunkAckPacket) packet;
+                ChunkAckCallback callback = rpcChunkAckCallbackMap.remove(response.getAckChunkId());
                 if (callback != null) {
                     callback.onAck(response);
-                }
-            } else {
-                // is not request, need send ack
-                if (packet.getAck() == ACK_YES) {
-                    RpcPacket responsePacket = new RpcPacket(RpcPacket.TYPE_PONG);
-                    responsePacket.setAck(ACK_NO);
-                    ctx.writeAndFlush(responsePacket).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 }
             }
         } finally {
@@ -320,7 +313,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                     startTimestamp, expiryTimestamp));
         }
 
-        public void onAck(ResponseChunkPacket packet) {
+        public void onAck(ResponseChunkAckPacket packet) {
             done = true;
             Integer status = packet.getStatus();
             if (status == null || status != OK) {
@@ -346,16 +339,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         ResponsePacket response;
         if (throwable != null) {
             rpcContext.setThrowable(throwable);
-            String message = getMessage(throwable);
-            Throwable cause = getCause(throwable);
-            if (cause != null && cause != throwable) {
-                message = message + ". cause=" + getMessage(cause);
-            }
             response = lastResponse;
             response.setEncode(DataCodec.Encode.BINARY);
             response.setData(null);
             response.setStatus(SERVER_ERROR);
-            response.setMessage(message);
+            response.setMessage(channelHandler.dataCodec.buildThrowableRpcMessage(throwable));
             logger.error("invoke error = {}", throwable.toString(), throwable);
         } else if (result instanceof RpcEmitter) {
             RpcEmitter<?, ?> emitter = (RpcEmitter) result;
@@ -367,7 +355,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         } else {
             if (state == RpcContext.RpcState.WRITE_CHUNK) {
                 int chunkId = channelHandler.newChunkId();
-                response = ResponsePacket.newChunkPacket(lastResponse, chunkId);
+                response = ResponsePacket.newChunkPacket(request.getRequestId(), chunkId);
                 if (ackCallback != null) {
                     channelHandler.rpcChunkAckCallbackMap.put(chunkId, ackCallback, ackCallback.timeout);
                 }
@@ -382,7 +370,11 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 response.setData((byte[]) result);
             } else {
                 response.setEncode(DataCodec.Encode.APP);
-                response.setData(channelHandler.dataCodec.encodeResponseData(result, rpcMethod));
+                if (state == RpcContext.RpcState.WRITE_CHUNK) {
+                    response.setData(channelHandler.dataCodec.encodeChunkResponseData(result));
+                } else {
+                    response.setData(channelHandler.dataCodec.encodeResponseData(result, rpcMethod));
+                }
             }
             response.setStatus(OK);
             response.setMessage("ok");
@@ -403,24 +395,6 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
     public Executor getExecutor() {
         return executor;
-    }
-
-    private static Throwable getCause(Throwable throwable) {
-        if (throwable == null || throwable.getCause() == null) {
-            return null;
-        }
-        while (true) {
-            Throwable cause = throwable;
-            throwable = throwable.getCause();
-            if (throwable == null) {
-                return cause;
-            }
-        }
-    }
-
-    private static String getMessage(Throwable t) {
-        String message = t.getMessage();
-        return message == null ? t.toString() : message;
     }
 
     /**

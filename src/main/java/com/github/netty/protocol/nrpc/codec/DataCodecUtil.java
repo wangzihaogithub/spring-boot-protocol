@@ -26,6 +26,33 @@ public class DataCodecUtil {
         EXIST_JACKSON = existJackson;
     }
 
+    public static String buildThrowableRpcMessage(Throwable throwable) {
+        String message = getMessage(throwable);
+        Throwable cause = getCause(throwable);
+        if (cause != null && cause != throwable) {
+            message = message + ". cause=" + getMessage(cause);
+        }
+        return message;
+    }
+
+    private static Throwable getCause(Throwable throwable) {
+        if (throwable == null || throwable.getCause() == null) {
+            return null;
+        }
+        while (true) {
+            Throwable cause = throwable;
+            throwable = throwable.getCause();
+            if (throwable == null) {
+                return cause;
+            }
+        }
+    }
+
+    private static String getMessage(Throwable t) {
+        String message = t.getMessage();
+        return message == null ? t.toString() : message;
+    }
+
     public static String getDataCodec() {
         String codec = SystemPropertyUtil.get(SYSTEM_PROPERTY_CODEC_KEY);
         if (codec != null && codec.length() > 0) {

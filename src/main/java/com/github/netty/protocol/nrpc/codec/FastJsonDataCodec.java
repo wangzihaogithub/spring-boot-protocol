@@ -231,6 +231,21 @@ public class FastJsonDataCodec implements DataCodec {
         }
     }
 
+    @Override
+    public byte[] encodeChunkResponseData(Object data) {
+        if (data == null) {
+            return EMPTY;
+        }
+
+        try (SerializeWriter out = new SerializeWriter()) {
+            JSONSerializer serializer = new JSONSerializer(out, serializeConfig);
+            serializer.write(data);
+            return out.toBytes(CHARSET_UTF8.name());
+        } catch (Exception e) {
+            throw new RpcEncodeException("encodeChunkResponseData " + data.getClass() + " fastjson error " + e, e);
+        }
+    }
+
     protected boolean isNeedCast(Object value, Class<?> type) {
         if (value == null) {
             return false;

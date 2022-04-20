@@ -49,7 +49,9 @@ public class RpcServerApplication {
             RpcEmitter<Map, Integer> emitter = new RpcEmitter<>();
             new Thread(() -> {
                 for (int i = 0; i < 10; i++) {
-                    emitter.send(i);
+                    emitter.send(i, Boolean.class, 1000).whenComplete((ack, e) -> {
+                        System.out.println("ack = " + ack);
+                    });
                 }
                 emitter.complete(result);
             }).start();
@@ -58,7 +60,7 @@ public class RpcServerApplication {
 
         public CompletableFuture<Map> method1(String name) {
             CompletableFuture<Map> future = new CompletableFuture<>();
-            new Thread(()->{
+            new Thread(() -> {
                 try {
                     Map result = new LinkedHashMap();
                     result.put("name", name);

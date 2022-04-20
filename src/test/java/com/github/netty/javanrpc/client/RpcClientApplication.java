@@ -21,16 +21,16 @@ public class RpcClientApplication {
         DemoStreamClient demoStreamClient = rpcClient.newInstance(DemoStreamClient.class);
 
         try {
-            demoMessageClient.hello("wang");
+//            demoMessageClient.hello("wang");
 
-            demoAsyncClient.method1("wang").whenComplete((result,exception)->{
-                System.out.println("method1 result = " + result);
-                System.out.println("method1 exception = " + exception);
-            });
+//            demoAsyncClient.method1("wang").whenComplete((result,exception)->{
+//                System.out.println("method1 result = " + result);
+//                System.out.println("method1 exception = " + exception);
+//            });
 
             // 仅仅发一个消息
-            Map result = demoClient.hello("wang");
-            System.out.println("result = " + result);
+//            Map result = demoClient.hello("wang");
+//            System.out.println("result = " + result);
 
             // 一问多答
             demoStreamClient.hello("wang")
@@ -45,6 +45,9 @@ public class RpcClientApplication {
                 System.out.println("当第二次回答. secondChunk = " + secondChunk);
             }).whenChunk3(thirdChunk -> {
                 System.out.println("当第三次回答. thirdChunk = " + thirdChunk);
+            }).whenChunkAck((chunk,index,ack)->{
+                System.out.println("回答 chunk = " + chunk);
+                ack.ack(true);
             }).whenComplete((data, exception) -> {
                 System.out.println("最终结果的data = " + data);
                 System.out.println("最终结果的exception = " + exception);

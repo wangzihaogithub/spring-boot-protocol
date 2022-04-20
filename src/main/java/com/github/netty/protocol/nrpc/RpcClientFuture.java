@@ -5,6 +5,7 @@ import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
+import io.netty.channel.ChannelHandlerContext;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -155,7 +156,7 @@ public class RpcClientFuture implements Future<ResponseLastPacket>, RpcDone, Rec
     }
 
     @Override
-    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse) {
+    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
         RecyclableUtil.release(rpcResponse);
     }
 

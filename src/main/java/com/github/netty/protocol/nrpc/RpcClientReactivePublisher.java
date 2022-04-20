@@ -7,6 +7,7 @@ import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -45,7 +46,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
     }
 
     @Override
-    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse) {
+    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
         if (cancelFlag || !rpcContext.getRpcMethod().isReturnChunkCompletionStageFlag()) {
             RecyclableUtil.release(rpcResponse);
             return;
@@ -60,7 +61,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
                 } else {
                     result = dataCodec.decodeChunkResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
                 }
-                chunkListener.onChunk(result, rpcResponse);
+                chunkListener.onChunk(result, rpcResponse,ctx);
                 rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
             } finally {
                 RecyclableUtil.release(rpcResponse);

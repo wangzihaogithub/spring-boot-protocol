@@ -1,5 +1,7 @@
 package com.github.netty.protocol.nrpc;
 
+import com.github.netty.protocol.nrpc.codec.DataCodec;
+import io.netty.channel.ChannelHandlerContext;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -20,11 +22,15 @@ import java.util.function.Consumer;
 public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends CompletableFuture<COMPLETE_RESULT> {
     private final Collection<Consumer<CHUNK>> chunkConsumerList = new ConcurrentLinkedQueue<>();
     private final Collection<BiConsumer<CHUNK, Integer>> chunkIndexConsumerList = new ConcurrentLinkedQueue<>();
+    private final Collection<Consumer3<CHUNK, Integer, ChunkAck>> chunkIndexAckConsumerList = new ConcurrentLinkedQueue<>();
+    private final DataCodec dataCodec;
+
     private boolean lockCallbackMethod = false;
     private Executor chunkScheduler;
 
-    RpcClientCompletableFuture(RpcClientReactivePublisher source) {
+    RpcClientCompletableFuture(DataCodec dataCodec, RpcClientReactivePublisher source) {
         source.subscribe(new SubscriberAdapter(this));
+        this.dataCodec = dataCodec;
     }
 
     /**
@@ -98,6 +104,50 @@ public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends Completa
         return this;
     }
 
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunkAck(Consumer3<CHUNK, Integer, ChunkAck> consumer) {
+        getChunkIndexAckConsumerList().add(consumer);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunkAck(BiConsumer<CHUNK, ChunkAck> consumer, int onIndex) {
+        getChunkIndexAckConsumerList().add((chunk, index, ack) -> {
+            if (index == onIndex) {
+                consumer.accept(chunk, ack);
+            }
+        });
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk1Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 0);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk2Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 1);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk3Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 2);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk4Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 3);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk5Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 4);
+        return this;
+    }
+
+    public RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> whenChunk6Ack(BiConsumer<CHUNK, ChunkAck> consumer) {
+        whenChunkAck(consumer, 5);
+        return this;
+    }
+
     public Collection<Consumer<CHUNK>> getChunkConsumerList() {
         return chunkConsumerList;
     }
@@ -106,33 +156,69 @@ public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends Completa
         return chunkIndexConsumerList;
     }
 
-    public void callbackChunkConsumerList(CHUNK chunk, int index) {
+    public Collection<Consumer3<CHUNK, Integer, ChunkAck>> getChunkIndexAckConsumerList() {
+        return chunkIndexAckConsumerList;
+    }
+
+    public void callbackChunkConsumerList(CHUNK chunk, int index, RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
+        int chunkId = rpcResponse.getChunkId();
+        int requestId = rpcResponse.getRequestId();
         if (lockCallbackMethod) {
             synchronized (this) {
                 Executor executor = this.chunkScheduler;
                 if (executor != null) {
-                    executor.execute(() -> callbackChunkConsumerList0(chunk, index));
+                    executor.execute(() -> callbackChunkConsumerList0(chunk, index, requestId, chunkId, ctx));
                 } else {
-                    callbackChunkConsumerList0(chunk, index);
+                    callbackChunkConsumerList0(chunk, index, requestId, chunkId, ctx);
                 }
             }
         } else {
             Executor executor = this.chunkScheduler;
             if (executor != null) {
-                executor.execute(() -> callbackChunkConsumerList0(chunk, index));
+                executor.execute(() -> callbackChunkConsumerList0(chunk, index, requestId, chunkId, ctx));
             } else {
-                callbackChunkConsumerList0(chunk, index);
+                callbackChunkConsumerList0(chunk, index, requestId, chunkId, ctx);
             }
         }
     }
 
-    public void callbackChunkConsumerList0(CHUNK chunk, int index) {
+    public void callbackChunkConsumerList0(CHUNK chunk, int index, int requestId, int chunkId, ChannelHandlerContext ctx) {
         for (Consumer<CHUNK> chunkConsumer : getChunkConsumerList()) {
             chunkConsumer.accept(chunk);
         }
         for (BiConsumer<CHUNK, Integer> chunkConsumer : getChunkIndexConsumerList()) {
             chunkConsumer.accept(chunk, index);
         }
+        Collection<Consumer3<CHUNK, Integer, ChunkAck>> consumer3List = getChunkIndexAckConsumerList();
+        if (!consumer3List.isEmpty()) {
+            ChunkAck ack = result -> {
+                RpcPacket.ResponseChunkAckPacket ackPacket = RpcPacket.ResponsePacket.newChunkAckPacket(requestId, chunkId);
+                Object data;
+                if (result instanceof Throwable) {
+                    ackPacket.setStatus(RpcPacket.ResponsePacket.SERVER_ERROR);
+                    ackPacket.setMessage(dataCodec.buildThrowableRpcMessage((Throwable) result));
+                    data = null;
+                } else {
+                    data = result;
+                }
+                if (data instanceof byte[]) {
+                    ackPacket.setData((byte[]) data);
+                    ackPacket.setEncode(DataCodec.Encode.BINARY);
+                } else {
+                    ackPacket.setData(dataCodec.encodeChunkResponseData(data));
+                    ackPacket.setEncode(DataCodec.Encode.APP);
+                }
+                return ctx.writeAndFlush(ackPacket);
+            };
+            for (Consumer3<CHUNK, Integer, ChunkAck> chunkConsumer : consumer3List) {
+                chunkConsumer.accept(chunk, index, ack);
+            }
+        }
+    }
+
+    @FunctionalInterface
+    public interface Consumer3<T1, T2, T3> {
+        void accept(T1 t1, T2 t2, T3 t3);
     }
 
     public static class SubscriberAdapter<RESULT, CHUNK> implements Subscriber<RESULT>, RpcDone.ChunkListener<CHUNK> {
@@ -151,8 +237,8 @@ public class RpcClientCompletableFuture<COMPLETE_RESULT, CHUNK> extends Completa
         }
 
         @Override
-        public void onChunk(CHUNK chunk, RpcPacket.ResponseChunkPacket rpcResponse) {
-            completableFuture.callbackChunkConsumerList(chunk, chunkIndex.getAndIncrement());
+        public void onChunk(CHUNK chunk, RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
+            completableFuture.callbackChunkConsumerList(chunk, chunkIndex.getAndIncrement(), rpcResponse, ctx);
         }
 
         @Override
