@@ -1,7 +1,32 @@
 package com.github.netty.protocol.nrpc;
 
-import io.netty.channel.ChannelFuture;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.Promise;
 
 public interface ChunkAck {
-    ChannelFuture ack(Object ack);
+    Promise ack(Object ack);
+    boolean isAck();
+    default void ack() {
+        ack(null);
+    }
+
+    ChunkAck DONT_NEED_ACK = new ChunkAck() {
+        @Override
+        public Promise ack(Object ack) {
+            Promise promise = GlobalEventExecutor.INSTANCE.newPromise();
+            promise.setSuccess(null);
+            return promise;
+        }
+
+        @Override
+        public void ack() {
+
+        }
+
+        @Override
+        public boolean isAck() {
+            return true;
+        }
+    };
+
 }

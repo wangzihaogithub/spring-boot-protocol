@@ -62,6 +62,15 @@ public class DataCodecUtil {
         }
     }
 
+    /**
+     * set codec
+     *
+     * @param codec [fastjson,jackson,jdk,auto]
+     */
+    public static void setDataCodec(String codec) {
+        System.setProperty(SYSTEM_PROPERTY_CODEC_KEY, codec);
+    }
+
     public static DataCodec newDataCodec() {
         DataCodec dataCodec;
         String codec = SystemPropertyUtil.get(SYSTEM_PROPERTY_CODEC_KEY);

@@ -8,11 +8,16 @@ import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.util.concurrent.DefaultPromise;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.Promise;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
+import static com.github.netty.protocol.nrpc.RpcPacket.ACK_NO;
 import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
@@ -46,27 +51,27 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
     }
 
     @Override
-    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
-        if (cancelFlag || !rpcContext.getRpcMethod().isReturnChunkCompletionStageFlag()) {
-            RecyclableUtil.release(rpcResponse);
+    public void chunk(RpcPacket.ResponseChunkPacket response, ChunkAck ack) {
+        ChunkListener chunkListener = this.chunkListener;
+        if (cancelFlag || chunkListener == null) {
+            RecyclableUtil.release(response);
+            ack.ack();
             return;
         }
-        ChunkListener chunkListener = this.chunkListener;
-        if (chunkListener != null) {
-            CONTEXT_LOCAL.set(rpcContext);
-            try {
-                Object result;
-                if (rpcResponse.getEncode() == BINARY) {
-                    result = rpcResponse.getData();
-                } else {
-                    result = dataCodec.decodeChunkResponseData(rpcResponse.getData(), rpcContext.getRpcMethod());
-                }
-                chunkListener.onChunk(result, rpcResponse,ctx);
-                rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
-            } finally {
-                RecyclableUtil.release(rpcResponse);
-                CONTEXT_LOCAL.set(null);
+
+        CONTEXT_LOCAL.set(rpcContext);
+        try {
+            Object result;
+            if (response.getEncode() == BINARY) {
+                result = response.getData();
+            } else {
+                result = dataCodec.decodeChunkResponseData(response.getData(), rpcContext.getRpcMethod());
             }
+            chunkListener.onChunk(result, ack);
+            rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
+        } finally {
+            RecyclableUtil.release(response);
+            CONTEXT_LOCAL.set(null);
         }
     }
 
@@ -153,6 +158,8 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
         CONTEXT_LOCAL.set(rpcContext);
         int requestId = rpcClient.newRequestId();
         try {
+            RpcMethod<RpcClient> rpcMethod = rpcContext.getRpcMethod();
+
             rpcContext.setRemoteAddress(rpcClient.getRemoteAddress());
             SocketChannel channel = rpcClient.getChannel();
             rpcContext.setRemoteAddress(channel.remoteAddress());
@@ -163,7 +170,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
             rpcRequest.setRequestMappingName(requestMappingName);
             rpcRequest.setVersion(version);
             rpcRequest.setMethodName(rpcContext.getRpcMethod().getMethodName());
-            rpcRequest.setAck(ACK_YES);
+            rpcRequest.setAck(rpcMethod.isReturnVoid() ? ACK_NO : ACK_YES);
             rpcRequest.setTimeout(timeout);
             rpcContext.setRequest(rpcRequest);
             rpcContext.setTimeout(timeout);

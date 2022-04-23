@@ -219,15 +219,14 @@ public class FastJsonDataCodec implements DataCodec {
     }
 
     @Override
-    public Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod) {
+    public Object decodeChunkResponseData(byte[] data, Type type) {
         if (data == null || data.length == 0) {
             return null;
         }
-        Type returnType = rpcMethod.getChunkGenericReturnType();
         try {
-            return JSON.parseObject(data, returnType, FEATURES);
+            return JSON.parseObject(data, type, FEATURES);
         } catch (Exception e) {
-            throw new RpcDecodeException("decodeChunkResponseData " + rpcMethod + " fastjson error " + e, e);
+            throw new RpcDecodeException("decodeChunkResponseData " + type + " fastjson error " + e, e);
         }
     }
 

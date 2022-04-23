@@ -1,7 +1,6 @@
 package com.github.netty.protocol.nrpc;
 
 import com.github.netty.protocol.nrpc.exception.RpcResponseException;
-import io.netty.channel.ChannelHandlerContext;
 
 /**
  * rpc done callback
@@ -10,15 +9,15 @@ import io.netty.channel.ChannelHandlerContext;
 public interface RpcDone {
     @FunctionalInterface
     interface ChunkListener<CHUNK> {
-        void onChunk(CHUNK chunk, RpcPacket.ResponseChunkPacket rpcResponse,ChannelHandlerContext ctx);
+        void onChunk(CHUNK chunk, ChunkAck ack);
     }
 
     /**
      * on chunk callback
      * @param rpcResponse rpcResponse
-     * @param ctx ack
+     * @param ack ack
      */
-    void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx);
+    void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChunkAck ack);
 
     /**
      * on done callback

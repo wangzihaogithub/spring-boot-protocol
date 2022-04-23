@@ -4,8 +4,7 @@ import com.github.netty.annotation.NRpcMethod;
 import com.github.netty.annotation.NRpcParam;
 import com.github.netty.annotation.NRpcService;
 import com.github.netty.protocol.nrpc.RpcClient;
-import com.github.netty.protocol.nrpc.RpcClientCompletableFuture;
-import com.github.netty.protocol.nrpc.RpcEmitter;
+import com.github.netty.protocol.nrpc.RpcClientChunkCompletableFuture;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -21,33 +20,15 @@ public class RpcClientApplication {
         DemoStreamClient demoStreamClient = rpcClient.newInstance(DemoStreamClient.class);
 
         try {
-//            demoMessageClient.hello("wang");
+            // 默认
+            Map map = demoClient.hello("123");
+            System.out.println("默认结果的data = " + map);
 
-//            demoAsyncClient.method1("wang").whenComplete((result,exception)->{
-//                System.out.println("method1 result = " + result);
-//                System.out.println("method1 exception = " + exception);
-//            });
-
-            // 仅仅发一个消息
-//            Map result = demoClient.hello("wang");
-//            System.out.println("result = " + result);
-
-            // 一问多答
-            demoStreamClient.hello("wang")
-            //.chunkScheduler(Executors.newFixedThreadPool(10))
-            .whenChunk(chunk -> {
+            // 交互式接口, 一问多答
+            demoStreamClient.hello("wang").whenChunkAck((chunk, index, ack) -> {
                 System.out.println("回答 chunk = " + chunk);
-            }).whenChunk((chunk, index) -> {
-                System.out.println("当第N次回答. chunk = " + chunk + ", index = " + index);
-            }).whenChunk1(firstChunk -> {
-                System.out.println("当第一次回答. firstChunk = " + firstChunk);
-            }).whenChunk2(secondChunk -> {
-                System.out.println("当第二次回答. secondChunk = " + secondChunk);
-            }).whenChunk3(thirdChunk -> {
-                System.out.println("当第三次回答. thirdChunk = " + thirdChunk);
-            }).whenChunkAck((chunk,index,ack)->{
-                System.out.println("回答 chunk = " + chunk);
-                ack.ack(true);
+                boolean hasNext = index < 100;
+                ack.ack(hasNext);
             }).whenComplete((data, exception) -> {
                 System.out.println("最终结果的data = " + data);
                 System.out.println("最终结果的exception = " + exception);
@@ -78,7 +59,7 @@ public class RpcClientApplication {
 
     @NRpcService(value = "/demo", version = "1.0.0", timeout = 2000)
     public interface DemoStreamClient {
-        RpcClientCompletableFuture<Map, Object> hello(@NRpcParam("name") String name);
+        RpcClientChunkCompletableFuture<Map, Object> hello(@NRpcParam("name") String name);
     }
 
 }

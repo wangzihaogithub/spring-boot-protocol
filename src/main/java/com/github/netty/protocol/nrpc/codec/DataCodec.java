@@ -4,6 +4,7 @@ import com.github.netty.protocol.nrpc.RpcClient;
 import com.github.netty.protocol.nrpc.RpcMethod;
 import com.github.netty.protocol.nrpc.RpcServerInstance;
 
+import java.lang.reflect.Type;
 import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +47,11 @@ public interface DataCodec {
      * @param rpcMethod rpcMethod
      * @return Object
      */
-    Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod);
+    default Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod) {
+        return decodeChunkResponseData(data, rpcMethod.getChunkGenericReturnType());
+    }
+
+    Object decodeChunkResponseData(byte[] data, Type type);
 
     /**
      * Response chun data - encoding

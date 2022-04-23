@@ -357,7 +357,10 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 int chunkId = channelHandler.newChunkId();
                 response = ResponsePacket.newChunkPacket(request.getRequestId(), chunkId);
                 if (ackCallback != null) {
+                    response.setAck(ACK_YES);
                     channelHandler.rpcChunkAckCallbackMap.put(chunkId, ackCallback, ackCallback.timeout);
+                } else {
+                    response.setAck(ACK_NO);
                 }
             } else {
                 if (rpcRunnable != null) {

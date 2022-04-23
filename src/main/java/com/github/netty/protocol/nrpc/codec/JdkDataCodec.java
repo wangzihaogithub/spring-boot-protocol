@@ -154,16 +154,15 @@ public class JdkDataCodec implements DataCodec {
     }
 
     @Override
-    public Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod) {
+    public Object decodeChunkResponseData(byte[] data, Type type) {
         if (data == null || data.length == 0) {
             return null;
         }
 
-        Type returnType = rpcMethod.getChunkGenericReturnType();
         try {
-            return decode(data, returnType);
+            return decode(data, type);
         } catch (Exception e) {
-            throw new RpcDecodeException("decodeChunkResponseData " + rpcMethod + " jdk error " + e, e);
+            throw new RpcDecodeException("decodeChunkResponseData " + type + " jdk error " + e, e);
         }
     }
 

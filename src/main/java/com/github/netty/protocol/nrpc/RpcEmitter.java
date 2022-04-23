@@ -3,11 +3,15 @@ package com.github.netty.protocol.nrpc;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
     private final Queue<Object> earlyChunkList = new LinkedList<>();
     private Object earlyCompleteResult;
     private volatile boolean usable;
+    private final AtomicBoolean completeFlag = new AtomicBoolean();
+    private final AtomicInteger sendCount = new AtomicInteger();
 
     RpcPacket.RequestPacket request;
     RpcPacket.ResponseLastPacket lastResponse;
@@ -21,6 +25,7 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
         if (chunk == null) {
             throw new NullPointerException("send null chunk!");
         }
+        sendCount.incrementAndGet();
         if (usable) {
             writeAndFlush(chunk, RpcContext.RpcState.WRITE_CHUNK, null);
         } else {
@@ -35,18 +40,21 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
     }
 
     @Override
-    public <T> CompletableFuture<T> send(Object chunk, Class<T> type, int timeout) {
+    public <T> CompletableFuture<T> send(CHUNK chunk, Class<T> responseType, int responseTimeout) {
         if (chunk == null) {
             throw new NullPointerException("send null chunk!");
         }
+        if (isComplete()) {
+            throw new IllegalStateException("current complete state. can not send!");
+        }
         if (usable) {
-            return writeAndFlush(chunk, RpcContext.RpcState.WRITE_CHUNK, new RpcServerChannelHandler.ChunkAckCallback<>(), type, timeout);
+            return writeAndFlush(chunk, RpcContext.RpcState.WRITE_CHUNK, new RpcServerChannelHandler.ChunkAckCallback<>(), responseType, responseTimeout);
         } else {
             synchronized (this) {
                 if (usable) {
-                    return writeAndFlush(chunk, RpcContext.RpcState.WRITE_CHUNK, new RpcServerChannelHandler.ChunkAckCallback<>(), type, timeout);
+                    return writeAndFlush(chunk, RpcContext.RpcState.WRITE_CHUNK, new RpcServerChannelHandler.ChunkAckCallback<>(), responseType, responseTimeout);
                 } else {
-                    ChunkAckPacket<T> packet = new ChunkAckPacket<>(chunk, type, timeout);
+                    ChunkAckPacket<T> packet = new ChunkAckPacket<>(chunk, responseType, responseTimeout);
                     earlyChunkList.add(packet);
                     return packet.ackCallback;
                 }
@@ -55,7 +63,19 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
     }
 
     @Override
-    public void complete(RESULT completeResult) {
+    public boolean complete(RESULT completeResult) {
+        return complete0(completeResult);
+    }
+
+    @Override
+    public boolean complete(Throwable throwable) {
+        return complete0(throwable);
+    }
+
+    private boolean complete0(Object completeResult) {
+        if (!completeFlag.compareAndSet(false, true)) {
+            return false;
+        }
         if (usable) {
             writeAndFlush(completeResult, RpcContext.RpcState.WRITE_FINISH, null);
         } else {
@@ -67,14 +87,25 @@ public class RpcEmitter<RESULT, CHUNK> implements Emitter<RESULT, CHUNK> {
                 }
             }
         }
+        return true;
     }
 
-    public void usable(RpcPacket.RequestPacket request,
-                       RpcPacket.ResponseLastPacket lastResponse,
-                       RpcContext<RpcServerInstance> rpcContext,
-                       RpcServerChannelHandler channelHandler,
-                       RpcMethod<RpcServerInstance> rpcMethod,
-                       RpcServerChannelHandler.RpcRunnable rpcRunnable) {
+    @Override
+    public boolean isComplete() {
+        return completeFlag.get();
+    }
+
+    @Override
+    public int getSendCount() {
+        return sendCount.get();
+    }
+
+    void usable(RpcPacket.RequestPacket request,
+                RpcPacket.ResponseLastPacket lastResponse,
+                RpcContext<RpcServerInstance> rpcContext,
+                RpcServerChannelHandler channelHandler,
+                RpcMethod<RpcServerInstance> rpcMethod,
+                RpcServerChannelHandler.RpcRunnable rpcRunnable) {
         this.request = request;
         this.lastResponse = lastResponse;
         this.rpcContext = rpcContext;

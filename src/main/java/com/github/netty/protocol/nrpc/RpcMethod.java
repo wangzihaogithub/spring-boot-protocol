@@ -49,10 +49,9 @@ public class RpcMethod<INSTANCE> {
     private final Type chunkGenericReturnType;
     private final INSTANCE instance;
     private final NRpcMethod methodAnnotation;
-    private final boolean returnChunkCompletionStageFlag;
+    private final boolean returnChunkCompletionFlag;
     private final boolean returnCompletionStageFlag;
     private final boolean returnFutureFlag;
-    private final boolean returnCompletableFutureFlag;
     private final boolean returnRxjava3FlowableFlag;
     private final boolean returnRxjava3ObservableFlag;
     private final boolean returnTypeJdk9PublisherFlag;
@@ -62,6 +61,7 @@ public class RpcMethod<INSTANCE> {
     private final String parameterTypeDescriptorName;
     private final MethodHandle methodHandle;
     private final int parameterCount;
+    private String loggerName;
 
     private RpcMethod(INSTANCE instance, Method method, String[] parameterNames, String methodName,
                       NRpcMethod methodAnnotation,
@@ -76,23 +76,21 @@ public class RpcMethod<INSTANCE> {
         this.returnTypeReactivePublisherFlag = returnTypeReactivePublisherFlag;
         this.returnRxjava3ObservableFlag = returnRxjava3ObservableFlag;
         this.returnRxjava3FlowableFlag = returnRxjava3FlowableFlag;
-        this.returnChunkCompletionStageFlag = RpcClientCompletableFuture.class.isAssignableFrom(method.getReturnType());
-        this.returnCompletableFutureFlag = CompletableFuture.class.isAssignableFrom(method.getReturnType());
+        this.returnChunkCompletionFlag = RpcClientChunkCompletableFuture.class.isAssignableFrom(method.getReturnType());
         this.returnCompletionStageFlag = CompletionStage.class.isAssignableFrom(method.getReturnType());
         this.returnFutureFlag = Future.class.isAssignableFrom(method.getReturnType());
         this.parameterTypes = method.getParameterTypes();
-        if (returnTypeJdk9PublisherFlag || returnTypeReactivePublisherFlag
-                || returnRxjava3ObservableFlag || returnRxjava3FlowableFlag
-                || returnCompletableFutureFlag || returnCompletionStageFlag || returnFutureFlag) {
+        if (isReturnAsync()) {
             this.genericReturnType = getParameterizedType(method, 0);
         } else {
             this.genericReturnType = method.getGenericReturnType();
         }
-        if (returnChunkCompletionStageFlag) {
+        if (returnChunkCompletionFlag) {
             this.chunkGenericReturnType = getParameterizedType(method, 1);
         } else {
             this.chunkGenericReturnType = null;
         }
+        this.loggerName = method.getDeclaringClass().getName() + "-" + method.getName();
         this.innerMethodFlag = RpcServerInstance.isRpcInnerClass(method.getDeclaringClass());
         this.parameterTypeDescriptorName = Stream.of(parameterTypes)
                 .map(Class::getSimpleName)
@@ -204,6 +202,10 @@ public class RpcMethod<INSTANCE> {
         return method;
     }
 
+    public LoggerX getLog() {
+        return LoggerFactoryX.getLogger(loggerName);
+    }
+
     public MethodHandle getMethodHandle() {
         return methodHandle;
     }
@@ -224,14 +226,6 @@ public class RpcMethod<INSTANCE> {
         return innerMethodFlag;
     }
 
-    public boolean isReturnChunkCompletionStageFlag() {
-        return returnChunkCompletionStageFlag;
-    }
-
-    public boolean isReturnCompletableFutureFlag() {
-        return returnCompletableFutureFlag;
-    }
-
     public boolean isReturnCompletionStageFlag() {
         return returnCompletionStageFlag;
     }
@@ -246,6 +240,20 @@ public class RpcMethod<INSTANCE> {
 
     public boolean isReturnRxjava3ObservableFlag() {
         return returnRxjava3ObservableFlag;
+    }
+
+    public boolean isReturnChunkCompletionFlag() {
+        return returnChunkCompletionFlag;
+    }
+
+    public boolean isReturnAsync() {
+        return isReturnTypeReactivePublisherFlag()
+                || isReturnFutureFlag()
+                || isReturnCompletionStageFlag()
+                || isReturnChunkCompletionFlag()
+                || isReturnRxjava3ObservableFlag()
+                || isReturnRxjava3FlowableFlag()
+                || isReturnTypeJdk9PublisherFlag();
     }
 
     public boolean isReturnTypeJdk9PublisherFlag() {

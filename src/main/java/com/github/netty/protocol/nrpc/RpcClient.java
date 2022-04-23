@@ -20,6 +20,7 @@ import com.github.netty.protocol.nrpc.service.RpcDBService;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.util.concurrent.Promise;
 import io.netty.util.internal.PlatformDependent;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -651,37 +652,29 @@ public class RpcClient extends AbstractNettyClient {
             String rpcMethodName = RpcMethod.getMethodDescriptorName(method);
             RpcMethod<RpcClient> rpcMethod = rpcMethodMap.get(rpcMethodName);
             if (rpcMethod == null) {
-                return null;
+                throw new IllegalStateException("not found rpc method. name = " + methodName);
             }
             int timeout = choseTimeout(defaultTimeout, rpcMethod.getTimeout(), this.timeout);
             Object result;
-            if (rpcMethod.isReturnRxjava3ObservableFlag()) {
+            if (rpcMethod.isReturnAsync()) {
                 RpcContext<RpcClient> rpcContext = new RpcContext<>();
                 rpcContext.setArgs(args);
                 rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientRxjava3Observable(new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
-            } else if (rpcMethod.isReturnRxjava3FlowableFlag()) {
-                RpcContext<RpcClient> rpcContext = new RpcContext<>();
-                rpcContext.setArgs(args);
-                rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientRxjava3Flowable(new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
-            } else if (rpcMethod.isReturnTypeJdk9PublisherFlag()) {
-                throw new UnsupportedOperationException("now version no support return type java.util.concurrent.Flow.Publisher. The future version will support. ");
-//                RpcContext<RpcClient> rpcContext = new RpcContext<>();
-//                rpcContext.setArgs(args);
-//                rpcContext.setRpcMethod(rpcMethod);
-//                rpcContext.setState(INIT);
-//                result = new RpcClientJdk9Publisher(rpcContext,requestMappingName);
-            } else if (rpcMethod.isReturnTypeReactivePublisherFlag()) {
-                RpcContext<RpcClient> rpcContext = new RpcContext<>();
-                rpcContext.setArgs(args);
-                rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout);
-            } else if (rpcMethod.isReturnCompletableFutureFlag() || rpcMethod.isReturnFutureFlag() || rpcMethod.isReturnCompletionStageFlag()) {
-                RpcContext<RpcClient> rpcContext = new RpcContext<>();
-                rpcContext.setArgs(args);
-                rpcContext.setRpcMethod(rpcMethod);
-                result = new RpcClientCompletableFuture(rpcClient.getDataCodec(), new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout));
+                RpcClientReactivePublisher publisher = new RpcClientReactivePublisher(rpcContext, requestMappingName, version, timeout);
+                if (rpcMethod.isReturnTypeReactivePublisherFlag()) {
+                    result = publisher;
+                } else if (rpcMethod.isReturnRxjava3ObservableFlag()) {
+                    result = new RpcClientRxjava3Observable(publisher);
+                } else if (rpcMethod.isReturnRxjava3FlowableFlag()) {
+                    result = new RpcClientRxjava3Flowable(publisher);
+                } else if (rpcMethod.isReturnTypeJdk9PublisherFlag()) {
+                    throw new UnsupportedOperationException("now version no support return type java.util.concurrent.Flow.Publisher. The future version will support. ");
+                } else if (rpcMethod.isReturnChunkCompletionFlag()) {
+                    result = new RpcClientChunkCompletableFuture(rpcContext.getRpcMethod(), publisher);
+                } else {
+                    // rpcMethod.isReturnFutureFlag() || rpcMethod.isReturnCompletionStageFlag()
+                    result = new RpcClientCompletableFuture(publisher);
+                }
             } else {
                 RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
                 if (rpcContext == null) {
@@ -694,7 +687,7 @@ public class RpcClient extends AbstractNettyClient {
                     rpcContext.setRpcBeginTimestamp(System.currentTimeMillis());
                     rpcContext.setArgs(args);
                     rpcContext.setRpcMethod(rpcMethod);
-                    result = requestSync(rpcContext);
+                    result = requestSync(rpcContext, timeout);
                 } finally {
                     CONTEXT_LOCAL.set(null);
                 }
@@ -737,7 +730,7 @@ public class RpcClient extends AbstractNettyClient {
             return resultTimeout;
         }
 
-        private Object requestSync(RpcContext<RpcClient> rpcContext) throws Throwable {
+        private Object requestSync(RpcContext<RpcClient> rpcContext, int timeout) throws Throwable {
             RpcMethod<RpcClient> method = rpcContext.getRpcMethod();
             byte ackFlag = method.isReturnVoid() ? ACK_NO : ACK_YES;
 
@@ -908,7 +901,13 @@ public class RpcClient extends AbstractNettyClient {
                 ResponseChunkPacket chunk = (ResponseChunkPacket) packet;
                 RpcDone rpcDone = rpcDoneMap.get(chunk.getRequestId());
                 if (rpcDone != null) {
-                    rpcDone.chunk(chunk, ctx);
+                    ChunkAck ack;
+                    if (chunk.getAck() == RpcPacket.ACK_YES) {
+                        ack = new ChunkAckSender(chunk.getRequestId(), chunk.getChunkId(), ctx, dataCodec);
+                    } else {
+                        ack = ChunkAck.DONT_NEED_ACK;
+                    }
+                    rpcDone.chunk(chunk, ack);
                 }
             } else if (packet instanceof ResponseLastPacket) {
                 ResponseLastPacket last = (ResponseLastPacket) packet;
@@ -946,6 +945,49 @@ public class RpcClient extends AbstractNettyClient {
                 aop.onDisconnectAfter(RpcClient.this);
             }
         }
+    }
 
+    static class ChunkAckSender implements ChunkAck {
+        private boolean ackFlag = false;
+        private final int requestId;
+        private final int chunkId;
+        private final ChannelHandlerContext ctx;
+        private final DataCodec dataCodec;
+
+        ChunkAckSender(int requestId, int chunkId, ChannelHandlerContext ctx, DataCodec dataCodec) {
+            this.requestId = requestId;
+            this.chunkId = chunkId;
+            this.ctx = ctx;
+            this.dataCodec = dataCodec;
+        }
+
+        @Override
+        public Promise ack(Object result) {
+            this.ackFlag = true;
+            RpcPacket.ResponseChunkAckPacket ackPacket = RpcPacket.ResponsePacket.newChunkAckPacket(requestId, chunkId);
+            Object data;
+            if (result instanceof Throwable) {
+                ackPacket.setStatus(RpcPacket.ResponsePacket.SERVER_ERROR);
+                ackPacket.setMessage(dataCodec.buildThrowableRpcMessage((Throwable) result));
+                data = null;
+            } else {
+                data = result;
+            }
+            if (data instanceof byte[]) {
+                ackPacket.setData((byte[]) data);
+                ackPacket.setEncode(DataCodec.Encode.BINARY);
+            } else {
+                ackPacket.setData(dataCodec.encodeChunkResponseData(data));
+                ackPacket.setEncode(DataCodec.Encode.APP);
+            }
+            ChannelPromise promise = ctx.newPromise();
+            ctx.writeAndFlush(ackPacket, promise);
+            return promise;
+        }
+
+        @Override
+        public boolean isAck() {
+            return ackFlag;
+        }
     }
 }

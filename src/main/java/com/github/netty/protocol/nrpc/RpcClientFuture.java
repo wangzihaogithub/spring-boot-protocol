@@ -156,8 +156,9 @@ public class RpcClientFuture implements Future<ResponseLastPacket>, RpcDone, Rec
     }
 
     @Override
-    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChannelHandlerContext ctx) {
+    public void chunk(RpcPacket.ResponseChunkPacket rpcResponse, ChunkAck ack) {
         RecyclableUtil.release(rpcResponse);
+        ack.ack();
     }
 
     /**

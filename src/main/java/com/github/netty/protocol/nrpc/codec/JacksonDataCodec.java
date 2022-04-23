@@ -159,16 +159,15 @@ public class JacksonDataCodec implements DataCodec {
     }
 
     @Override
-    public Object decodeChunkResponseData(byte[] data, RpcMethod<RpcClient> rpcMethod) {
+    public Object decodeChunkResponseData(byte[] data, Type type) {
         if (data == null || data.length == 0) {
             return null;
         }
 
-        Type returnType = rpcMethod.getChunkGenericReturnType();
         try {
-            return objectMapper.readValue(data, TypeFactory.defaultInstance().constructType(returnType));
+            return objectMapper.readValue(data, TypeFactory.defaultInstance().constructType(type));
         } catch (Exception e) {
-            throw new RpcDecodeException("decodeChunkResponseData " + rpcMethod + " jackson error " + e, e);
+            throw new RpcDecodeException("decodeChunkResponseData " + type + " jackson error " + e, e);
         }
     }
 

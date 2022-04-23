@@ -164,6 +164,8 @@ public class RpcPacket implements Recyclable {
         private DataCodec.Encode encode;
         //正常返回
         public static final int OK = 200;
+        //无后续正文
+        public static final int NO_CONTENT = 204;
         //找不到方法
         public static final int NO_SUCH_METHOD = 404;
         //找不到服务
