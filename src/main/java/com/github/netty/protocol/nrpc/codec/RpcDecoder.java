@@ -84,7 +84,7 @@ public class RpcDecoder extends LengthFieldBasedFrameDecoder {
         long totalPacketLength = totalLength + LENGTH_FIELD_OFFSET;
 
         switch (rpcType) {
-            case RpcPacket.TYPE_REQUEST: {
+            case RpcPacket.TYPE_CLIENT_REQUEST: {
                 RequestPacket packet = RequestPacket.newInstance();
                 packet.setPacketLength(totalPacketLength);
                 //Ack

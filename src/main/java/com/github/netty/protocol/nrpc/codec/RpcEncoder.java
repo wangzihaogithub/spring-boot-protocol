@@ -8,7 +8,6 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 
 import java.nio.charset.Charset;
-import java.nio.charset.Charset;
 
 import static com.github.netty.core.util.IOUtil.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
@@ -59,7 +58,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         int packetType = packet.getPacketType();
         try {
             switch (packetType) {
-                case TYPE_REQUEST: {
+                case TYPE_CLIENT_REQUEST: {
                     encodePacket((RequestPacket) packet, out);
                     break;
                 }
@@ -103,7 +102,7 @@ public class RpcEncoder extends MessageToByteEncoder<RpcPacket> {
         out.writeBytes(PROTOCOL_HEADER);
 
         //(1 byte Unsigned) RPC packet type
-        out.writeByte(RpcPacket.TYPE_REQUEST);
+        out.writeByte(RpcPacket.TYPE_CLIENT_REQUEST);
 
         //(1 byte Unsigned) RPC packet ack
         out.writeByte(packet.getAck());

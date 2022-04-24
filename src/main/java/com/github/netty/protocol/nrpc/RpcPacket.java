@@ -5,17 +5,42 @@ import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.nrpc.codec.DataCodec;
 
 import java.util.StringJoiner;
+import java.util.function.Consumer;
 
 /**
+ * packet process
+ *
+ * <pre>
+ * ---------------------------------------------------------------|
+ * | client                       |           server              |
+ * |--------------------------------------------------------------|
+ * | TYPE_CLIENT_REQUEST ->       |                               |
+ * |                              |       <- TYPE_RESPONSE_CHUNK  |
+ * | TYPE_RESPONSE_CHUNK_ACK  ->  |                               |
+ * |                              |       <- TYPE_RESPONSE_LAST   |
+ * ----------------------------------------------------------------
+ * </pre>
  * 2019/3/17/017.
  *
  * @author wangzihao
  */
 public class RpcPacket implements Recyclable {
-    public static final byte TYPE_REQUEST = 1;
-    public static final byte TYPE_RESPONSE_LAST = 2;
+    /**
+     * rpc request args
+     */
+    public static final byte TYPE_CLIENT_REQUEST = 1;
+    /**
+     * @see RpcClientChunkCompletableFuture#whenChunk(Consumer)
+     */
     public static final byte TYPE_RESPONSE_CHUNK = 5;
+    /**
+     * @see RpcClientChunkCompletableFuture#whenChunkAck(RpcClientChunkCompletableFuture.Consumer3)
+     */
     public static final byte TYPE_RESPONSE_CHUNK_ACK = 6;
+    /**
+     * rpc response data
+     */
+    public static final byte TYPE_RESPONSE_LAST = 2;
 
     public static final byte ACK_NO = 0;
     public static final byte ACK_YES = 1;
@@ -91,12 +116,12 @@ public class RpcPacket implements Recyclable {
         private String methodName;
         private int timeout;
 
-        public static RequestPacket newInstance() {
-            return RECYCLER.getInstance();
+        private RequestPacket() {
+            super(TYPE_CLIENT_REQUEST);
         }
 
-        private RequestPacket() {
-            super(TYPE_REQUEST);
+        public static RequestPacket newInstance() {
+            return RECYCLER.getInstance();
         }
 
         public int getTimeout() {
@@ -158,10 +183,6 @@ public class RpcPacket implements Recyclable {
      * Rpc Response
      */
     public static class ResponsePacket extends RpcPacket {
-        private int requestId;
-        private int status;
-        private String message;
-        private DataCodec.Encode encode;
         //正常返回
         public static final int OK = 200;
         //无后续正文
@@ -172,6 +193,10 @@ public class RpcPacket implements Recyclable {
         public static final int NO_SUCH_SERVICE = 406;
         //服务器错误
         public static final int SERVER_ERROR = 500;
+        private int requestId;
+        private int status;
+        private String message;
+        private DataCodec.Encode encode;
 
         private ResponsePacket() {
             super(TYPE_RESPONSE_LAST);
