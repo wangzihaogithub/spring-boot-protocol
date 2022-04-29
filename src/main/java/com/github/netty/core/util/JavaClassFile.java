@@ -1162,7 +1162,7 @@ public class JavaClassFile {
         /**
          * 获取泛型 多个嵌套那种复杂的暂时没实现, 目前只支持单个泛型
          * 自己想实现可以用原始数据自己解析 {@link #getSignature()}
-         * @return
+         * @return Type
          */
         public Type getSignatureGenericType(){
             for (Attribute attribute : attributes) {

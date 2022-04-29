@@ -14,10 +14,10 @@ import java.util.function.Consumer;
  * ---------------------------------------------------------------|
  * | client                       |           server              |
  * |--------------------------------------------------------------|
- * | TYPE_CLIENT_REQUEST ->       |                               |
- * |                              |       <- TYPE_RESPONSE_CHUNK  |
- * | TYPE_RESPONSE_CHUNK_ACK  ->  |                               |
- * |                              |       <- TYPE_RESPONSE_LAST   |
+ * | TYPE_CLIENT_REQUEST -》      |                               |
+ * |                              |      《- TYPE_RESPONSE_CHUNK  |
+ * | TYPE_RESPONSE_CHUNK_ACK  -》 |                               |
+ * |                              |      《- TYPE_RESPONSE_LAST   |
  * ----------------------------------------------------------------
  * </pre>
  * 2019/3/17/017.
