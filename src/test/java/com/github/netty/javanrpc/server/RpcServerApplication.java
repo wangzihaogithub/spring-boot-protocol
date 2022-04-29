@@ -6,7 +6,6 @@ import com.github.netty.core.util.ApplicationX;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.NRpcProtocol;
 import com.github.netty.protocol.nrpc.RpcEmitter;
-import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.protocol.servlet.DefaultServlet;
 import com.github.netty.protocol.servlet.ServletContext;
 

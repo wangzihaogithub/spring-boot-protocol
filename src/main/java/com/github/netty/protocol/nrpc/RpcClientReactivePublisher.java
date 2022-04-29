@@ -61,13 +61,15 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
 
         CONTEXT_LOCAL.set(rpcContext);
         try {
+            int chunkId = response.getChunkId();
+
             Object result;
             if (response.getEncode() == BINARY) {
                 result = response.getData();
             } else {
                 result = dataCodec.decodeChunkResponseData(response.getData(), rpcContext.getRpcMethod());
             }
-            chunkListener.onChunk(result, ack);
+            chunkListener.onChunk(result,chunkId ,ack);
             rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
         } finally {
             RecyclableUtil.release(response);

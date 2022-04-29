@@ -2,7 +2,7 @@ package com.github.netty.http.example;
 
 import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
-import com.github.netty.protocol.TcpChannel;
+import com.github.netty.core.TcpChannel;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;

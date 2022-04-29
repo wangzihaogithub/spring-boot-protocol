@@ -99,7 +99,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.2.6</version>
+  <version>2.2.7</version>
 </dependency>
 ```
 	
@@ -238,7 +238,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.6</version>
+          <version>2.2.7</version>
         </dependency>
 
         2.编写代码
@@ -264,13 +264,13 @@ github地址 : https://github.com/wangzihaogithub
 
 ##### 示例2. 纯java版,不引入springboot, 使用nprc(rpc-message)模块
 
-        1. 引入依赖(需要大于2.2.6版本)
+        1. 引入依赖(需要大于2.2.7版本)
         
         <!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/spring-boot-protocol -->
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.6</version>
+          <version>2.2.7</version>
         </dependency>
 
         2.编写代码
@@ -359,7 +359,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.2.6</version>
+              <version>2.2.7</version>
         </dependency>
         
         2.编写启动类

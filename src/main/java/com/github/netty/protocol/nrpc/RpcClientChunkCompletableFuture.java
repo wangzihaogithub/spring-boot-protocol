@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
 
+import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
+
 /**
  * support CompletableFuture async response.
  *
@@ -165,7 +167,7 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
         return chunkIndexAckConsumerList;
     }
 
-    public void callbackChunkConsumerList(CHUNK chunk, int index, ChunkAck ack) {
+    public void callbackChunkConsumerList(CHUNK chunk, int index, int chunkId, ChunkAck ack) {
         if (!existChunkCallback()) {
             ack.ack();
             return;
@@ -174,34 +176,49 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
         if (chunkScheduler == null) {
             chunkScheduler = GlobalEventExecutor.INSTANCE;
         }
+        RpcContext<RpcClient> rpcContext = CONTEXT_LOCAL.get();
         chunkScheduler.execute(() -> {
-            // 1.chunk
-            for (Consumer<CHUNK> chunkConsumer : getChunkConsumerList()) {
-                try {
-                    chunkConsumer.accept(chunk);
-                } catch (Exception e) {
-                    rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk) exception = {}", e.toString(), e);
+            CONTEXT_LOCAL.set(rpcContext);
+            try {
+                // 1.chunk
+                for (Consumer<CHUNK> chunkConsumer : getChunkConsumerList()) {
+                    try {
+                        chunkConsumer.accept(chunk);
+                    } catch (Exception e) {
+                        rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk) exception = {}", e.toString(), e);
+                    }
                 }
-            }
-            // 2.chunk,index
-            for (BiConsumer<CHUNK, Integer> chunkConsumer : getChunkIndexConsumerList()) {
-                try {
-                    chunkConsumer.accept(chunk, index);
-                } catch (Exception e) {
-                    rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk,index) exception = {}", e.toString(), e);
+                // 2.chunk,index
+                for (BiConsumer<CHUNK, Integer> chunkConsumer : getChunkIndexConsumerList()) {
+                    try {
+                        chunkConsumer.accept(chunk, index);
+                    } catch (Exception e) {
+                        rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk,index) exception = {}", e.toString(), e);
+                    }
                 }
-            }
-            // 3.chunk,index,ack
-            for (Consumer3<CHUNK, Integer, ChunkAck> chunkConsumer : getChunkIndexAckConsumerList()) {
-                try {
-                    chunkConsumer.accept(chunk, index, ack);
-                } catch (Exception e) {
-                    rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk,index,ack) exception = {}", e.toString(), e);
+                // 3.chunk,index,ack
+                for (Consumer3<CHUNK, Integer, ChunkAck> chunkConsumer : getChunkIndexAckConsumerList()) {
+                    try {
+                        chunkConsumer.accept(chunk, index, ack);
+                    } catch (Exception e) {
+                        rpcMethod.getLog().warn(rpcMethod + " chunkConsumer(chunk,index,ack) exception = {}", e.toString(), e);
+                    }
                 }
-            }
-            // ensure ack
-            if (!ack.isAck()) {
-                ack.ack();
+            } finally {
+                Supplier<Object> chunkSupplier = () -> chunk;
+                // call aop
+                for (RpcClientAop aop : rpcMethod.getInstance().getAopList()) {
+                    try {
+                        aop.onChunkAfter(rpcContext, chunkSupplier, index, chunkId, ack);
+                    } catch (Exception e) {
+                        rpcMethod.getLog().warn(rpcMethod + " client.aop.onChunkAfter() exception = {}", e.toString(), e);
+                    }
+                }
+                // ensure ack
+                if (!ack.isAck()) {
+                    ack.ack();
+                }
+                CONTEXT_LOCAL.remove();
             }
         });
     }
@@ -217,11 +234,6 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
             return true;
         }
         return false;
-    }
-
-    @FunctionalInterface
-    public interface Consumer3<T1, T2, T3> {
-        void accept(T1 t1, T2 t2, T3 t3);
     }
 
     @Override
@@ -494,6 +506,11 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
         return super.isCompletedExceptionally();
     }
 
+    @FunctionalInterface
+    public interface Consumer3<T1, T2, T3> {
+        void accept(T1 t1, T2 t2, T3 t3);
+    }
+
     public static class SubscriberAdapter<RESULT, CHUNK> implements Subscriber<RESULT>, RpcDone.ChunkListener<CHUNK> {
         private final RpcClientChunkCompletableFuture<RESULT, CHUNK> completableFuture;
         private final AtomicInteger chunkIndex = new AtomicInteger();
@@ -510,8 +527,8 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
         }
 
         @Override
-        public void onChunk(CHUNK chunk, ChunkAck ack) {
-            completableFuture.callbackChunkConsumerList(chunk, chunkIndex.getAndIncrement(), ack);
+        public void onChunk(CHUNK chunk, int chunkId, ChunkAck ack) {
+            completableFuture.callbackChunkConsumerList(chunk, chunkIndex.getAndIncrement(), chunkId, ack);
         }
 
         @Override

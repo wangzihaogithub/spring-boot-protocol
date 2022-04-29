@@ -26,10 +26,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket.*;
 import static com.github.netty.protocol.nrpc.RpcServerAop.CONTEXT_LOCAL;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 
 /**
  * Server side processor
@@ -44,6 +44,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
     protected final ExpiryLRUMap<Integer, ChunkAckCallback> rpcChunkAckCallbackMap = new ExpiryLRUMap<>(512, Long.MAX_VALUE, Long.MAX_VALUE, null);
     private final Map<String, RpcServerInstance> serviceInstanceMap = new ConcurrentHashMap<>(8);
     private final List<RpcServerAop> nettyRpcServerAopList = new CopyOnWriteArrayList<>();
+    private final AtomicInteger chunkIdIncr = new AtomicInteger();
     /**
      * Data encoder decoder. (Serialization or Deserialization)
      */
@@ -130,6 +131,69 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
 
     public static RpcContext<RpcServerInstance> newRpcContext() {
         return new RpcContext<>();
+    }
+
+    static boolean buildAndWriteAndFlush(RequestPacket request, ResponseLastPacket lastResponse, RpcContext<RpcServerInstance> rpcContext, RpcServerChannelHandler channelHandler, RpcMethod<RpcServerInstance> rpcMethod, Object result, Throwable throwable, State state, ChunkAckCallback ackCallback, RpcRunnable rpcRunnable, int chunkIndex, RpcEmitter parentEmitter) {
+        rpcContext.setResult(result);
+        if (result instanceof Throwable) {
+            result = result.toString();
+        }
+
+        ResponsePacket response;
+        if (throwable != null) {
+            rpcContext.setThrowable(throwable);
+            response = lastResponse;
+            response.setEncode(DataCodec.Encode.BINARY);
+            response.setData(null);
+            response.setStatus(SERVER_ERROR);
+            response.setMessage(channelHandler.dataCodec.buildThrowableRpcMessage(throwable));
+            logger.error("invoke error = {}", throwable.toString(), throwable);
+        } else if (result instanceof RpcEmitter) {
+            RpcEmitter<?, ?> emitter = (RpcEmitter) result;
+            emitter.usable(request, lastResponse, rpcContext, channelHandler, rpcMethod, rpcRunnable);
+            return true;
+        } else if (result instanceof CompletableFuture) {
+            ((CompletableFuture<?>) result).whenComplete((result1, throwable1) -> buildAndWriteAndFlush(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, throwable1, state, null, rpcRunnable, chunkIndex, parentEmitter));
+            return true;
+        } else {
+            if (state == RpcContext.RpcState.WRITE_CHUNK) {
+                int chunkId = channelHandler.newChunkId();
+                for (RpcServerAop aop : channelHandler.getAopList()) {
+                    try {
+                        aop.onChunkAfter(rpcContext, result, chunkIndex, chunkId, parentEmitter);
+                    } catch (Exception e) {
+                        rpcMethod.getLog().warn(rpcMethod + " server.aop.onChunkAfter() exception = {}", e.toString(), e);
+                    }
+                }
+                response = ResponsePacket.newChunkPacket(request.getRequestId(), chunkId);
+                if (ackCallback != null) {
+                    response.setAck(ACK_YES);
+                    channelHandler.rpcChunkAckCallbackMap.put(chunkId, ackCallback, ackCallback.timeout);
+                } else {
+                    response.setAck(ACK_NO);
+                }
+            } else {
+                if (rpcRunnable != null) {
+                    rpcRunnable.done = true;
+                }
+                response = lastResponse;
+            }
+            if (result instanceof byte[]) {
+                response.setEncode(DataCodec.Encode.BINARY);
+                response.setData((byte[]) result);
+            } else {
+                response.setEncode(DataCodec.Encode.APP);
+                if (state == RpcContext.RpcState.WRITE_CHUNK) {
+                    response.setData(channelHandler.dataCodec.encodeChunkResponseData(result));
+                } else {
+                    response.setData(channelHandler.dataCodec.encodeResponseData(result, rpcMethod));
+                }
+            }
+            response.setStatus(OK);
+            response.setMessage("ok");
+        }
+        channelHandler.writeAndFlush(request.getAck(), response, rpcContext, state);
+        return false;
     }
 
     public List<RpcServerAop> getAopList() {
@@ -280,7 +344,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                     } catch (Throwable t) {
                         throwable = t;
                     }
-                    async = buildAndWriteAndFlush(request, response, rpcContext, this, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH, null, null);
+                    async = buildAndWriteAndFlush(request, response, rpcContext, this, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH, null, null, -1, null);
                 }
             }
         } finally {
@@ -293,100 +357,6 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         }
         return async;
     }
-
-    public static class ChunkAckCallback<ACK_TYPE> extends CompletableFuture<ACK_TYPE> {
-        final AtomicBoolean timeoutNotifyFlag = new AtomicBoolean();
-        final long startTimestamp = System.currentTimeMillis();
-        boolean done = false;
-        int timeout;
-        Executor executor;
-        Class<ACK_TYPE> type;
-        RpcEmitter emitter;
-
-        public void onTimeout() {
-            if (done) {
-                return;
-            }
-            long expiryTimestamp = System.currentTimeMillis();
-            completeExceptionally(new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout +
-                    "], timeout = [" + (expiryTimestamp - startTimestamp) + "], [" + toString() + "]", true,
-                    startTimestamp, expiryTimestamp));
-        }
-
-        public void onAck(ResponseChunkAckPacket packet) {
-            done = true;
-            Integer status = packet.getStatus();
-            if (status == null || status != OK) {
-                completeExceptionally(new RpcResponseException(status, "Failure rpc response. status=" + status + ",message=" + packet.getMessage() + ",response=" + packet, true));
-            } else {
-                RpcServerInstance instance = (RpcServerInstance) emitter.rpcMethod.getInstance();
-                Object data = instance.getDataCodec().decodeChunkResponseData(packet.getData(), emitter.rpcMethod);
-                complete(cast(data));
-            }
-        }
-
-        public ACK_TYPE cast(Object data) {
-            return TypeUtil.cast(data, type);
-        }
-    }
-
-    static boolean buildAndWriteAndFlush(RequestPacket request, ResponseLastPacket lastResponse, RpcContext<RpcServerInstance> rpcContext, RpcServerChannelHandler channelHandler, RpcMethod<RpcServerInstance> rpcMethod, Object result, Throwable throwable, State state, ChunkAckCallback ackCallback, RpcRunnable rpcRunnable) {
-        if (result instanceof Throwable) {
-            result = result.toString();
-        }
-        rpcContext.setResult(result);
-
-        ResponsePacket response;
-        if (throwable != null) {
-            rpcContext.setThrowable(throwable);
-            response = lastResponse;
-            response.setEncode(DataCodec.Encode.BINARY);
-            response.setData(null);
-            response.setStatus(SERVER_ERROR);
-            response.setMessage(channelHandler.dataCodec.buildThrowableRpcMessage(throwable));
-            logger.error("invoke error = {}", throwable.toString(), throwable);
-        } else if (result instanceof RpcEmitter) {
-            RpcEmitter<?, ?> emitter = (RpcEmitter) result;
-            emitter.usable(request, lastResponse, rpcContext, channelHandler, rpcMethod, rpcRunnable);
-            return true;
-        } else if (result instanceof CompletableFuture) {
-            ((CompletableFuture<?>) result).whenComplete((result1, throwable1) -> buildAndWriteAndFlush(request, lastResponse, rpcContext, channelHandler, rpcMethod, result1, throwable1, state, null, rpcRunnable));
-            return true;
-        } else {
-            if (state == RpcContext.RpcState.WRITE_CHUNK) {
-                int chunkId = channelHandler.newChunkId();
-                response = ResponsePacket.newChunkPacket(request.getRequestId(), chunkId);
-                if (ackCallback != null) {
-                    response.setAck(ACK_YES);
-                    channelHandler.rpcChunkAckCallbackMap.put(chunkId, ackCallback, ackCallback.timeout);
-                } else {
-                    response.setAck(ACK_NO);
-                }
-            } else {
-                if (rpcRunnable != null) {
-                    rpcRunnable.done = true;
-                }
-                response = lastResponse;
-            }
-            if (result instanceof byte[]) {
-                response.setEncode(DataCodec.Encode.BINARY);
-                response.setData((byte[]) result);
-            } else {
-                response.setEncode(DataCodec.Encode.APP);
-                if (state == RpcContext.RpcState.WRITE_CHUNK) {
-                    response.setData(channelHandler.dataCodec.encodeChunkResponseData(result));
-                } else {
-                    response.setData(channelHandler.dataCodec.encodeResponseData(result, rpcMethod));
-                }
-            }
-            response.setStatus(OK);
-            response.setMessage("ok");
-        }
-        channelHandler.writeAndFlush(request.getAck(), response, rpcContext, state);
-        return false;
-    }
-
-    private final AtomicInteger chunkIdIncr = new AtomicInteger();
 
     private int newChunkId() {
         int id = chunkIdIncr.getAndIncrement();
@@ -563,6 +533,42 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
         return Collections.unmodifiableMap(serviceInstanceMap);
     }
 
+    public static class ChunkAckCallback<ACK_TYPE> extends CompletableFuture<ACK_TYPE> {
+        final AtomicBoolean timeoutNotifyFlag = new AtomicBoolean();
+        final long startTimestamp = System.currentTimeMillis();
+        boolean done = false;
+        int timeout;
+        Executor executor;
+        Class<ACK_TYPE> type;
+        RpcEmitter emitter;
+
+        public void onTimeout() {
+            if (done) {
+                return;
+            }
+            long expiryTimestamp = System.currentTimeMillis();
+            completeExceptionally(new RpcTimeoutException("RpcRequestTimeout : maxTimeout = [" + timeout +
+                    "], timeout = [" + (expiryTimestamp - startTimestamp) + "], [" + toString() + "]", true,
+                    startTimestamp, expiryTimestamp));
+        }
+
+        public void onAck(ResponseChunkAckPacket packet) {
+            done = true;
+            Integer status = packet.getStatus();
+            if (status == null || status != OK) {
+                completeExceptionally(new RpcResponseException(status, "Failure rpc response. status=" + status + ",message=" + packet.getMessage() + ",response=" + packet, true));
+            } else {
+                RpcServerInstance instance = (RpcServerInstance) emitter.rpcMethod.getInstance();
+                Object data = instance.getDataCodec().decodeChunkResponseData(packet.getData(), emitter.rpcMethod);
+                complete(cast(data));
+            }
+        }
+
+        public ACK_TYPE cast(Object data) {
+            return TypeUtil.cast(data, type);
+        }
+    }
+
     public static class RpcRunnable implements Runnable {
         final AtomicBoolean timeoutNotifyFlag = new AtomicBoolean();
         RpcMethod<RpcServerInstance> rpcMethod;
@@ -626,7 +632,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
                 throwable = t;
             }
             done = true;
-            buildAndWriteAndFlush(request, response, rpcContext, channelHandler, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH, null, this);
+            buildAndWriteAndFlush(request, response, rpcContext, channelHandler, rpcMethod, result, throwable, RpcContext.RpcState.WRITE_FINISH, null, this, -1, null);
             rpcContext.setRpcEndTimestamp(System.currentTimeMillis());
             try {
                 channelHandler.onResponseAfter(rpcContext);

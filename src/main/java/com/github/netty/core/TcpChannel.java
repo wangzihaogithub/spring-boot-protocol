@@ -1,10 +1,10 @@
-package com.github.netty.protocol;
+package com.github.netty.core;
 
-import com.github.netty.core.ProtocolHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelId;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeKey;
@@ -22,9 +22,9 @@ public class TcpChannel {
     private static final Map<ChannelId,TcpChannel> CHANNELS = new ConcurrentHashMap<>(32);
     private final Channel channel;
     private final ProtocolHandler protocol;
-    private final DynamicProtocolChannelHandler channelHandler;
+    private final ChannelHandler channelHandler;
 
-    public TcpChannel(Channel channel, ProtocolHandler protocol,DynamicProtocolChannelHandler channelHandler) {
+    public TcpChannel(Channel channel, ProtocolHandler protocol,ChannelHandler channelHandler) {
         this.channel = channel;
         this.protocol = protocol;
         this.channelHandler = channelHandler;
@@ -42,7 +42,7 @@ public class TcpChannel {
         return channel;
     }
 
-    public DynamicProtocolChannelHandler getChannelHandler() {
+    public ChannelHandler getChannelHandler() {
         return channelHandler;
     }
 

@@ -2,6 +2,7 @@ package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.ProtocolHandler;
+import com.github.netty.core.TcpChannel;
 import com.github.netty.core.util.BytesMetricsChannelHandler;
 import com.github.netty.core.util.MessageMetricsChannelHandler;
 import io.netty.buffer.ByteBuf;

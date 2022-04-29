@@ -7,7 +7,7 @@ import com.github.netty.core.util.HostUtil;
 import com.github.netty.Version;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
-import com.github.netty.protocol.TcpChannel;
+import com.github.netty.core.TcpChannel;
 import com.github.netty.springboot.NettyProperties;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
