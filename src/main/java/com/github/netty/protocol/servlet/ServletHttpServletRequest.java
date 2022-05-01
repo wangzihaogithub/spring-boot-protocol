@@ -721,13 +721,19 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletHttpSession getSession(boolean create) {
-	    String sessionId = getRequestedSessionId();
+        String sessionId = null;
         ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
-        if (httpSession != null && httpSession.isValid() && httpSession.getId().equals(sessionId)) {
-            return httpSession;
+        if (httpSession != null && httpSession.isValid()) {
+            sessionId = getRequestedSessionId0();
+            if (httpSession.getId().equals(sessionId)) {
+                return httpSession;
+            }
         }
-        if(sessionIdSource == null && !create){
+        if (sessionIdSource == null && !create) {
             return null;
+        }
+        if (sessionId == null || sessionId.isEmpty()) {
+            sessionId = getRequestedSessionId();
         }
 	    ServletContext servletContext = getServletContext();
 	    SessionService sessionService = servletContext.getSessionService();
@@ -751,8 +757,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             httpSession.setServletContext(servletContext);
         }
         httpSession.wrap(session);
-        httpSession.access();
         httpSession.setNewSessionFlag(newSessionFlag);
+        httpSession.access();
         servletHttpExchange.setHttpSession(httpSession);
         return httpSession;
     }
@@ -783,14 +789,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public boolean isRequestedSessionIdValid() {
-        getRequestedSessionId();
+        getRequestedSessionId0();
         return sessionIdSource == SessionTrackingMode.COOKIE ||
                 sessionIdSource == SessionTrackingMode.URL;
     }
 
     @Override
     public boolean isRequestedSessionIdFromCookie() {
-        getRequestedSessionId();
+        getRequestedSessionId0();
         return sessionIdSource == SessionTrackingMode.COOKIE;
     }
 
@@ -801,37 +807,44 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public boolean isRequestedSessionIdFromUrl() {
-        getRequestedSessionId();
+        getRequestedSessionId0();
         return sessionIdSource == SessionTrackingMode.URL;
     }
 
-    @Override
-    public String getRequestedSessionId() {
-        if(sessionId != null){
+    private String getRequestedSessionId0() {
+        if (sessionId != null) {
             return sessionId;
         }
 
         //If the user sets the sessionCookie name, the user set the sessionCookie name
         String userSettingCookieName = getServletContext().getSessionCookieConfig().getName();
-        String cookieSessionName = StringUtil.isNotEmpty(userSettingCookieName)? userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
+        String cookieSessionName = userSettingCookieName != null && userSettingCookieName.length() > 0 ?
+                userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
 
         //Find the value of sessionCookie first from cookie, then from url parameter
-        String sessionId = ServletUtil.getCookieValue(getCookies(),cookieSessionName);
-        if(StringUtil.isNotEmpty(sessionId)){
+        String sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
+        if (sessionId != null && sessionId.length() > 0) {
             sessionIdSource = SessionTrackingMode.COOKIE;
-        }else {
+        } else {
             String queryString = getQueryString();
-            if(queryString != null && queryString.contains(HttpConstants.JSESSION_ID_URL)) {
+            if (queryString != null && queryString.contains(HttpConstants.JSESSION_ID_URL)) {
                 sessionId = getParameter(HttpConstants.JSESSION_ID_URL);
             }
-            if(StringUtil.isNotEmpty(sessionId)){
+            if (sessionId != null && sessionId.length() > 0) {
                 sessionIdSource = SessionTrackingMode.URL;
-            }else{
+            } else {
                 sessionIdSource = null;
-                sessionId = newSessionId();
             }
         }
+        return sessionId;
+    }
 
+    @Override
+    public String getRequestedSessionId() {
+        String sessionId = getRequestedSessionId0();
+        if (sessionId == null || sessionId.isEmpty()) {
+            sessionId = newSessionId();
+        }
         this.sessionId = sessionId;
         return sessionId;
     }
