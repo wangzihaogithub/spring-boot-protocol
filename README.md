@@ -81,12 +81,6 @@
         "packet":"ServerColumnDefinitionPacket,order_id"
     },
     
-    
-作者邮箱 : 842156727@qq.com
-
-讨论QQ群 : 779740988
-
-![](https://user-images.githubusercontent.com/18204507/166250902-8f058288-fcd5-4bfb-8285-8e98b541786a.png)
 
 github地址 : https://github.com/wangzihaogithub
 
@@ -627,8 +621,13 @@ com.github.netty.protocol.DynamicProtocolChannelHandler 接收新链接的第一
 
 com.github.netty.core.ProtocolHandler 处理之后的数据交换逻辑
 
-
 #### 如何参与
+    
+作者邮箱 : 842156727@qq.com
+
+讨论QQ群 : 779740988
+
+![](https://user-images.githubusercontent.com/18204507/166250902-8f058288-fcd5-4bfb-8285-8e98b541786a.png)
 
 * 有问题交issue, 想改代码直接pull request即可. github都会通过微信及时通知我.
 
