@@ -169,7 +169,9 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     }
 
     public void stop() {
-
+        if(serverChannel == null){
+            return;
+        }
         serverChannel.close().addListener((ChannelFutureListener) closeFuture -> {
             if (boss == null) {
                 return;
