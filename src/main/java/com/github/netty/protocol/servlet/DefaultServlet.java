@@ -6,7 +6,6 @@ import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DateFormatter;
 
-import javax.servlet.ServletException;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.HttpServlet;
@@ -42,12 +41,12 @@ import java.util.*;
  * 2018/7/15/015
  */
 public class DefaultServlet extends HttpServlet {
-    public static final Properties DEFAULT_MIME_TYPE_MAPPINGS = new Properties();
     private static final List<Range> FULL = Collections.unmodifiableList(new ArrayList<>());
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static final String BOUNDARY = "CATALINA_MIME_BOUNDARY";
     private static final byte[] MIME_BOUNDARY_BEGIN = ("\r\n--" + BOUNDARY).getBytes(ISO_8859_1);
     private static final byte[] MIME_BOUNDARY_END = ("\r\n--" + BOUNDARY + "--").getBytes(ISO_8859_1);
+    public static final Properties DEFAULT_MIME_TYPE_MAPPINGS = new Properties();
 
     private Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
     private String characterEncoding = "utf-8";
@@ -67,7 +66,7 @@ public class DefaultServlet extends HttpServlet {
     }
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String requestURI = request.getRequestURI();
         File resource = getFile(requestURI);
         if (resource == null) {

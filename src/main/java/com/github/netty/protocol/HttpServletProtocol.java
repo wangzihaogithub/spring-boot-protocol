@@ -54,6 +54,7 @@ public class HttpServletProtocol extends AbstractProtocol {
             "text/css", "text/javascript", "application/javascript", "application/json",
             "application/xml"};
     private String[] compressionExcludedUserAgents = {};
+    private boolean onServerStart = false;
 
     public HttpServletProtocol(ServletContext servletContext) {
         this(servletContext,null,null);
@@ -81,8 +82,10 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         //Servlet will be initialized automatically before use.
         initFilter(servletContext);
+        listenerManager.onServletDefaultInitializer(servletContext.getDefaultServlet(), servletContext);
 
         listenerManager.onServletContainerInitializerStartup(Collections.emptySet(),servletContext);
+        this.onServerStart = true;
     }
 
     @Override
@@ -166,6 +169,14 @@ public class HttpServletProtocol extends AbstractProtocol {
                 }catch (Exception e){
                     LOGGER.error("destroyServlet error={},servlet={}",e.toString(),servlet,e);
                 }
+            }
+        }
+        Servlet defaultServlet = this.servletContext.getDefaultServlet();
+        if (onServerStart && defaultServlet != null) {
+            try {
+                defaultServlet.destroy();
+            } catch (Exception e) {
+                LOGGER.error("destroyServlet error={},servlet={}", e.toString(), defaultServlet, e);
             }
         }
     }
@@ -305,7 +316,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         pipeline.addLast("Servlet", servletHandler);
 
         //Dynamic binding protocol for switching protocol
-        DispatcherChannelHandler.setMessageToRunnable(ch, new NettyMessageToServletRunnable(servletContext,maxContentLength));
+        DispatcherChannelHandler.setMessageToRunnable(ch, new NettyMessageToServletRunnable(servletContext, maxContentLength));
     }
 
     public long getMaxBufferBytes() {

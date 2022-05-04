@@ -78,6 +78,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
 
+    private Servlet defaultServlet = new DefaultServlet();
     private boolean enableLookupFlag = false;
     private boolean autoFlush;
     /**
@@ -103,6 +104,14 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
+    }
+
+    public void setDefaultServlet(Servlet defaultServlet) {
+        this.defaultServlet = defaultServlet;
+    }
+
+    public Servlet getDefaultServlet() {
+        return defaultServlet;
     }
 
     public void setMaxBufferBytes(int maxBufferBytes) {

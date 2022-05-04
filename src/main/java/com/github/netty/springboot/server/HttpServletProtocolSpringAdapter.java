@@ -146,6 +146,10 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                 servletContext.setDocBase(webServerFactory.getDocumentRoot().getAbsolutePath());
             }
 
+            if(!properties.getHttpServlet().isEnablesDefaultServlet()){
+                servletContext.setDefaultServlet(null);
+            }
+
             //Error page
             for (ErrorPage errorPage : webServerFactory.getErrorPages()) {
                 ServletErrorPage servletErrorPage = new ServletErrorPage(errorPage.getStatusCode(), errorPage.getException(), errorPage.getPath());

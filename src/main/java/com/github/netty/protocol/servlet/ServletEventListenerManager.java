@@ -6,10 +6,7 @@ import com.github.netty.core.util.LoggerX;
 import javax.servlet.ServletContext;
 import javax.servlet.*;
 import javax.servlet.http.*;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Function;
 
 /**
@@ -32,6 +29,33 @@ public class ServletEventListenerManager {
     private Function<Servlet,Servlet> servletAddedListener;
 
     //=============event=================
+
+    public void onServletDefaultInitializer(Servlet servlet, ServletContext servletContext) throws ServletException {
+        if(servlet == null){
+            return;
+        }
+        servlet.init(new ServletConfig() {
+            @Override
+            public String getServletName() {
+                return "defaultServlet";
+            }
+
+            @Override
+            public ServletContext getServletContext() {
+                return servletContext;
+            }
+
+            @Override
+            public String getInitParameter(String name) {
+                return null;
+            }
+
+            @Override
+            public Enumeration<String> getInitParameterNames() {
+                return Collections.emptyEnumeration();
+            }
+        });
+    }
 
     public Servlet onServletAdded(Servlet servlet){
         if(servletAddedListener == null){

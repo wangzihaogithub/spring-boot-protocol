@@ -10,13 +10,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
 
 import javax.servlet.RequestDispatcher;
+import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_NO;
 import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;
@@ -81,7 +80,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             if (continueResponse(context, request, contentLength)) {
                 needDiscard = false;
                 HttpRunnable httpRunnable = RECYCLER.getInstance();
-                httpRunnable.servletHttpExchange = exchange = this.exchange = ServletHttpExchange.newInstance(
+                httpRunnable.exchange = exchange = this.exchange = ServletHttpExchange.newInstance(
                         servletContext,
                         context,
                         request);
@@ -111,7 +110,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     public Runnable onClose(ChannelHandlerContext context) {
         ServletHttpExchange exchange = this.exchange;
         if (exchange != null) {
-            if(exchange.isAsyncStartIng()) {
+            if (exchange.isAsyncStartIng()) {
                 exchange.abort();
                 ServletAsyncContext asyncContext = exchange.getAsyncContext();
                 if (asyncContext != null && !asyncContext.isComplete()) {
@@ -201,44 +200,49 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
      */
     public static class HttpRunnable implements Runnable, Recyclable {
         public static final LoggerX logger = LoggerFactoryX.getLogger(HttpRunnable.class);
-        private ServletHttpExchange servletHttpExchange;
+        private ServletHttpExchange exchange;
 
         public ServletHttpExchange getExchange() {
-            return servletHttpExchange;
+            return exchange;
         }
 
-        public void setExchange(ServletHttpExchange servletHttpExchange) {
-            this.servletHttpExchange = servletHttpExchange;
+        public void setExchange(ServletHttpExchange exchange) {
+            this.exchange = exchange;
         }
 
         @Override
         public void run() {
-            ServletHttpServletRequest httpServletRequest = servletHttpExchange.getRequest();
-            ServletHttpServletResponse httpServletResponse = servletHttpExchange.getResponse();
+            ServletHttpServletRequest request = exchange.getRequest();
+            ServletHttpServletResponse response = exchange.getResponse();
             Throwable realThrowable = null;
 
             // upload cannot block event loop
-            if (httpServletRequest.isMultipart()
-                    && servletHttpExchange.getChannelHandlerContext().executor().inEventLoop()) {
-                servletHttpExchange.getServletContext().getDefaultExecutorSupplier().get().execute(this);
+            if (request.isMultipart()
+                    && exchange.getChannelHandlerContext().executor().inEventLoop()) {
+                exchange.getServletContext().getDefaultExecutorSupplier().get().execute(this);
                 return;
             }
             try {
-                ServletRequestDispatcher dispatcher = httpServletRequest.getRequestDispatcher(httpServletRequest.getRequestURI());
+                ServletRequestDispatcher dispatcher = request.getRequestDispatcher(request.getRequestURI());
                 if (dispatcher == null) {
-                    httpServletResponse.sendError(HttpServletResponse.SC_NOT_FOUND);
-                    return;
+                    Servlet defaultServlet = exchange.getServletContext().getDefaultServlet();
+                    if (defaultServlet != null) {
+                        defaultServlet.service(request, response);
+                    } else {
+                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                    }
+                } else {
+                    request.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
+                    request.setDispatcher(dispatcher);
+                    dispatcher.dispatch(request, response);
                 }
-                httpServletRequest.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
-                httpServletRequest.setDispatcher(dispatcher);
-                dispatcher.dispatch(httpServletRequest, httpServletResponse);
             } catch (ServletException se) {
                 realThrowable = se.getRootCause();
             } catch (Throwable throwable) {
                 realThrowable = throwable;
             } finally {
                 try {
-                    handleErrorPage(realThrowable, httpServletRequest, httpServletResponse);
+                    handleErrorPage(realThrowable, request, response);
                 } catch (Throwable e) {
                     logger.warn("handleErrorPage error = {}", e.toString(), e);
                 } finally {
@@ -250,72 +254,70 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                      * before the startAsync of the relevant request is invoked, the developer must be aware that the response object reference remains outside the scope described above
                      * circumference may lead to uncertain behavior
                      */
-                    if (httpServletRequest.isAsync()) {
-                        ServletAsyncContext asyncContext = httpServletRequest.getAsyncContext();
+                    if (request.isAsync()) {
+                        ServletAsyncContext asyncContext = request.getAsyncContext();
                         //If the asynchronous execution completes, recycle
                         if (asyncContext.isComplete()) {
                             asyncContext.recycle();
                         } else {
                             //Marks the end of execution for the main thread
-                            httpServletRequest.getAsyncContext().markIoThreadOverFlag();
+                            request.getAsyncContext().markIoThreadOverFlag();
                             if (asyncContext.isComplete()) {
                                 asyncContext.recycle();
                             }
                         }
                     } else {
                         //Not asynchronous direct collection
-                        servletHttpExchange.close();
+                        exchange.close();
                     }
                     recycle();
                 }
             }
         }
 
-        protected void handleErrorPage(Throwable realThrowable, ServletHttpServletRequest httpServletRequest, ServletHttpServletResponse httpServletResponse) {
+        protected void handleErrorPage(Throwable realThrowable, ServletHttpServletRequest request, ServletHttpServletResponse response) {
             /*
              * Error pages are obtained according to two types: 1. By exception type; 2. By status code
              */
             if (realThrowable == null) {
-                realThrowable = (Throwable) httpServletRequest.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
+                realThrowable = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
             }
             ServletErrorPage errorPage = null;
-            ServletErrorPageManager errorPageManager = servletHttpExchange.getServletContext().getErrorPageManager();
+            ServletErrorPageManager errorPageManager = exchange.getServletContext().getErrorPageManager();
             if (realThrowable != null) {
                 errorPage = errorPageManager.find(realThrowable);
                 if (errorPage == null) {
-                    httpServletResponse.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     errorPage = errorPageManager.find(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 }
                 if (errorPage == null) {
                     errorPage = errorPageManager.find(0);
                 }
-            } else if (httpServletResponse.isError()) {
-                errorPage = errorPageManager.find(httpServletResponse.getStatus());
+            } else if (response.isError()) {
+                errorPage = errorPageManager.find(response.getStatus());
                 if (errorPage == null) {
                     errorPage = errorPageManager.find(0);
                 }
             }
             //Error page
             if (realThrowable != null || errorPage != null) {
-                errorPageManager.handleErrorPage(errorPage, realThrowable, httpServletRequest, httpServletResponse);
+                errorPageManager.handleErrorPage(errorPage, realThrowable, request, response);
             }
         }
 
         @Override
         public void recycle() {
-            servletHttpExchange = null;
+            exchange = null;
             RECYCLER.recycleInstance(HttpRunnable.this);
         }
 
         @Override
         public String toString() {
-            ServletHttpExchange exchange = this.servletHttpExchange;
-            if (exchange != null) {
-                ServletHttpServletRequest request = exchange.getRequest();
-                return String.valueOf(request.getNettyRequest());
-            } else {
-                return "null";
-            }
+            return Optional.ofNullable(exchange)
+                    .map(ServletHttpExchange::getRequest)
+                    .map(ServletHttpServletRequest::getNettyRequest)
+                    .map(String::valueOf)
+                    .orElse("recycle");
         }
     }
 
