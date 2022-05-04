@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
+import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.*;
@@ -536,19 +537,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public long getDateHeader(String name) throws IllegalArgumentException {
         String value = getHeader(name);
-        if(StringUtil.isEmpty(value)){
+        if (value == null || value.isEmpty()) {
             return -1;
         }
-
-        DateFormat[] formats = FORMATS_TEMPLATE;
-        Date date = null;
-        for (int i = 0; (date == null) && (i < formats.length); i++) {
-            try {
-                date = formats[i].parse(value);
-            } catch (ParseException e) {
-                // Ignore
-            }
-        }
+        Date date = DateFormatter.parseHttpDate(value);
         if (date == null) {
             throw new IllegalArgumentException(value);
         }
