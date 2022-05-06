@@ -270,10 +270,6 @@ public class NettyProperties implements Serializable {
          */
         @NestedConfigurationProperty
         private final ServerThreadPool threadPool = new ServerThreadPool();
-        /**
-         * 是否开启默认servlet, 如果找不到匹配的路径 {@link com.github.netty.protocol.servlet.DefaultServlet}
-         */
-        private boolean enablesDefaultServlet = false;
 
         /**
          * session存储 - 是否开启本地文件存储
@@ -409,14 +405,6 @@ public class NettyProperties implements Serializable {
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
-        }
-
-        public boolean isEnablesDefaultServlet() {
-            return enablesDefaultServlet;
-        }
-
-        public void setEnablesDefaultServlet(boolean enablesDefaultServlet) {
-            this.enablesDefaultServlet = enablesDefaultServlet;
         }
 
         public boolean isStartupFailExit() {

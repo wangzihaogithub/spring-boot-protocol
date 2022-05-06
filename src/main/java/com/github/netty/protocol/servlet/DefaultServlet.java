@@ -3,9 +3,11 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.CaseInsensitiveKeyMap;
 import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
+import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DateFormatter;
 
+import javax.servlet.ServletException;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.HttpServlet;
@@ -63,6 +65,14 @@ public class DefaultServlet extends HttpServlet {
 
     public DefaultServlet() {
         DEFAULT_MIME_TYPE_MAPPINGS.forEach((k, v) -> mimeTypeMappings.put(k.toString(), v.toString()));
+    }
+
+    @Override
+    public void init() {
+        ServletContext servletContext = (ServletContext) getServletContext();
+        for (MimeMappingsX.MappingX mapping : servletContext.getMimeMappings()) {
+            mimeTypeMappings.put(mapping.getExtension(), mapping.getMimeType());
+        }
     }
 
     @Override

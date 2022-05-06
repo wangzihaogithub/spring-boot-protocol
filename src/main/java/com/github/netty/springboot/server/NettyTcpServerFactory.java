@@ -87,9 +87,8 @@ public class NettyTcpServerFactory
         ServletContext servletContext = Objects.requireNonNull(getServletContext());
         try {
             //The default servlet
-            if (super.isRegisterDefaultServlet()) {
-                servletContext.addServlet("default",new DefaultServlet())
-                        .addMapping("/");
+            if (!super.isRegisterDefaultServlet()) {
+                servletContext.setDefaultServlet(null);
             }
 
             //JSP is not supported
