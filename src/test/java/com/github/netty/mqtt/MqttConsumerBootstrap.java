@@ -37,7 +37,7 @@ public class MqttConsumerBootstrap {
                 client.connect(MqttBrokerBootstrap.PORT,"localhost", s -> {
                     client.publishHandler(response -> {
                         String message = new String(response.payload().getBytes());
-                        logger.info("订阅收到topic={}的数据: {} from topic {}", response.topicName(),message);
+                        logger.info("订阅收到topic={}的数据: {}", response.topicName(),message);
                     });
 
                     client.subscribe("#", MqttQoS.AT_LEAST_ONCE.value(), resp -> {
