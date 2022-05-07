@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 生产者测试 (一直运行)  注: mqtt服务端口=8080
+ * 生产者测试 (一直运行)  注: mqtt-broker端口=8080
  * <p>
  * 用于测试qps性能, 直接右键运行即可
  * MQTT协议
@@ -24,8 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class MqttProducerBootstrap {
     private static LoggerX logger = LoggerFactoryX.getLogger(MqttProducerBootstrap.class);
-    private static final int PORT = 8080;
-    private static final String HOST = "localhost";
     private static final AtomicInteger PUBLISH_COUNT = new AtomicInteger();
 
     public static void main(String[] args) {
@@ -42,21 +40,20 @@ public class MqttProducerBootstrap {
                         .setPassword("123456")
                         .setMaxMessageSize(8192));
 
-
-                client.connect(PORT,HOST, asyncResult -> {
+                client.connect(MqttBrokerBootstrap.PORT,"localhost", asyncResult -> {
                     Runnable publishTask = () -> {
-                        Buffer buffer = Buffer.buffer("发布数据" + PUBLISH_COUNT.incrementAndGet());
+                        Buffer buffer = Buffer.buffer("数据" + PUBLISH_COUNT.incrementAndGet());
                         client.publish("/hello",buffer,
                                 MqttQoS.EXACTLY_ONCE, true, true,
                                 asyncResult1 -> {
                                     if (asyncResult1.succeeded()) {
-                                        logger.info("publish {}", asyncResult1);
+                                        logger.info("发布数据至topic=/hello成功 {}", asyncResult1);
                                     }
                                 }
                         );
                     };
                     Executors.newScheduledThreadPool(1)
-                            .scheduleAtFixedRate(publishTask, 0, 15, TimeUnit.MILLISECONDS);
+                            .scheduleAtFixedRate(publishTask, 0, 1000, TimeUnit.MILLISECONDS);
                 });
             }
         };

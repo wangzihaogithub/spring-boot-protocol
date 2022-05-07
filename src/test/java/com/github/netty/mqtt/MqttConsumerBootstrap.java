@@ -8,18 +8,9 @@ import io.vertx.core.Verticle;
 import io.vertx.core.Vertx;
 import io.vertx.mqtt.MqttClient;
 import io.vertx.mqtt.MqttClientOptions;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigDecimal;
-import java.util.StringJoiner;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 消费者测试 (一直运行)  注: mqtt服务端口=8080
+ * 消费者测试 (一直运行)  注: mqtt-broker端口=8080
  * <p>
  * 用于测试qps性能, 直接右键运行即可
  * MQTT协议
@@ -28,8 +19,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class MqttConsumerBootstrap {
     private static LoggerX logger = LoggerFactoryX.getLogger(MqttConsumerBootstrap.class);
-    private static final int PORT = 8080;
-    private static final String HOST = "localhost";
 
     public static void main(String[] args) {
         Verticle verticle = new AbstractVerticle() {
@@ -45,10 +34,10 @@ public class MqttConsumerBootstrap {
                         .setPassword("123456")
                         .setMaxMessageSize(8192));
 
-                client.connect(PORT,HOST,s -> {
+                client.connect(MqttBrokerBootstrap.PORT,"localhost", s -> {
                     client.publishHandler(response -> {
                         String message = new String(response.payload().getBytes());
-                        logger.info("接收到消息: {} from topic {}", message, response.topicName());
+                        logger.info("订阅收到topic={}的数据: {} from topic {}", response.topicName(),message);
                     });
 
                     client.subscribe("#", MqttQoS.AT_LEAST_ONCE.value(), resp -> {
