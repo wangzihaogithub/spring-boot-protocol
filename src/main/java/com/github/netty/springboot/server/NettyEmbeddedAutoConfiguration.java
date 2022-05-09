@@ -5,6 +5,7 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.AbortPolicyWithReport;
 import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.*;
+import com.github.netty.protocol.mqtt.interception.InterceptHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
 import com.github.netty.protocol.mysql.listener.WriterLogFilePacketListener;
@@ -29,6 +30,7 @@ import org.springframework.core.io.ResourceLoader;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
@@ -120,9 +122,11 @@ public class NettyEmbeddedAutoConfiguration {
     @Bean("mqttProtocol")
     @ConditionalOnMissingBean(MqttProtocol.class)
     @ConditionalOnProperty(prefix = "server.netty.mqtt", name = "enabled", matchIfMissing = false)
-    public MqttProtocol mqttProtocol(){
+    public MqttProtocol mqttProtocol(ListableBeanFactory beanFactory){
         NettyProperties.Mqtt mqtt = nettyProperties.getMqtt();
-        return new MqttProtocol(mqtt.getMessageMaxLength(),mqtt.getNettyReaderIdleTimeSeconds(),mqtt.getAutoFlushIdleMs());
+        MqttProtocol protocol = new MqttProtocol(mqtt.getMessageMaxLength(), mqtt.getNettyReaderIdleTimeSeconds(), mqtt.getAutoFlushIdleMs());
+        beanFactory.getBeansOfType(InterceptHandler.class).values().forEach(protocol::addInterceptHandler);
+        return protocol;
     }
 
     /**

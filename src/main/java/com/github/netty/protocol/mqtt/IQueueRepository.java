@@ -4,5 +4,5 @@ import java.util.Queue;
 
 public interface IQueueRepository {
 
-    Queue<MqttSessionRegistry.EnqueuedMessage> createQueue(String cli, boolean clean);
+    Queue<MqttSessionRegistry.EnqueuedMessage> createQueue(String clientId, boolean clean);
 }

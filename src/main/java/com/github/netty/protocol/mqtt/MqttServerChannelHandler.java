@@ -19,6 +19,7 @@ package com.github.netty.protocol.mqtt;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AutoFlushChannelHandler;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
+import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
 import com.github.netty.protocol.mqtt.security.IAuthenticator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -53,10 +54,12 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     private final IAuthenticator authenticator;
     private final MqttSessionRegistry sessionRegistry;
     private final MqttPostOffice postOffice;
+    private final BrokerInterceptor interceptor;
 
-    public MqttServerChannelHandler(BrokerConfiguration brokerConfig, IAuthenticator authenticator,
+    public MqttServerChannelHandler(BrokerInterceptor interceptor,BrokerConfiguration brokerConfig, IAuthenticator authenticator,
                                     MqttSessionRegistry sessionRegistry, MqttPostOffice postOffice) {
         super(true);
+        this.interceptor = interceptor;
         this.brokerConfig = brokerConfig;
         this.authenticator = authenticator;
         this.sessionRegistry = sessionRegistry;
@@ -96,7 +99,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         Channel channel = ctx.channel();
-        MqttConnection connection =  new MqttConnection(channel, brokerConfig, authenticator, sessionRegistry, postOffice);
+        MqttConnection connection =  new MqttConnection(interceptor,channel, brokerConfig, authenticator, sessionRegistry, postOffice);
         connection.setAuthFlushed(AutoFlushChannelHandler.isAutoFlush(ctx.pipeline()));
         mqttConnection(channel,connection);
     }

@@ -19,6 +19,8 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.exception.MqttSessionCorruptedException;
+import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
+import com.github.netty.protocol.mqtt.interception.InterceptAcknowledgedMessage;
 import com.github.netty.protocol.mqtt.security.IAuthenticator;
 import com.github.netty.protocol.mqtt.subscriptions.Topic;
 import io.netty.buffer.ByteBuf;
@@ -53,9 +55,11 @@ public final class MqttConnection {
     private boolean connected;
     private boolean authFlushed;
     private final AtomicInteger lastPacketId = new AtomicInteger(0);
+    private final BrokerInterceptor interceptor;
 
-    public MqttConnection(Channel channel, BrokerConfiguration brokerConfig, IAuthenticator authenticator,
+    public MqttConnection(BrokerInterceptor interceptor, Channel channel, BrokerConfiguration brokerConfig, IAuthenticator authenticator,
                           MqttSessionRegistry sessionRegistry, MqttPostOffice postOffice) {
+        this.interceptor = interceptor;
         this.channel = channel;
         this.brokerConfig = brokerConfig;
         this.authenticator = authenticator;
@@ -186,6 +190,7 @@ public final class MqttConnection {
 
             MqttUtil.clientID(channel, clientId);
             LOG.trace("CONNACK sent, channel: {}", channel);
+            interceptor.notifyClientConnected(msg);
         } catch (MqttSessionCorruptedException scex) {
             LOG.warn("MQTT session for client ID {} cannot be created, channel: {}", clientId, channel);
             abortConnection(CONNECTION_REFUSED_SERVER_UNAVAILABLE);
@@ -258,6 +263,7 @@ public final class MqttConnection {
 
     public void handleConnectionLost() {
         String clientID = MqttUtil.clientID(channel);
+        String userName = MqttUtil.userName(channel);
         if (clientID == null || clientID.isEmpty()) {
             return;
         }
@@ -272,6 +278,7 @@ public final class MqttConnection {
             sessionRegistry.disconnect(clientID);
         }
         connected = false;
+        interceptor.notifyClientConnectionLost(clientID, userName);
     }
 
     void sendConnAck(boolean isSessionAlreadyPresent) {
@@ -290,6 +297,7 @@ public final class MqttConnection {
 
     void processDisconnect(MqttMessage msg) {
         final String clientID = MqttUtil.clientID(channel);
+        final String userName = MqttUtil.userName(channel);
         LOG.trace("Start DISCONNECT CId={}, channel: {}", clientID, channel);
         if (!connected) {
             LOG.info("DISCONNECT received on already closed connection, CId={}, channel: {}", clientID, channel);
@@ -299,6 +307,8 @@ public final class MqttConnection {
         connected = false;
         channel.close().addListener(FIRE_EXCEPTION_ON_FAILURE);
         LOG.trace("Processed DISCONNECT CId={}, channel: {}", clientID, channel);
+
+        interceptor.notifyClientDisconnected(clientID,userName);
     }
 
     void processSubscribe(MqttSubscribeMessage msg) {

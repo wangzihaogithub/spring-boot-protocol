@@ -107,7 +107,7 @@ public class MqttProtocol extends AbstractProtocol {
         ISubscriptionsDirectory subscriptions = new CTrieSubscriptionDirectory(new MemorySubscriptionsRepository());
         MqttSessionRegistry sessions = new MqttSessionRegistry(subscriptions, new MemoryQueueRepository());
         mqttPostOffice = new MqttPostOffice(subscriptions, authorizatorPolicy, new MemoryRetainedRepository(), sessions,interceptor);
-        mqttServerChannelHandler = new MqttServerChannelHandler(new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, mqttPostOffice);
+        mqttServerChannelHandler = new MqttServerChannelHandler(interceptor,new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, mqttPostOffice);
     }
 
     @Override
