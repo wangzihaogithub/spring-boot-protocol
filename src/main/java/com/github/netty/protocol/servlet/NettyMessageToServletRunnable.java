@@ -214,6 +214,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         public void run() {
             ServletHttpServletRequest request = exchange.getRequest();
             ServletHttpServletResponse response = exchange.getResponse();
+            ServletErrorPageManager errorPageManager = exchange.getServletContext().getErrorPageManager();
             Throwable realThrowable = null;
 
             // upload cannot block event loop
@@ -242,7 +243,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 realThrowable = throwable;
             } finally {
                 try {
-                    handleErrorPage(realThrowable, request, response);
+                    handleErrorPage(errorPageManager,realThrowable, request, response);
                 } catch (Throwable e) {
                     logger.warn("handleErrorPage error = {}", e.toString(), e);
                 } finally {
@@ -275,7 +276,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             }
         }
 
-        protected void handleErrorPage(Throwable realThrowable, ServletHttpServletRequest request, ServletHttpServletResponse response) {
+        protected void handleErrorPage(ServletErrorPageManager errorPageManager, Throwable realThrowable, ServletHttpServletRequest request, ServletHttpServletResponse response) {
             /*
              * Error pages are obtained according to two types: 1. By exception type; 2. By status code
              */
@@ -283,7 +284,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 realThrowable = (Throwable) request.getAttribute(RequestDispatcher.ERROR_EXCEPTION);
             }
             ServletErrorPage errorPage = null;
-            ServletErrorPageManager errorPageManager = exchange.getServletContext().getErrorPageManager();
             if (realThrowable != null) {
                 errorPage = errorPageManager.find(realThrowable);
                 if (errorPage == null) {
