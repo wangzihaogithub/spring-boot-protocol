@@ -185,10 +185,6 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     }
 
     public boolean isKeepAlive() {
-        ServletAsyncContext asyncContext = exchange.getAsyncContext();
-        if (asyncContext != null && asyncContext.isTimeout()) {
-            return false;
-        }
         return exchange.isHttpKeepAlive()
                 && !statusDropsConnection(exchange.getResponse().getStatus());
     }
