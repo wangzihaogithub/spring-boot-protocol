@@ -102,6 +102,10 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         return servletContext;
     }
 
+    public boolean isTimeout() {
+        return timeoutFlag.get();
+    }
+
     @Override
     public ServletRequest getRequest() {
         return servletRequest;
