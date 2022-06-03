@@ -63,25 +63,28 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     private final Runnable timeoutTask = () -> {
         //Notice the timeout
         if (timeoutFlag.compareAndSet(false, true)) {
-            if (asyncListenerWrapperList == null) {
-                return;
-            }
-            Throwable throwable = null;
-            boolean eventNotify = false;
-            for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
-                eventNotify = throwable != null;
-                AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
-                try {
-                    listenerWrapper.asyncListener.onTimeout(event);
-                } catch (Throwable e) {
-                    if (throwable != null) {
-                        e.addSuppressed(throwable);
+            try {
+                if (asyncListenerWrapperList != null) {
+                    Throwable throwable = null;
+                    boolean eventNotify = false;
+                    for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
+                        eventNotify = throwable != null;
+                        AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                        try {
+                            listenerWrapper.asyncListener.onTimeout(event);
+                        } catch (Throwable e) {
+                            if (throwable != null) {
+                                e.addSuppressed(throwable);
+                            }
+                            throwable = e;
+                        }
                     }
-                    throwable = e;
+                    if (throwable != null && !eventNotify) {
+                        logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
+                    }
                 }
-            }
-            if (throwable != null && !eventNotify) {
-                logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
+            } finally {
+                recycle();
             }
         }
     };
@@ -100,6 +103,10 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     public ServletContext getServletContext() {
         return servletContext;
+    }
+
+    public boolean isTimeout() {
+        return timeoutFlag.get();
     }
 
     @Override

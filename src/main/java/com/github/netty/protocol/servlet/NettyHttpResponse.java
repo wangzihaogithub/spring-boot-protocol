@@ -1,6 +1,7 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
@@ -11,7 +12,6 @@ import io.netty.handler.codec.http.*;
 
 import javax.servlet.http.Cookie;
 import java.io.Flushable;
-import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -170,20 +170,23 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     }
 
     @Override
-    public void flush() throws IOException {
+    public void flush() {
         if(isSettingResponse.compareAndSet(false,true)) {
             //Configure the response header
             ServletHttpServletRequest servletRequest = exchange.getRequest();
             ServletHttpServletResponse servletResponse = exchange.getResponse();
             ServletSessionCookieConfig sessionCookieConfig = exchange.getServletContext().getSessionCookieConfig();
 
-            boolean keepAlive = exchange.isHttpKeepAlive()
-                    && !statusDropsConnection(servletResponse.getStatus());
-            settingResponseHeader(keepAlive, servletRequest,
-                    servletResponse.getContentType(),servletResponse.getCharacterEncoding(),
-                    servletResponse.getContentLength(),servletResponse.getLocaleUse(),
+            settingResponseHeader(isKeepAlive(), servletRequest,
+                    servletResponse.getContentType(), servletResponse.getCharacterEncoding(),
+                    servletResponse.getContentLength(), servletResponse.getLocaleUse(),
                     servletResponse.getCookies(), sessionCookieConfig);
         }
+    }
+
+    public boolean isKeepAlive() {
+        return exchange.isHttpKeepAlive()
+                && !statusDropsConnection(exchange.getResponse().getStatus());
     }
 
 
