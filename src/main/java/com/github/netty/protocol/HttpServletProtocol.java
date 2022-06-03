@@ -18,6 +18,7 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.SslHandler;
 
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLParameters;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
@@ -242,11 +243,14 @@ public class HttpServletProtocol extends AbstractProtocol {
         super.addPipeline(ch);
         ChannelPipeline pipeline = ch.pipeline();
         if (sslContextBuilder != null) {
-            if(sslContext == null) {
+            if (sslContext == null) {
                 sslContext = sslContextBuilder.build();
             }
             SSLEngine engine = sslContext.newEngine(ch.alloc());
-            pipeline.addLast("SSL", new SslHandler(engine,true));
+            SSLParameters sslParameters = engine.getSSLParameters();
+            sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+            engine.setSSLParameters(sslParameters);
+            pipeline.addLast("SSL", new SslHandler(engine, true));
         }
 
         pipeline.addLast("ContentDecompressor", new HttpContentDecompressor(false));
