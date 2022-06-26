@@ -33,7 +33,7 @@
 
         <netty.version>4.1.77.Final</netty.version>
         <netty.boringssl.version>2.0.53.Final</netty.boringssl.version>
-        <fastjson.version>1.2.79</fastjson.version>
+        <fastjson.version>1.2.83</fastjson.version>
         <reactive-streams.version>1.0.3</reactive-streams.version>
     </properties>
 
@@ -136,7 +136,7 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
             <version>${netty.boringssl.version}</version>
-            <scope>compile</scope>
+            <scope>provided</scope>
             <optional>true</optional>
         </dependency>
         <dependency>
