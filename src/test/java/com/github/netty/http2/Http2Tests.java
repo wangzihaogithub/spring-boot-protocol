@@ -17,14 +17,14 @@ import java.util.concurrent.ExecutionException;
 public class Http2Tests {
 
     public static void main(String[] args) throws Exception {
-        NettyHttp2Client http2Client = new NettyHttp2Client("https://maimai.cn")
-                .logger(LogLevel.INFO)
-                .maxPendingSize(550000);
-
-        for (int i = 0; i < 550000; i++) {
+        NettyHttp2Client http2Client = new NettyHttp2Client("http://localhost")
+                .logger(LogLevel.INFO);
+        for (int i = 0; i < 1; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
-                    "/sdk/company/is_admin", Unpooled.EMPTY_BUFFER);
-            http2Client.write(request).onSuccess(FullHttpResponse::release);
+                    "/test", Unpooled.EMPTY_BUFFER);
+            http2Client.writeAndFlush(request).onSuccess(e -> {
+                System.out.println(e);
+            });
         }
 
         List<NettyHttp2Client.H2Response> httpPromises = http2Client.flush().get();

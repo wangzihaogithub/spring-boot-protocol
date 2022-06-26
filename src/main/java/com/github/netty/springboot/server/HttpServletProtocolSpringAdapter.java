@@ -157,7 +157,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                 SslStoreProvider sslStoreProvider = webServerFactory.getSslStoreProvider();
                 KeyManagerFactory keyManagerFactory = getKeyManagerFactory(ssl, sslStoreProvider);
                 SslContextBuilder sslContextBuilder = getSslContext(keyManagerFactory, ssl, sslStoreProvider);
-                super.setSslContextBuilder(sslContextBuilder);
+                super.setSslContext(sslContextBuilder.build());
             }
         } catch (Exception e) {
             BeanInitializationException exception = new BeanInitializationException(e.getMessage(), e);

@@ -4,7 +4,7 @@
 
     <groupId>com.github.wangzihaogithub</groupId>
     <artifactId>spring-boot-protocol</artifactId>
-    <version>2.2.9</version>
+    <version>2.2.10</version>
     <packaging>jar</packaging>
 
     <name>Spring Boot Protocol</name>
@@ -32,7 +32,7 @@
         <javax-websocket-api.version>1.1</javax-websocket-api.version>
 
         <netty.version>4.1.77.Final</netty.version>
-        <netty.boringssl.version>2.0.34.Final</netty.boringssl.version>
+        <netty.boringssl.version>2.0.53.Final</netty.boringssl.version>
         <fastjson.version>1.2.79</fastjson.version>
         <reactive-streams.version>1.0.3</reactive-streams.version>
     </properties>
@@ -136,7 +136,7 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
             <version>${netty.boringssl.version}</version>
-            <scope>provided</scope>
+            <scope>compile</scope>
             <optional>true</optional>
         </dependency>
         <dependency>

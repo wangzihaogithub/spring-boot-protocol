@@ -92,7 +92,7 @@ import java.util.stream.Stream;
  */
 public class NettyHttp2Client {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NettyHttp2Client.class);
-    private final AtomicInteger streamIdIncr = new AtomicInteger(3);
+    private final AtomicInteger streamIdIncr = new AtomicInteger(2);
     private final Queue<H2Response> pendingWriteQueue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
     private final AtomicBoolean connectIng = new AtomicBoolean(false);
     private final HttpScheme scheme;
@@ -524,7 +524,7 @@ public class NettyHttp2Client {
     private int newStreamId() {
         int id = streamIdIncr.getAndAdd(2);
         if (id <= 0) {
-            streamIdIncr.set(1);
+            streamIdIncr.set(0);
             id = streamIdIncr.getAndAdd(2);
         }
         return id;
@@ -885,7 +885,7 @@ public class NettyHttp2Client {
                                     "        <dependency>\n" +
                                     "            <groupId>io.netty</groupId>\n" +
                                     "            <artifactId>netty-tcnative-boringssl-static</artifactId>\n" +
-                                    "            <version>any version. example = 2.0.34.Final</version>\n" +
+                                    "            <version>any version. example = 2.0.53.Final</version>\n" +
                                     "            <scope>compile</scope>\n" +
                                     "        </dependency>\n");
                 }

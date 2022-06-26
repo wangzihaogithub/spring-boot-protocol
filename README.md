@@ -19,7 +19,7 @@
     
     5.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
     
-    6.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,MQTT,Mysql,Websocket.)
+    6.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
     
     7.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
 
@@ -97,7 +97,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.2.9</version>
+  <version>2.2.10</version>
 </dependency>
 ```
 	
@@ -236,7 +236,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.9</version>
+          <version>2.2.10</version>
         </dependency>
 
         2.编写代码
@@ -260,6 +260,35 @@ github地址 : https://github.com/wangzihaogithub
         10:10:26.026 [NettyX-Server-Boss-NIO-1-1] INFO com.github.netty.StartupServer - StartupServer@1 start (version = 2.2.3, port = 8080, pid = 6972, protocol = [http], os = windows 10) ...
 
 
+##### 示例2. 纯java版,不引入springboot, 使用HTTP2 模块 (HTTP2不用配置, 自动开启h2c)
+
+        1. 说明:  http2分为两个协议 http2加密(h2), http2明文(h2c)
+        
+        h2版本的协议是建立在TLS层之上的HTTP/2协议，这个标志被用在TLS应用层协议协商（TLS-ALPN）域和任何其它的TLS之上的HTTP/2协议。
+        
+        h2c版本是建立在明文的TCP之上的HTTP/2协议，这个标志被用在HTTP/1.1的升级协议头域和其它任何直接在TCP层之上的HTTP/2协议。
+
+        想快速测试h2c可以用com.github.netty.protocol.servlet.http2.NettyHttp2Client 调用 http://localhost
+        
+        如果想带https, 需要开启SSL, HttpServletProtocol#setSslContext
+         
+        public static void main(String[] args) throws Exception {
+            // h2c 调用测试
+            NettyHttp2Client http2Client = new NettyHttp2Client("http://localhost")
+                    .logger(LogLevel.INFO);
+            for (int i = 0; i < 1; i++) {
+                DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
+                        "/test", Unpooled.EMPTY_BUFFER);
+                http2Client.writeAndFlush(request).onSuccess(e -> {
+                    System.out.println(e);
+                });
+            }
+    
+            List<NettyHttp2Client.H2Response> httpPromises = http2Client.flush().get();
+            httpPromises.forEach(NettyHttp2Client.H2Response::close);
+            Long closeTime = http2Client.close(true).get();
+        }
+        
 ##### 示例2. 纯java版,不引入springboot, 使用nprc(rpc-message)模块
 
         1. 引入依赖(需要大于2.2.7版本)
@@ -268,7 +297,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.9</version>
+          <version>2.2.10</version>
         </dependency>
 
         2.编写代码
@@ -357,7 +386,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.2.9</version>
+              <version>2.2.10</version>
         </dependency>
         
         2.编写启动类
