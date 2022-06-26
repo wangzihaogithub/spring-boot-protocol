@@ -92,7 +92,7 @@ import java.util.stream.Stream;
  */
 public class NettyHttp2Client {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NettyHttp2Client.class);
-    private final AtomicInteger streamIdIncr = new AtomicInteger(2);
+    private final AtomicInteger streamIdIncr = new AtomicInteger(3);
     private final Queue<H2Response> pendingWriteQueue = new LinkedBlockingQueue<>(Integer.MAX_VALUE);
     private final AtomicBoolean connectIng = new AtomicBoolean(false);
     private final HttpScheme scheme;
@@ -523,9 +523,8 @@ public class NettyHttp2Client {
 
     private int newStreamId() {
         int id = streamIdIncr.getAndAdd(2);
-        if (id <= 0) {
-            streamIdIncr.set(0);
-            id = streamIdIncr.getAndAdd(2);
+        if (id < 0) {
+            id = Integer.MAX_VALUE;
         }
         return id;
     }

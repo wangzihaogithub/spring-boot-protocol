@@ -9,6 +9,8 @@ import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http2.HttpConversionUtil;
+import io.netty.util.AsciiString;
 
 import javax.servlet.http.Cookie;
 import java.io.Flushable;
@@ -26,6 +28,8 @@ import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.CLOSE;
 public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     public static final HttpResponseStatus DEFAULT_STATUS = HttpResponseStatus.OK;
     private static final String APPEND_CONTENT_TYPE = ";" + HttpHeaderConstants.CHARSET + "=";
+    private static final AsciiString HEADER_NAME_STREAM_ID = HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text();
+
     private DecoderResult decoderResult;
     private HttpVersion version;
     private HttpHeaders headers;
@@ -228,6 +232,12 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
                                        ServletSessionCookieConfig sessionCookieConfig) {
         HttpHeaderUtil.setKeepAlive(this, isKeepAlive);
         HttpHeaders headers = headers();
+
+        // h2 adapter
+        String streamId = servletRequest.getNettyHeaders().get(HEADER_NAME_STREAM_ID);
+        if (streamId != null) {
+            headers.set(HEADER_NAME_STREAM_ID, streamId);
+        }
 
         //Content length
         if(contentLength >= 0) {

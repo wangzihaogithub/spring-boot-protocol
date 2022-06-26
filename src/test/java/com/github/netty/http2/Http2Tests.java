@@ -18,7 +18,8 @@ public class Http2Tests {
 
     public static void main(String[] args) throws Exception {
         NettyHttp2Client http2Client = new NettyHttp2Client("http://localhost")
-                .logger(LogLevel.INFO);
+                .logger(LogLevel.INFO)
+                .awaitConnect();
         for (int i = 0; i < 1; i++) {
             DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                     "/test", Unpooled.EMPTY_BUFFER);

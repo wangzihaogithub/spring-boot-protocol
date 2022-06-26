@@ -97,7 +97,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.2.10</version>
+  <version>2.2.11</version>
 </dependency>
 ```
 	
@@ -236,7 +236,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.10</version>
+          <version>2.2.11</version>
         </dependency>
 
         2.编写代码
@@ -275,7 +275,7 @@ github地址 : https://github.com/wangzihaogithub
         public static void main(String[] args) throws Exception {
             // h2c 调用测试
             NettyHttp2Client http2Client = new NettyHttp2Client("http://localhost")
-                    .logger(LogLevel.INFO);
+                    .logger(LogLevel.INFO).awaitConnect();
             for (int i = 0; i < 1; i++) {
                 DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
                         "/test", Unpooled.EMPTY_BUFFER);
@@ -297,7 +297,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.10</version>
+          <version>2.2.11</version>
         </dependency>
 
         2.编写代码
@@ -386,7 +386,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.2.10</version>
+              <version>2.2.11</version>
         </dependency>
         
         2.编写启动类
