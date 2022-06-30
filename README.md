@@ -10,7 +10,7 @@
     
     2.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
     
-    3.支持h2c, 让nginx h2接收浏览器请求，nginx或haproxy 卸载ssl加密后，h2c（明文h2）代理请求本服务器，不用配置，不用改Controller或servlet代码， 默认自动协商开启h2c。
+    3.（内测）支持h2c, 让nginx h2接收浏览器请求，nginx或haproxy 卸载ssl加密后，h2c（明文h2）代理请求本服务器，不用配置，不用改Controller或servlet代码， 默认自动协商开启h2c。
     
     4.支持异步零拷贝。sendFile, mmap. 
         示例：com.github.netty.http.example.HttpZeroCopyController.java
