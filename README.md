@@ -10,20 +10,26 @@
     
     2.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
     
-    3.支持异步零拷贝。sendFile, mmap. 示例：com.github.netty.http.example.HttpZeroCopyController.java
+    3.支持h2c, 让nginx h2接收浏览器请求，nginx或haproxy 卸载ssl加密后，h2c（明文h2）代理请求本服务器，不用配置，不用改Controller或servlet代码， 默认自动协商开启h2c。
     
-    4.HttpServlet性能比tomcat的NIO2高出 25%/TPS。
+    4.支持异步零拷贝。sendFile, mmap. 
+        示例：com.github.netty.http.example.HttpZeroCopyController.java
+        ((NettyOutputStream)servletResponse.getOutputStream()).write(new File("c://123.txt"));
+        ((NettyOutputStream)servletResponse.getOutputStream()).write(MappedByteBuffer);
+        com.github.netty.protocol.servlet.DefaultServlet#sendFile
+        
+    6.HttpServlet性能比tomcat的NIO2高出 25%/TPS。
         1. Netty的池化内存,减少了GC对CPU的消耗 
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
     
-    5.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
+    7.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
     
-    6.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
+    8.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
     
-    7.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
+    9.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
 
-    8.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+    10.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
     
     {
