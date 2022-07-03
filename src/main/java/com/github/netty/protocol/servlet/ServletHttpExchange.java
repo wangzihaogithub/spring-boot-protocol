@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
+import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
@@ -26,6 +27,7 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
     private static final AttributeKey<ServletHttpExchange> CHANNEL_ATTR_KEY_EXCHANGE = AttributeKey.valueOf(ServletHttpExchange.class + "#ServletHttpExchange");
 
+    private Protocol protocol;
     private ServletHttpServletRequest request;
     private ServletHttpServletResponse response;
     private ChannelHandlerContext channelHandlerContext;
@@ -45,10 +47,11 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private ServletHttpExchange() {
     }
 
-    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest) {
+    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest, Protocol protocol) {
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context,instance);
 
+        instance.protocol = protocol;
         instance.close.set(CLOSE_NO);
         instance.servletContext = servletContext;
         instance.channelHandlerContext = context;
@@ -97,6 +100,10 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
 
     public static void setHttpExchange(ChannelHandlerContext channelHandlerContext, ServletHttpExchange httpExchange){
         setAttribute(channelHandlerContext, CHANNEL_ATTR_KEY_EXCHANGE,httpExchange);
+    }
+
+    public Protocol getProtocol() {
+        return protocol;
     }
 
     public void setWebsocket(boolean websocket) {

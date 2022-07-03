@@ -300,7 +300,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                     removeFirst();
 
                     if (f.isDone()) {
-                        handleEndOfInputFuture(f, currentWrite);
+                        handleEndOfInputFuture(f, currentWrite, chunks);
                     } else {
                         // Register a listener which will close the input once the write is complete.
                         // This is needed because the Chunk may have some resource bound that can not
@@ -310,7 +310,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                         f.addListener(new ChannelFutureListener() {
                             @Override
                             public void operationComplete(ChannelFuture future) {
-                                handleEndOfInputFuture(future, currentWrite);
+                                handleEndOfInputFuture(future, currentWrite, chunks);
                             }
                         });
                     }
@@ -353,8 +353,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static void handleEndOfInputFuture(ChannelFuture future, PendingWrite currentWrite) {
-        ChunkedInput<?> input = (ChunkedInput<?>) currentWrite.msg;
+    private static void handleEndOfInputFuture(ChannelFuture future, PendingWrite currentWrite, ChunkedInput input) {
         if (!future.isSuccess()) {
             closeInput(input);
             currentWrite.fail(future.cause());
@@ -370,14 +369,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     private void handleFuture(ChannelFuture future, PendingWrite currentWrite, boolean resume) {
         ChunkedInput<?> input = (ChunkedInput<?>) currentWrite.msg;
-        if (!future.isSuccess()) {
-            closeInput(input);
-            currentWrite.fail(future.cause());
-        } else {
+        if (future.isSuccess()) {
             currentWrite.progress(input.progress(), input.length());
             if (resume && future.channel().isWritable()) {
                 resumeTransfer();
             }
+        } else {
+            closeInput(input);
+            currentWrite.fail(future.cause());
         }
     }
 
@@ -429,9 +428,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
 
         void fail(Throwable cause) {
-            ReferenceCountUtil.release(msg);
-            promise.tryFailure(cause);
-            recycle();
+            if (promise.isDone()) {
+                // No need to notify the progress or fulfill the promise because it's done already.
+                return;
+            }
+            if(promise.tryFailure(cause)){
+                ReferenceCountUtil.release(msg);
+            }
+//            recycle();
         }
 
         void success(long total) {
@@ -439,9 +443,10 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 // No need to notify the progress or fulfill the promise because it's done already.
                 return;
             }
-            progress(total, total);
-            promise.trySuccess();
-            recycle();
+            if(promise.trySuccess()){
+                progress(total, total);
+            }
+//            recycle();
         }
 
         void progress(long progress, long total) {

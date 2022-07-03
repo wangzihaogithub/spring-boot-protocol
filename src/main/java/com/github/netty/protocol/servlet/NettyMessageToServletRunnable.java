@@ -3,6 +3,7 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
+import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
@@ -59,12 +60,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
 
     private final ServletContext servletContext;
     private final long maxContentLength;
+    private final Protocol protocol;
     private ServletHttpExchange exchange;
     private volatile HttpRunnable httpRunnable;
 
-    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength) {
+    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol) {
         this.servletContext = servletContext;
         this.maxContentLength = maxContentLength;
+        this.protocol = protocol;
     }
 
     @Override
@@ -83,7 +86,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 httpRunnable.exchange = exchange = this.exchange = ServletHttpExchange.newInstance(
                         servletContext,
                         context,
-                        request);
+                        request,
+                        protocol);
                 exchange.getRequest().getInputStream0().setContentLength(contentLength);
                 this.httpRunnable = httpRunnable;
             }

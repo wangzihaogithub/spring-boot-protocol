@@ -21,9 +21,7 @@ public class Http2Tests {
                 .logger(LogLevel.INFO)
                 .awaitConnect();
         for (int i = 0; i < 1; i++) {
-            DefaultFullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET,
-                    "/test", Unpooled.EMPTY_BUFFER);
-            http2Client.writeAndFlush(request).onSuccess(e -> {
+            http2Client.writeAndFlush(HttpMethod.GET, "/test", Unpooled.EMPTY_BUFFER).onSuccess(e -> {
                 System.out.println(e);
             });
         }

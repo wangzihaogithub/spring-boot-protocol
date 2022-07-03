@@ -114,7 +114,7 @@ public class MysqlProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void addPipeline(Channel frontendChannel) throws Exception {
+    public void addPipeline(Channel frontendChannel, ByteBuf clientFirstMsg) throws Exception {
         Session session = new Session(newSessionId((InetSocketAddress)frontendChannel.remoteAddress(),mysqlAddress));
         session.setFrontendChannel(frontendChannel);
 

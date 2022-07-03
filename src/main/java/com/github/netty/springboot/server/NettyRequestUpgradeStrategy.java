@@ -139,7 +139,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
         handshakelFuture.addListener((ChannelFutureListener) future -> {
             if (future.isSuccess()) {
                 Channel channel = future.channel();
-                DispatcherChannelHandler.setMessageToRunnable(channel, new NettyMessageToWebSocketRunnable(DispatcherChannelHandler.getMessageToRunnable(channel), exchange));
+                DispatcherChannelHandler.setMessageToRunnable(channel, new NettyMessageToWebSocketRunnable(DispatcherChannelHandler.getMessageToRunnable(channel)));
                 WebSocketSession websocketSession = new WebSocketSession(
                         channel, webSocketContainer, wsHandshaker,
                         requestParameterMap,

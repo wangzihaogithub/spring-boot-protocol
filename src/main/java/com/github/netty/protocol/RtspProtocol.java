@@ -57,7 +57,7 @@ public class RtspProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void addPipeline(Channel channel) throws Exception {
+    public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RtspEncoder());
         pipeline.addLast(new RtspDecoder(maxInitialLineLength,maxHeaderSize,maxContentLength,false));

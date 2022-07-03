@@ -1,5 +1,6 @@
 package com.github.netty.core;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 
 import java.util.concurrent.TimeUnit;
@@ -26,7 +27,7 @@ public abstract class AbstractProtocol implements ProtocolHandler,ServerListener
     }
 
     @Override
-    public void addPipeline(Channel channel) throws Exception {
+    public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
         int autoFlushIdleTime = getAutoFlushIdleMs();
         if(autoFlushIdleTime > 0) {
             channel.pipeline().addLast("autoflush", new AutoFlushChannelHandler(autoFlushIdleTime, TimeUnit.MILLISECONDS));

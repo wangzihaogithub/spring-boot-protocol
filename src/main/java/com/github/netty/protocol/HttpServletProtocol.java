@@ -1,42 +1,38 @@
 package com.github.netty.protocol;
 
+import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.DispatcherChannelHandler;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.*;
-import com.github.netty.protocol.servlet.util.ByteBufToHttpContentChannelHandler;
-import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
-import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
+import com.github.netty.protocol.servlet.http2.CleartextHttp2ServerUpgradeHandler;
+import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
+import com.github.netty.protocol.servlet.util.*;
+import com.github.netty.protocol.servlet.websocket.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
-import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.handler.codec.compression.CompressionOptions;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.HttpConstants;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.ssl.*;
 import io.netty.util.AsciiString;
 
-import javax.net.ssl.SSLEngine;
-import javax.net.ssl.SSLParameters;
+import javax.net.ssl.*;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
+import javax.websocket.Endpoint;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.util.*;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
-import static io.netty.handler.codec.http.HttpScheme.HTTP;
-import static io.netty.handler.codec.http.HttpScheme.HTTPS;
 
 /**
  * HttpServlet protocol registry
@@ -46,22 +42,34 @@ import static io.netty.handler.codec.http.HttpScheme.HTTPS;
  */
 public class HttpServletProtocol extends AbstractProtocol {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(HttpServletProtocol.class);
+    private static final boolean EXIST_JAVAX_WEBSOCKET;
+
+    static {
+        boolean existJavaxWebsocket;
+        try {
+            Class.forName("javax.websocket.Endpoint");
+            existJavaxWebsocket = true;
+        } catch (Throwable e) {
+            existJavaxWebsocket = false;
+        }
+        EXIST_JAVAX_WEBSOCKET = existJavaxWebsocket;
+    }
+
     private final ServletContext servletContext;
     private SslContext sslContext;
-    private DispatcherChannelHandler servletHandler;
     private long maxContentLength = 20 * 1024 * 1024;
     private int maxInitialLineLength = 40960;
     private int maxHeaderSize = 81920;
     private int maxChunkSize = 5 * 1024 * 1024;
-    private int http2MaxReservedStreams = 100;
+    private int http2MaxReservedStreams = 256;
     private LogLevel http2Log;
-    private boolean enableContentCompression = false;
+    private boolean enableContentCompression = true;
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
-            "text/css", "text/javascript", "application/javascript", "application/json",
-            "application/xml"};
+            "text/css", "text/javascript", "application/javascript", "application/json", "application/xml"};
     private String[] compressionExcludedUserAgents = {};
     private boolean onServerStart = false;
+    private volatile WebsocketServletUpgrader websocketServletUpgrader;
 
     public HttpServletProtocol(ServletContext servletContext) {
         this(servletContext, null, null);
@@ -70,11 +78,18 @@ public class HttpServletProtocol extends AbstractProtocol {
     public HttpServletProtocol(ServletContext servletContext, Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
         this.servletContext = servletContext;
         if (defaultExecutorSupplier == null) {
-            defaultExecutorSupplier = new LazyPool("NettyX-http");
+            defaultExecutorSupplier = new HttpLazyThreadPool("NettyX-http");
         }
-        servletContext.setAsyncExecutorSupplier(executorSupplier);
         servletContext.setDefaultExecutorSupplier(defaultExecutorSupplier);
-        this.servletHandler = new DispatcherChannelHandler(executorSupplier);
+        servletContext.setAsyncExecutorSupplier(executorSupplier);
+    }
+
+    public boolean addWebSocketHandler(String pathPattern, WebSocketHandler handler) {
+        return getWebsocketServletUpgrader().addHandler(pathPattern, handler);
+    }
+
+    public boolean addWebSocketEndpoint(String pathPattern, Endpoint endpoint) {
+        return getWebsocketServletUpgrader().addEndpoint(pathPattern, endpoint);
     }
 
     @Override
@@ -108,22 +123,7 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     protected void configurableServletContext() throws Exception {
         if (servletContext.getResourceManager() == null) {
-            servletContext.setDocBase(createTempDir("netty-docbase").getAbsolutePath());
-        }
-    }
-
-    static File createTempDir(String prefix) {
-        try {
-            File tempDir = File.createTempFile(prefix + ".", "");
-            tempDir.delete();
-            tempDir.mkdir();
-            tempDir.deleteOnExit();
-            return tempDir;
-        } catch (IOException ex) {
-            throw new IllegalStateException(
-                    "Unable to create tempDir. java.io.tmpdir is set to "
-                            + System.getProperty("java.io.tmpdir"),
-                    ex);
+            servletContext.setDocBase(ResourceManager.createTempDir("netty-docbase").getAbsolutePath());
         }
     }
 
@@ -189,8 +189,15 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
     }
 
+    public boolean isEnableSsl() {
+        return sslContext != null;
+    }
+
     @Override
     public boolean canSupport(ByteBuf msg) {
+        if (isEnableSsl()) {
+            return true;
+        }
         int protocolEndIndex = IOUtil.indexOf(msg, HttpConstants.LF);
         if (protocolEndIndex == -1 && msg.readableBytes() > 7) {
             // client multiple write packages. cause browser out of length.
@@ -246,49 +253,57 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void addPipeline(Channel ch) throws Exception {
-        super.addPipeline(ch);
+    public void addPipeline(Channel ch, ByteBuf clientFirstMsg) throws Exception {
+        super.addPipeline(ch, clientFirstMsg);
         ChannelPipeline pipeline = ch.pipeline();
-
-        if (isSsl()) {
-            pipeline.addLast("SSL", newSslHandler(ch.alloc()));
-            pipeline.addLast(new SslHttp2OrHttp11Handler());
+        if (isEnableSsl()) {
+            pipeline.addLast(sslContext.newHandler(ch.alloc()));
+            pipeline.addLast(new SslUpgradeCheckHandler(HttpScheme.HTTPS));
         } else {
-            pipeline.addLast(new Http2PrefaceOrHttpHandler());
+            pipeline.addLast(newHttpServerCodec());
+            pipeline.addLast(new HttpUpgradeCheckHandler(HttpScheme.HTTP));
         }
     }
 
-    private void http2(ChannelPipeline pipeline, HttpScheme scheme) {
-        pipeline.addLast(newHttp2Handler(scheme));
-        http1(pipeline);
-    }
-
-    private void http1Upgrade(ChannelPipeline pipeline, HttpScheme scheme) {
-        HttpServerCodec serverCodec = newHttpServerCodec();
-        HttpServerUpgradeHandler upgradeHandler = new HttpServerUpgradeHandler(serverCodec, newUpgradeCodecFactory(scheme), (int) maxContentLength);
-        pipeline.addLast("h2upgrade", new CleartextHttp2ServerUpgradeHandler(serverCodec, upgradeHandler, newHttp2Handler(scheme)));
-        http1(pipeline);
-    }
-
-    private void http1(ChannelPipeline pipeline) {
-        pipeline.addLast("ContentDecompressor", newHttpContentDecompressor());
-
-        //The content of compression
-        if (enableContentCompression) {
-            pipeline.addLast("ContentCompressor", newContentCompressor());
+    private void http(ChannelPipeline pipeline, Protocol protocol) {
+        switch (protocol) {
+            case http1_1:
+            case https1_1: {
+                pipeline.addLast(new HttpContentDecompressor(false));
+                //The content of compression
+                if (enableContentCompression) {
+                    pipeline.addLast(new HttpContentCompressor(contentSizeThreshold));
+                }
+                break;
+            }
         }
-
-        //Chunked transfer
-        pipeline.addLast("ChunkedWrite", newChunkedWriteHandler());
-
         // ByteBuf to HttpContent
         pipeline.addLast(ByteBufToHttpContentChannelHandler.INSTANCE);
 
-        //A business scheduler that lets the corresponding Servlet handle the request
-        pipeline.addLast("Servlet", servletHandler);
+        //Chunked transfer
+        pipeline.addLast(new ChunkedWriteHandler(this::getMaxBufferBytes));
 
-        //Dynamic binding protocol for switching protocol
-        DispatcherChannelHandler.setMessageToRunnable(pipeline.channel(), new NettyMessageToServletRunnable(servletContext, maxContentLength));
+        //A business scheduler that lets the corresponding Servlet handle the request
+        pipeline.addLast(new DispatcherChannelHandler(servletContext, maxContentLength, protocol));
+
+        pipeline.fireChannelRegistered();
+        pipeline.fireChannelActive();
+    }
+
+    public void setHttp2Log(LogLevel http2Log) {
+        this.http2Log = http2Log;
+    }
+
+    public LogLevel getHttp2Log() {
+        return http2Log;
+    }
+
+    public int getHttp2MaxReservedStreams() {
+        return http2MaxReservedStreams;
+    }
+
+    public void setHttp2MaxReservedStreams(int http2MaxReservedStreams) {
+        this.http2MaxReservedStreams = http2MaxReservedStreams;
     }
 
     private Http2ConnectionHandler newHttp2Handler(HttpScheme scheme) {
@@ -299,9 +314,10 @@ public class HttpServletProtocol extends AbstractProtocol {
                 .maxContentLength((int) maxContentLength)
                 .build();
 
-        HttpToHttp2ConnectionHandlerBuilder build = new HttpToHttp2ConnectionHandlerBuilder()
+        HttpToHttp2FrameCodecConnectionHandlerBuilder build = new HttpToHttp2FrameCodecConnectionHandlerBuilder()
                 .frameListener(listener)
                 .connection(connection)
+                .compressor(enableContentCompression)
                 .httpScheme(scheme);
         if (http2Log != null) {
             build.frameLogger(new Http2FrameLogger(http2Log));
@@ -322,85 +338,51 @@ public class HttpServletProtocol extends AbstractProtocol {
         };
     }
 
-    public void setHttp2Log(LogLevel http2Log) {
-        this.http2Log = http2Log;
-    }
-
-    public LogLevel getHttp2Log() {
-        return http2Log;
-    }
-
-    public int getHttp2MaxReservedStreams() {
-        return http2MaxReservedStreams;
-    }
-
-    public void setHttp2MaxReservedStreams(int http2MaxReservedStreams) {
-        this.http2MaxReservedStreams = http2MaxReservedStreams;
-    }
-
-    private boolean isSsl() {
-        return sslContext != null;
-    }
-
-    protected SslHandler newSslHandler(ByteBufAllocator allocator) {
-        SSLEngine engine = sslContext.newEngine(allocator);
-        SSLParameters sslParameters = engine.getSSLParameters();
-        sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
-        engine.setSSLParameters(sslParameters);
-        return new SslHandler(engine, true);
-    }
-
-    protected HttpContentDecompressor newHttpContentDecompressor() {
-        return new HttpContentDecompressor(false);
-    }
-
     protected HttpServerCodec newHttpServerCodec() {
         return new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false);
     }
 
-    protected ChunkedWriteHandler newChunkedWriteHandler() {
-        return new ChunkedWriteHandler(this::getMaxBufferBytes);
-    }
+    class HttpContentCompressor extends io.netty.handler.codec.http.HttpContentCompressor {
+        private ChannelHandlerContext ctx;
 
-    protected HttpContentCompressor newContentCompressor() {
-        return new HttpContentCompressor(6, 15, 8, contentSizeThreshold) {
-            private ChannelHandlerContext ctx;
+        public HttpContentCompressor(int contentSizeThreshold) {
+            super(contentSizeThreshold, new CompressionOptions[0]);
+        }
 
-            @Override
-            public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-                this.ctx = ctx;
-                super.handlerAdded(ctx);
-            }
+        @Override
+        public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+            this.ctx = ctx;
+            super.handlerAdded(ctx);
+        }
 
-            @Override
-            protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
-                if (compressionExcludedUserAgents.length > 0) {
-                    ServletHttpExchange httpExchange = ServletHttpExchange.getHttpExchange(ctx);
-                    if (httpExchange != null) {
-                        List<String> values = httpExchange.getRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
-                        for (String excludedUserAgent : compressionExcludedUserAgents) {
-                            for (String value : values) {
-                                if (value.contains(excludedUserAgent)) {
-                                    return null;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (compressionMimeTypes.length > 0) {
-                    List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
-                    for (String mimeType : compressionMimeTypes) {
+        @Override
+        protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
+            if (compressionExcludedUserAgents.length > 0) {
+                ServletHttpExchange httpExchange = ServletHttpExchange.getHttpExchange(ctx);
+                if (httpExchange != null) {
+                    List<String> values = httpExchange.getRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
+                    for (String excludedUserAgent : compressionExcludedUserAgents) {
                         for (String value : values) {
-                            if (value.contains(mimeType)) {
-                                return super.beginEncode(response, acceptEncoding);
+                            if (value.contains(excludedUserAgent)) {
+                                return null;
                             }
                         }
                     }
                 }
-                return null;
             }
-        };
+
+            if (compressionMimeTypes.length > 0) {
+                List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
+                for (String mimeType : compressionMimeTypes) {
+                    for (String value : values) {
+                        if (value.contains(mimeType)) {
+                            return super.beginEncode(response, acceptEncoding);
+                        }
+                    }
+                }
+            }
+            return null;
+        }
     }
 
     public long getMaxBufferBytes() {
@@ -412,7 +394,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     public void setExecutor(Supplier<Executor> dispatcherExecutor) {
-        this.servletHandler.setDispatcherExecutor(dispatcherExecutor);
+        this.servletContext.setAsyncExecutorSupplier(dispatcherExecutor);
     }
 
     @Override
@@ -422,15 +404,39 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     @Override
     public String getProtocolName() {
-        String name = "http";
+        String name = "http/h2c";
         if (sslContext != null) {
-            name = name.concat("/https");
+            name = name.concat("/https/h2");
+        }
+        if (EXIST_JAVAX_WEBSOCKET) {
+            name = name.concat("/ws");
+            if (sslContext != null) {
+                name = name.concat("/wss");
+            }
         }
         return name;
     }
 
     public ServletContext getServletContext() {
         return servletContext;
+    }
+
+    /**
+     * @param jksKeyFile  xxx.jks
+     * @param jksPassword jks-password
+     * @throws CertificateException
+     * @throws IOException
+     * @throws UnrecoverableKeyException
+     * @throws NoSuchAlgorithmException
+     * @throws KeyStoreException
+     * @throws KeyManagementException
+     */
+    public void setSslFileJks(File jksKeyFile, File jksPassword) throws CertificateException, IOException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+        this.sslContext = SslContextBuilders.newSslContextJks(jksKeyFile, jksPassword);
+    }
+
+    public void setSslFileCrtPem(File crtFile, File pemFile) throws SSLException {
+        this.sslContext = SslContextBuilders.newSslContextPem(crtFile, pemFile);
     }
 
     public void setSslContext(SslContext sslContext) {
@@ -485,66 +491,111 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
     }
 
-    class SslHttp2OrHttp11Handler extends ApplicationProtocolNegotiationHandler {
-        SslHttp2OrHttp11Handler() {
-            super(ApplicationProtocolNames.HTTP_1_1);
+    class SslUpgradeCheckHandler extends ApplicationProtocolNegotiationHandler {
+        private final HttpScheme scheme;
+
+        protected SslUpgradeCheckHandler(HttpScheme scheme) {
+            super("upgrade");
+            this.scheme = scheme;
+        }
+
+        @Override
+        protected void handshakeFailure(ChannelHandlerContext ctx, Throwable cause) {
+            ctx.close();
         }
 
         @Override
         public void configurePipeline(final ChannelHandlerContext ctx, final String protocol) {
-            if (ApplicationProtocolNames.HTTP_1_1.equals(protocol)) {
-                http1(ctx.pipeline());
-            } else if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
-                http2(ctx.pipeline(), HTTPS);
-            } else {
-                throw new IllegalStateException("Unknown protocol: " + protocol);
+            ChannelPipeline pipeline = ctx.pipeline();
+            switch (protocol) {
+                case "upgrade": {
+                    pipeline.addLast(newHttpServerCodec());
+                    pipeline.addLast(new HttpUpgradeCheckHandler(scheme));
+                    break;
+                }
+                case ApplicationProtocolNames.HTTP_1_1: {
+                    pipeline.addLast(newHttpServerCodec());
+                    http(pipeline, Protocol.https1_1);
+                    break;
+                }
+                case ApplicationProtocolNames.HTTP_2: {
+                    pipeline.addLast(newHttp2Handler(scheme));
+                    http(pipeline, Protocol.h2);
+                    break;
+                }
+                default: {
+                    throw new IllegalStateException("Unknown protocol: " + protocol);
+                }
             }
         }
     }
 
-    class Http2PrefaceOrHttpHandler extends ByteToMessageDecoder {
-        private static final int PRI = 0x50524920;
+    class HttpUpgradeCheckHandler extends AbstractChannelHandler<HttpRequest, HttpRequest> {
+        private final HttpScheme scheme;
+
+        public HttpUpgradeCheckHandler(HttpScheme scheme) {
+            super(false);
+            this.scheme = scheme;
+        }
 
         @Override
-        protected void decode(final ChannelHandlerContext ctx, final ByteBuf in, final List<Object> out) {
-            if (in.readableBytes() < 4) {
-                return;
-            }
-            if (in.getInt(in.readerIndex()) == PRI) {
-                http2(ctx.pipeline(), HTTP);
+        protected void onMessageReceived(ChannelHandlerContext ctx, HttpRequest request) {
+            ChannelPipeline pipeline = ctx.pipeline();
+            String upgradeToProtocol = upgrade(ctx, request);
+            if (upgradeToProtocol != null) {
+                logger.info("upgradeToProtocol = {}", upgradeToProtocol);
             } else {
-                http1Upgrade(ctx.pipeline(), HTTP);
+                http(pipeline, Protocol.http1_1);
+                pipeline.remove(this);
+                pipeline.fireChannelRead(request);
             }
-            ctx.pipeline().remove(this);
-        }
-    }
-
-    static class LazyPool implements Supplier<Executor> {
-        private volatile NettyThreadPoolExecutor executor;
-        private final String poolName;
-
-        LazyPool(String poolName) {
-            this.poolName = poolName;
         }
 
-        @Override
-        public NettyThreadPoolExecutor get() {
-            if (executor == null) {
-                synchronized (this) {
-                    if (executor == null) {
-                        int coreThreads = 2;
-                        int maxThreads = 50;
-                        int keepAliveSeconds = 180;
-                        int priority = Thread.NORM_PRIORITY;
-                        boolean daemon = false;
-                        RejectedExecutionHandler handler = new HttpAbortPolicyWithReport(poolName, System.getProperty("user.home"), "Http Servlet");
-                        executor = new NettyThreadPoolExecutor(
-                                coreThreads, maxThreads, keepAliveSeconds, TimeUnit.SECONDS,
-                                new SynchronousQueue<>(), poolName, priority, daemon, handler);
+        public String upgrade(ChannelHandlerContext ctx, HttpRequest request) {
+            ChannelPipeline pipeline = ctx.pipeline();
+            String upgrade = request.headers().get(HttpHeaderNames.UPGRADE);
+            if (upgrade == null) {
+                return null;
+            }
+            List<String> requestedProtocols = HttpHeaderUtil.splitProtocolsHeader(upgrade);
+            for (String requestedProtocol : requestedProtocols) {
+                switch (requestedProtocol) {
+                    case "h2c": {
+                        pipeline.remove(this);
+                        HttpServerCodec serverCodec = pipeline.get(HttpServerCodec.class);
+                        pipeline.addLast(new CleartextHttp2ServerUpgradeHandler(serverCodec,
+                                new HttpServerUpgradeHandler(serverCodec, newUpgradeCodecFactory(scheme), (int) maxContentLength), newHttp2Handler(scheme)));
+                        http(pipeline, Protocol.h2c);
+                        pipeline.fireChannelRead(request);
+                        return requestedProtocol;
+                    }
+                    case "websocket": {
+                        pipeline.remove(this);
+                        upgradeWebsocket(ctx, request);
+                        return requestedProtocol;
+                    }
+                    default: {
+                        break;
                     }
                 }
             }
-            return executor;
+            return null;
         }
     }
+
+    private WebsocketServletUpgrader getWebsocketServletUpgrader() {
+        if (websocketServletUpgrader == null) {
+            synchronized (this) {
+                if (websocketServletUpgrader == null) {
+                    websocketServletUpgrader = new WebsocketServletUpgrader();
+                }
+            }
+        }
+        return websocketServletUpgrader;
+    }
+
+    public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {
+        getWebsocketServletUpgrader().upgradeWebsocket(servletContext, ctx, request, false, 65536);
+    }
+
 }

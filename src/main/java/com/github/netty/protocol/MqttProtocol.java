@@ -82,8 +82,8 @@ public class MqttProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void addPipeline(Channel channel) throws Exception {
-        super.addPipeline(channel);
+    public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
+        super.addPipeline(channel, clientFirstMsg);
         ChannelPipeline pipeline = channel.pipeline();
 
         pipeline.addFirst("idleStateHandler", new IdleStateHandler(nettyReaderIdleTimeSeconds, 0, 0));

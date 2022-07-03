@@ -53,13 +53,28 @@ public class ResourceManager {
         RandomAccessFile lock;
         try {
             File file = writeFile(new byte[]{1}, "/", ".lock", true);
-            lock = new RandomAccessFile(file,"rwd");
+            lock = new RandomAccessFile(file, "rwd");
         } catch (IOException e) {
             lock = null;
             logger.warn("ResourceManager lock file create fail {}", e.toString());
         }
         this.lock = lock;
         logger.info("ResourceManager rootPath : '{}', workspace : '{}'", rootPath, workspace);
+    }
+
+    public static File createTempDir(String prefix) {
+        try {
+            File tempDir = File.createTempFile(prefix + ".", "");
+            tempDir.delete();
+            tempDir.mkdir();
+            tempDir.deleteOnExit();
+            return tempDir;
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                    "Unable to create tempDir. java.io.tmpdir is set to "
+                            + System.getProperty("java.io.tmpdir"),
+                    ex);
+        }
     }
 
     @Override
@@ -266,8 +281,8 @@ public class ResourceManager {
      * @param inputStream    data
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
-     * @throws IOException IOException
      * @return File
+     * @throws IOException IOException
      */
     public File writeFile(InputStream inputStream, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(inputStream, getRealPath(targetPath), targetFileName, false);
@@ -279,8 +294,8 @@ public class ResourceManager {
      * @param dataIterator   data
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
-     * @throws IOException IOException
      * @return File
+     * @throws IOException IOException
      */
     public File writeFile(Iterator<ByteBuffer> dataIterator, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(dataIterator, getRealPath(targetPath), targetFileName, false);
@@ -292,8 +307,8 @@ public class ResourceManager {
      * @param data           data
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
-     * @throws IOException IOException
      * @return File
+     * @throws IOException IOException
      */
     public File writeFile(byte[] data, String targetPath, String targetFileName) throws IOException {
         return IOUtil.writeFile(data, getRealPath(targetPath), targetFileName, false);
@@ -306,8 +321,8 @@ public class ResourceManager {
      * @param targetPath     targetPath
      * @param targetFileName targetFileName
      * @param append         Whether to concatenate old data
-     * @throws IOException IOException
      * @return File
+     * @throws IOException IOException
      */
     public File writeFile(byte[] data, String targetPath, String targetFileName, boolean append) throws IOException {
         return IOUtil.writeFile(data, getRealPath(targetPath), targetFileName, append);

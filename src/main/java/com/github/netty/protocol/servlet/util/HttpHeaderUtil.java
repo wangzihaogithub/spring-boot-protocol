@@ -39,6 +39,27 @@ public class HttpHeaderUtil {
         }
     }
 
+    public static List<String> splitProtocolsHeader(CharSequence header) {
+        StringBuilder builder = new StringBuilder(header.length());
+        List<String> protocols = new ArrayList<>(2);
+        for (int i = 0; i < header.length(); ++i) {
+            char c = header.charAt(i);
+            if (Character.isWhitespace(c)) {
+                continue;
+            }
+            if (c == ',') {
+                protocols.add(builder.toString());
+                builder.setLength(0);
+            } else {
+                builder.append((char) Character.toLowerCase((int) c & 0xff));
+            }
+        }
+        if (builder.length() > 0) {
+            protocols.add(builder.toString());
+        }
+        return protocols;
+    }
+
     public static boolean isFormUrlEncoder(String contentType) {
         if (contentType == null) {
             return false;

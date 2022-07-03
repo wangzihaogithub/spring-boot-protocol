@@ -41,9 +41,10 @@ public interface ProtocolHandler extends Ordered{
     /**
      * add protocol pipeline support
      * @param channel TCP channel
+     * @param clientFirstMsg clientFirstMsg
      * @throws Exception Exception
      */
-    void addPipeline(Channel channel) throws Exception;
+    void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception;
 
     /**
      * default Priority order 0
