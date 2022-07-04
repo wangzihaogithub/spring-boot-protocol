@@ -1,18 +1,22 @@
 package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.*;
+import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
+import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedInput;
 import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.WriteListener;
 import java.io.File;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.FileChannel;
@@ -29,6 +33,7 @@ import java.util.function.Consumer;
  */
 public class ServletOutputStream extends javax.servlet.ServletOutputStream implements Recyclable, NettyOutputStream {
     public static final ServletResetBufferIOException RESET_BUFFER_EXCEPTION = new ServletResetBufferIOException();
+    public static int h2ChunkSize = 81920;
     private static final Recycler<ServletOutputStream> RECYCLER = new Recycler<>(ServletOutputStream::new);
     protected final AtomicLong writeBytes = new AtomicLong();
     protected final AtomicBoolean isClosed = new AtomicBoolean(false);
@@ -76,60 +81,73 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     @Override
-    public ChannelProgressivePromise write(FileChannel fileChannel, long position, long count) throws IOException {
-        return writeHttpBody(new DefaultFileRegion(fileChannel, position, count), count);
-    }
-
-    @Override
     public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
-        return writeHttpBody(new DefaultFileRegion(file, position, count), count);
+        if(isHttp2()){
+            return writeHttpBody(new ChunkedFile(new RandomAccessFile(file, "r"), position, count, h2ChunkSize),count);
+        }else {
+            return writeHttpBody(new DefaultFileRegion(file, position, count), count);
+        }
     }
 
     @Override
     public ChannelProgressivePromise write(File httpBody) throws IOException {
         long length = httpBody.length();
-        return writeHttpBody(new DefaultFileRegion(httpBody, 0, length), length);
+        if(isHttp2()){
+            return writeHttpBody(new ChunkedFile(new RandomAccessFile(httpBody, "r"), 0, length, h2ChunkSize),length);
+        }else {
+            return writeHttpBody(new DefaultFileRegion(httpBody, 0, length), length);
+        }
+    }
+
+    public boolean isHttp2(){
+        Protocol protocol = servletHttpExchange.getProtocol();
+        return protocol == Protocol.h2 || protocol == Protocol.h2c;
     }
 
     protected ChannelProgressivePromise writeHttpBody(Object httpBody, long length) throws IOException {
-        checkClosed();
-        writeResponseHeaderIfNeed();
-        ServletHttpExchange servletHttpExchange = this.servletHttpExchange;
-        ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        ChannelProgressivePromise promise = context.newProgressivePromise();
+        try {
+            checkClosed();
+            writeResponseHeaderIfNeed();
+            ServletHttpExchange servletHttpExchange = this.servletHttpExchange;
+            ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
+            ChannelProgressivePromise promise = context.newProgressivePromise();
 
-        if (length > 0) {
-            writeBytes.addAndGet(length);
-        }
-
-        long contentLength = servletHttpExchange.getResponse().getContentLength();
-        // response finish
-        if (contentLength >= 0 && writeBytes.get() >= contentLength) {
-            boolean autoFlush = servletHttpExchange.getServletContext().isAutoFlush();
-            if (httpBody instanceof ByteBuf) {
-                DefaultLastHttpContent httpContent = new DefaultLastHttpContent((ByteBuf) httpBody, false);
-                if (autoFlush) {
-                    context.write(httpContent, promise);
-                } else {
-                    context.writeAndFlush(httpContent, promise);
-                }
-            } else {
-                context.write(httpBody);
-                if (autoFlush) {
-                    context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
-                } else {
-                    context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);
-                }
+            if (length > 0) {
+                writeBytes.addAndGet(length);
             }
-            lastContentPromise = promise;
-        } else {
-            // Response continues
-            context.write(httpBody, promise);
-        }
 
-        // limiting control. avoid buffer memory overflow.
-        blockIfNeed(promise);
-        return promise;
+            long contentLength = servletHttpExchange.getResponse().getContentLength();
+            // response finish
+            if (contentLength >= 0 && writeBytes.get() >= contentLength) {
+                boolean autoFlush = servletHttpExchange.getServletContext().isAutoFlush();
+                if (httpBody instanceof ByteBuf) {
+                    DefaultLastHttpContent httpContent = new DefaultLastHttpContent((ByteBuf) httpBody, false);
+                    if (autoFlush) {
+                        context.write(httpContent, promise);
+                    } else {
+                        context.writeAndFlush(httpContent, promise);
+                    }
+                } else {
+                    context.write(httpBody);
+                    if (autoFlush) {
+                        context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
+                    } else {
+                        context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);
+                    }
+                }
+                lastContentPromise = promise;
+            } else {
+                // Response continues
+                context.write(httpBody, promise);
+            }
+
+            // limiting control. avoid buffer memory overflow.
+            blockIfNeed(promise);
+            return promise;
+        } catch (Exception e) {
+            RecyclableUtil.release(httpBody);
+            throw e;
+        }
     }
 
     /**

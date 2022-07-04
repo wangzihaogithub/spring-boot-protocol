@@ -15,6 +15,7 @@
 package com.github.netty.protocol.servlet.http2;
 
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -418,6 +419,10 @@ public class NettyHttp2Client {
      */
     public H2Response writeAndFlush(FullHttpRequest request) {
         return writeAndFlush(request, requestTimeout);
+    }
+
+    public H2Response writeAndFlush(HttpMethod method, String uri, ByteBuf body) {
+        return writeAndFlush(new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, method, uri, body), requestTimeout);
     }
 
     /**

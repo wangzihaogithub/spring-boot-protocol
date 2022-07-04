@@ -67,11 +67,6 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     }
 
     @Override
-    public ChannelProgressivePromise write(FileChannel fileChannel, long position, long count) throws IOException {
-        return source.write(fileChannel,position,count);
-    }
-
-    @Override
     public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
         return source.write(file,position,count);
     }

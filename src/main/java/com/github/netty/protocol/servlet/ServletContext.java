@@ -34,7 +34,6 @@ import java.util.function.Supplier;
  *  2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     /**
      * Default: 20 minutes,
@@ -160,7 +159,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.resourceManager = new ResourceManager(docBase, workspace, classLoader);
         this.resourceManager.mkdirs("/");
         if (old != null) {
-            logger.warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
+            getLog().warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
         }
         DiskFileUpload.deleteOnExitTemporaryFile = true;
         DiskAttribute.deleteOnExitTemporaryFile = true;
@@ -168,15 +167,23 @@ public class ServletContext implements javax.servlet.ServletContext {
         DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
     }
 
-    public Executor getAsyncExecutor() {
-        Executor executor = asyncExecutorSupplier.get();
-        if(executor == null){
+    private LoggerX getLog(){
+        return LoggerFactoryX.getLogger(contextPath);
+    }
+
+    public Executor getExecutor() {
+        Executor executor = asyncExecutorSupplier != null ? asyncExecutorSupplier.get() : null;
+        if (executor == null) {
             executor = defaultExecutorSupplier.get();
         }
         if(executor == null){
             throw new IllegalStateException("no found async Executor");
         }
         return executor;
+    }
+
+    public Executor getAsyncExecutor() {
+        return asyncExecutorSupplier != null ? asyncExecutorSupplier.get() : null;
     }
 
     public Collection<String> getNotExistBodyParameters() {
@@ -442,17 +449,17 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public void log(String msg) {
-        logger.debug(msg);
+        getLog().debug(msg);
     }
 
     @Override
     public void log(Exception exception, String msg) {
-        logger.debug(msg,exception);
+        getLog().debug(msg,exception);
     }
 
     @Override
     public void log(String message, Throwable throwable) {
-        logger.debug(message,throwable);
+        getLog().debug(message,throwable);
     }
 
     @Override

@@ -127,8 +127,8 @@ public class NRpcProtocol extends AbstractProtocol {
     }
 
     @Override
-    public void addPipeline(Channel channel) throws Exception {
-        super.addPipeline(channel);
+    public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
+        super.addPipeline(channel, clientFirstMsg);
         RpcServerChannelHandler rpcServerHandler = new RpcServerChannelHandler();
         rpcServerHandler.setExecutorSupplier(executorSupplier);
         rpcServerHandler.getAopList().addAll(rpcServerAopList);

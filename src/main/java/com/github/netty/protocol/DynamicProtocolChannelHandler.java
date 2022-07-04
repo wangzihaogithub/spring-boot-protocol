@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf, Object> {
     public static final AttributeKey<TcpChannel> ATTR_KEY_TCP_CHANNEL = AttributeKey.valueOf(TcpChannel.class+"#Dy");
+    private RemoveTcpChannelHandler removeTcpChannelHandler = new RemoveTcpChannelHandler();
     /**
      * Protocol registry list, dynamic protocol will find a suitable protocol to supportPipeline on the new link
      */
@@ -66,13 +67,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             }
         },firstClientPacketReadTimeoutMs, TimeUnit.MILLISECONDS);
 
-        channel.pipeline().addLast("tcpChannel", new ChannelDuplexHandler() {
-            @Override
-            public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-                super.channelInactive(ctx);
-                removeTcpChannel(ctx.channel().id());
-            }
-        });
+        channel.pipeline().addLast("removeTcpChannel", removeTcpChannelHandler);
         if(bytesMetricsChannelHandler != null){
             channel.pipeline().addFirst("bytemetrics", bytesMetricsChannelHandler);
         }
@@ -85,35 +80,35 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
+    protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf clientFirstMsg) throws Exception {
         Channel channel = ctx.channel();
         channel.pipeline().remove(this);
 
-        ProtocolHandler protocolHandler = getProtocolHandler(msg);
+        ProtocolHandler protocolHandler = getProtocolHandler(clientFirstMsg);
         if(protocolHandler == null){
             addTcpChannel(channel.id(),new TcpChannel(channel, null,this));
-            onNoSupportProtocol(ctx,msg);
+            onNoSupportProtocol(ctx,clientFirstMsg);
             return;
         }
         if(getTcpChannelCount() >= getMaxConnections()) {
             TcpChannel tcpChannel = new TcpChannel(channel, protocolHandler, this);
             addTcpChannel(channel.id(),tcpChannel);
-            onOutOfMaxConnection(ctx, msg,tcpChannel);
+            onOutOfMaxConnection(ctx, clientFirstMsg,tcpChannel);
             return;
         }
 
-        addPipeline(ctx,protocolHandler);
+        addPipeline(ctx, protocolHandler, clientFirstMsg);
         if(channel.isActive()){
-            channel.pipeline().fireChannelRead(msg);
+            channel.pipeline().fireChannelRead(clientFirstMsg);
         }
     }
 
-    protected void addPipeline(ChannelHandlerContext ctx, ProtocolHandler protocolHandler) throws Exception {
+    protected void addPipeline(ChannelHandlerContext ctx, ProtocolHandler protocolHandler, ByteBuf clientFirstMsg) throws Exception {
         Channel channel = ctx.channel();
         logger.debug("{} protocol bind to [{}]",channel, protocolHandler.getProtocolName());
 
         addTcpChannel(channel.id(),new TcpChannel(channel, protocolHandler,this));
-        protocolHandler.addPipeline(channel);
+        protocolHandler.addPipeline(channel,clientFirstMsg);
         if (channel.isRegistered()) {
             channel.pipeline().fireChannelRegistered();
         }
@@ -122,9 +117,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         }
     }
 
-    public ProtocolHandler getProtocolHandler(ByteBuf msg){
+    public ProtocolHandler getProtocolHandler(ByteBuf clientFirstMsg){
         for(ProtocolHandler protocolHandler : protocolHandlers) {
-            if (protocolHandler.canSupport(msg)) {
+            if (protocolHandler.canSupport(clientFirstMsg)) {
                 return protocolHandler;
             }
         }
@@ -140,10 +135,10 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         return null;
     }
 
-    protected void onOutOfMaxConnection(ChannelHandlerContext ctx, ByteBuf msg, TcpChannel tcpChannel){
+    protected void onOutOfMaxConnection(ChannelHandlerContext ctx, ByteBuf clientFirstMsg, TcpChannel tcpChannel){
         ctx.close();
-        if(msg != null && msg.refCnt() > 0) {
-            msg.release();
+        if(clientFirstMsg != null && clientFirstMsg.refCnt() > 0) {
+            clientFirstMsg.release();
         }
     }
 
@@ -166,17 +161,17 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         }
 
         try {
-            addPipeline(ctx,protocolHandler);
+            addPipeline(ctx,protocolHandler, null);
         } catch (Exception e) {
             ctx.fireExceptionCaught(e);
         }
     }
 
-    protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf msg){
-        if(msg != null) {
-            logger.warn("Received no support protocol. message=[{}]", msg.toString(Charset.forName("UTF-8")));
-            if (msg.refCnt() > 0) {
-                msg.release();
+    protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf clientFirstMsg){
+        if(clientFirstMsg != null) {
+            logger.warn("Received no support protocol. message=[{}]", clientFirstMsg.toString(Charset.forName("UTF-8")));
+            if (clientFirstMsg.refCnt() > 0) {
+                clientFirstMsg.release();
             }
         }
         ctx.close();
@@ -232,6 +227,15 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         this.loggingHandler = new LoggingHandler(getClass(), logLevel);
         this.messageMetricsChannelHandler = new MessageMetricsChannelHandler();
         this.bytesMetricsChannelHandler = new BytesMetricsChannelHandler();
+    }
+
+    @ChannelHandler.Sharable
+    public class RemoveTcpChannelHandler extends ChannelInboundHandlerAdapter{
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            super.channelInactive(ctx);
+            removeTcpChannel(ctx.channel().id());
+        }
     }
 
 }

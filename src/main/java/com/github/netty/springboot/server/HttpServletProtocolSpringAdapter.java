@@ -9,6 +9,9 @@ import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.SpringUtil;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ClientAuth;
@@ -39,6 +42,7 @@ import static org.springframework.util.ClassUtils.getMethod;
 
 /**
  * HttpServlet protocol registry (spring adapter)
+ *
  * @author wangzihao
  * 2018/11/12/012
  */
@@ -50,18 +54,30 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private AbstractServletWebServerFactory webServerFactory;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader,
-                                            Supplier<Executor> executorSupplier,Supplier<Executor> defaultExecutorSupplier) {
-        super(new ServletContext(classLoader == null? ClassUtils.getDefaultClassLoader():classLoader),executorSupplier,defaultExecutorSupplier);
+                                            Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
+        super(new ServletContext(classLoader == null ? ClassUtils.getDefaultClassLoader() : classLoader), executorSupplier, defaultExecutorSupplier);
         this.properties = properties;
         this.application = properties.getApplication();
     }
 
+    /**
+     * skip for {@link NettyRequestUpgradeStrategy}
+     *
+     * @param ctx
+     * @param request
+     * @see NettyRequestUpgradeStrategy
+     */
+    @Override
+    public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {
+        // for spring upgradeWebsocket NettyRequestUpgradeStrategy
+    }
+
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
-        if(SpringUtil.isSingletonBean(beanFactory, beanName)) {
+        if (SpringUtil.isSingletonBean(beanFactory, beanName)) {
             application.addSingletonBean(bean, beanName, false);
         }
-        if(bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0){
+        if (bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0) {
             this.webServerFactory = (AbstractServletWebServerFactory) bean;
         }
         return bean;
@@ -81,9 +97,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 //        application.scanner("com.github.netty").inject();
     }
 
-    private static Number getNumberBytes(Object object,String methodName) throws InvocationTargetException, IllegalAccessException {
+    private static Number getNumberBytes(Object object, String methodName) throws InvocationTargetException, IllegalAccessException {
         Object value = getMethod(object.getClass(), methodName).invoke(object);
-        if(!(value instanceof Number)) {
+        if (!(value instanceof Number)) {
             value = getMethod(value.getClass(), "toBytes").invoke(value);
         }
         return (Number) value;
@@ -91,7 +107,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     @Override
     protected void configurableServletContext() throws Exception {
-        if(webServerFactory == null){
+        if (webServerFactory == null) {
             return;
         }
         try {
@@ -168,22 +184,23 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     /**
      * New session service
-     * @param properties properties
+     *
+     * @param properties     properties
      * @param servletContext servletContext
      * @return SessionService
      */
-    protected SessionService newSessionService(NettyProperties properties,ServletContext servletContext){
+    protected SessionService newSessionService(NettyProperties properties, ServletContext servletContext) {
         //Composite session (default local storage)
         SessionService sessionService;
-        if(StringUtil.isNotEmpty(properties.getHttpServlet().getSessionRemoteServerAddress())) {
+        if (StringUtil.isNotEmpty(properties.getHttpServlet().getSessionRemoteServerAddress())) {
             //Enable session remote storage using RPC
             String remoteSessionServerAddress = properties.getHttpServlet().getSessionRemoteServerAddress();
             InetSocketAddress address;
-            if(remoteSessionServerAddress.contains(":")){
+            if (remoteSessionServerAddress.contains(":")) {
                 String[] addressArr = remoteSessionServerAddress.split(":");
                 address = new InetSocketAddress(addressArr[0], Integer.parseInt(addressArr[1]));
-            }else {
-                address = new InetSocketAddress(remoteSessionServerAddress,80);
+            } else {
+                address = new InetSocketAddress(remoteSessionServerAddress, 80);
             }
             SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
             compositeSessionService.enableRemoteRpcSession(address,
@@ -193,10 +210,10 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                     properties.getNrpc().getClientHeartIntervalTimeMs(),
                     properties.getNrpc().getClientReconnectScheduledIntervalMs());
             sessionService = compositeSessionService;
-        }else if(properties.getHttpServlet().isEnablesLocalFileSession()){
+        } else if (properties.getHttpServlet().isEnablesLocalFileSession()) {
             //Enable session file storage
             sessionService = new SessionLocalFileServiceImpl(servletContext.getResourceManager());
-        }else {
+        } else {
             sessionService = new SessionLocalMemoryServiceImpl();
         }
         return sessionService;
@@ -204,9 +221,10 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     /**
      * Initialize the SSL security configuration for HTTPS
+     *
      * @param keyManagerFactory keyManagerFactory
-     * @param ssl ssl
-     * @param sslStoreProvider sslStoreProvider
+     * @param ssl               ssl
+     * @param sslStoreProvider  sslStoreProvider
      * @return The SSL context builder
      * @throws Exception Exception
      */
@@ -221,8 +239,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         }
         if (ssl.getClientAuth() == Ssl.ClientAuth.NEED) {
             builder.clientAuth(ClientAuth.REQUIRE);
-        }
-        else if (ssl.getClientAuth() == Ssl.ClientAuth.WANT) {
+        } else if (ssl.getClientAuth() == Ssl.ClientAuth.WANT) {
             builder.clientAuth(ClientAuth.OPTIONAL);
         }
 
@@ -241,17 +258,18 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     /**
      * Gets a trust manager used to authenticate secure sockets.
-     * @param ssl ssl
+     *
+     * @param ssl              ssl
      * @param sslStoreProvider sslStoreProvider
      * @return TrustManagerFactory
      * @throws Exception Exception
      */
-    protected TrustManagerFactory getTrustManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
+    protected TrustManagerFactory getTrustManagerFactory(Ssl ssl, SslStoreProvider sslStoreProvider) throws Exception {
         KeyStore store;
         if (sslStoreProvider != null) {
             store = sslStoreProvider.getTrustStore();
-        }else {
-            store = loadKeyStore(ssl.getTrustStoreType(), ssl.getTrustStoreProvider(),ssl.getTrustStore(), ssl.getTrustStorePassword());
+        } else {
+            store = loadKeyStore(ssl.getTrustStoreType(), ssl.getTrustStoreProvider(), ssl.getTrustStore(), ssl.getTrustStorePassword());
         }
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(store);
@@ -260,17 +278,18 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     /**
      * Get the key manager
-     * @param ssl ssl
+     *
+     * @param ssl              ssl
      * @param sslStoreProvider sslStoreProvider
      * @return KeyManagerFactory
      * @throws Exception Exception
      */
-    protected KeyManagerFactory getKeyManagerFactory(Ssl ssl,SslStoreProvider sslStoreProvider) throws Exception {
+    protected KeyManagerFactory getKeyManagerFactory(Ssl ssl, SslStoreProvider sslStoreProvider) throws Exception {
         KeyStore keyStore;
         if (sslStoreProvider != null) {
             keyStore = sslStoreProvider.getKeyStore();
-        }else {
-            keyStore = loadKeyStore(ssl.getKeyStoreType(), ssl.getKeyStoreProvider(),ssl.getKeyStore(), ssl.getKeyStorePassword());
+        } else {
+            keyStore = loadKeyStore(ssl.getKeyStoreType(), ssl.getKeyStoreProvider(), ssl.getKeyStore(), ssl.getKeyStorePassword());
         }
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
@@ -284,14 +303,15 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
 
     /**
      * Load key
-     * @param type type
+     *
+     * @param type     type
      * @param provider provider
      * @param resource resource
      * @param password password
      * @return KeyStore
      * @throws Exception Exception
      */
-    protected KeyStore loadKeyStore(String type, String provider, String resource,String password) throws Exception {
+    protected KeyStore loadKeyStore(String type, String provider, String resource, String password) throws Exception {
         if (resource == null) {
             return null;
         }

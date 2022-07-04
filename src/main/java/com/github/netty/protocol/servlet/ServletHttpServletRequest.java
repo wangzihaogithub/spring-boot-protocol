@@ -19,8 +19,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.Principal;
-import java.text.DateFormat;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +47,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private String serverName;
     private int serverPort;
     private String remoteHost;
-    private String protocol;
     private String scheme;
     private String servletPath;
     private String queryString;
@@ -943,10 +940,18 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getProtocol() {
-        if(protocol == null) {
-            protocol = nettyRequest.protocolVersion().toString();
+        Protocol protocol = servletHttpExchange.getProtocol();
+        switch (protocol) {
+            case h2:
+            case h2c: {
+                return "HTTP/2.0";
+            }
+            case http1_1:
+            case https1_1:
+            default: {
+                return nettyRequest.protocolVersion().toString();
+            }
         }
-        return protocol;
     }
 
     @Override
@@ -1135,7 +1140,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         ServletContext servletContext = getServletContext();
         if(asyncContext == null) {
-            asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getAsyncExecutor());
+            asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getExecutor());
             asyncContext.setTimeout(servletContext.getAsyncTimeout());
         }
         asyncContext.setServletRequest(servletRequest);
@@ -1355,7 +1360,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.remoteHost = null;
         this.serverName = null;
         this.serverPort = 0;
-        this.protocol = null;
         this.scheme = null;
         this.servletPath = null;
         this.queryString = null;

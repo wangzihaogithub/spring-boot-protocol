@@ -1,10 +1,8 @@
 package com.github.netty.protocol.servlet.websocket;
 
 import com.github.netty.core.MessageToRunnable;
-import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.Recycler;
-import com.github.netty.core.util.TypeUtil;
-import com.github.netty.protocol.servlet.ServletHttpExchange;
+import com.github.netty.core.util.*;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.*;
 
@@ -22,9 +20,8 @@ import java.util.Set;
 public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     private static final Recycler<WebsocketRunnable> RECYCLER = new Recycler<>(WebsocketRunnable::new);
     private MessageToRunnable parent;
-    private ServletHttpExchange exchange;
 
-    public NettyMessageToWebSocketRunnable(MessageToRunnable parent, ServletHttpExchange exchange) {
+    public NettyMessageToWebSocketRunnable(MessageToRunnable parent) {
         this.parent = parent;
     }
 
@@ -44,9 +41,6 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
 
     @Override
     public Runnable onClose(ChannelHandlerContext context) {
-        if (exchange != null) {
-            exchange.setWebsocket(false);
-        }
         if (parent != null) {
             return parent.onClose(context);
         }
@@ -92,29 +86,26 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
 
                 // Ping message
                 if (frame instanceof PingWebSocketFrame) {
-                    ByteBuffer request = frame.content().nioBuffer();
-                    onWebsocketMessage(wsSession, frame, (PongMessage) () -> request);
+                    onWebsocketMessage(wsSession, frame, IOUtil.heap(frame.content()), PongMessage.class);
                     return;
                 }
 
                 // Binary message
                 if (frame instanceof BinaryWebSocketFrame) {
-                    onWebsocketMessage(wsSession, frame, frame.content().nioBuffer());
+                    onWebsocketMessage(wsSession, frame, IOUtil.heap(frame.content()), ByteBuffer.class);
                     return;
                 }
 
                 // String message
                 if (frame instanceof TextWebSocketFrame) {
-                    onWebsocketMessage(wsSession, frame, ((TextWebSocketFrame) frame).text());
+                    onWebsocketMessage(wsSession, frame, ((TextWebSocketFrame) frame).text(), String.class);
                 }
             } finally {
                 WebsocketRunnable.this.recycle();
             }
         }
 
-        private void onWebsocketMessage(WebSocketSession wsSession, WebSocketFrame frame, Object message) {
-            Class messageType = message.getClass();
-
+        private void onWebsocketMessage(WebSocketSession wsSession, WebSocketFrame frame, Object message, Class messageType) {
             Set<MessageHandler> messageHandlers = wsSession.getMessageHandlers();
             for (MessageHandler handler : messageHandlers) {
                 if (handler instanceof MessageHandler.Partial) {
@@ -122,9 +113,17 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
                     TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Partial.class, partial.getClass());
                     if (typeResult == null
                             || typeResult.getClazz() == Object.class
-                            || typeResult.getClazz().isAssignableFrom(messageType)) {
+                            || typeResult.getClazz() == messageType) {
                         try {
-                            partial.onMessage(message, frame.isFinalFragment());
+                            boolean finalFragment = frame.isFinalFragment();
+                            if (frame instanceof PingWebSocketFrame) {
+                                ByteBuffer applicationData = ByteBuffer.wrap((byte[]) message);
+                                partial.onMessage((PongMessage) () -> applicationData, finalFragment);
+                            } else if (frame instanceof BinaryWebSocketFrame) {
+                                partial.onMessage(ByteBuffer.wrap((byte[]) message), finalFragment);
+                            } else {
+                                partial.onMessage(message, finalFragment);
+                            }
                         } catch (Throwable e) {
                             wsSession.onError(e);
                         }
@@ -137,9 +136,16 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
                     TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Whole.class, whole.getClass());
                     if (typeResult == null
                             || typeResult.getClazz() == Object.class
-                            || typeResult.getClazz().isAssignableFrom(messageType)) {
+                            || typeResult.getClazz() == messageType){
                         try {
-                            whole.onMessage(message);
+                            if (frame instanceof PingWebSocketFrame) {
+                                ByteBuffer applicationData = ByteBuffer.wrap((byte[]) message);
+                                whole.onMessage((PongMessage) () -> applicationData);
+                            } else if (frame instanceof BinaryWebSocketFrame) {
+                                whole.onMessage(ByteBuffer.wrap((byte[]) message));
+                            } else {
+                                whole.onMessage(message);
+                            }
                         } catch (Throwable e) {
                             wsSession.onError(e);
                         }
@@ -154,6 +160,7 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
                 ((Recyclable) context).recycle();
             }
             context = null;
+            RecyclableUtil.release(frame);
             frame = null;
         }
     }

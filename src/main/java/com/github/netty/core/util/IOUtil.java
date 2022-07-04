@@ -43,6 +43,13 @@ public class IOUtil {
         return newBytes;
     }
 
+    public static byte[] heap(ByteBuf buf) {
+        byte[] payloadContent = new byte[buf.readableBytes()];
+        buf.readBytes(payloadContent);
+        buf.release();
+        return payloadContent;
+    }
+
     /**
      * Write mode to read mode
      * @param byteBuf byteBuf

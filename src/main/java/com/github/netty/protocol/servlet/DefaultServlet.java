@@ -78,6 +78,7 @@ public class DefaultServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String requestURI = request.getRequestURI();
+        log("doGet "+requestURI);
         File resource = getFile(requestURI);
         if (resource == null) {
             sendNotFound(request, response);

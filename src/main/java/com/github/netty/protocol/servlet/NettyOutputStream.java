@@ -75,17 +75,6 @@ public interface NettyOutputStream extends Flushable, Closeable {
 
     /**
      * use netty zero copy
-     * @param httpBody FileChannel httpBody
-     * @param count count
-     * @param position position
-     * @return ChannelProgressivePromise {@link ChannelProgressivePromise#addListener(GenericFutureListener)} }
-     * @see GenericProgressiveFutureListener
-     * @throws IOException if close
-     */
-    ChannelProgressivePromise write(FileChannel httpBody, long position, long count) throws IOException;
-
-    /**
-     * use netty zero copy
      * @param httpBody File httpBody
      * @param count count
      * @param position position

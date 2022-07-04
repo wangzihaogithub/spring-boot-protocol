@@ -1,15 +1,16 @@
 package com.github.netty.core;
 
 import com.github.netty.core.util.RecyclableUtil;
+import com.github.netty.protocol.servlet.NettyMessageToServletRunnable;
+import com.github.netty.protocol.servlet.ServletContext;
+import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.util.AttributeKey;
 
 import java.io.IOException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.function.Supplier;
 
 /**
  * Servlet processor (portal to the server)
@@ -17,14 +18,17 @@ import java.util.function.Supplier;
  * @author wangzihao
  * 2018/7/1/001
  */
-@ChannelHandler.Sharable
 public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Object> {
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
-    private Supplier<Executor> dispatcherExecutor;
+    protected final ServletContext servletContext;
+    protected final long maxContentLength;
+    protected final Protocol protocol;
 
-    public DispatcherChannelHandler(Supplier<Executor> dispatcherExecutor) {
+    public DispatcherChannelHandler(ServletContext servletContext, long maxContentLength, Protocol protocol) {
         super(false);
-        this.dispatcherExecutor = dispatcherExecutor;
+        this.servletContext = servletContext;
+        this.maxContentLength = maxContentLength;
+        this.protocol = protocol;
     }
 
     /**
@@ -49,45 +53,46 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext context, Object msg) throws Exception {
-        MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
-        if (messageToRunnable != null) {
-            Runnable runnable = messageToRunnable.onMessage(context, msg);
-            if (runnable != null) {
-                run(runnable);
+    public void handlerAdded(ChannelHandlerContext ctx) {
+        // Dynamic binding protocol for switching protocol
+        DispatcherChannelHandler.setMessageToRunnable(ctx.channel(), new NettyMessageToServletRunnable(servletContext, maxContentLength, protocol));
+    }
+
+    @Override
+    protected void onMessageReceived(ChannelHandlerContext context, Object msg) {
+        try {
+            MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
+            if (messageToRunnable != null) {
+                Runnable runnable = messageToRunnable.onMessage(context, msg);
+                if (runnable != null) {
+                    run(runnable);
+                }
+            } else {
+                logger.error("no handler message = {}", msg.getClass());
+                RecyclableUtil.release(msg);
             }
-        } else {
-            logger.error("no handler message = {}", msg.getClass());
+        } catch (Exception e) {
             RecyclableUtil.release(msg);
+            context.pipeline().fireExceptionCaught(e);
         }
     }
 
     protected void run(Runnable task) {
-        Executor executor = getExecutor();
-        try {
-            if (executor != null) {
-                executor.execute(task);
-            } else {
-                task.run();
+        switch (protocol) {
+            case h2c:
+            case h2: {
+                servletContext.getExecutor().execute(task);
+                break;
             }
-        } catch (RejectedExecutionException e) {
-            logger.error("RejectedExecutionException message = {}", e.toString(), e);
-        }
-    }
-
-    private Executor getExecutor() {
-        if (dispatcherExecutor != null) {
-            try {
-                return dispatcherExecutor.get();
-            } catch (Exception e) {
-                logger.warn("get dispatcherExecutor failure.  msg = {}", e.getMessage(), e);
+            default: {
+                Executor executor = servletContext.getAsyncExecutor();
+                if (executor != null) {
+                    executor.execute(task);
+                } else {
+                    task.run();
+                }
             }
         }
-        return null;
-    }
-
-    public void setDispatcherExecutor(Supplier<Executor> dispatcherExecutor) {
-        this.dispatcherExecutor = dispatcherExecutor;
     }
 
     @Override
@@ -103,8 +108,10 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext context, Throwable cause) throws Exception {
-        if (cause.getClass() != IOException.class) {
+    public void exceptionCaught(ChannelHandlerContext context, Throwable cause) {
+        if (cause instanceof Http2Exception) {
+
+        } else if (cause.getClass() != IOException.class) {
             logger.error("handler exception. case={}, channel={}", cause.toString(), context.channel(), cause);
         }
         MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
@@ -114,7 +121,13 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
                 run(runnable);
             }
         }
-        context.close();
     }
 
+    public Protocol getProtocol() {
+        return protocol;
+    }
+
+    public ServletContext getServletContext() {
+        return servletContext;
+    }
 }

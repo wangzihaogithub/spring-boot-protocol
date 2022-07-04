@@ -30,7 +30,7 @@ public class MyServer {
         }
 
         @Override
-        public void addPipeline(Channel channel) throws Exception {
+        public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
             channel.pipeline().addLast(new AbstractChannelHandler<ByteBuf, ByteBuf>() {
                 private boolean connection;
 
