@@ -37,6 +37,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     private LastHttpContent lastHttpContent;
     private ServletHttpExchange exchange;
     protected final AtomicBoolean isSettingResponse = new AtomicBoolean(false);
+    private boolean writeSendFile = false;
 
     public NettyHttpResponse() {
         this.headers = new DefaultHttpHeaders(false);
@@ -93,6 +94,10 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         return decoderResult;
     }
 
+    public void setWriteSendFile(boolean writeSendFile) {
+        this.writeSendFile = writeSendFile;
+    }
+
     @Override
     public NettyHttpResponse setStatus(HttpResponseStatus status) {
         this.status = status;
@@ -124,9 +129,14 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         this.headers.clear();
         this.version = HttpVersion.HTTP_1_1;
         this.status = DEFAULT_STATUS;
+        this.writeSendFile = false;
         this.lastHttpContent = null;
         this.decoderResult = DecoderResult.SUCCESS;
         this.isSettingResponse.set(false);
+    }
+
+    public boolean isWriteSendFile() {
+        return writeSendFile;
     }
 
     @Override

@@ -23,11 +23,12 @@ public class ThreadFactoryX extends DefaultThreadFactory implements java.util.co
                 Thread.currentThread().getThreadGroup() : System.getSecurityManager().getThreadGroup();
     }
 
-    public ThreadFactoryX(String poolName, String preName) {
+    public ThreadFactoryX(String poolName, String preName,boolean daemon) {
         super(poolName);
         this.preName = preName;
         this.threadGroup = System.getSecurityManager() == null ?
                 Thread.currentThread().getThreadGroup() : System.getSecurityManager().getThreadGroup();
+        this.daemon = daemon;
     }
 
     @Override

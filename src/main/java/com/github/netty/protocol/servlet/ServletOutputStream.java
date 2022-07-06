@@ -105,6 +105,9 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     protected ChannelProgressivePromise writeHttpBody(Object httpBody, long length) throws IOException {
+        if(httpBody instanceof FileRegion){
+            servletHttpExchange.getResponse().getNettyResponse().setWriteSendFile(true);
+        }
         try {
             checkClosed();
             writeResponseHeaderIfNeed();

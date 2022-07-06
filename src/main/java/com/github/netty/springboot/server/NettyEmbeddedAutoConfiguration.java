@@ -314,7 +314,7 @@ public class NettyEmbeddedAutoConfiguration {
             maxThreads = max;
         }
         int priority = Thread.NORM_PRIORITY;
-        boolean daemon = false;
+        boolean daemon = true;
         return new NettyThreadPoolExecutor(
                 coreThreads,maxThreads,keepAliveSeconds, TimeUnit.SECONDS,
                 workQueue,poolName,priority,daemon,handler);

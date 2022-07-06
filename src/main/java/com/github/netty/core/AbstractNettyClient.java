@@ -85,11 +85,11 @@ public abstract class AbstractNettyClient implements Closeable {
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if(enableEpoll){
-            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll",namePre+"Client-Worker"));
+            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll",namePre+"Client-Worker", true));
 //            epollWorker.setIoRatio(ioRatio);
             worker = epollWorker;
         }else {
-            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO",namePre+"Client-Worker"));
+            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO",namePre+"Client-Worker", true));
             nioWorker.setIoRatio(ioRatio);
             worker = nioWorker;
         }

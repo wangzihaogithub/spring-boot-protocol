@@ -91,9 +91,9 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if(enableEpoll){
-            worker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Server-Worker"));
+            worker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Server-Worker", false));
         }else {
-            worker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Server-Worker"));
+            worker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Server-Worker", false));
         }
         return worker;
     }
@@ -101,11 +101,11 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     protected EventLoopGroup newBossEventLoopGroup() {
         EventLoopGroup boss;
         if(enableEpoll){
-            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1,new ThreadFactoryX("Epoll","Server-Boss"));
+            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1,new ThreadFactoryX("Epoll","Server-Boss", false));
 //            epollBoss.setIoRatio(ioRatio);
             boss = epollBoss;
         }else {
-            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("NIO","Server-Boss"));
+            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("NIO","Server-Boss", false));
             jdkBoss.setIoRatio(ioRatio);
             boss = jdkBoss;
         }

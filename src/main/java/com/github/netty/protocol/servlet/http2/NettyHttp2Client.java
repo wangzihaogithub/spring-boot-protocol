@@ -946,7 +946,7 @@ public class NettyHttp2Client {
             ChannelPromise promise = ch.newPromise();
             settingsHandler.setPromise(promise);
             ch.eventLoop().schedule(() -> {
-                promise.setFailure(ReadTimeoutException.INSTANCE);
+                promise.tryFailure(ReadTimeoutException.INSTANCE);
             }, connectTimeout, TimeUnit.MILLISECONDS);
 
             this.connectionHandler = newConnectionHandler(connection);
@@ -1050,7 +1050,7 @@ public class NettyHttp2Client {
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, Http2Settings msg) throws Exception {
             this.http2Settings = msg;
-            promise.setSuccess();
+            promise.trySuccess();
 
             // Only care about the first settings message
             ctx.pipeline().remove(this);
@@ -1109,7 +1109,7 @@ public class NettyHttp2Client {
             }
             H2Response promise = streamIdPromiseMap.remove(streamId);
             if (promise != null) {
-                promise.setSuccess(msg);
+                promise.trySuccess(msg);
             }
         }
 
