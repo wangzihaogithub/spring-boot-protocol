@@ -10,8 +10,6 @@ import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
 import com.github.netty.protocol.mysql.listener.WriterLogFilePacketListener;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
-import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
-import com.github.netty.protocol.nrpc.codec.FastJsonDataCodec;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.beans.factory.BeanFactory;
@@ -30,7 +28,6 @@ import org.springframework.core.io.ResourceLoader;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
@@ -227,7 +224,7 @@ public class NettyEmbeddedAutoConfiguration {
         return executorSupplier;
     }
 
-    protected Supplier<Executor> newDefaultExecutorSupplier(NettyProperties.HttpServlet.ServerThreadPool pool,ConfigurableBeanFactory factory){
+    protected Supplier<Executor> newDefaultExecutorSupplier(NettyProperties.HttpServlet.ServerThreadPool pool, ConfigurableBeanFactory factory){
         RejectedExecutionHandler rejectedHandler;
         if (pool.getRejected() == HttpAbortPolicyWithReport.class) {
             rejectedHandler = new HttpAbortPolicyWithReport(pool.getPoolName(), pool.getDumpPath(), "Default Pool HttpServlet");
@@ -271,7 +268,7 @@ public class NettyEmbeddedAutoConfiguration {
         protected final RejectedExecutionHandler rejectedHandler;
         protected final NettyEmbeddedAutoConfiguration autoConfiguration;
 
-        public LazyPool(NettyEmbeddedAutoConfiguration autoConfiguration,NettyProperties.HttpServlet.ServerThreadPool pool,RejectedExecutionHandler rejectedHandler) {
+        public LazyPool(NettyEmbeddedAutoConfiguration autoConfiguration, NettyProperties.HttpServlet.ServerThreadPool pool, RejectedExecutionHandler rejectedHandler) {
             this.autoConfiguration = autoConfiguration;
             this.pool = pool;
             this.rejectedHandler = rejectedHandler;
@@ -314,7 +311,7 @@ public class NettyEmbeddedAutoConfiguration {
             maxThreads = max;
         }
         int priority = Thread.NORM_PRIORITY;
-        boolean daemon = false;
+        boolean daemon = true;
         return new NettyThreadPoolExecutor(
                 coreThreads,maxThreads,keepAliveSeconds, TimeUnit.SECONDS,
                 workQueue,poolName,priority,daemon,handler);

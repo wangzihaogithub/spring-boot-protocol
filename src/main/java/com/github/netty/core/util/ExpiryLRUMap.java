@@ -705,6 +705,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         public static final ExpiresNotify NOTIFY_INSTANCE = new ExpiresNotify();
         static final ScheduledExecutorService SCHEDULED = Executors.newScheduledThreadPool(1, runnable -> {
             Thread thread = new Thread(runnable);
+            thread.setDaemon(true);
             thread.setName("ExpiryLRUMap-ExpiresScan-" + thread.getId());
             thread.setPriority(Thread.MIN_PRIORITY);
             return thread;
@@ -712,6 +713,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         private static final ExpiresScan INSTANCE = new ExpiresScan();
 
         static {
+            NOTIFY_INSTANCE.setDaemon(true);
             NOTIFY_INSTANCE.setName("ExpiryLRUMap-ExpiresNotify-" + NOTIFY_INSTANCE.getId());
             NOTIFY_INSTANCE.start();
         }

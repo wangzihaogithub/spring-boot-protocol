@@ -9,18 +9,23 @@ import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.http2.CleartextHttp2ServerUpgradeHandler;
 import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
 import com.github.netty.protocol.servlet.util.*;
-import com.github.netty.protocol.servlet.websocket.*;
+import com.github.netty.protocol.servlet.websocket.WebSocketHandler;
+import com.github.netty.protocol.servlet.websocket.WebsocketServletUpgrader;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.compression.CompressionOptions;
-import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.HttpConstants;
+import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.logging.LogLevel;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
+import io.netty.handler.ssl.SslContext;
 import io.netty.util.AsciiString;
 
-import javax.net.ssl.*;
+import javax.net.ssl.SSLException;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
@@ -28,9 +33,14 @@ import javax.servlet.ServletException;
 import javax.websocket.Endpoint;
 import java.io.File;
 import java.io.IOException;
-import java.security.*;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
@@ -67,7 +77,6 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
             "text/css", "text/javascript", "application/javascript", "application/json", "application/xml"};
-    private String[] compressionExcludedUserAgents = {};
     private boolean onServerStart = false;
     private volatile WebsocketServletUpgrader websocketServletUpgrader;
 
@@ -276,6 +285,8 @@ public class HttpServletProtocol extends AbstractProtocol {
                 }
                 break;
             }
+            default:
+                break;
         }
         // ByteBuf to HttpContent
         pipeline.addLast(ByteBufToHttpContentChannelHandler.INSTANCE);
@@ -343,34 +354,16 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     class HttpContentCompressor extends io.netty.handler.codec.http.HttpContentCompressor {
-        private ChannelHandlerContext ctx;
-
         public HttpContentCompressor(int contentSizeThreshold) {
             super(contentSizeThreshold, new CompressionOptions[0]);
         }
 
         @Override
-        public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-            this.ctx = ctx;
-            super.handlerAdded(ctx);
-        }
-
-        @Override
         protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
-            if (compressionExcludedUserAgents.length > 0) {
-                ServletHttpExchange httpExchange = ServletHttpExchange.getHttpExchange(ctx);
-                if (httpExchange != null) {
-                    List<String> values = httpExchange.getRequest().getNettyHeaders().getAll(HttpHeaderConstants.USER_AGENT);
-                    for (String excludedUserAgent : compressionExcludedUserAgents) {
-                        for (String value : values) {
-                            if (value.contains(excludedUserAgent)) {
-                                return null;
-                            }
-                        }
-                    }
-                }
+            // sendfile not support compression
+            if (response instanceof NettyHttpResponse && ((NettyHttpResponse) response).isWriteSendFile()) {
+                return null;
             }
-
             if (compressionMimeTypes.length > 0) {
                 List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
                 for (String mimeType : compressionMimeTypes) {
@@ -481,14 +474,6 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public void setContentSizeThreshold(int contentSizeThreshold) {
         this.contentSizeThreshold = contentSizeThreshold;
-    }
-
-    public void setCompressionExcludedUserAgents(String[] compressionExcludedUserAgents) {
-        if (compressionExcludedUserAgents == null) {
-            this.compressionExcludedUserAgents = new String[0];
-        } else {
-            this.compressionExcludedUserAgents = compressionExcludedUserAgents;
-        }
     }
 
     class SslUpgradeCheckHandler extends ApplicationProtocolNegotiationHandler {

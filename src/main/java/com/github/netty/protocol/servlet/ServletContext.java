@@ -379,7 +379,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         return getRequestDispatcher(path,DispatcherType.REQUEST);
     }
 
-    public ServletRequestDispatcher getRequestDispatcher(String path,DispatcherType dispatcherType) {
+    public ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
         UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
         if(element == null){
             return null;

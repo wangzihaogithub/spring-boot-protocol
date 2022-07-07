@@ -7,13 +7,15 @@ import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DateFormatter;
 
-import javax.servlet.ServletException;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -78,7 +80,6 @@ public class DefaultServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String requestURI = request.getRequestURI();
-        log("doGet "+requestURI);
         File resource = getFile(requestURI);
         if (resource == null) {
             sendNotFound(request, response);

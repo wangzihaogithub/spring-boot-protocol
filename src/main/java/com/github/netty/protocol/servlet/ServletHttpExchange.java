@@ -1,11 +1,10 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
+import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.handler.codec.http.HttpRequest;

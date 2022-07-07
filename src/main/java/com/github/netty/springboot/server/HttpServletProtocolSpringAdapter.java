@@ -10,7 +10,6 @@ import com.github.netty.protocol.servlet.*;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.SpringUtil;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;
@@ -139,7 +138,6 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
                 super.setEnableContentCompression(compression.getEnabled());
                 super.setContentSizeThreshold((getNumberBytes(compression, "getMinResponseSize")).intValue());
                 super.setCompressionMimeTypes(compression.getMimeTypes().clone());
-                super.setCompressionExcludedUserAgents(compression.getExcludedUserAgents());
             }
             if (serverProperties != null) {
                 super.setMaxHeaderSize((getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
