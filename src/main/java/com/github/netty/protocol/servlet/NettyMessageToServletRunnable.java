@@ -16,7 +16,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
 
 import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_NO;
 import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;

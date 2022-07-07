@@ -10,7 +10,6 @@ import com.github.netty.protocol.servlet.*;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.SpringUtil;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.ApplicationProtocolConfig;
 import io.netty.handler.ssl.ApplicationProtocolNames;

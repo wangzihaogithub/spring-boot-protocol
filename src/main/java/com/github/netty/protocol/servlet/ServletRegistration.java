@@ -7,7 +7,6 @@ import javax.servlet.Servlet;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletSecurityElement;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The servlet supportPipeline
