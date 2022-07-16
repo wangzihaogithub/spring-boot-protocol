@@ -10,7 +10,7 @@
     
     2.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
     
-    3.（内测）支持h2c, 让nginx h2接收浏览器请求，nginx或haproxy 卸载ssl加密后，h2c（明文h2）代理请求本服务器，不用配置，不用改Controller或servlet代码， 默认自动协商开启h2c。
+    3.支持h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
     
     4.支持异步零拷贝。sendFile, mmap. 
         示例：com.github.netty.http.example.HttpZeroCopyController.java
@@ -103,7 +103,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.2.11</version>
+  <version>2.2.12</version>
 </dependency>
 ```
 	
@@ -234,6 +234,21 @@ github地址 : https://github.com/wangzihaogithub
         
         }
         
+        6. 使用https
+        
+            server:
+              port: 443
+              ssl:
+                key-store: 'classpath:mydomain.com.jks'
+                key-store-password: 'classpath:jks-password.txt'
+                key-store-type: 'JKS'
+                
+        或
+        
+            httpServletProtocol.setSslFileJks(jksFile, password)
+            httpServletProtocol.setSslFileCrtPem(crtFile, pemFile);
+
+        
 ##### 示例2. 纯java版,不引入springboot, 使用HTTP模块
 
         1. 引入依赖
@@ -242,7 +257,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.11</version>
+          <version>2.2.12</version>
         </dependency>
 
         2.编写代码
@@ -303,7 +318,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.11</version>
+          <version>2.2.12</version>
         </dependency>
 
         2.编写代码
@@ -392,7 +407,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.2.11</version>
+              <version>2.2.12</version>
         </dependency>
         
         2.编写启动类
@@ -678,3 +693,32 @@ http://liteos.com
 http://rt-thread.org
 
 
+#### 作者题外建议
+
+不建议使用HTTP2去实现rpc调用
+        
+        1. 因为http2使用的是一个tcp连接,
+         而tcp协议是有序串行返回数据的. 会卡住后面的数据, 所以h2出了个功能就是响应包优先级.
+         http3使用UDP解决这个问题.
+        
+        2. 目前h2c的客户端握手过程, 不同客户端的实现都不同, 还没有形成规范, 兼容性不好, 有的客户端就会卡住.
+        
+        3. 目前netty的h2是不支持sendFile操作 (因为h2要求了分包流控, 用sendFile实现起来比较复杂, 改动的api比较多).
+
+如果非要使用http协议的话, 建议使用http1.1, 因为在rpc环境下, 又不会像浏览器一样限制6个连接数.
+
+    1. 优势是, 你可以开多个http-client(keeplive模式),  
+       多个tcp连接的并发能力一定是比1个h2-tcp连接的并发能力要好N倍的.
+
+为什么大家认为h2比h1好?
+
+        因为在web浏览器场景下, 同域名下最多6个http连接, 
+        会导致在客户端的请求队列里会堆积了过多请求没发到后端.
+        
+        而h2一个连接就可以让请求都同时发到后端.
+        注: 这当然是有代价的. 就是后端只能在一个有序串行的h2-tcp连接里返回全部请求的数据.  http3会解决这个服务端的问题.
+
+
+总结就是:
+
+        h2解决了是客户端请求阻塞,  h3解决了服务端响应阻塞.

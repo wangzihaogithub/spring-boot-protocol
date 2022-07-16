@@ -23,12 +23,14 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
     protected final ServletContext servletContext;
     protected final long maxContentLength;
     protected final Protocol protocol;
+    protected final boolean ssl;
 
-    public DispatcherChannelHandler(ServletContext servletContext, long maxContentLength, Protocol protocol) {
+    public DispatcherChannelHandler(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         super(false);
         this.servletContext = servletContext;
         this.maxContentLength = maxContentLength;
         this.protocol = protocol;
+        this.ssl = ssl;
     }
 
     /**
@@ -55,7 +57,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
         // Dynamic binding protocol for switching protocol
-        DispatcherChannelHandler.setMessageToRunnable(ctx.channel(), new NettyMessageToServletRunnable(servletContext, maxContentLength, protocol));
+        DispatcherChannelHandler.setMessageToRunnable(ctx.channel(), new NettyMessageToServletRunnable(servletContext, maxContentLength, protocol, ssl));
     }
 
     @Override

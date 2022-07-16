@@ -110,6 +110,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
             super("NettyX-" + NamespaceUtil.newIdName(SessionInvalidThread.class));
             this.sessionLifeCheckInter = sessionLifeCheckInter;
             setPriority(MIN_PRIORITY);
+            setDaemon(true);
         }
 
         @Override

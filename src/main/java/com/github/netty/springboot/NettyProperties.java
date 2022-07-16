@@ -236,6 +236,10 @@ public class NettyProperties implements Serializable {
 
     public static class HttpServlet {
         /**
+         * 是否开启h2c  upgrade: h2c
+         */
+        private boolean enableH2c = false;
+        /**
          * 定时刷新缓冲区数据时间间隔(毫秒)
          * 当同时连接的客户端数量上千的时候开启(开启减少系统调用次数,批量写数据),否则不建议开启(因为http协议是阻塞协议,不快速返回数据会导致客户端不进行下次请求,反而降低吞吐量).
          * 开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
@@ -405,6 +409,14 @@ public class NettyProperties implements Serializable {
             public void setFixed(boolean fixed) {
                 this.fixed = fixed;
             }
+        }
+
+        public boolean isEnableH2c() {
+            return enableH2c;
+        }
+
+        public void setEnableH2c(boolean enableH2c) {
+            this.enableH2c = enableH2c;
         }
 
         public boolean isStartupFailExit() {

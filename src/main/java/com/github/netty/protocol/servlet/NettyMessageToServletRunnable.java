@@ -64,13 +64,15 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private final ServletContext servletContext;
     private final long maxContentLength;
     private final Protocol protocol;
+    private final boolean ssl;
     private ServletHttpExchange exchange;
     private volatile HttpRunnable httpRunnable;
 
-    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol) {
+    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         this.servletContext = servletContext;
         this.maxContentLength = maxContentLength;
         this.protocol = protocol;
+        this.ssl = ssl;
     }
 
     @Override
@@ -90,7 +92,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         servletContext,
                         context,
                         request,
-                        protocol);
+                        protocol,
+                        ssl);
                 exchange.getRequest().getInputStream0().setContentLength(contentLength);
                 this.httpRunnable = httpRunnable;
             }

@@ -1,7 +1,13 @@
 server:
   port: 8080
+#  port: 443
   servlet:
     context-path: '/test'
+#  ssl:
+#    key-store: 'classpath:http/mydomain.com.jks'
+#    key-store-password: 'classpath:http/jks-password.txt'
+#    key-store-type: 'JKS'
+
   netty:
     enable-tcp-package-log: false
     max-connections: 100
