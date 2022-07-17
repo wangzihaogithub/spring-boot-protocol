@@ -3,6 +3,8 @@ server:
 #  port: 443
   servlet:
     context-path: '/test'
+#  http2:
+#    enabled: true
 #  ssl:
 #    key-store: 'classpath:http/mydomain.com.jks'
 #    key-store-password: 'classpath:http/jks-password.txt'

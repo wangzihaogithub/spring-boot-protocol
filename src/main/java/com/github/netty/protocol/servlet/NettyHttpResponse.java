@@ -245,7 +245,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         HttpHeaderUtil.setKeepAlive(this, isKeepAlive);
         HttpHeaders headers = headers();
 
-        if (protocol == Protocol.h2 || protocol == Protocol.h2c) {
+        if (protocol.isHttp2()) {
             // h2 adapter
             String streamId = servletRequest.getNettyHeaders().get(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text());
             if (streamId != null) {

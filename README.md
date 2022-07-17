@@ -103,7 +103,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.2.12</version>
+  <version>2.3.0</version>
 </dependency>
 ```
 	
@@ -234,10 +234,12 @@ github地址 : https://github.com/wangzihaogithub
         
         }
         
-        6. 使用https
+        6. springboot使用https或http2
         
             server:
               port: 443
+              http2:
+                enabled: true
               ssl:
                 key-store: 'classpath:mydomain.com.jks'
                 key-store-password: 'classpath:jks-password.txt'
@@ -257,7 +259,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.12</version>
+          <version>2.3.0</version>
         </dependency>
 
         2.编写代码
@@ -318,7 +320,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.2.12</version>
+          <version>2.3.0</version>
         </dependency>
 
         2.编写代码
@@ -407,7 +409,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.2.12</version>
+              <version>2.3.0</version>
         </dependency>
         
         2.编写启动类

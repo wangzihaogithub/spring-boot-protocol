@@ -45,7 +45,7 @@ public class SpringUtil {
         return (Number) value;
     }
 
-    public static SslContext newSslContext(Ssl ssl, SslStoreProvider sslStoreProvider) throws SSLException {
+    public static SslContextBuilder newSslContext(Ssl ssl, SslStoreProvider sslStoreProvider) {
         SslContextBuilder builder = SslContextBuilder.forServer(getKeyManagerFactory(ssl, sslStoreProvider))
                 .trustManager(getTrustManagerFactory(ssl, sslStoreProvider));
         if (ssl.getEnabledProtocols() != null) {
@@ -59,7 +59,7 @@ public class SpringUtil {
         } else if (ssl.getClientAuth() == Ssl.ClientAuth.WANT) {
             builder.clientAuth(ClientAuth.OPTIONAL);
         }
-        return SslContextBuilders.newSslContext(builder);
+        return builder;
     }
 
     private static KeyManagerFactory getKeyManagerFactory(Ssl ssl, SslStoreProvider sslStoreProvider) {

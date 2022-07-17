@@ -122,6 +122,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         if (serverProperties != null) {
             super.setMaxHeaderSize((SpringUtil.getNumberBytes(serverProperties, "getMaxHttpHeaderSize")).intValue());
         }
+        super.setEnableH2(webServerFactory.getHttp2().isEnabled());
         super.setEnableH2c(properties.getHttpServlet().isEnableH2c());
         String location = null;
         if (multipartProperties != null && multipartProperties.getEnabled()) {
@@ -148,8 +149,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         Ssl ssl = webServerFactory.getSsl();
         if (ssl != null && ssl.isEnabled()) {
             SslStoreProvider sslStoreProvider = webServerFactory.getSslStoreProvider();
-            SslContext sslContext = SpringUtil.newSslContext(ssl, sslStoreProvider);
-            super.setSslContext(sslContext);
+            SslContextBuilder sslContextBuilder = SpringUtil.newSslContext(ssl, sslStoreProvider);
+            super.setSslContextBuilder(sslContextBuilder);
         }
     }
 

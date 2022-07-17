@@ -6,7 +6,6 @@ import com.github.netty.core.AbstractProtocol;
 import com.github.netty.core.DispatcherChannelHandler;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.*;
-import com.github.netty.protocol.servlet.http2.CleartextHttp2ServerUpgradeHandler;
 import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
 import com.github.netty.protocol.servlet.util.*;
 import com.github.netty.protocol.servlet.websocket.WebSocketHandler;
@@ -15,7 +14,6 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
-import io.netty.handler.codec.http.HttpConstants;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.logging.LogLevel;
@@ -23,6 +21,7 @@ import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
 
 import javax.net.ssl.SSLException;
@@ -66,6 +65,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     }
 
     private final ServletContext servletContext;
+    private SslContextBuilder sslContextBuilder;
     private SslContext sslContext;
     private long maxContentLength = 20 * 1024 * 1024;
     private int maxInitialLineLength = 40960;
@@ -74,6 +74,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int http2MaxReservedStreams = 256;
     private boolean enableContentCompression = true;
     private boolean enableH2c = false;
+    private boolean enableH2 = true;
 
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
@@ -117,6 +118,10 @@ public class HttpServletProtocol extends AbstractProtocol {
         listenerManager.onServletDefaultInitializer(servletContext.getDefaultServlet(), servletContext);
 
         listenerManager.onServletContainerInitializerStartup(Collections.emptySet(), servletContext);
+
+        if (sslContextBuilder != null) {
+            this.sslContext = SslContextBuilders.newSslContext(sslContextBuilder, enableH2);
+        }
         this.onServerStart = true;
     }
 
@@ -208,58 +213,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         if (isEnableSsl()) {
             return true;
         }
-        int protocolEndIndex = IOUtil.indexOf(msg, HttpConstants.LF);
-        if (protocolEndIndex == -1 && msg.readableBytes() > 7) {
-            // client multiple write packages. cause browser out of length.
-            if (msg.getByte(0) == 'G'
-                    && msg.getByte(1) == 'E'
-                    && msg.getByte(2) == 'T'
-                    && msg.getByte(3) == ' '
-                    && msg.getByte(4) == '/') {
-                return true;
-            } else if (msg.getByte(0) == 'P'
-                    && msg.getByte(1) == 'O'
-                    && msg.getByte(2) == 'S'
-                    && msg.getByte(3) == 'T'
-                    && msg.getByte(4) == ' '
-                    && msg.getByte(5) == '/') {
-                return true;
-            } else if (msg.getByte(0) == 'P'
-                    && msg.getByte(1) == 'U'
-                    && msg.getByte(2) == 'T'
-                    && msg.getByte(3) == ' '
-                    && msg.getByte(4) == '/') {
-                return true;
-            } else if (msg.getByte(0) == 'D'
-                    && msg.getByte(1) == 'E'
-                    && msg.getByte(2) == 'L'
-                    && msg.getByte(3) == 'E'
-                    && msg.getByte(4) == 'T'
-                    && msg.getByte(5) == 'E'
-                    && msg.getByte(6) == ' '
-                    && msg.getByte(7) == '/') {
-                return true;
-            } else if (msg.getByte(0) == 'P'
-                    && msg.getByte(1) == 'A'
-                    && msg.getByte(2) == 'T'
-                    && msg.getByte(3) == 'C'
-                    && msg.getByte(4) == 'H'
-                    && msg.getByte(5) == ' '
-                    && msg.getByte(6) == '/') {
-                return true;
-            } else {
-                return false;
-            }
-        } else if (protocolEndIndex < 9) {
-            return false;
-        } else if (msg.getByte(protocolEndIndex - 9) == 'H'
-                && msg.getByte(protocolEndIndex - 8) == 'T'
-                && msg.getByte(protocolEndIndex - 7) == 'T'
-                && msg.getByte(protocolEndIndex - 6) == 'P') {
-            return true;
-        } else {
-            return false;
-        }
+        return Protocol.isHttpPacket(msg);
     }
 
     @Override
@@ -268,27 +222,25 @@ public class HttpServletProtocol extends AbstractProtocol {
         ChannelPipeline pipeline = ch.pipeline();
         if (isEnableSsl()) {
             pipeline.addLast(sslContext.newHandler(ch.alloc()));
-            pipeline.addLast(new SslUpgradeCheckHandler());
+            pipeline.addLast(new SslUpgradeHandler());
+        } else if (Protocol.isPriHttp2(clientFirstMsg)) {
+            pipeline.addLast(newHttp2Handler(getH2LogLevel(pipeline)));
+            addServletPipeline(pipeline, Protocol.h2c_prior_knowledge);
+            LOGGER.debug("upgradeToProtocol = h2c_prior_knowledge");
         } else {
-            pipeline.addLast(newHttpServerCodec());
-            pipeline.addLast(new HttpUpgradeCheckHandler());
+            pipeline.addLast(new HttpUpgradeHandler());
         }
     }
 
-    private void http(ChannelPipeline pipeline, Protocol protocol) {
-        switch (protocol) {
-            case http1_1:
-            case https1_1: {
-                pipeline.addLast(new HttpContentDecompressor(false));
-                //The content of compression
-                if (enableContentCompression) {
-                    pipeline.addLast(new HttpContentCompressor(contentSizeThreshold));
-                }
-                break;
+    public void addServletPipeline(ChannelPipeline pipeline, Protocol protocol) {
+        if (!protocol.isHttp2()) {
+            pipeline.addLast(new HttpContentDecompressor(false));
+            //The content of compression
+            if (enableContentCompression) {
+                pipeline.addLast(new HttpContentCompressor(contentSizeThreshold));
             }
-            default:
-                break;
         }
+
         // ByteBuf to HttpContent
         pipeline.addLast(ByteBufToHttpContentChannelHandler.INSTANCE);
 
@@ -297,9 +249,6 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         //A business scheduler that lets the corresponding Servlet handle the request
         pipeline.addLast(new DispatcherChannelHandler(servletContext, maxContentLength, protocol, isEnableSsl()));
-
-        pipeline.fireChannelRegistered();
-        pipeline.fireChannelActive();
     }
 
     public boolean isEnableH2c() {
@@ -308,6 +257,14 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public void setEnableH2c(boolean enableH2c) {
         this.enableH2c = enableH2c;
+    }
+
+    public boolean isEnableH2() {
+        return enableH2;
+    }
+
+    public void setEnableH2(boolean enableH2) {
+        this.enableH2 = enableH2;
     }
 
     public int getHttp2MaxReservedStreams() {
@@ -356,7 +313,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     class HttpContentCompressor extends io.netty.handler.codec.http.HttpContentCompressor {
         public HttpContentCompressor(int contentSizeThreshold) {
 //            super(contentSizeThreshold, new CompressionOptions[0]);
-            super(contentSizeThreshold);
+            super(6, 15, 8, contentSizeThreshold);
         }
 
         @Override
@@ -402,12 +359,16 @@ public class HttpServletProtocol extends AbstractProtocol {
         if (enableH2c) {
             name = name.concat("/h2c");
         }
-        if (sslContext != null) {
-            name = name.concat("/https/h2");
+        boolean ssl = isEnableSsl();
+        if (ssl) {
+            name = name.concat("/https");
+            if (enableH2) {
+                name = name.concat("/h2");
+            }
         }
         if (EXIST_JAVAX_WEBSOCKET) {
             name = name.concat("/ws");
-            if (sslContext != null) {
+            if (ssl) {
                 name = name.concat("/wss");
             }
         }
@@ -429,23 +390,23 @@ public class HttpServletProtocol extends AbstractProtocol {
      * @throws KeyManagementException
      */
     public void setSslFileJks(File jksKeyFile, File jksPassword) throws CertificateException, IOException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
-        this.sslContext = SslContextBuilders.newSslContextJks(jksKeyFile, jksPassword);
+        this.sslContextBuilder = SslContextBuilders.newSslContextBuilderJks(jksKeyFile, jksPassword);
     }
 
     public void setSslFileJks(File jksKeyFile, String jksPassword) throws CertificateException, IOException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
-        this.sslContext = SslContextBuilders.newSslContextJks(jksKeyFile, jksPassword);
+        this.sslContextBuilder = SslContextBuilders.newSslContextBuilderJks(jksKeyFile, jksPassword);
     }
 
-    public void setSslFileCrtPem(File crtFile, File pemFile) throws SSLException {
-        this.sslContext = SslContextBuilders.newSslContextPem(crtFile, pemFile);
+    public void setSslFileCrtPem(File crtFile, File pemFile) {
+        this.sslContextBuilder = SslContextBuilders.newSslContextBuilderPem(crtFile, pemFile);
     }
 
-    public void setSslContext(SslContext sslContext) {
-        this.sslContext = sslContext;
+    public void setSslContextBuilder(SslContextBuilder sslContextBuilder) {
+        this.sslContextBuilder = sslContextBuilder;
     }
 
-    public SslContext getSslContext() {
-        return sslContext;
+    public SslContextBuilder getSslContextBuilder() {
+        return sslContextBuilder;
     }
 
     public void setMaxContentLength(long maxContentLength) {
@@ -492,9 +453,9 @@ public class HttpServletProtocol extends AbstractProtocol {
         this.contentSizeThreshold = contentSizeThreshold;
     }
 
-    class SslUpgradeCheckHandler extends ApplicationProtocolNegotiationHandler {
+    class SslUpgradeHandler extends ApplicationProtocolNegotiationHandler {
 
-        protected SslUpgradeCheckHandler() {
+        protected SslUpgradeHandler() {
             super("upgrade");
         }
 
@@ -508,19 +469,21 @@ public class HttpServletProtocol extends AbstractProtocol {
             ChannelPipeline pipeline = ctx.pipeline();
             switch (protocol) {
                 case "upgrade": {
-                    pipeline.addLast(newHttpServerCodec());
-                    pipeline.addLast(new HttpUpgradeCheckHandler());
+                    pipeline.addLast(new HttpUpgradeHandler());
                     break;
                 }
                 case ApplicationProtocolNames.HTTP_1_1: {
                     pipeline.addLast(newHttpServerCodec());
-                    http(pipeline, Protocol.https1_1);
+                    addServletPipeline(pipeline, Protocol.https1_1);
+                    pipeline.fireChannelRegistered();
+                    pipeline.fireChannelActive();
                     break;
                 }
                 case ApplicationProtocolNames.HTTP_2: {
-                    LogLevel logLevel = getH2LogLevel(pipeline);
-                    pipeline.addLast(newHttp2Handler(logLevel));
-                    http(pipeline, Protocol.h2);
+                    pipeline.addLast(newHttp2Handler(getH2LogLevel(pipeline)));
+                    addServletPipeline(pipeline, Protocol.h2);
+                    pipeline.fireChannelRegistered();
+                    pipeline.fireChannelActive();
                     break;
                 }
                 default: {
@@ -530,21 +493,27 @@ public class HttpServletProtocol extends AbstractProtocol {
         }
     }
 
-    class HttpUpgradeCheckHandler extends AbstractChannelHandler<HttpRequest, HttpRequest> {
-
-        public HttpUpgradeCheckHandler() {
+    class HttpUpgradeHandler extends AbstractChannelHandler<HttpRequest, HttpRequest> {
+        public HttpUpgradeHandler() {
             super(false);
+        }
+
+        @Override
+        public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+            ctx.pipeline().addBefore(ctx.name(), null, newHttpServerCodec());
         }
 
         @Override
         protected void onMessageReceived(ChannelHandlerContext ctx, HttpRequest request) {
             ChannelPipeline pipeline = ctx.pipeline();
+            pipeline.remove(this);
             String upgradeToProtocol = upgrade(ctx, request);
             if (upgradeToProtocol != null) {
-                logger.info("upgradeToProtocol = {}", upgradeToProtocol);
+                logger.debug("upgradeToProtocol = {}", upgradeToProtocol);
             } else {
-                http(pipeline, Protocol.http1_1);
-                pipeline.remove(this);
+                addServletPipeline(pipeline, Protocol.http1_1);
+                pipeline.fireChannelRegistered();
+                pipeline.fireChannelActive();
                 pipeline.fireChannelRead(request);
             }
         }
@@ -562,17 +531,15 @@ public class HttpServletProtocol extends AbstractProtocol {
                         if (!enableH2c) {
                             break;
                         }
-                        LogLevel logLevel = getH2LogLevel(pipeline);
-                        pipeline.remove(this);
                         HttpServerCodec serverCodec = pipeline.get(HttpServerCodec.class);
-                        pipeline.addLast(new CleartextHttp2ServerUpgradeHandler(serverCodec,
-                                new HttpServerUpgradeHandler(serverCodec, newUpgradeCodecFactory(logLevel), (int) maxContentLength), newHttp2Handler(logLevel)));
-                        http(pipeline, Protocol.h2c);
+                        pipeline.addLast(new HttpServerUpgradeHandler(serverCodec, newUpgradeCodecFactory(getH2LogLevel(pipeline)), (int) maxContentLength));
+                        addServletPipeline(pipeline, Protocol.h2c);
+                        pipeline.fireChannelRegistered();
+                        pipeline.fireChannelActive();
                         pipeline.fireChannelRead(request);
                         return requestedProtocol;
                     }
                     case "websocket": {
-                        pipeline.remove(this);
                         upgradeWebsocket(ctx, request);
                         return requestedProtocol;
                     }

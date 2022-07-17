@@ -5,6 +5,8 @@ import com.github.netty.javaxservlet.example.MyHttpServlet;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
 
+import java.io.File;
+
 public class HttpBootstrap {
 
     public static void main(String[] args) throws Exception {
@@ -22,8 +24,8 @@ public class HttpBootstrap {
         HttpServletProtocol protocol = new HttpServletProtocol(servletContext);
 
 //        protocol.setSslFileJks(
-//                new File("C:\\Users\\Administrator\\Downloads\\8048739_local.xx.com_jks\\local.xx.com.jks"),
-//                new File("C:\\Users\\Administrator\\Downloads\\8048739_local.xx.com_jks\\jks-password.txt")
+//                new File("G:\\githubs\\spring-boot-protocol\\webapp\\mydomain.com.jks"),
+//                new File("G:\\githubs\\spring-boot-protocol\\webapp\\jks-password.txt")
 //        );
 //        protocol.setSslFileCrtPem(crtFile, pemFile);
         return protocol;
