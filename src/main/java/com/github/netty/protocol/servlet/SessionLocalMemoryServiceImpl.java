@@ -111,6 +111,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
             this.sessionLifeCheckInter = sessionLifeCheckInter;
             setDaemon(true);
             setPriority(MIN_PRIORITY);
+            setDaemon(true);
         }
 
         @Override

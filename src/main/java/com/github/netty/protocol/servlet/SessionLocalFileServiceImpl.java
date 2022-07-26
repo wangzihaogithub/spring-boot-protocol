@@ -198,8 +198,8 @@ public class SessionLocalFileServiceImpl implements SessionService {
 
         private SessionInvalidThread(long sessionLifeCheckInter) {
             super("NettyX-" + NamespaceUtil.newIdName(SessionInvalidThread.class));
-            setDaemon(true);
             this.sessionLifeCheckInter = sessionLifeCheckInter;
+            setDaemon(true);
             setPriority(MIN_PRIORITY);
         }
 

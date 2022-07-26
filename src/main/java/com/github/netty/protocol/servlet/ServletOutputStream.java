@@ -98,8 +98,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     }
 
     public boolean isHttp2(){
-        Protocol protocol = servletHttpExchange.getProtocol();
-        return protocol == Protocol.h2 || protocol == Protocol.h2c;
+        return servletHttpExchange.getProtocol().isHttp2();
     }
 
     protected ChannelProgressivePromise writeHttpBody(Object httpBody, long length) throws IOException {

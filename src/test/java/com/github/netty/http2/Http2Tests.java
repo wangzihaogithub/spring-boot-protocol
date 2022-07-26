@@ -2,21 +2,30 @@ package com.github.netty.http2;
 
 import com.github.netty.protocol.servlet.http2.NettyHttp2Client;
 import io.netty.buffer.Unpooled;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.logging.LogLevel;
+import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
 
-import javax.net.ssl.SSLException;
-import java.net.MalformedURLException;
-import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 public class Http2Tests {
 
     public static void main(String[] args) throws Exception {
+        OkHttpClient okHttpClient = new OkHttpClient.Builder()
+                .protocols(Arrays.asList(Protocol.H2_PRIOR_KNOWLEDGE))
+                .build();
+
+        Request build = new Request.Builder()
+                .url("http://localhost/test")
+                .build();
+        Response execute = okHttpClient.newCall(build).execute();
+        String string = execute.body().string();
+        System.out.println("execute = " + execute);
+
         NettyHttp2Client http2Client = new NettyHttp2Client("http://localhost")
                 .logger(LogLevel.INFO)
                 .awaitConnect();

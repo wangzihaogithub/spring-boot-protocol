@@ -941,16 +941,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getProtocol() {
         Protocol protocol = servletHttpExchange.getProtocol();
-        switch (protocol) {
-            case h2:
-            case h2c: {
-                return "HTTP/2.0";
-            }
-            case http1_1:
-            case https1_1:
-            default: {
-                return nettyRequest.protocolVersion().toString();
-            }
+        if (protocol.isHttp2()) {
+            return "HTTP/2.0";
+        } else {
+            return nettyRequest.protocolVersion().toString();
         }
     }
 

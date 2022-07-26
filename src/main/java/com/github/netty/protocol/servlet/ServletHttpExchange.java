@@ -27,6 +27,7 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private static final AttributeKey<ServletHttpExchange> CHANNEL_ATTR_KEY_EXCHANGE = AttributeKey.valueOf(ServletHttpExchange.class + "#ServletHttpExchange");
 
     private Protocol protocol;
+    private boolean ssl;
     private ServletHttpServletRequest request;
     private ServletHttpServletResponse response;
     private ChannelHandlerContext channelHandlerContext;
@@ -46,10 +47,11 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
     private ServletHttpExchange() {
     }
 
-    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest, Protocol protocol) {
+    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest, Protocol protocol, boolean ssl) {
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context,instance);
 
+        instance.ssl = ssl;
         instance.protocol = protocol;
         instance.close.set(CLOSE_NO);
         instance.servletContext = servletContext;
@@ -61,6 +63,10 @@ public class ServletHttpExchange implements Recyclable,AutoCloseable{
         //Create a new servlet response object
         instance.response = ServletHttpServletResponse.newInstance(instance);
         return instance;
+    }
+
+    public boolean isSsl() {
+        return ssl;
     }
 
     /**
