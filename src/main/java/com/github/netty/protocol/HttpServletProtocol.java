@@ -24,12 +24,10 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.util.AsciiString;
 
-import javax.net.ssl.SSLException;
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
-import javax.websocket.Endpoint;
 import java.io.File;
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -99,8 +97,15 @@ public class HttpServletProtocol extends AbstractProtocol {
         return getWebsocketServletUpgrader().addHandler(pathPattern, handler);
     }
 
-    public boolean addWebSocketEndpoint(String pathPattern, Endpoint endpoint) {
-        return getWebsocketServletUpgrader().addEndpoint(pathPattern, endpoint);
+    public WebsocketServletUpgrader getWebsocketServletUpgrader() {
+        if (websocketServletUpgrader == null) {
+            synchronized (this) {
+                if (websocketServletUpgrader == null) {
+                    websocketServletUpgrader = new WebsocketServletUpgrader();
+                }
+            }
+        }
+        return websocketServletUpgrader;
     }
 
     @Override
@@ -550,17 +555,6 @@ public class HttpServletProtocol extends AbstractProtocol {
             }
             return null;
         }
-    }
-
-    private WebsocketServletUpgrader getWebsocketServletUpgrader() {
-        if (websocketServletUpgrader == null) {
-            synchronized (this) {
-                if (websocketServletUpgrader == null) {
-                    websocketServletUpgrader = new WebsocketServletUpgrader();
-                }
-            }
-        }
-        return websocketServletUpgrader;
     }
 
     public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {

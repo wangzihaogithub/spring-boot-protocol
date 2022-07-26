@@ -2,7 +2,6 @@ package com.github.netty.protocol.servlet.websocket;
 
 import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.*;
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.*;
 
