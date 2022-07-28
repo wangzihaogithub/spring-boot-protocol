@@ -34,14 +34,15 @@ import java.util.function.Supplier;
 
 /**
  * The servlet input stream
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream implements Wrapper<CompositeByteBuf>, Recyclable {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(ServletInputStreamWrapper.class);
     private static final FileAttribute[] EMPTY_FILE_ATTRIBUTE = {};
     private static final Set<? extends OpenOption> WRITE_OPTIONS = new HashSet<>(Arrays.asList(
-            StandardOpenOption.WRITE,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING));
+            StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicLong receiveContentLength = new AtomicLong();
@@ -58,26 +59,26 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private int fileSizeThreshold;
     private boolean needCloseClient;
 
-    private volatile HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
+    private /*volatile*/ HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
     private volatile boolean receiveDataTimeout;
-    private volatile FileInputStream uploadFileInputStream;
-    private volatile SeekableByteChannel uploadFileOutputChannel;
-    private volatile File uploadFile;
+    private /*volatile*/ FileInputStream uploadFileInputStream;
+    private /*volatile*/ SeekableByteChannel uploadFileOutputChannel;
+    private /*volatile*/ File uploadFile;
     private String uploadDir = "/upload/";
     private int uploadFileCount = 0;
     private Exception createFileException;
 
-    public ServletInputStreamWrapper(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier,Supplier<ResourceManager> resourceManagerSupplier) {
+    public ServletInputStreamWrapper(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier, Supplier<ResourceManager> resourceManagerSupplier) {
         this.requestDecoderSupplier = requestDecoderSupplier;
         this.resourceManagerSupplier = resourceManagerSupplier;
     }
 
-    public void setUploadDir(String uploadDir) {
-        this.uploadDir = uploadDir;
-    }
-
     public String getUploadDir() {
         return uploadDir;
+    }
+
+    public void setUploadDir(String uploadDir) {
+        this.uploadDir = uploadDir;
     }
 
     public void setFileSizeThreshold(int fileSizeThreshold) {
@@ -88,13 +89,17 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return contentLength;
     }
 
-    public void onMessage(HttpContent httpContent){
+    public void setContentLength(long contentLength) {
+        this.contentLength = contentLength;
+    }
+
+    public void onMessage(HttpContent httpContent) {
         ByteBuf byteBuf = httpContent.content();
         int readableBytes = byteBuf.readableBytes();
         boolean release = true;
         try {
-            if (contentLength == -1 && readableBytes > 0) {
-                LOGGER.warn("not exist contentLength, but receive message。 {}/bytes, message = '{}'",
+            if (contentLength == -1 && readableBytes > 0 && LOGGER.isDebugEnabled()) {
+                LOGGER.debug("not exist contentLength, but receive message。 {}/bytes, message = '{}'",
                         readableBytes, byteBuf.toString(byteBuf.readerIndex(), Math.min(readableBytes, 2048), Charset.forName("UTF-8")));
                 return;
             }
@@ -115,20 +120,20 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                             LOGGER.error("readListener onError exception. source = {}, again trigger", e.toString(), t.toString(), t);
                         }
                     }
-                }finally {
+                } finally {
                     byteBuf.resetReaderIndex();
                 }
             }
 
             SeekableByteChannel outputChannel;
-            if(requestDecoder != null
+            if (requestDecoder != null
                     && contentLength > fileSizeThreshold
                     && (outputChannel = getUploadFileOutputChannel()) != null) {
                 //In File temp
                 try {
                     outputChannel.write(byteBuf.nioBuffer());
                 } catch (IOException e) {
-                    LOGGER.error("upload file write temp file exception. file = {}, message = {}",uploadFile,e.toString(), e);
+                    LOGGER.error("upload file write temp file exception. file = {}, message = {}", uploadFile, e.toString(), e);
                 }
             } else {
                 //In memory
@@ -137,19 +142,19 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 release = false;
             }
             receiveContentLength.addAndGet(readableBytes);
-        }finally {
-            if(release) {
+        } finally {
+            if (release) {
                 RecyclableUtil.release(byteBuf);
             }
         }
 
-        if(isFinished()) {
-            if(uploadFile != null) {
+        if (isFinished()) {
+            if (uploadFile != null) {
                 try {
                     uploadFileOutputChannel.close();
                     uploadFileOutputChannel = null;
                 } catch (FileNotFoundException | SecurityException e) {
-                    LOGGER.error( "upload file open temp file excetion. file = {}, message = {}", uploadFile,e.toString(),  e);
+                    LOGGER.error("upload file open temp file excetion. file = {}, message = {}", uploadFile, e.toString(), e);
                 } catch (IOException ignored) {
                 }
             }
@@ -161,15 +166,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
         }
 
-        if(readListener != null){
-            if(readListenerFlag.compareAndSet(true,false)) {
+        if (readListener != null) {
+            if (readListenerFlag.compareAndSet(true, false)) {
                 try {
                     readListener.onDataAvailable();
                 } catch (IOException e) {
                     readListener.onError(e);
                 }
             }
-            if(isFinished()){
+            if (isFinished()) {
                 try {
                     readListener.onAllDataRead();
                 } catch (IOException e) {
@@ -179,13 +184,13 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
-    private SeekableByteChannel getUploadFileOutputChannel(){
-        if(createFileException != null){
+    private SeekableByteChannel getUploadFileOutputChannel() {
+        if (createFileException != null) {
             return null;
         }
-        if(uploadFileOutputChannel == null){
-            synchronized (this){
-                if(uploadFileOutputChannel == null){
+        if (uploadFileOutputChannel == null) {
+            synchronized (this) {
+                if (uploadFileOutputChannel == null) {
                     String servletFile = resourceManagerSupplier.get().getRealPath(
                             uploadDir + hashCode() + "_" + (++uploadFileCount));
                     Path path = Paths.get(servletFile);
@@ -194,9 +199,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                         this.uploadFileOutputChannel = createFileChannel(uploadFile, path);
                         this.uploadFile = uploadFile;
                         this.uploadFileInputStream = new FileInputStream(uploadFile);
-                    }catch (Exception e){
+                    } catch (Exception e) {
                         this.createFileException = e;
-                        LOGGER.error("upload file create temp file Exception. file = {}, message = {}", uploadFile,e.toString(),  e);
+                        LOGGER.error("upload file create temp file Exception. file = {}, message = {}", uploadFile, e.toString(), e);
                     }
                 }
             }
@@ -204,11 +209,11 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return uploadFileOutputChannel;
     }
 
-    private SeekableByteChannel createFileChannel(File file,Path path) throws IOException {
+    private SeekableByteChannel createFileChannel(File file, Path path) throws IOException {
         boolean fileExist = file.exists();
-        if(!fileExist){
+        if (!fileExist) {
             File parentFile = file.getParentFile();
-            if(parentFile != null) {
+            if (parentFile != null) {
                 parentFile.mkdirs();
             }
             file.createNewFile();
@@ -218,38 +223,39 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     @Override
     public boolean markSupported() {
-        if(uploadFileInputStream != null) {
+        if (uploadFileInputStream != null) {
             return uploadFileInputStream.markSupported();
-        }else {
+        } else {
             return true;
         }
     }
 
     @Override
     public void mark(int readlimit) {
-        if(uploadFileInputStream != null) {
+        if (uploadFileInputStream != null) {
             uploadFileInputStream.mark(readlimit);
-        }else {
+        } else {
             source.markReaderIndex();
         }
     }
 
     @Override
-    public void reset() throws IOException{
-        if(uploadFileInputStream != null) {
+    public void reset() throws IOException {
+        if (uploadFileInputStream != null) {
             uploadFileInputStream.reset();
-        }else {
+        } else {
             source.resetReaderIndex();
         }
     }
 
     /**
      * There is no new HttpContent input for this request, and all of the current content has been read
+     *
      * @return True = false after reading
      */
     @Override
     public boolean isFinished() {
-        if(closed.get()){
+        if (closed.get()) {
             return true;
         }
         return contentLength == -1
@@ -266,32 +272,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return contentLength == -1 || source.readableBytes() != 0 || uploadFileInputStream != null;
     }
 
-    @Override
-    public void setReadListener(ReadListener readListener) {
-        this.readListener = readListener;
-        if (isFinished()) {
-            try {
-                readListener.onDataAvailable();
-            } catch (IOException e) {
-                readListener.onError(e);
-            }
-            try {
-                readListener.onAllDataRead();
-            } catch (IOException e) {
-                readListener.onError(e);
-            }
-        }
-    }
-
     /**
      * Skip n bytes
      */
     @Override
     public long skip(long n) throws IOException {
         checkClosed();
-        if(uploadFileInputStream != null){
+        if (uploadFileInputStream != null) {
             return uploadFileInputStream.skip(n);
-        }else {
+        } else {
             long skipLen = Math.min(source.readableBytes(), n);
             source.skipBytes((int) skipLen);
             return skipLen;
@@ -304,16 +293,16 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public int available() throws IOException {
         checkClosed();
-        if(uploadFileInputStream != null) {
+        if (uploadFileInputStream != null) {
             return uploadFileInputStream.available();
-        }else {
+        } else {
             return null == source ? 0 : source.readableBytes();
         }
     }
 
     @Override
     public void close() {
-        if(closed.compareAndSet(false,true)) {
+        if (closed.compareAndSet(false, true)) {
             ByteBuf source = this.source;
             if (source != null) {
                 RecyclableUtil.release(source);
@@ -324,18 +313,18 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             this.createFileException = null;
 
             FileInputStream uploadFileInputStream = this.uploadFileInputStream;
-            if(uploadFileInputStream != null) {
+            if (uploadFileInputStream != null) {
                 try {
                     uploadFileInputStream.close();
-                }catch (Exception ignored){
+                } catch (Exception ignored) {
                 }
                 this.uploadFileInputStream = null;
             }
 
             File uploadFile = this.uploadFile;
-            if(uploadFile != null) {
+            if (uploadFile != null) {
                 try {
-                    if (uploadFile.exists()){
+                    if (uploadFile.exists()) {
                         uploadFile.delete();
                     }
                 } catch (Exception ignored) {
@@ -344,10 +333,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
 
             Channel uploadFileOutputChannel = this.uploadFileOutputChannel;
-            if(uploadFileOutputChannel != null){
+            if (uploadFileOutputChannel != null) {
                 try {
                     uploadFileOutputChannel.close();
-                }catch (Exception ignored){
+                } catch (Exception ignored) {
                 }
                 this.uploadFileOutputChannel = null;
             }
@@ -362,6 +351,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     /**
      * Try to update current, then read len bytes and copy to b (start with off subscript)
+     *
      * @return The number of bytes actually read
      */
     @Override
@@ -373,13 +363,13 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
         awaitDataIfNeed();
 
-        if(uploadFileInputStream != null){
+        if (uploadFileInputStream != null) {
             return uploadFileInputStream.read(bytes, off, len);
-        }else {
+        } else {
             if (!source.isReadable()) {
                 return -1;
             }
-            int readableBytes = Math.min(source.readableBytes(),len);
+            int readableBytes = Math.min(source.readableBytes(), len);
             source.readBytes(bytes, off, readableBytes);
             return readableBytes;
         }
@@ -393,9 +383,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         checkClosed();
 
         awaitDataIfNeed();
-        if(uploadFileInputStream != null) {
+        if (uploadFileInputStream != null) {
             return uploadFileInputStream.read();
-        }else {
+        } else {
             if (!source.isReadable()) {
                 return -1;
             }
@@ -403,28 +393,28 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
-    void awaitDataIfNeed() throws HttpPostRequestDecoder.ErrorDataDecoderException,IOException {
-        while (!isFinished()){
+    void awaitDataIfNeed() throws HttpPostRequestDecoder.ErrorDataDecoderException, IOException {
+        while (!isFinished()) {
             lock.lock();
             try {
-                if(fileUploadTimeoutMs > 0) {
+                if (fileUploadTimeoutMs > 0) {
                     boolean isTimeout = condition.await(fileUploadTimeoutMs, TimeUnit.MILLISECONDS);
                     if (isTimeout) {
                         this.receiveDataTimeout = true;
                         this.needCloseClient = true;
                         throw new IOException("await client data stream timeout. timeout = " + fileUploadTimeoutMs + "/ms");
                     }
-                }else {
+                } else {
                     condition.await();
                 }
             } catch (InterruptedException e) {
                 PlatformDependent.throwException(e);
-            }finally {
+            } finally {
                 lock.unlock();
             }
         }
         HttpPostRequestDecoder.ErrorDataDecoderException decoderException = this.decoderException;
-        if(decoderException != null){
+        if (decoderException != null) {
             this.needCloseClient = true;
             throw decoderException;
         }
@@ -449,6 +439,23 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     @Override
+    public void setReadListener(ReadListener readListener) {
+        this.readListener = readListener;
+        if (isFinished()) {
+            try {
+                readListener.onDataAvailable();
+            } catch (IOException e) {
+                readListener.onError(e);
+            }
+            try {
+                readListener.onAllDataRead();
+            } catch (IOException e) {
+                readListener.onError(e);
+            }
+        }
+    }
+
+    @Override
     public void wrap(CompositeByteBuf source) {
         this.closed.set(false);
         this.readListenerFlag.set(true);
@@ -461,16 +468,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.receiveDataTimeout = false;
     }
 
-    public void setContentLength(long contentLength) {
-        this.contentLength = contentLength;
+    public long getFileUploadTimeoutMs() {
+        return fileUploadTimeoutMs;
     }
 
     public void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
         this.fileUploadTimeoutMs = fileUploadTimeoutMs;
-    }
-
-    public long getFileUploadTimeoutMs() {
-        return fileUploadTimeoutMs;
     }
 
     public int getUploadFileCount() {
@@ -484,7 +487,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     @Override
     public void recycle() {
-        if(!isClosed()) {
+        if (!isClosed()) {
             close();
         }
     }

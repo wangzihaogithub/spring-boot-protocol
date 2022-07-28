@@ -8,11 +8,6 @@ import com.github.netty.protocol.nrpc.exception.RpcResponseException;
  * @author wangzihao
  */
 public interface RpcDone {
-    @FunctionalInterface
-    interface ChunkListener<CHUNK> {
-        void onChunk(CHUNK chunk, int chunkId, ChunkAck ack);
-    }
-
     /**
      * on chunk callback
      *
@@ -53,6 +48,11 @@ public interface RpcDone {
         if (status == null || status >= RpcPacket.ResponsePacket.NO_SUCH_METHOD) {
             throw new RpcResponseException(status, "Failure rpc response. status=" + status + ",message=" + response.getMessage() + ",response=" + response, true);
         }
+    }
+
+    @FunctionalInterface
+    interface ChunkListener<CHUNK> {
+        void onChunk(CHUNK chunk, int chunkId, ChunkAck ack);
     }
 
 }

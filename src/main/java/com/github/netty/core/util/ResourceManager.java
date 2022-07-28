@@ -104,7 +104,7 @@ public class ResourceManager {
         if (!theBaseDir.exists() || !theBaseDir.isDirectory()) {
             return 0;
         }
-        String theFiles[] = theBaseDir.list();
+        String[] theFiles = theBaseDir.list();
         if (theFiles == null) {
             return 0;
         }
@@ -139,7 +139,7 @@ public class ResourceManager {
         if (!theBaseDir.exists() || !theBaseDir.isDirectory()) {
             return 0;
         }
-        String theFiles[] = theBaseDir.list();
+        String[] theFiles = theBaseDir.list();
         if (theFiles == null) {
             return 0;
         }
@@ -174,7 +174,7 @@ public class ResourceManager {
         if (!theBaseDir.exists() || !theBaseDir.isDirectory()) {
             return null;
         }
-        String theFiles[] = theBaseDir.list();
+        String[] theFiles = theBaseDir.list();
         if (theFiles == null) {
             return null;
         }

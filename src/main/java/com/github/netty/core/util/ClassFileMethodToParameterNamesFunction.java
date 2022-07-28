@@ -15,8 +15,8 @@ import java.util.function.Function;
  * @author wangzihao
  */
 public class ClassFileMethodToParameterNamesFunction implements Function<Method, String[]> {
-    private static LoggerX logger = LoggerFactoryX.getLogger(ClassFileMethodToParameterNamesFunction.class);
     private static final String[] EMPTY = {};
+    private static LoggerX logger = LoggerFactoryX.getLogger(ClassFileMethodToParameterNamesFunction.class);
     private final Map<Class<?>, Map<java.lang.reflect.Member, String[]>> parameterNamesCache = new ConcurrentReferenceHashMap<>(
             16, ConcurrentReferenceHashMap.ReferenceType.WEAK);
 

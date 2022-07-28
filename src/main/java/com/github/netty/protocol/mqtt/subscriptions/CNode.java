@@ -20,8 +20,8 @@ import java.util.*;
 class CNode {
 
     Token token;
-    private List<INode> children;
     Set<Subscription> subscriptions;
+    private List<INode> children;
 
     CNode() {
         this.children = new ArrayList<>();
@@ -75,6 +75,7 @@ class CNode {
     public void add(INode newINode) {
         this.children.add(newINode);
     }
+
     public void remove(INode node) {
         this.children.remove(node);
     }
@@ -83,8 +84,8 @@ class CNode {
         // if already contains one with same topic and same client, keep that with higher QoS
         if (subscriptions.contains(newSubscription)) {
             final Subscription existing = subscriptions.stream()
-                .filter(s -> s.equals(newSubscription))
-                .findFirst().get();
+                    .filter(s -> s.equals(newSubscription))
+                    .findFirst().get();
             if (existing.getRequestedQos().value() < newSubscription.getRequestedQos().value()) {
                 subscriptions.remove(existing);
                 subscriptions.add(new Subscription(newSubscription));
@@ -97,8 +98,8 @@ class CNode {
 
     /**
      * @return true iff the subscriptions contained in this node are owned by clientId
-     *   AND at least one subscription is actually present for that clientId
-     * */
+     * AND at least one subscription is actually present for that clientId
+     */
     boolean containsOnly(String clientId) {
         for (Subscription sub : this.subscriptions) {
             if (!sub.clientId.equals(clientId)) {

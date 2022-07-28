@@ -5,6 +5,7 @@ import java.util.List;
 
 /**
  * Information about the RPC request
+ *
  * @author wangzihao
  */
 @FunctionalInterface
@@ -14,8 +15,10 @@ public interface NettyRpcFilter {
 
     interface FilterChain {
         void doFilter(NettyRpcFullRequest request) throws Throwable;
+
         /**
          * get a unmodifiable NettyRpcFilterList {@link Collections#unmodifiableList(List)}
+         *
          * @return NettyRpcFilter
          */
         List<NettyRpcFilter> getNettyRpcFilterList();

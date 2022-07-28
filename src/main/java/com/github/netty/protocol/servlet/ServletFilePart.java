@@ -3,16 +3,13 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.CaseInsensitiveKeyMap;
 import com.github.netty.core.util.ResourceManager;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
-import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.handler.codec.http.multipart.FileUpload;
 
 import javax.servlet.http.Part;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -20,13 +17,14 @@ import java.util.function.Supplier;
 
 /**
  * formData File blocks
+ *
  * @author wangzihao
  */
 public class ServletFilePart implements Part {
     private FileUpload fileUpload;
     private ResourceManager resourceManager;
     private Supplier<ResourceManager> resourceManagerSupplier;
-    private Map<String,String> headerMap;
+    private Map<String, String> headerMap;
 
     public ServletFilePart(FileUpload fileUpload, Supplier<ResourceManager> resourceManagerSupplier) {
         this.fileUpload = fileUpload;
@@ -36,29 +34,12 @@ public class ServletFilePart implements Part {
     @Override
     public InputStream getInputStream() throws IOException {
         InputStream inputStream;
-        if(fileUpload.isInMemory()){
-            inputStream = new ByteBufInputStream(fileUpload.getByteBuf().retainedDuplicate(),true);
-        }else {
+        if (fileUpload.isInMemory()) {
+            inputStream = new ByteBufInputStream(fileUpload.getByteBuf().retainedDuplicate(), true);
+        } else {
             inputStream = new FileInputStream(fileUpload.getFile());
         }
         return inputStream;
-    }
-
-    public static void main(String[] args) {
-        String content = "123";
-
-        ByteBuf byteBuf = PooledByteBufAllocator.DEFAULT.directBuffer();
-        byteBuf.writeBytes(content.getBytes());
-        byteBuf.writerIndex(byteBuf.capacity());
-
-        ByteBuf byteBuf1 = byteBuf.retainedDuplicate();
-        byteBuf1.release();
-
-        int refCnt = byteBuf.refCnt();
-        CharSequence charSequence = byteBuf.readCharSequence(byteBuf.readableBytes(), Charset.defaultCharset());
-
-        assert refCnt == 1;
-        assert content.contentEquals(charSequence);
     }
 
     @Override
@@ -83,15 +64,15 @@ public class ServletFilePart implements Part {
 
     @Override
     public void write(String fileName) throws IOException {
-        if(resourceManager == null){
+        if (resourceManager == null) {
             resourceManager = resourceManagerSupplier.get();
         }
-        resourceManager.writeFile(getInputStream(),"/",fileName);
+        resourceManager.writeFile(getInputStream(), "/", fileName);
     }
 
     @Override
     public void delete() throws IOException {
-        if(!fileUpload.isInMemory()) {
+        if (!fileUpload.isInMemory()) {
             fileUpload.delete();
         }
     }
@@ -104,9 +85,9 @@ public class ServletFilePart implements Part {
     @Override
     public Collection<String> getHeaders(String name) {
         String value = getHeaderMap().get(name);
-        if(value == null){
+        if (value == null) {
             return Collections.emptyList();
-        }else {
+        } else {
             return Collections.singletonList(value);
         }
     }
@@ -116,11 +97,11 @@ public class ServletFilePart implements Part {
         return getHeaderMap().keySet();
     }
 
-    private Map<String,String> getHeaderMap(){
-        if(headerMap == null) {
-            Map<String,String> headerMap = new CaseInsensitiveKeyMap<>(2);
+    private Map<String, String> getHeaderMap() {
+        if (headerMap == null) {
+            Map<String, String> headerMap = new CaseInsensitiveKeyMap<>(2);
             headerMap.put(HttpHeaderConstants.CONTENT_DISPOSITION.toString(),
-                    HttpHeaderConstants.FORM_DATA + "; " + HttpHeaderConstants.NAME + "=\"" + getName() + "\"; " + HttpHeaderConstants.FILENAME + "=\"" + fileUpload.getFilename()+"\"");
+                    HttpHeaderConstants.FORM_DATA + "; " + HttpHeaderConstants.NAME + "=\"" + getName() + "\"; " + HttpHeaderConstants.FILENAME + "=\"" + fileUpload.getFilename() + "\"");
             headerMap.put(HttpHeaderConstants.CONTENT_LENGTH.toString(), String.valueOf(fileUpload.length()));
             if (fileUpload.getCharset() != null) {
                 headerMap.put(HttpHeaderConstants.CONTENT_TYPE.toString(), HttpHeaderConstants.CHARSET.toString() + '=' + fileUpload.getCharset().name());

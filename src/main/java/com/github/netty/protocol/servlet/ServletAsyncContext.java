@@ -46,7 +46,6 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
      * Has it been recycled
      */
     private AtomicBoolean recycleFlag = new AtomicBoolean(false);
-    ;
     /**
      * Whether the IO thread has finished executing
      */
@@ -60,6 +59,8 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
      */
     private long timeout;
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
+    private ServletContext servletContext;
+    private ServletHttpExchange servletHttpExchange;
     private final Runnable timeoutTask = () -> {
         //Notice the timeout
         if (timeoutFlag.compareAndSet(false, true)) {
@@ -88,12 +89,10 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
             }
         }
     };
-    private ServletContext servletContext;
-    private ServletHttpExchange servletHttpExchange;
     private ServletRequest servletRequest;
     private ServletResponse servletResponse;
-    private volatile Integer timeoutTaskId;
-    private volatile long startTimestamp;
+    private /*volatile*/ Integer timeoutTaskId;
+    private /*volatile*/ long startTimestamp;
 
     public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor) {
         this.servletHttpExchange = Objects.requireNonNull(servletHttpExchange);
@@ -157,7 +156,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
-        if(isComplete()){
+        if (isComplete()) {
             return;
         }
         status.set(STATUS_DISPATCH);
@@ -220,7 +219,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         complete(null);
     }
 
-    public void complete(Throwable rootThrowable){
+    public void complete(Throwable rootThrowable) {
         if (isComplete()) {
             return;
         }

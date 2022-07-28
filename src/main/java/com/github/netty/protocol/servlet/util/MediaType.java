@@ -10,8 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Media type (provides parsing and retrieval)
- *
- *  example,: MediaType type = MediaType.parseFast(text/html;charset=utf-8);
+ * <p>
+ * example,: MediaType type = MediaType.parseFast(text/html;charset=utf-8);
  *
  * @author wangzihao
  */
@@ -20,9 +20,8 @@ public class MediaType {
      * Default document encoding
      */
     public static final String DEFAULT_DOCUMENT_CHARACTER_ENCODING = "ISO-8859-1";
-    private static MediaTypeCache MEDIA_TYPE_CACHE;
     private static final String CHARSET = "charset";
-
+    private static MediaTypeCache MEDIA_TYPE_CACHE;
     private final String type;
     private final String subtype;
     private final LinkedHashMap<String, String> parameters;
@@ -42,11 +41,86 @@ public class MediaType {
         this.charset = cs;
     }
 
-    public static boolean isHtmlType(String type){
-        if(type == null){
+    public static boolean isHtmlType(String type) {
+        if (type == null) {
             return false;
         }
         return type.contains("html") || type.contains("HTML");
+    }
+
+    /**
+     * Parses a MediaType value, either from a HTTP header or from an application.
+     *
+     * @param input a reader over the header text
+     * @return a MediaType parsed from the input, or null if not valid
+     */
+    public static MediaType parseFast(String input) {
+        return getMediaTypeCache().parse(input);
+    }
+
+    /**
+     * Parses a MediaType value, either from a HTTP header or from an application.
+     *
+     * @param inputStr a reader over the header text
+     * @return a MediaType parsed from the input, or null if not valid
+     * @throws IOException if there was a problem reading the input
+     */
+    public static MediaType parse(String inputStr) throws IOException {
+        StringReader input = new StringReader(inputStr);
+
+
+        // Type (required)
+        String type = HttpParser.readToken(input);
+        if (type == null || type.length() == 0) {
+            return null;
+        }
+
+        if (HttpParser.skipConstant(input, "/") == SkipResult.NOT_FOUND) {
+            return null;
+        }
+
+        // Subtype (required)
+        String subtype = HttpParser.readToken(input);
+        if (subtype == null || subtype.length() == 0) {
+            return null;
+        }
+
+        LinkedHashMap<String, String> parameters = new LinkedHashMap<>();
+
+        SkipResult lookForSemiColon = HttpParser.skipConstant(input, ";");
+        if (lookForSemiColon == SkipResult.NOT_FOUND) {
+            return null;
+        }
+        while (lookForSemiColon == SkipResult.FOUND) {
+            String attribute = HttpParser.readToken(input);
+
+            String value = "";
+            if (HttpParser.skipConstant(input, "=") == SkipResult.FOUND) {
+                value = HttpParser.readTokenOrQuotedString(input, true);
+            }
+
+            if (attribute != null) {
+                parameters.put(attribute.toLowerCase(Locale.ENGLISH), value);
+            }
+
+            lookForSemiColon = HttpParser.skipConstant(input, ";");
+            if (lookForSemiColon == SkipResult.NOT_FOUND) {
+                return null;
+            }
+        }
+
+        return new MediaType(type, subtype, parameters);
+    }
+
+    private static MediaTypeCache getMediaTypeCache() {
+        if (MEDIA_TYPE_CACHE == null) {
+            synchronized (MediaType.class) {
+                if (MEDIA_TYPE_CACHE == null) {
+                    MEDIA_TYPE_CACHE = new MediaTypeCache(100);
+                }
+            }
+        }
+        return MEDIA_TYPE_CACHE;
     }
 
     public String getType() {
@@ -129,79 +203,10 @@ public class MediaType {
         return noCharset;
     }
 
-    /**
-     * Parses a MediaType value, either from a HTTP header or from an application.
-     *
-     * @param input a reader over the header text
-     * @return a MediaType parsed from the input, or null if not valid
-     */
-    public static MediaType parseFast(String input) {
-        return getMediaTypeCache().parse(input);
-    }
-
-    /**
-     * Parses a MediaType value, either from a HTTP header or from an application.
-     *
-     * @param inputStr a reader over the header text
-     * @return a MediaType parsed from the input, or null if not valid
-     * @throws IOException if there was a problem reading the input
-     */
-    public static MediaType parse(String inputStr) throws IOException {
-        StringReader input = new StringReader(inputStr);
-
-
-        // Type (required)
-        String type = HttpParser.readToken(input);
-        if (type == null || type.length() == 0) {
-            return null;
-        }
-
-        if (HttpParser.skipConstant(input, "/") == SkipResult.NOT_FOUND) {
-            return null;
-        }
-
-        // Subtype (required)
-        String subtype = HttpParser.readToken(input);
-        if (subtype == null || subtype.length() == 0) {
-            return null;
-        }
-
-        LinkedHashMap<String, String> parameters = new LinkedHashMap<>();
-
-        SkipResult lookForSemiColon = HttpParser.skipConstant(input, ";");
-        if (lookForSemiColon == SkipResult.NOT_FOUND) {
-            return null;
-        }
-        while (lookForSemiColon == SkipResult.FOUND) {
-            String attribute = HttpParser.readToken(input);
-
-            String value = "";
-            if (HttpParser.skipConstant(input, "=") == SkipResult.FOUND) {
-                value = HttpParser.readTokenOrQuotedString(input, true);
-            }
-
-            if (attribute != null) {
-                parameters.put(attribute.toLowerCase(Locale.ENGLISH), value);
-            }
-
-            lookForSemiColon = HttpParser.skipConstant(input, ";");
-            if (lookForSemiColon == SkipResult.NOT_FOUND) {
-                return null;
-            }
-        }
-
-        return new MediaType(type, subtype, parameters);
-    }
-
-    private static MediaTypeCache getMediaTypeCache() {
-        if(MEDIA_TYPE_CACHE == null){
-            synchronized (MediaType.class){
-                if(MEDIA_TYPE_CACHE == null){
-                    MEDIA_TYPE_CACHE = new MediaTypeCache(100);
-                }
-            }
-        }
-        return MEDIA_TYPE_CACHE;
+    enum SkipResult {
+        FOUND,
+        NOT_FOUND,
+        EOF
     }
 
     static class HttpParser {
@@ -237,9 +242,9 @@ public class MediaType {
                 }
 
                 // Separator
-                if (    i == '(' || i == ')' || i == '<' || i == '>'  || i == '@'  ||
+                if (i == '(' || i == ')' || i == '<' || i == '>' || i == '@' ||
                         i == ',' || i == ';' || i == ':' || i == '\\' || i == '\"' ||
-                        i == '/' || i == '[' || i == ']' || i == '?'  || i == '='  ||
+                        i == '/' || i == '[' || i == ']' || i == '?' || i == '=' ||
                         i == '{' || i == '}' || i == ' ' || i == '\t') {
                     IS_SEPARATOR[i] = true;
                 }
@@ -250,7 +255,7 @@ public class MediaType {
                 }
 
                 // Hex: 0-9, a-f, A-F
-                if ((i >= '0' && i <='9') || (i >= 'a' && i <= 'f') || (i >= 'A' && i <= 'F')) {
+                if ((i >= '0' && i <= '9') || (i >= 'a' && i <= 'f') || (i >= 'A' && i <= 'F')) {
                     IS_HEX[i] = true;
                 }
 
@@ -259,7 +264,7 @@ public class MediaType {
                 // ASCII, no controls plus a few additional characters excluded
                 if (IS_CONTROL[i] || i > 127 ||
                         i == ' ' || i == '\"' || i == '#' || i == '<' || i == '>' || i == '\\' ||
-                        i == '^' || i == '`'  || i == '{' || i == '|' || i == '}') {
+                        i == '^' || i == '`' || i == '{' || i == '|' || i == '}') {
                     if (!REQUEST_TARGET_ALLOW[i]) {
                         IS_NOT_REQUEST_TARGET[i] = true;
                     }
@@ -292,7 +297,7 @@ public class MediaType {
             }
 
             StringBuilder result = new StringBuilder();
-            for (int i = start ; i < end; i++) {
+            for (int i = start; i < end; i++) {
                 char c = input.charAt(i);
                 if (input.charAt(i) == '\\') {
                     i++;
@@ -389,9 +394,9 @@ public class MediaType {
         }
 
         /**
-         * @return  the token if one was found, the empty string if no data was
-         *          available to read or <code>null</code> if data other than a
-         *          token was found
+         * @return the token if one was found, the empty string if no data was
+         * available to read or <code>null</code> if data other than a
+         * token was found
          */
         static String readToken(StringReader input) throws IOException {
             StringBuilder result = new StringBuilder();
@@ -414,8 +419,8 @@ public class MediaType {
 
         /**
          * @return the quoted string if one was found, null if data other than a
-         *         quoted string was found or null if the end of data was reached
-         *         before the quoted string was terminated
+         * quoted string was found or null if the end of data was reached
+         * before the quoted string was terminated
          */
         static String readQuotedString(StringReader input, boolean returnQuoted) throws IOException {
 
@@ -474,8 +479,8 @@ public class MediaType {
          * should be tokens.
          *
          * @return the token if one was found, null if data other than a token or
-         *         quoted token was found or null if the end of data was reached
-         *         before a quoted token was terminated
+         * quoted token was found or null if the end of data was reached
+         * before a quoted token was terminated
          */
         static String readQuotedToken(StringReader input) throws IOException {
 
@@ -525,8 +530,8 @@ public class MediaType {
          * allows for upper-case digits as well, converting the returned value to
          * lower-case.
          *
-         * @return  the sequence of LHEX (minus any surrounding quotes) if any was
-         *          found, or <code>null</code> if data other LHEX was found
+         * @return the sequence of LHEX (minus any surrounding quotes) if any was
+         * found, or <code>null</code> if data other LHEX was found
          */
         static String readLhex(StringReader input) throws IOException {
 
@@ -664,9 +669,9 @@ public class MediaType {
          * the results placed in the cache and returned to the user.
          *
          * @param inputStr The content-type header value to parse
-         * @return      The results are provided as a two element String array. The
-         *                  first element is the media type less the charset and
-         *                  the second element is the charset
+         * @return The results are provided as a two element String array. The
+         * first element is the media type less the charset and
+         * the second element is the charset
          */
         public MediaType parse(String inputStr) {
             MediaType result = cache.get(inputStr);
@@ -688,13 +693,13 @@ public class MediaType {
         }
     }
 
-    static class ConcurrentCache<K,V> {
+    static class ConcurrentCache<K, V> {
 
         private final int size;
 
-        private final Map<K,V> eden;
+        private final Map<K, V> eden;
 
-        private final Map<K,V> longterm;
+        private final Map<K, V> longterm;
 
         public ConcurrentCache(int size) {
             this.size = size;
@@ -724,11 +729,5 @@ public class MediaType {
             }
             this.eden.put(k, v);
         }
-    }
-
-    enum SkipResult {
-        FOUND,
-        NOT_FOUND,
-        EOF
     }
 }

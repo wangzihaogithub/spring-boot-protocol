@@ -1,7 +1,7 @@
 package io.netty.channel.epoll;
 
-import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.TcpChannel;
+import com.github.netty.core.util.LoggerX;
 import io.netty.channel.ChannelOutboundBuffer;
 import io.netty.channel.EventLoop;
 import io.netty.channel.SingleThreadEventLoop;

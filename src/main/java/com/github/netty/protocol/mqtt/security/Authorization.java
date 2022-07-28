@@ -28,13 +28,6 @@ public class Authorization {
     protected final Topic topic;
     protected final Permission permission;
 
-    /**
-     * Access rights
-     */
-    enum Permission {
-        READ, WRITE, READWRITE
-    }
-
     Authorization(Topic topic) {
         this(topic, Permission.READWRITE);
     }
@@ -59,10 +52,8 @@ public class Authorization {
 
         if (permission != that.permission)
             return false;
-        if (!topic.equals(that.topic))
-            return false;
+        return topic.equals(that.topic);
 
-        return true;
     }
 
     @Override
@@ -70,5 +61,12 @@ public class Authorization {
         int result = topic.hashCode();
         result = 31 * result + permission.hashCode();
         return result;
+    }
+
+    /**
+     * Access rights
+     */
+    enum Permission {
+        READ, WRITE, READWRITE
     }
 }

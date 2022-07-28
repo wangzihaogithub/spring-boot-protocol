@@ -6,11 +6,13 @@ import org.reactivestreams.Subscriber;
 
 /**
  * support rxjava3 Flowable async response.
+ *
  * @author wangzihao
- *  2020/05/17/019
+ * 2020/05/17/019
  */
 public class RpcClientRxjava3Flowable extends Flowable<Object> {
     private final RpcClientReactivePublisher source;
+
     RpcClientRxjava3Flowable(RpcClientReactivePublisher source) {
         this.source = source;
     }

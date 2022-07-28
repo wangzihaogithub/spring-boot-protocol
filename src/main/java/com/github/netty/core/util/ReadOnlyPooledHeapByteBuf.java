@@ -20,14 +20,15 @@ import java.util.Set;
 
 /**
  * ReadOnlyPooledHeapByteBuf
+ *
  * @author wangzihao
  */
 class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
+    private static final Recycler<ReadOnlyPooledHeapByteBuf> RECYCLER = new Recycler<>(ReadOnlyPooledHeapByteBuf::new);
     private byte[] array;
     private ByteBuffer tmpNioBuf;
     private int offset;
     private int capacity;
-    private static final Recycler<ReadOnlyPooledHeapByteBuf> RECYCLER = new Recycler<>(ReadOnlyPooledHeapByteBuf::new);
     private ByteBuf parent;
 
     private ReadOnlyPooledHeapByteBuf() {
@@ -42,8 +43,49 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         instance.maxCapacity(bytes.length);
         instance.capacity = bytes.length;
         instance.setArray(bytes);
-        instance.setIndex(0,bytes.length);
+        instance.setIndex(0, bytes.length);
         return instance;
+    }
+
+    public static void main(String[] args) {
+
+        ByteBuf directBuffer = PooledByteBufAllocator.DEFAULT.directBuffer(30);
+        directBuffer.writeBytes(new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
+
+        Set<ByteBuf> set = new HashSet<>();
+        for (int i = 0; i < 30; i++) {
+            set.add(directBuffer.copy());
+        }
+
+
+        long time = System.currentTimeMillis();
+        ByteBuf byteBuf = Unpooled.copyLong(time);
+
+        long c = byteBuf.getLong(0);
+
+
+        byte[] requestIdBytes = "requestId".getBytes();
+        byte[] requestIdBytesRead = new byte[9];
+        ByteBuf byteBuf1 = newInstance(requestIdBytes);
+
+        ByteBuf b1 = byteBuf1.copy();
+        ByteBuf b2 = b1.slice(1, 2);
+        ByteBuf b3 = b2.copy();
+        ByteBuf b4 = b3.copy(0, 2);
+
+
+        byteBuf1.readBytes(requestIdBytesRead);
+        byteBuf1.release();
+
+        System.out.println("requestIdBytesRead = " + Arrays.toString(requestIdBytesRead));
+
+        byte[] helloBytes = "hello".getBytes();
+        byte[] helloBytesRead = new byte[3];
+        ByteBuf byteBuf2 = newInstance(helloBytes);
+        byteBuf2.readBytes(helloBytesRead);
+        byteBuf2.release();
+
+        System.out.println("helloBytesRead = " + Arrays.toString(helloBytesRead));
     }
 
     private int idx(int index) {
@@ -53,14 +95,14 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     @Override
     public ByteBuf slice(int index, int length) {
         checkIndex(index, length);
-        if(maxCapacity() < index+length) {
+        if (maxCapacity() < index + length) {
             throw new IndexOutOfBoundsException(String.format(
                     "index: %d, length: %d (expected: range(0, %d))", index, length, maxCapacity()));
         }
         ReadOnlyPooledHeapByteBuf slice = newInstance(array);
         slice.maxCapacity(length);
         slice.capacity = length;
-        slice.setIndex(0,length);
+        slice.setIndex(0, length);
         slice.parent = this;
         slice.offset = offset + index;
         return slice;
@@ -256,7 +298,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public ByteBufAllocator alloc() {
-        return ByteBufAllocatorX.INSTANCE;
+        return PooledByteBufAllocator.DEFAULT;
     }
 
     @Override
@@ -384,7 +426,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public final ByteBuf copy(int index, int length) {
-        return slice(index,length);
+        return slice(index, length);
     }
 
     @Override
@@ -392,7 +434,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         ReadOnlyPooledHeapByteBuf copy = newInstance(array);
         copy.maxCapacity(maxCapacity());
         copy.capacity = capacity;
-        copy.setIndex(readerIndex(),writerIndex());
+        copy.setIndex(readerIndex(), writerIndex());
         copy.parent = this;
         copy.offset = offset;
         return copy;
@@ -405,14 +447,14 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public final ByteBuffer[] nioBuffers(int index, int length) {
-        return new ByteBuffer[] { nioBuffer(index, length) };
+        return new ByteBuffer[]{nioBuffer(index, length)};
     }
 
     @Override
     public final ByteBuffer nioBuffer(int index, int length) {
         checkIndex(index, length);
         index = idx(index);
-        ByteBuffer buf =  ByteBuffer.wrap(array, index, length);
+        ByteBuffer buf = ByteBuffer.wrap(array, index, length);
         return buf.slice();
     }
 
@@ -460,53 +502,8 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         RECYCLER.recycleInstance(this);
     }
 
-
-    public static void main(String[] args) {
-
-        ByteBuf directBuffer = ByteBufAllocatorX.POOLED.directBuffer(30);
-        directBuffer.writeBytes(new byte[]{1,2,3,4,5,6,7,8});
-
-        Set<ByteBuf> set = new HashSet<>();
-        for(int i=0; i< 30; i++) {
-            set.add(directBuffer.copy());
-        }
-
-
-
-        long time = System.currentTimeMillis();
-        ByteBuf byteBuf = Unpooled.copyLong(time);
-
-        long c = byteBuf.getLong(0);
-
-
-
-        byte[] requestIdBytes = "requestId".getBytes();
-        byte[] requestIdBytesRead = new byte[9];
-        ByteBuf byteBuf1 = newInstance(requestIdBytes);
-
-        ByteBuf b1 = byteBuf1.copy();
-        ByteBuf b2 = b1.slice(1,2);
-        ByteBuf b3 = b2.copy();
-        ByteBuf b4 = b3.copy(0,2);
-
-
-
-        byteBuf1.readBytes(requestIdBytesRead);
-        byteBuf1.release();
-
-        System.out.println("requestIdBytesRead = "+ Arrays.toString(requestIdBytesRead));
-
-        byte[] helloBytes = "hello".getBytes();
-        byte[] helloBytesRead = new byte[3];
-        ByteBuf byteBuf2 = newInstance(helloBytes);
-        byteBuf2.readBytes(helloBytesRead);
-        byteBuf2.release();
-
-        System.out.println("helloBytesRead = "+ Arrays.toString(helloBytesRead));
-    }
-
     @Override
     public String toString() {
-        return super.toString()+"("+toString(Charset.defaultCharset())+")";
+        return super.toString() + "(" + toString(Charset.defaultCharset()) + ")";
     }
 }

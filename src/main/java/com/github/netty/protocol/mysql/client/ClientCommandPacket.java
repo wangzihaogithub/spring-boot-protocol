@@ -24,19 +24,19 @@ import com.github.netty.protocol.mysql.Command;
  */
 public class ClientCommandPacket extends AbstractMySqlPacket implements ClientPacket {
 
-	private final Command command;
+    private final Command command;
 
-	public ClientCommandPacket(int sequenceId, Command command) {
-		super(sequenceId);
-		this.command = command;
-	}
+    public ClientCommandPacket(int sequenceId, Command command) {
+        super(sequenceId);
+        this.command = command;
+    }
 
-	public Command getCommand() {
-		return command;
-	}
+    public Command getCommand() {
+        return command;
+    }
 
-	@Override
-	public String toString() {
-		return super.toString()+","+command.name();
-	}
+    @Override
+    public String toString() {
+        return super.toString() + "," + command.name();
+    }
 }

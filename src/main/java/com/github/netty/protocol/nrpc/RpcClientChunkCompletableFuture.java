@@ -230,10 +230,7 @@ public class RpcClientChunkCompletableFuture<COMPLETE_RESULT, CHUNK> extends Com
         if (!getChunkIndexConsumerList().isEmpty()) {
             return true;
         }
-        if (!getChunkIndexAckConsumerList().isEmpty()) {
-            return true;
-        }
-        return false;
+        return !getChunkIndexAckConsumerList().isEmpty();
     }
 
     @Override

@@ -121,7 +121,7 @@ public class MqttInflightResenderChannelHandler extends AbstractChannelHandler {
 
     /**
      * Placeholder event to resend not-acked publish messages in the in flight window.
-     * */
+     */
     public static class ResendNotAckedPublishes {
     }
 

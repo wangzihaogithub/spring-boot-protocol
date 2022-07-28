@@ -5,10 +5,11 @@ import org.reactivestreams.Publisher;
 
 /**
  * RpcCommandAsyncService
+ *
  * @author wangzihao
  * 2020/4/23/020
  */
-@NRpcService(value = "/_nrpc/command",timeout = 600)
+@NRpcService(value = "/_nrpc/command", timeout = 600)
 public interface RpcCommandAsyncService {
 
     Publisher<byte[]> ping();

@@ -4,7 +4,7 @@ import io.netty.handler.codec.mqtt.MqttQoS;
 
 import java.io.Serializable;
 
-public class MqttRetainedMessage implements Serializable{
+public class MqttRetainedMessage implements Serializable {
 
     private final MqttQoS qos;
     private final byte[] payload;

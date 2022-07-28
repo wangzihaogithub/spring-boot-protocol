@@ -19,23 +19,23 @@ package com.github.netty.protocol.mysql;
 /**
  * Field flags.
  * <p>
- *  http://dev.mysql.com/doc/refman/5.7/en/c-api-data-structures.html
+ * http://dev.mysql.com/doc/refman/5.7/en/c-api-data-structures.html
  */
 public enum ColumnFlag {
-	NOT_NULL,
-	PRI_KEY,
-	UNIQUE_KEY,
-	MULTIPLE_KEY,
-	UNSIGNED,
-	ZEROFILL,
-	BINARY,
-	AUTO_INCREMENT,
-	ENUM,
-	SET,
-	BLOB,
-	TIMESTAMP,
-	NUM,
-	NO_DEFAULT_VALUE,
-	UNKNOWN14,
-	UNKNOWN15
+    NOT_NULL,
+    PRI_KEY,
+    UNIQUE_KEY,
+    MULTIPLE_KEY,
+    UNSIGNED,
+    ZEROFILL,
+    BINARY,
+    AUTO_INCREMENT,
+    ENUM,
+    SET,
+    BLOB,
+    TIMESTAMP,
+    NUM,
+    NO_DEFAULT_VALUE,
+    UNKNOWN14,
+    UNKNOWN15
 }

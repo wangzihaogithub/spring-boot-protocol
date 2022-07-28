@@ -6,7 +6,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 @FunctionalInterface
 public interface MysqlPacketListener {
-    
+
     void onMysqlPacket(MysqlPacket packet,
                        ChannelHandlerContext currentContext,
                        Session session,

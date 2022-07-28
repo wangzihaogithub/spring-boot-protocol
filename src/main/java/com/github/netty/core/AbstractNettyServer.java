@@ -22,18 +22,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * An abstract netty server
+ *
  * @author wangzihao
  */
 public abstract class AbstractNettyServer implements Runnable, Closeable {
+    private final boolean enableEpoll;
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private String name;
-
     private ServerSocketChannel serverChannel;
     private EventLoopGroup boss;
     private EventLoopGroup worker;
     private ServerBootstrap bootstrap;
     private InetSocketAddress serverAddress;
-    private final boolean enableEpoll;
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private boolean running = false;
@@ -47,65 +47,67 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
         this("", address);
     }
 
-    public AbstractNettyServer(String preName,InetSocketAddress address) {
+    public AbstractNettyServer(String preName, InetSocketAddress address) {
         super();
         this.enableEpoll = Epoll.isAvailable();
         this.serverAddress = address;
-        this.name = NamespaceUtil.newIdName(preName,getClass());
-        if(enableEpoll) {
-            logger.info("enable epoll server = {}",this);
+        this.name = NamespaceUtil.newIdName(preName, getClass());
+        if (enableEpoll) {
+            logger.info("enable epoll server = {}", this);
         }
-    }
-
-    public void setIoRatio(int ioRatio) {
-        if(worker instanceof NioEventLoopGroup){
-            ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
-        }else if(worker instanceof EpollEventLoopGroup){
-//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
-        }
-        this.ioRatio = ioRatio;
-    }
-
-    public void setIoThreadCount(int ioThreadCount) {
-        this.ioThreadCount = ioThreadCount;
     }
 
     public int getIoRatio() {
         return ioRatio;
     }
 
+    public void setIoRatio(int ioRatio) {
+        if (worker instanceof NioEventLoopGroup) {
+            ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
+        } else if (worker instanceof EpollEventLoopGroup) {
+//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+        }
+        this.ioRatio = ioRatio;
+    }
+
     public int getIoThreadCount() {
         return ioThreadCount;
     }
 
+    public void setIoThreadCount(int ioThreadCount) {
+        this.ioThreadCount = ioThreadCount;
+    }
+
     protected abstract ChannelHandler newWorkerChannelHandler();
 
-    protected ChannelHandler newBossChannelHandler(){
+    protected ChannelHandler newBossChannelHandler() {
         return null;
     }
 
-    protected ServerBootstrap newServerBootstrap(){
+    protected ServerBootstrap newServerBootstrap() {
         return new ServerBootstrap();
     }
 
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
-        if(enableEpoll){
-            worker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll","Server-Worker", false));
-        }else {
-            worker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO","Server-Worker", false));
+        if (enableEpoll) {
+            worker = new EpollEventLoopGroup(ioThreadCount, new ThreadFactoryX("Epoll", "Server-Worker", false));
+        } else {
+            NioEventLoopGroup jdkWorker = new NioEventLoopGroup(ioThreadCount, new ThreadFactoryX("NIO", "Server-Worker", false));
+            jdkWorker.setIoRatio(ioRatio);
+            worker = jdkWorker;
         }
         return worker;
     }
 
     protected EventLoopGroup newBossEventLoopGroup() {
         EventLoopGroup boss;
-        if(enableEpoll){
-            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1,new ThreadFactoryX("Epoll","Server-Boss", false));
+        if (enableEpoll) {
+            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1, new ThreadFactoryX("Epoll", "Server-Boss", false));
 //            epollBoss.setIoRatio(ioRatio);
             boss = epollBoss;
-        }else {
-            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1,new ThreadFactoryX("NIO","Server-Boss", false));
+        } else {
+            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1, new ThreadFactoryX("NIO", "Server-Boss", false));
             jdkBoss.setIoRatio(ioRatio);
             boss = jdkBoss;
         }
@@ -122,9 +124,9 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
 
     protected ChannelFactory<? extends ServerChannel> newServerChannelFactory() {
         ChannelFactory<? extends ServerChannel> channelFactory;
-        if(enableEpoll){
+        if (enableEpoll) {
             channelFactory = EpollServerSocketChannel::new;
-        }else {
+        } else {
             channelFactory = NioServerSocketChannel::new;
         }
         return channelFactory;
@@ -135,7 +137,7 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     }
 
     public void init() throws Exception {
-        if(initFlag.compareAndSet(false,true)) {
+        if (initFlag.compareAndSet(false, true)) {
             this.bootstrap = newServerBootstrap();
             this.boss = newBossEventLoopGroup();
             this.worker = newWorkerEventLoopGroup();
@@ -156,7 +158,7 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     @Override
     public final void run() {
         try {
-            if(running){
+            if (running) {
                 return;
             }
             init();
@@ -164,19 +166,19 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
             this.serverChannel = (ServerSocketChannel) channelFuture.channel();
             this.running = true;
         } catch (Throwable throwable) {
-            logger.error("server run fail. cause={}",throwable.toString(),throwable);
+            logger.error("server run fail. cause={}", throwable.toString(), throwable);
         }
     }
 
     public void stop() {
-        if(serverChannel == null){
+        if (serverChannel == null) {
             return;
         }
         serverChannel.close().addListener((ChannelFutureListener) closeFuture -> {
             if (boss == null) {
                 return;
             }
-            boss.shutdownGracefully().addListener((bossFuture)->{
+            boss.shutdownGracefully().addListener((bossFuture) -> {
                 if (worker != null) {
                     worker.shutdownGracefully().addListener(this::stopAfter);
                 }
@@ -185,8 +187,8 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     }
 
     @Override
-    public void close(){
-        if(serverChannel != null){
+    public void close() {
+        if (serverChannel != null) {
             stop();
         }
     }
@@ -208,13 +210,13 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     }
 
     public int getPort() {
-        if(serverAddress == null){
+        if (serverAddress == null) {
             return 0;
         }
         return serverAddress.getPort();
     }
 
-    protected void config(ServerBootstrap bootstrap) throws Exception{
+    protected void config(ServerBootstrap bootstrap) throws Exception {
         //允许在同一端口上启动同一服务器的多个实例，只要每个实例捆绑一个不同的本地IP地址即可
         bootstrap.option(ChannelOption.SO_REUSEADDR, true)
                 //netty boos的默认内存分配器
@@ -228,39 +230,39 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
                 //netty的work默认内存分配器
 //                .childOption(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
-              .childOption(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
+                .childOption(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
 
-        if(enableEpoll){
+        if (enableEpoll) {
             //允许使用同一个端口, 内核实现的负载均衡. 需要 Linux kernel >= 3.9
             bootstrap.option(UnixChannelOption.SO_REUSEPORT, true);
         }
     }
 
-    protected void stopAfter(Future future){
+    protected void stopAfter(Future future) {
         //有异常抛出
         Throwable cause = future.cause();
-        if(cause != null){
-            logger.error("stopAfter error={}",cause.toString(),cause);
+        if (cause != null) {
+            logger.error("stopAfter error={}", cause.toString(), cause);
         }
-        logger.info("{} stop [port = {} , cause = {}]...",getName(),getPort(),cause);
+        logger.info("{} stop [port = {} , cause = {}]...", getName(), getPort(), cause);
     }
 
-    protected void startAfter(ChannelFuture future){
+    protected void startAfter(ChannelFuture future) {
         //有异常抛出
         Throwable cause = future.cause();
-        if(cause != null){
+        if (cause != null) {
             PlatformDependent.throwException(cause);
         }
         logger.info("{} start (port = {}, pid = {}, os = {}) ...",
                 getName(),
-                getPort()+"",
-                HostUtil.getPid()+"",
+                getPort() + "",
+                HostUtil.getPid() + "",
                 HostUtil.getOsName());
     }
 
     @Override
     public String toString() {
-        return name+"{" +
+        return name + "{" +
                 "port=" + getPort() +
                 '}';
     }

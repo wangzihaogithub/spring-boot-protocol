@@ -26,22 +26,33 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Packet monitoring (read write/byte)
+ *
  * @author wangzihao
  */
 @ChannelHandler.Sharable
-public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,ByteBuf> {
-    private static final AttributeKey<BytesMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(BytesMetrics.class+"#BytesMetrics");
+public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf, ByteBuf> {
+    private static final AttributeKey<BytesMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(BytesMetrics.class + "#BytesMetrics");
     private AtomicLong readBytes = new AtomicLong();
     private AtomicLong writeBytes = new AtomicLong();
 
     public BytesMetricsChannelHandler() {
         super(false);
-        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
+        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()) {
             @Override
             public void run() {
                 logger.info("Metrics bytes[read={}/byte, write={}/byte]", readBytes, writeBytes);
             }
         });
+    }
+
+    public static BytesMetrics getOrSetMetrics(Channel channel) {
+        Attribute<BytesMetrics> attribute = channel.attr(ATTR_KEY_METRICS);
+        BytesMetrics metrics = attribute.get();
+        if (metrics == null) {
+            metrics = new BytesMetrics();
+            attribute.set(metrics);
+        }
+        return metrics;
     }
 
     @Override
@@ -55,9 +66,9 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
     protected void onMessageWriter(ChannelHandlerContext ctx, ByteBuf msg, ChannelPromise promise) throws Exception {
         BytesMetrics metrics = getOrSetMetrics(ctx.channel());
         metrics.incrementWrote(msg.writableBytes());
-        if(promise.isVoid()) {
+        if (promise.isVoid()) {
             ctx.write(msg, promise);
-        }else {
+        } else {
             ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
     }
@@ -70,14 +81,26 @@ public class BytesMetricsChannelHandler extends AbstractChannelHandler<ByteBuf,B
         ctx.close(promise);
     }
 
-    public static BytesMetrics getOrSetMetrics(Channel channel) {
-        Attribute<BytesMetrics> attribute = channel.attr(ATTR_KEY_METRICS);
-        BytesMetrics metrics = attribute.get();
-        if(metrics == null) {
-            metrics = new BytesMetrics();
-            attribute.set(metrics);
+    public static class BytesMetrics {
+
+        private long m_bytesRead;
+        private long m_bytesWrote;
+
+        void incrementRead(long numBytes) {
+            m_bytesRead += numBytes;
         }
-        return metrics;
+
+        void incrementWrote(long numBytes) {
+            m_bytesWrote += numBytes;
+        }
+
+        public long bytesRead() {
+            return m_bytesRead;
+        }
+
+        public long bytesWrote() {
+            return m_bytesWrote;
+        }
     }
 
 }

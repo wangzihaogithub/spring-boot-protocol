@@ -7,8 +7,6 @@ import io.netty.util.concurrent.FastThreadLocal;
 import io.netty.util.internal.InternalThreadLocalMap;
 import io.netty.util.internal.RecyclableArrayList;
 
-import java.util.List;
-
 /**
  * RecyclableUtil
  *
@@ -23,7 +21,7 @@ public class RecyclableUtil {
         }
     };
 
-    public static  RecyclableArrayList newRecyclableList(int minCapacity) {
+    public static RecyclableArrayList newRecyclableList(int minCapacity) {
         RecyclableArrayList finishListeners = RecyclableArrayList.newInstance(minCapacity);
         return finishListeners;
     }

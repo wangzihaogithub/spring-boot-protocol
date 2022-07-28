@@ -10,12 +10,12 @@ import java.lang.annotation.*;
 /**
  * Enable embedded TCP container.
  * It will enable.
- *      1. http server protocol,
- *          Servlet Web or Reactive Web. {@link NettyTcpServerFactory} {@link HttpServletProtocolSpringAdapter}
- *          Websocket. {@link NettyRequestUpgradeStrategy}
- *      2. rpc server protocol. {@link NRpcProtocolSpringAdapter}
- *      3. and user-defined protocols..
- *
+ * 1. http server protocol,
+ * Servlet Web or Reactive Web. {@link NettyTcpServerFactory} {@link HttpServletProtocolSpringAdapter}
+ * Websocket. {@link NettyRequestUpgradeStrategy}
+ * 2. rpc server protocol. {@link NRpcProtocolSpringAdapter}
+ * 3. and user-defined protocols..
+ * <p>
  * If you want to add your own protocol,  you only need implement {@link AbstractProtocol}, Next restart, do not need to do other things
  * <pre> {@code
  *     \@Component
@@ -49,37 +49,38 @@ import java.lang.annotation.*;
  *     }
  *
  * }</pre>
- *
- *-----------------------------------------------------------
+ * <p>
+ * -----------------------------------------------------------
  * If you want to enable websocket protocol,  you need use NettyRequestUpgradeStrategy.class.
- *  example..
-  * <pre> {@code
-  * public class WebsocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
-  *     public RequestUpgradeStrategy requestUpgradeStrategy() {
-  *         // return new JettyRequestUpgradeStrategy();
-  *         // return new TomcatRequestUpgradeStrategy();
-  *         return new NettyRequestUpgradeStrategy();
-  *     }
-  *
-  *     public void registerStompEndpoints(StompEndpointRegistry registry) {
-  *         StompWebSocketEndpointRegistration endpoint = registry.addEndpoint("/my-websocket");
-  *         endpoint.setHandshakeHandler(new DefaultHandshakeHandler(requestUpgradeStrategy()) {
-  *             protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
-  *                 String token = request.getHeaders().getFirst("access_token");
-  *                 return () -> token;
-  *             }
-  *         });
-  *         endpoint.setAllowedOrigins("*").withSockJS();
-  *     }
-  *
-  *     public void configureMessageBroker(MessageBrokerRegistry registry) {
-  *         registry.enableSimpleBroker("/topic/");
-  *         registry.setApplicationDestinationPrefixes("/app");
-  *         registry.setUserDestinationPrefix("/user/");
-  *     }
-  *  }
-  * }</pre>
-
+ * example..
+ * <pre> {@code
+ * public class WebsocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+ *     public RequestUpgradeStrategy requestUpgradeStrategy() {
+ *         // return new JettyRequestUpgradeStrategy();
+ *         // return new TomcatRequestUpgradeStrategy();
+ *         return new NettyRequestUpgradeStrategy();
+ *     }
+ *
+ *     public void registerStompEndpoints(StompEndpointRegistry registry) {
+ *         StompWebSocketEndpointRegistration endpoint = registry.addEndpoint("/my-websocket");
+ *         endpoint.setHandshakeHandler(new DefaultHandshakeHandler(requestUpgradeStrategy()) {
+ *             protected Principal determineUser(ServerHttpRequest request, WebSocketHandler wsHandler, Map<String, Object> attributes) {
+ *                 String token = request.getHeaders().getFirst("access_token");
+ *                 return () -> token;
+ *             }
+ *         });
+ *         endpoint.setAllowedOrigins("*").withSockJS();
+ *     }
+ *
+ *     public void configureMessageBroker(MessageBrokerRegistry registry) {
+ *         registry.enableSimpleBroker("/topic/");
+ *         registry.setApplicationDestinationPrefixes("/app");
+ *         registry.setUserDestinationPrefix("/user/");
+ *     }
+ *  }
+ * }</pre>
+ *
+ * @author wangzihao 2019-11-2 00:58:11
  * @see com.github.netty.springboot.NettyProperties
  * @see com.github.netty.springboot.server.NettyEmbeddedAutoConfiguration
  * @see com.github.netty.springboot.server.NettyTcpServerFactory
@@ -87,7 +88,6 @@ import java.lang.annotation.*;
  * @see NRpcProtocolSpringAdapter
  * @see com.github.netty.springboot.server.NettyRequestUpgradeStrategy
  * @see com.github.netty.core.AbstractProtocol
- * @author wangzihao 2019-11-2 00:58:11
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

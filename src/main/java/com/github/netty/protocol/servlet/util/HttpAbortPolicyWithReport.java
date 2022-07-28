@@ -9,12 +9,12 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * http refusal to handle the strategy, send 503 status code
- *
+ * <p>
  * Status code (503) indicating that the HTTP server is
  * temporarily overloaded, and unable to handle the request.
  *
- * @see #rejectedExecution(NettyMessageToServletRunnable.HttpRunnable, ThreadPoolExecutor, ServletHttpExchange)
  * @author wangzihaogithub 2020-11-21
+ * @see #rejectedExecution(NettyMessageToServletRunnable.HttpRunnable, ThreadPoolExecutor, ServletHttpExchange)
  */
 public class HttpAbortPolicyWithReport extends AbortPolicyWithReport {
     public HttpAbortPolicyWithReport(String threadName, String dumpPath, String info) {
@@ -23,10 +23,10 @@ public class HttpAbortPolicyWithReport extends AbortPolicyWithReport {
 
     @Override
     public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
-        if(r instanceof NettyMessageToServletRunnable.HttpRunnable){
+        if (r instanceof NettyMessageToServletRunnable.HttpRunnable) {
             NettyMessageToServletRunnable.HttpRunnable httpRunnable = (NettyMessageToServletRunnable.HttpRunnable) r;
-            rejectedExecution(httpRunnable,e,httpRunnable.getExchange());
-        }else {
+            rejectedExecution(httpRunnable, e, httpRunnable.getExchange());
+        } else {
             super.rejectedExecution(r, e);
         }
     }
@@ -34,7 +34,7 @@ public class HttpAbortPolicyWithReport extends AbortPolicyWithReport {
     protected void rejectedExecution(NettyMessageToServletRunnable.HttpRunnable httpRunnable,
                                      ThreadPoolExecutor e, ServletHttpExchange exchange) {
         exchange.getResponse().setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-        exchange.close();
+        exchange.getResponse().setHeader("Connection", "Close");
         super.rejectedExecution(httpRunnable, e);
     }
 }

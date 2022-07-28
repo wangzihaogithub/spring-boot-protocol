@@ -11,10 +11,9 @@ import java.util.*;
  * Created on 2017-08-25 11:32.
  */
 public class FilterMapper<T> {
-    private String rootPath;
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
     private final Object lock = new Object();
-
+    private String rootPath;
     /**
      * The set of filter mappings for this application, in the order they
      * were defined in the deployment descriptor with additional mappings
@@ -36,6 +35,38 @@ public class FilterMapper<T> {
 
     public FilterMapper() {
         this.antPathMatcher.setCachePatterns(Boolean.TRUE);
+    }
+
+    public static String normPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return path;
+        }
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if (path.length() > 1) {
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+        }
+        return path;
+    }
+
+    public static void main(String[] args) {
+        FilterMapper<Object> urlMapper = new FilterMapper<>();
+        urlMapper.addMapping("/t/", "", "default", false, null);
+        urlMapper.addMapping("/t/", "", "1", false, null);
+        urlMapper.addMapping("/t/", "", "2", false, null);
+        urlMapper.addMapping("/*", "", "3", false, null);
+        urlMapper.addMapping("/*.do", "", "4", false, null);
+
+//        urlMapper.setRootPath("test");
+
+        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
+        assert Objects.equals("1", e1.objectName);
+
+        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
+        assert Objects.equals("3", e2.objectName);
     }
 
     public void clear() {
@@ -160,21 +191,6 @@ public class FilterMapper<T> {
             }
         }
         return absoluteUri;
-    }
-
-    public static String normPath(String path) {
-        if (path == null || path.isEmpty()) {
-            return path;
-        }
-        while (path.startsWith("//")) {
-            path = path.substring(1);
-        }
-        if(path.length() > 1) {
-            if (!path.startsWith("/")) {
-                path = "/" + path;
-            }
-        }
-        return path;
     }
 
     /**
@@ -306,22 +322,5 @@ public class FilterMapper<T> {
                     '}';
         }
 
-    }
-
-    public static void main(String[] args) {
-        FilterMapper<Object> urlMapper = new FilterMapper<>();
-        urlMapper.addMapping("/t/", "", "default", false, null);
-        urlMapper.addMapping("/t/", "", "1", false, null);
-        urlMapper.addMapping("/t/", "", "2", false, null);
-        urlMapper.addMapping("/*", "", "3", false, null);
-        urlMapper.addMapping("/*.do", "", "4", false, null);
-
-//        urlMapper.setRootPath("test");
-
-        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
-        assert Objects.equals("1", e1.objectName);
-
-        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
-        assert Objects.equals("3", e2.objectName);
     }
 }

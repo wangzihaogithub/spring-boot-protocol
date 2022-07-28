@@ -25,22 +25,33 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Communication monitoring (read write/time)
+ *
  * @author wangzihao
  */
 @ChannelHandler.Sharable
-public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,Object> {
-    private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class+"#MessageMetrics");
+public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object, Object> {
+    private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class + "#MessageMetrics");
     private AtomicLong readMessages = new AtomicLong();
     private AtomicLong writeMessages = new AtomicLong();
 
     public MessageMetricsChannelHandler() {
         super(false);
-        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()){
+        Runtime.getRuntime().addShutdownHook(new Thread("Metrics-Hook" + hashCode()) {
             @Override
             public void run() {
                 logger.info("Metrics messages[read={}/count, write={}/count]", readMessages, writeMessages);
             }
         });
+    }
+
+    public static MessageMetrics getOrSetMetrics(Channel channel) {
+        Attribute<MessageMetrics> attribute = channel.attr(ATTR_KEY_METRICS);
+        MessageMetrics metrics = attribute.get();
+        if (metrics == null) {
+            metrics = new MessageMetrics();
+            attribute.set(metrics);
+        }
+        return metrics;
     }
 
     @Override
@@ -54,9 +65,9 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
     protected void onMessageWriter(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         MessageMetrics metrics = getOrSetMetrics(ctx.channel());
         metrics.incrementWrote(1);
-        if(promise.isVoid()) {
+        if (promise.isVoid()) {
             ctx.write(msg, promise);
-        }else {
+        } else {
             ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
     }
@@ -69,14 +80,26 @@ public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object,
         ctx.close(promise);
     }
 
-    public static MessageMetrics getOrSetMetrics(Channel channel) {
-        Attribute<MessageMetrics> attribute = channel.attr(ATTR_KEY_METRICS);
-        MessageMetrics metrics = attribute.get();
-        if(metrics == null) {
-            metrics = new MessageMetrics();
-            attribute.set(metrics);
+    public static class MessageMetrics {
+
+        private long m_messagesRead;
+        private long m_messageWrote;
+
+        void incrementRead(long numMessages) {
+            m_messagesRead += numMessages;
         }
-        return metrics;
+
+        void incrementWrote(long numMessages) {
+            m_messageWrote += numMessages;
+        }
+
+        public long messagesRead() {
+            return m_messagesRead;
+        }
+
+        public long messagesWrote() {
+            return m_messageWrote;
+        }
     }
 
 }

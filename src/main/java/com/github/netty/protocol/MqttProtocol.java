@@ -25,8 +25,9 @@ import java.text.ParseException;
 
 /**
  * Internet of things messaging protocol
+ *
  * @author wangzihao
- *  2018/12/5/005
+ * 2018/12/5/005
  */
 public class MqttProtocol extends AbstractProtocol {
     private LoggerX logger = LoggerFactoryX.getLogger(MqttProtocol.class);
@@ -46,14 +47,13 @@ public class MqttProtocol extends AbstractProtocol {
     private MqttPostOffice mqttPostOffice;
 
     public MqttProtocol() {
-        this(8092,10,0);
+        this(8092, 10, 0);
     }
 
     /**
-     *
-     * @param messageMaxLength Maximum message length per pass (bytes)
+     * @param messageMaxLength           Maximum message length per pass (bytes)
      * @param nettyReaderIdleTimeSeconds Read idle interval (seconds)
-     * @param autoFlushIdleTime Auto refresh buffer interval (s). If greater than 0, it will be on and auto refresh. If less than or equal to 0, it will refresh every time
+     * @param autoFlushIdleTime          Auto refresh buffer interval (s). If greater than 0, it will be on and auto refresh. If less than or equal to 0, it will refresh every time
      */
     public MqttProtocol(int messageMaxLength, int nettyReaderIdleTimeSeconds, int autoFlushIdleTime) {
         this.messageMaxLength = messageMaxLength;
@@ -68,17 +68,14 @@ public class MqttProtocol extends AbstractProtocol {
 
     @Override
     public boolean canSupport(ByteBuf msg) {
-        if(msg.readableBytes() < 9){
+        if (msg.readableBytes() < 9) {
             return false;
         }
 
-        if( msg.getByte(4) == 'M'
-                &&  msg.getByte(5) == 'Q'
-                &&  msg.getByte(6) == 'T'
-                &&   msg.getByte(7) == 'T'){
-            return true;
-        }
-        return false;
+        return msg.getByte(4) == 'M'
+                && msg.getByte(5) == 'Q'
+                && msg.getByte(6) == 'T'
+                && msg.getByte(7) == 'T';
     }
 
     @Override
@@ -91,7 +88,7 @@ public class MqttProtocol extends AbstractProtocol {
 
         pipeline.addLast("decoder", new MqttDecoder(messageMaxLength));
         pipeline.addLast("encoder", MqttEncoder.INSTANCE);
-        pipeline.addLast("messageLogger",mqttMessageLoggerChannelHandler);
+        pipeline.addLast("messageLogger", mqttMessageLoggerChannelHandler);
         pipeline.addLast("handler", mqttServerChannelHandler);
     }
 
@@ -106,13 +103,13 @@ public class MqttProtocol extends AbstractProtocol {
 
         ISubscriptionsDirectory subscriptions = new CTrieSubscriptionDirectory(new MemorySubscriptionsRepository());
         MqttSessionRegistry sessions = new MqttSessionRegistry(subscriptions, new MemoryQueueRepository());
-        mqttPostOffice = new MqttPostOffice(subscriptions, authorizatorPolicy, new MemoryRetainedRepository(), sessions,interceptor);
-        mqttServerChannelHandler = new MqttServerChannelHandler(interceptor,new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, mqttPostOffice);
+        mqttPostOffice = new MqttPostOffice(subscriptions, authorizatorPolicy, new MemoryRetainedRepository(), sessions, interceptor);
+        mqttServerChannelHandler = new MqttServerChannelHandler(interceptor, new BrokerConfiguration(), new AcceptAllAuthenticator(), sessions, mqttPostOffice);
     }
 
     @Override
     public <T extends AbstractNettyServer> void onServerStop(T server) throws Exception {
-        if(interceptor != null) {
+        if (interceptor != null) {
             interceptor.stop();
         }
     }

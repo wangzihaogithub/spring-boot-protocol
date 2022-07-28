@@ -12,27 +12,27 @@ public class ThreadPoolX extends ScheduledThreadPoolExecutor {
 
     private static ThreadPoolX DEFAULT_INSTANCE;
 
-    public static ThreadPoolX getDefaultInstance(){
-        if(DEFAULT_INSTANCE == null){
-            synchronized (ThreadPoolX.class){
-                if(DEFAULT_INSTANCE == null){
-                    DEFAULT_INSTANCE = new ThreadPoolX("Default", SystemPropertyUtil.getInt("netty-core.defaultThreadPoolCount",3));
+    public ThreadPoolX(int corePoolSize) {
+        this("", corePoolSize);
+    }
+
+    public ThreadPoolX(String preName, int corePoolSize) {
+        this(preName, corePoolSize, Thread.MAX_PRIORITY, false);
+    }
+
+    public ThreadPoolX(String preName, int corePoolSize, int priority, boolean daemon) {
+        super(corePoolSize, new ThreadFactoryX(preName, ThreadPoolX.class, priority, daemon), new RejectedExecutionHandlerX());
+    }
+
+    public static ThreadPoolX getDefaultInstance() {
+        if (DEFAULT_INSTANCE == null) {
+            synchronized (ThreadPoolX.class) {
+                if (DEFAULT_INSTANCE == null) {
+                    DEFAULT_INSTANCE = new ThreadPoolX("Default", SystemPropertyUtil.getInt("netty-core.defaultThreadPoolCount", 3));
                 }
             }
         }
         return DEFAULT_INSTANCE;
-    }
-
-    public ThreadPoolX(int corePoolSize) {
-        this("",corePoolSize);
-    }
-
-    public ThreadPoolX(String preName, int corePoolSize) {
-        this(preName,corePoolSize,Thread.MAX_PRIORITY,false);
-    }
-
-    public ThreadPoolX(String preName, int corePoolSize, int priority,boolean daemon) {
-        super(corePoolSize, new ThreadFactoryX(preName, ThreadPoolX.class,priority,daemon), new RejectedExecutionHandlerX());
     }
 
     @Override
@@ -52,7 +52,8 @@ public class ThreadPoolX extends ScheduledThreadPoolExecutor {
 
     private static class RejectedExecutionHandlerX implements RejectedExecutionHandler {
 
-        private RejectedExecutionHandlerX() { }
+        private RejectedExecutionHandlerX() {
+        }
 
         @Override
         public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {

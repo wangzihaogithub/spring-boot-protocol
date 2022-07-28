@@ -30,16 +30,16 @@ public abstract class IConfig {
      *
      * @param name property name.
      * @return property value.
-     * */
+     */
     public abstract String getProperty(String name);
 
     /**
      * Same semantic of Properties
      *
-     * @param name property name.
+     * @param name         property name.
      * @param defaultValue default value to return in case the property doesn't exists.
      * @return property value.
-     * */
+     */
     public abstract String getProperty(String name, String defaultValue);
 
     void assignDefaults() {
@@ -54,7 +54,7 @@ public abstract class IConfig {
         setProperty(BrokerConstants.AUTHENTICATOR_CLASS_NAME, "");
         setProperty(BrokerConstants.AUTHORIZATOR_CLASS_NAME, "");
         setProperty(BrokerConstants.NETTY_MAX_BYTES_PROPERTY_NAME,
-            String.valueOf(BrokerConstants.DEFAULT_NETTY_MAX_BYTES_IN_MESSAGE));
+                String.valueOf(BrokerConstants.DEFAULT_NETTY_MAX_BYTES_IN_MESSAGE));
     }
 
     public abstract IResourceLoader getResourceLoader();

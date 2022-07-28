@@ -10,12 +10,13 @@ import java.util.*;
 
 /**
  * The servlet supportPipeline
+ *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
 public class ServletRegistration implements javax.servlet.ServletRegistration, javax.servlet.ServletRegistration.Dynamic {
-    private String servletName;
     private final Servlet servlet;
+    private String servletName;
     private ServletConfig servletConfig;
     private ServletContext servletContext;
     private UrlMapper<ServletRegistration> urlMapper;
@@ -24,8 +25,8 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private String roleName;
     private boolean asyncSupported = true;
     private int loadOnStartup = -1;
-    private Map<String,String> initParameterMap = new LinkedHashMap<>();
-    private Set<String> mappingSet = new LinkedHashSet<String>(){
+    private Map<String, String> initParameterMap = new LinkedHashMap<>();
+    private Set<String> mappingSet = new LinkedHashSet<String>() {
         @Override
         public boolean add(String pattern) {
             urlMapper.addMapping(pattern, ServletRegistration.this, servletName);
@@ -101,12 +102,17 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
         return loadOnStartup;
     }
 
-    public void setInitServlet(boolean initServlet) {
-        this.initServlet = initServlet;
+    @Override
+    public void setLoadOnStartup(int loadOnStartup) {
+        this.loadOnStartup = loadOnStartup;
     }
 
     public boolean isInitServlet() {
         return initServlet;
+    }
+
+    public void setInitServlet(boolean initServlet) {
+        this.initServlet = initServlet;
     }
 
     @Override
@@ -126,6 +132,11 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     }
 
     @Override
+    public void setRunAsRole(String roleName) {
+        this.roleName = roleName;
+    }
+
+    @Override
     public String getName() {
         return servletName;
     }
@@ -137,7 +148,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
 
     @Override
     public boolean setInitParameter(String name, String value) {
-        return initParameterMap.put(name,value) != null;
+        return initParameterMap.put(name, value) != null;
     }
 
     @Override
@@ -157,11 +168,6 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     }
 
     @Override
-    public void setLoadOnStartup(int loadOnStartup) {
-        this.loadOnStartup = loadOnStartup;
-    }
-
-    @Override
     public Set<String> setServletSecurity(ServletSecurityElement constraint) {
         this.servletSecurityElement = constraint;
         servletSecuritys.addAll(servletSecurityElement.getMethodNames());
@@ -171,11 +177,6 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     @Override
     public void setMultipartConfig(MultipartConfigElement multipartConfig) {
         this.multipartConfigElement = multipartConfig;
-    }
-
-    @Override
-    public void setRunAsRole(String roleName) {
-        this.roleName = roleName;
     }
 
     @Override

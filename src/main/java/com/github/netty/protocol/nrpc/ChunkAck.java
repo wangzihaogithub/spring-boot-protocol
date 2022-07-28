@@ -4,12 +4,6 @@ import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.Promise;
 
 public interface ChunkAck {
-    Promise ack(Object ack);
-    boolean isAck();
-    default void ack() {
-        ack(null);
-    }
-
     ChunkAck DONT_NEED_ACK = new ChunkAck() {
         @Override
         public Promise ack(Object ack) {
@@ -28,5 +22,13 @@ public interface ChunkAck {
             return true;
         }
     };
+
+    Promise ack(Object ack);
+
+    boolean isAck();
+
+    default void ack() {
+        ack(null);
+    }
 
 }

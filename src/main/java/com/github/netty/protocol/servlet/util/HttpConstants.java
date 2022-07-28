@@ -3,9 +3,8 @@ package com.github.netty.protocol.servlet.util;
 import java.nio.charset.Charset;
 
 /**
- *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class HttpConstants {
 

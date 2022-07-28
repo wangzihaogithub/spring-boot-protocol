@@ -40,10 +40,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
 import static com.github.netty.protocol.nrpc.RpcPacket.*;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 
 /**
  * RPC client
@@ -52,13 +52,6 @@ import static com.github.netty.protocol.nrpc.RpcPacket.*;
  * 2018/8/18/018
  */
 public class RpcClient extends AbstractNettyClient {
-    protected final DataCodec dataCodec;
-    protected final ExpiryLRUMap<Integer, RpcDone> rpcDoneMap = new ExpiryLRUMap<>(512, Long.MAX_VALUE, Long.MAX_VALUE, null);
-    private final Map<String, Sender> rpcInstanceMap = new LinkedHashMap<>(6);
-    private final AtomicInteger requestIdIncr = new AtomicInteger();
-    private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
-    private final RpcCommandAsyncService rpcCommandAsyncService;
-    private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
     private static final Subscriber<byte[]> pingSubscriber = new Subscriber<byte[]>() {
         @Override
         public void onSubscribe(Subscription s) {
@@ -80,6 +73,13 @@ public class RpcClient extends AbstractNettyClient {
 
         }
     };
+    protected final DataCodec dataCodec;
+    protected final ExpiryLRUMap<Integer, RpcDone> rpcDoneMap = new ExpiryLRUMap<>(512, Long.MAX_VALUE, Long.MAX_VALUE, null);
+    private final Map<String, Sender> rpcInstanceMap = new LinkedHashMap<>(6);
+    private final AtomicInteger requestIdIncr = new AtomicInteger();
+    private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
+    private final RpcCommandAsyncService rpcCommandAsyncService;
+    private final List<RpcClientAop> nettyRpcClientAopList = new CopyOnWriteArrayList<>();
     private int idleTimeMs = 5000;
     private int reconnectScheduledIntervalMs = 5000;
     private long connectTimeout = 1000;
@@ -387,7 +387,7 @@ public class RpcClient extends AbstractNettyClient {
                 yieldCount++;
             }
         }
-        if (yieldCount != 0 && enableRpcHeartLog) {
+        if (yieldCount != 0 && enableRpcHeartLog && logger.isDebugEnabled()) {
             logger.debug("RpcClient waitWritable... yieldCount={}", yieldCount);
         }
         return socketChannel;
@@ -433,7 +433,7 @@ public class RpcClient extends AbstractNettyClient {
                 yieldCount++;
                 Thread.yield();
             }
-            if (enableRpcHeartLog) {
+            if (enableRpcHeartLog && logger.isDebugEnabled()) {
                 logger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
             }
             return super.getChannel();
@@ -476,11 +476,11 @@ public class RpcClient extends AbstractNettyClient {
     @Override
     protected void connectAfter(ChannelFuture future) {
         if (future.isSuccess()) {
-            if (enableRpcHeartLog) {
+            if (enableRpcHeartLog && logger.isDebugEnabled()) {
                 logger.debug("RpcClient connect success... {}", future.channel());
             }
         } else {
-            if (enableRpcHeartLog) {
+            if (enableRpcHeartLog && logger.isDebugEnabled()) {
                 logger.debug("RpcClient connect fail... {}", future.channel());
             }
         }
@@ -855,104 +855,12 @@ public class RpcClient extends AbstractNettyClient {
         }
     }
 
-    class ReceiverChannelHandler extends AbstractChannelHandler<RpcPacket, Object> {
-        private final Subscriber<byte[]> readerIdlePingHandler = new Subscriber<byte[]>() {
-            @Override
-            public void onSubscribe(Subscription s) {
-                s.request(1);
-            }
-
-            @Override
-            public void onNext(byte[] bytes) {
-                if (state != State.UP) {
-                    state = State.UP;
-                }
-                if (enableRpcHeartLog) {
-                    logger.debug("RpcClient heart UP by readerIdle {}...{}", new String(bytes), RpcClient.super.getChannel());
-                }
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                if (state != State.DOWN) {
-                    state = State.DOWN;
-                }
-                SocketChannel channel = RpcClient.super.getChannel();
-                if (channel != null) {
-                    channel.close();
-                }
-                if (enableRpcHeartLog) {
-                    logger.debug("RpcClient heart DOWN by readerIdle ...{} {}", RpcClient.super.getChannel(), t.toString());
-                }
-            }
-
-            @Override
-            public void onComplete() {
-            }
-        };
-
-        ReceiverChannelHandler() {
-            super(false);
-        }
-
-        @Override
-        protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
-            if (packet instanceof ResponseChunkPacket) {
-                ResponseChunkPacket chunk = (ResponseChunkPacket) packet;
-                RpcDone rpcDone = rpcDoneMap.get(chunk.getRequestId());
-                if (rpcDone != null) {
-                    ChunkAck ack;
-                    if (chunk.getAck() == RpcPacket.ACK_YES) {
-                        ack = new ChunkAckSender(chunk.getRequestId(), chunk.getChunkId(), ctx, dataCodec);
-                    } else {
-                        ack = ChunkAck.DONT_NEED_ACK;
-                    }
-                    rpcDone.chunk(chunk, ack);
-                }
-            } else if (packet instanceof ResponseLastPacket) {
-                ResponseLastPacket last = (ResponseLastPacket) packet;
-                RpcDone rpcDone = rpcDoneMap.remove(last.getRequestId());
-                if (rpcDone != null) {
-                    rpcDone.done(last);
-                }
-            } else {
-                logger.debug("client received packet={}", String.valueOf(packet));
-                packet.recycle();
-            }
-        }
-
-        @Override
-        protected void onReaderIdle(ChannelHandlerContext ctx) {
-            //heart beat
-            getRpcCommandAsyncService().ping().subscribe(readerIdlePingHandler);
-        }
-
-        @Override
-        public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            state = State.UP;
-            for (RpcClientAop aop : nettyRpcClientAopList) {
-                aop.onConnectAfter(RpcClient.this);
-            }
-        }
-
-        @Override
-        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            state = State.DOWN;
-            if (enableReconnectScheduledTask) {
-                scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
-            }
-            for (RpcClientAop aop : nettyRpcClientAopList) {
-                aop.onDisconnectAfter(RpcClient.this);
-            }
-        }
-    }
-
     static class ChunkAckSender implements ChunkAck {
-        private boolean ackFlag = false;
         private final int requestId;
         private final int chunkId;
         private final ChannelHandlerContext ctx;
         private final DataCodec dataCodec;
+        private boolean ackFlag = false;
 
         ChunkAckSender(int requestId, int chunkId, ChannelHandlerContext ctx, DataCodec dataCodec) {
             this.requestId = requestId;
@@ -988,6 +896,100 @@ public class RpcClient extends AbstractNettyClient {
         @Override
         public boolean isAck() {
             return ackFlag;
+        }
+    }
+
+    class ReceiverChannelHandler extends AbstractChannelHandler<RpcPacket, Object> {
+        private final Subscriber<byte[]> readerIdlePingHandler = new Subscriber<byte[]>() {
+            @Override
+            public void onSubscribe(Subscription s) {
+                s.request(1);
+            }
+
+            @Override
+            public void onNext(byte[] bytes) {
+                if (state != State.UP) {
+                    state = State.UP;
+                }
+                if (enableRpcHeartLog && logger.isDebugEnabled()) {
+                    logger.debug("RpcClient heart UP by readerIdle {}...{}", new String(bytes), RpcClient.super.getChannel());
+                }
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                if (state != State.DOWN) {
+                    state = State.DOWN;
+                }
+                SocketChannel channel = RpcClient.super.getChannel();
+                if (channel != null) {
+                    channel.close();
+                }
+                if (enableRpcHeartLog && logger.isDebugEnabled()) {
+                    logger.debug("RpcClient heart DOWN by readerIdle ...{} {}", RpcClient.super.getChannel(), t.toString());
+                }
+            }
+
+            @Override
+            public void onComplete() {
+            }
+        };
+
+        ReceiverChannelHandler() {
+            super(false);
+        }
+
+        @Override
+        protected void onMessageReceived(ChannelHandlerContext ctx, RpcPacket packet) throws Exception {
+            if (packet instanceof ResponseChunkPacket) {
+                ResponseChunkPacket chunk = (ResponseChunkPacket) packet;
+                RpcDone rpcDone = rpcDoneMap.get(chunk.getRequestId());
+                if (rpcDone != null) {
+                    ChunkAck ack;
+                    if (chunk.getAck() == RpcPacket.ACK_YES) {
+                        ack = new ChunkAckSender(chunk.getRequestId(), chunk.getChunkId(), ctx, dataCodec);
+                    } else {
+                        ack = ChunkAck.DONT_NEED_ACK;
+                    }
+                    rpcDone.chunk(chunk, ack);
+                }
+            } else if (packet instanceof ResponseLastPacket) {
+                ResponseLastPacket last = (ResponseLastPacket) packet;
+                RpcDone rpcDone = rpcDoneMap.remove(last.getRequestId());
+                if (rpcDone != null) {
+                    rpcDone.done(last);
+                }
+            } else {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("client received packet={}", String.valueOf(packet));
+                }
+                packet.recycle();
+            }
+        }
+
+        @Override
+        protected void onReaderIdle(ChannelHandlerContext ctx) {
+            //heart beat
+            getRpcCommandAsyncService().ping().subscribe(readerIdlePingHandler);
+        }
+
+        @Override
+        public void channelActive(ChannelHandlerContext ctx) throws Exception {
+            state = State.UP;
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onConnectAfter(RpcClient.this);
+            }
+        }
+
+        @Override
+        public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+            state = State.DOWN;
+            if (enableReconnectScheduledTask) {
+                scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+            }
+            for (RpcClientAop aop : nettyRpcClientAopList) {
+                aop.onDisconnectAfter(RpcClient.this);
+            }
         }
     }
 }

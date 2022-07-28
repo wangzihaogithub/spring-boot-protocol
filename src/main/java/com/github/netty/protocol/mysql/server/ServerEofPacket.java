@@ -29,31 +29,31 @@ import java.util.Set;
  */
 public class ServerEofPacket extends AbstractMySqlPacket implements ServerPacket {
 
-	private final int warnings;
-	private final Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
+    private final int warnings;
+    private final Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
 
-	public ServerEofPacket(int sequenceId, int warnings, ServerStatusFlag... flags) {
-		super(sequenceId);
-		this.warnings = warnings;
-		Collections.addAll(statusFlags, flags);
-	}
+    public ServerEofPacket(int sequenceId, int warnings, ServerStatusFlag... flags) {
+        super(sequenceId);
+        this.warnings = warnings;
+        Collections.addAll(statusFlags, flags);
+    }
 
-	public ServerEofPacket(int sequenceId, int warnings, Collection<ServerStatusFlag> flags) {
-		super(sequenceId);
-		this.warnings = warnings;
-		statusFlags.addAll(flags);
-	}
+    public ServerEofPacket(int sequenceId, int warnings, Collection<ServerStatusFlag> flags) {
+        super(sequenceId);
+        this.warnings = warnings;
+        statusFlags.addAll(flags);
+    }
 
-	public int getWarnings() {
-		return warnings;
-	}
+    public int getWarnings() {
+        return warnings;
+    }
 
-	public Set<ServerStatusFlag> getStatusFlags() {
-		return statusFlags;
-	}
+    public Set<ServerStatusFlag> getStatusFlags() {
+        return statusFlags;
+    }
 
-	@Override
-	public String toString() {
-		return super.toString()+","+statusFlags;
-	}
+    @Override
+    public String toString() {
+        return super.toString() + "," + statusFlags;
+    }
 }

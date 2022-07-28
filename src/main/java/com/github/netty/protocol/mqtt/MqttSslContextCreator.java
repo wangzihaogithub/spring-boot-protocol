@@ -40,12 +40,31 @@ import java.util.Objects;
  */
 public class MqttSslContextCreator {
 
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-
     private final IConfig props;
+    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     public MqttSslContextCreator(IConfig props) {
         this.props = Objects.requireNonNull(props);
+    }
+
+    /**
+     * The OpenSSL provider does not support the {@link KeyManagerFactory}, so we have to lookup the integration
+     * certificate and key in order to provide it to OpenSSL.
+     * <p>
+     * TODO: SNI is currently not supported, we use only the first found private key.
+     */
+    private static SslContextBuilder builderWithOpenSSLProvider(KeyStore ks, String keyPassword)
+            throws GeneralSecurityException {
+        for (String alias : Collections.list(ks.aliases())) {
+            if (ks.entryInstanceOf(alias, KeyStore.PrivateKeyEntry.class)) {
+                PrivateKey key = (PrivateKey) ks.getKey(alias, keyPassword.toCharArray());
+                Certificate[] chain = ks.getCertificateChain(alias);
+                X509Certificate[] certChain = new X509Certificate[chain.length];
+                System.arraycopy(chain, 0, certChain, 0, chain.length);
+                return SslContextBuilder.forServer(key, certChain);
+            }
+        }
+        throw new KeyManagementException("the SSL key-store does not contain a private key");
     }
 
     public SslContext initSSLContext() {
@@ -70,7 +89,7 @@ public class MqttSslContextCreator {
                     contextBuilder = builderWithOpenSSLProvider(ks, keyPassword);
                     break;
                 default:
-                    logger.error("unsupported SSL provider "+ sslProvider);
+                    logger.error("unsupported SSL provider " + sslProvider);
                     return null;
             }
             // if client authentification is enabled a trustmanager needs to be added to the ServerContext
@@ -116,26 +135,6 @@ public class MqttSslContextCreator {
         kmf.init(ks, keyPassword.toCharArray());
         logger.debug("Initializing SSL context...");
         return SslContextBuilder.forServer(kmf);
-    }
-
-    /**
-     * The OpenSSL provider does not support the {@link KeyManagerFactory}, so we have to lookup the integration
-     * certificate and key in order to provide it to OpenSSL.
-     * <p>
-     * TODO: SNI is currently not supported, we use only the first found private key.
-     */
-    private static SslContextBuilder builderWithOpenSSLProvider(KeyStore ks, String keyPassword)
-            throws GeneralSecurityException {
-        for (String alias : Collections.list(ks.aliases())) {
-            if (ks.entryInstanceOf(alias, KeyStore.PrivateKeyEntry.class)) {
-                PrivateKey key = (PrivateKey) ks.getKey(alias, keyPassword.toCharArray());
-                Certificate[] chain = ks.getCertificateChain(alias);
-                X509Certificate[] certChain = new X509Certificate[chain.length];
-                System.arraycopy(chain, 0, certChain, 0, chain.length);
-                return SslContextBuilder.forServer(key, certChain);
-            }
-        }
-        throw new KeyManagementException("the SSL key-store does not contain a private key");
     }
 
     private void addClientAuthentication(KeyStore ks, SslContextBuilder contextBuilder)

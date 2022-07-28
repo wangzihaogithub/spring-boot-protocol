@@ -68,12 +68,12 @@ public class NettyHttp2ClientPool extends ConcurrentHashMap<String, List<NettyHt
         return connectTimeout;
     }
 
-    public int getWorkerCount() {
-        return workerCount;
-    }
-
     public void setConnectTimeout(int connectTimeout) {
         this.connectTimeout = connectTimeout;
+    }
+
+    public int getWorkerCount() {
+        return workerCount;
     }
 
     public void setWorkerCount(int workerCount) {

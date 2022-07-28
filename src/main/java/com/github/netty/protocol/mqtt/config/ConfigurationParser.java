@@ -30,7 +30,7 @@ import java.util.Properties;
 
 /**
  * Mosquitto configuration parser.
- *
+ * <p>
  * A line that at the very first has # is a comment Each line has key value format, where the
  * separator used it the space.
  */
@@ -66,8 +66,7 @@ class ConfigurationParser {
     /**
      * Parse the configuration
      *
-     * @throws ParseException
-     *             if the format is not compliant.
+     * @throws ParseException if the format is not compliant.
      */
     void parse(Reader reader) throws ParseException {
         if (reader == null) {

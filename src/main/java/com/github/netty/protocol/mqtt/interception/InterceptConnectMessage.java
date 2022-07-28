@@ -18,8 +18,6 @@ package com.github.netty.protocol.mqtt.interception;
 
 import io.netty.handler.codec.mqtt.MqttConnectMessage;
 
-import java.nio.charset.Charset;
-
 public class InterceptConnectMessage extends InterceptAbstractMessage {
 
     private final MqttConnectMessage msg;

@@ -23,19 +23,19 @@ import com.github.netty.protocol.mysql.AbstractMySqlPacket;
  */
 public class ServerColumnCountPacket extends AbstractMySqlPacket implements ServerPacket {
 
-	private final int fieldCount;
+    private final int fieldCount;
 
-	public ServerColumnCountPacket(int sequenceId, int fieldCount) {
-		super(sequenceId);
-		this.fieldCount = fieldCount;
-	}
+    public ServerColumnCountPacket(int sequenceId, int fieldCount) {
+        super(sequenceId);
+        this.fieldCount = fieldCount;
+    }
 
-	public int getFieldCount() {
-		return fieldCount;
-	}
+    public int getFieldCount() {
+        return fieldCount;
+    }
 
-	@Override
-	public String toString() {
-		return super.toString()+","+fieldCount;
-	}
+    @Override
+    public String toString() {
+        return super.toString() + "," + fieldCount;
+    }
 }

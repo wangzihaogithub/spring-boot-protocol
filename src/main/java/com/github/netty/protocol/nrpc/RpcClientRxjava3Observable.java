@@ -9,21 +9,23 @@ import org.reactivestreams.Subscription;
 
 /**
  * support rxjava3 Observable async response.
+ *
  * @author wangzihao
- *  2020/05/17/019
+ * 2020/05/17/019
  */
 public class RpcClientRxjava3Observable extends Observable<Object> {
-    private final RpcClientReactivePublisher source;
     private static final Disposable EMPTY_DISPOSABLE = new Disposable() {
         @Override
         public void dispose() {
             // deliberately no-op
         }
+
         @Override
         public boolean isDisposed() {
             return true;
         }
     };
+    private final RpcClientReactivePublisher source;
 
     RpcClientRxjava3Observable(RpcClientReactivePublisher source) {
         this.source = source;
@@ -31,13 +33,14 @@ public class RpcClientRxjava3Observable extends Observable<Object> {
 
     @Override
     protected void subscribeActual(@NonNull Observer<? super Object> observer) {
-        source.subscribe(new SubscriberAdapter(observer,EMPTY_DISPOSABLE));
+        source.subscribe(new SubscriberAdapter(observer, EMPTY_DISPOSABLE));
     }
 
-    private static class SubscriberAdapter implements Subscriber<Object>{
+    private static class SubscriberAdapter implements Subscriber<Object> {
         private final Observer<? super Object> observer;
         private final Disposable disposable;
-        private SubscriberAdapter(Observer<? super Object> observer,Disposable disposable) {
+
+        private SubscriberAdapter(Observer<? super Object> observer, Disposable disposable) {
             this.observer = observer;
             this.disposable = disposable;
         }

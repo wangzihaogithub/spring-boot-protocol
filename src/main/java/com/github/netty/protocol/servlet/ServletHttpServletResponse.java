@@ -20,12 +20,16 @@ import java.util.function.Consumer;
 
 /**
  * Servlet response
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse, Recyclable {
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
-
+    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
+    private final NettyHttpResponse nettyResponse = new NettyHttpResponse();
+    private final List<Cookie> cookies = new ArrayList<>();
+    private final AtomicInteger errorState = new AtomicInteger(0);
     private ServletHttpExchange servletHttpExchange;
     private PrintWriter writer;
     private String contentType;
@@ -34,12 +38,9 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     private boolean commitFlag = false;
     private long contentLength = -1;
     private int bufferSize = -1;
-    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
-    private final NettyHttpResponse nettyResponse = new NettyHttpResponse();
-    private final List<Cookie> cookies = new ArrayList<>();
-    private final AtomicInteger errorState = new AtomicInteger(0);
 
-    protected ServletHttpServletResponse() {}
+    protected ServletHttpServletResponse() {
+    }
 
     public static ServletHttpServletResponse newInstance(ServletHttpExchange servletHttpExchange) {
         Objects.requireNonNull(servletHttpExchange);
@@ -73,19 +74,26 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return contentLength;
     }
 
+    @Override
+    public void setContentLength(int len) {
+        setContentLengthLong(len);
+    }
+
     /**
      * Servlet response
+     *
      * @throws IllegalStateException
      */
     private void checkCommitted() throws IllegalStateException {
-        if(isCommitted()) {
+        if (isCommitted()) {
             throw new IllegalStateException("Cannot call sendError() after the response has been committed");
         }
     }
 
     /**
      * The header special field is checked, and if it is a special field, it is processed
-     * @param name Special field
+     *
+     * @param name  Special field
      * @param value value
      * @return True = processed, false= not processed
      */
@@ -94,12 +102,12 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             setContentType(value);
             return true;
         }
-        if(HttpHeaderConstants.CONTENT_LENGTH.toString().equalsIgnoreCase(name)) {
+        if (HttpHeaderConstants.CONTENT_LENGTH.toString().equalsIgnoreCase(name)) {
             try {
-                long cL = Long.parseLong( value );
+                long cL = Long.parseLong(value);
                 setContentLengthLong(cL);
                 return true;
-            } catch( NumberFormatException ex ) {
+            } catch (NumberFormatException ex) {
                 // Do nothing - the spec doesn't have any "throws"
                 // and the user might know what he's doing
                 return false;
@@ -110,10 +118,11 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     /**
      * Add header fields (only one field and one value is supported)
+     *
      * @param name
      * @param value
      */
-    private void setHeaderObject(String name, Object value){
+    private void setHeaderObject(String name, Object value) {
         if (name == null || name.length() == 0 || value == null) {
             return;
         }
@@ -128,15 +137,16 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
                 return;
             }
         }
-        getNettyHeaders().set((CharSequence)name, value);
+        getNettyHeaders().set((CharSequence) name, value);
     }
 
     /**
      * Add header fields (support multiple values for one field)
+     *
      * @param name
      * @param value
      */
-    private void addHeaderObject(String name, Object value){
+    private void addHeaderObject(String name, Object value) {
         if (name == null || name.length() == 0 || value == null) {
             return;
         }
@@ -154,7 +164,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         getNettyHeaders().add((CharSequence) name, value);
     }
 
-    private HttpHeaders getNettyHeaders(){
+    private HttpHeaders getNettyHeaders() {
         return nettyResponse.headers();
     }
 
@@ -170,7 +180,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public String encodeURL(String url) {
-        if(!servletHttpExchange.getRequest().isRequestedSessionIdFromCookie()){
+        if (!servletHttpExchange.getRequest().isRequestedSessionIdFromCookie()) {
             //If the Session ID comes from a Cookie, then the client definitely supports cookies and does not need to rewrite the URL
             return url;
         }
@@ -200,7 +210,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         nettyResponse.setStatus(new HttpResponseStatus(sc, msg));
         resetBuffer();
         setError();
-        if(contentType == null){
+        if (contentType == null) {
             setContentType("text/html");
         }
     }
@@ -211,7 +221,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
         resetBuffer();
         setError();
-        if(contentType == null){
+        if (contentType == null) {
             setContentType("text/html");
         }
     }
@@ -220,33 +230,33 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     public void sendRedirect(String location) throws IOException {
         checkCommitted();
         nettyResponse.setStatus(HttpResponseStatus.FOUND);
-        getNettyHeaders().set(HttpHeaderConstants.LOCATION, (CharSequence)location);
+        getNettyHeaders().set(HttpHeaderConstants.LOCATION, location);
         commitFlag = true;
     }
 
     @Override
     public void setDateHeader(String name, long date) {
-        setHeaderObject(name,date);
+        setHeaderObject(name, date);
     }
 
     @Override
     public void addDateHeader(String name, long date) {
-        addHeaderObject(name,date);
+        addHeaderObject(name, date);
     }
 
     @Override
     public void setHeader(String name, String value) {
-        setHeaderObject(name,value);
+        setHeaderObject(name, value);
     }
 
     @Override
     public void addHeader(String name, String value) {
-        addHeaderObject(name,value);
+        addHeaderObject(name, value);
     }
 
     @Override
     public void setIntHeader(String name, int value) {
-        setHeaderObject(name,value);
+        setHeaderObject(name, value);
     }
 
     @Override
@@ -254,7 +264,12 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         if (isCommitted()) {
             return;
         }
-        addHeaderObject(name,value);
+        addHeaderObject(name, value);
+    }
+
+    @Override
+    public String getContentType() {
+        return contentType;
     }
 
     @Override
@@ -273,16 +288,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
-    public String getContentType() {
-        return contentType;
-    }
-
-    @Override
-    public void setStatus(int sc) {
-        nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
-    }
-
-    @Override
     @Deprecated
     public void setStatus(int sc, String sm) {
         nettyResponse.setStatus(new HttpResponseStatus(sc, sm));
@@ -294,16 +299,21 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
+    public void setStatus(int sc) {
+        nettyResponse.setStatus(HttpResponseStatus.valueOf(sc));
+    }
+
+    @Override
     public String getHeader(String name) {
         Object value = nettyResponse.headers().get((CharSequence) name);
-        return value == null? null : String.valueOf(value);
+        return value == null ? null : String.valueOf(value);
     }
 
     @Override
     public Collection<String> getHeaders(String name) {
         List list = nettyResponse.headers().getAll((CharSequence) name);
         List<String> stringList = new LinkedList<>();
-        for(Object charSequence : list){
+        for (Object charSequence : list) {
             stringList.add(String.valueOf(charSequence));
         }
         return stringList;
@@ -314,7 +324,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         Set nameSet = nettyResponse.headers().names();
 
         List<String> nameList = new LinkedList<>();
-        for(Object charSequence : nameSet){
+        for (Object charSequence : nameSet) {
             nameList.add(String.valueOf(charSequence));
         }
         return nameList;
@@ -326,21 +336,29 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
-    public ServletOutputStreamWrapper getOutputStream(){
+    public void setCharacterEncoding(String charset) {
+        if (writer != null) {
+            return;
+        }
+        characterEncoding = charset;
+    }
+
+    @Override
+    public ServletOutputStreamWrapper getOutputStream() {
         return outputStream;
     }
 
     @Override
-    public PrintWriter getWriter(){
-        if(writer != null){
+    public PrintWriter getWriter() {
+        if (writer != null) {
             return writer;
         }
 
         String characterEncoding = getCharacterEncoding();
-        if(characterEncoding == null || characterEncoding.isEmpty()){
-            if(MediaType.isHtmlType(getContentType())){
+        if (characterEncoding == null || characterEncoding.isEmpty()) {
+            if (MediaType.isHtmlType(getContentType())) {
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
-            }else {
+            } else {
                 characterEncoding = servletHttpExchange.getServletContext().getResponseCharacterEncoding();
             }
             setCharacterEncoding(characterEncoding);
@@ -351,34 +369,21 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
-    public void setCharacterEncoding(String charset) {
-        if(writer != null){
-            return;
-        }
-        characterEncoding = charset;
-    }
-
-    @Override
-    public void setContentLength(int len) {
-        setContentLengthLong(len);
-    }
-
-    @Override
     public void setContentLengthLong(long len) {
         contentLength = len;
     }
 
     @Override
-    public void setBufferSize(int size) {
-        this.bufferSize = size;
-    }
-
-    @Override
     public int getBufferSize() {
-        if(bufferSize == -1){
+        if (bufferSize == -1) {
             bufferSize = getServletHttpExchange().getServletContext().getMaxBufferBytes();
         }
         return bufferSize;
+    }
+
+    @Override
+    public void setBufferSize(int size) {
+        this.bufferSize = size;
     }
 
     @Override
@@ -388,7 +393,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public boolean isCommitted() {
-        if(commitFlag){
+        if (commitFlag) {
             return true;
         }
         ServletOutputStream out = outputStream.unwrap();
@@ -423,29 +428,30 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     /**
      * Whether to reset the print stream
+     *
      * @param resetWriterStreamFlags True = resets the print stream, false= does not reset the print stream
      */
     public void resetBuffer(boolean resetWriterStreamFlags) {
         checkCommitted();
-        if(outputStream.unwrap() == null){
+        if (outputStream.unwrap() == null) {
             return;
         }
         outputStream.resetBuffer();
         contentLength = -1;
-        if(resetWriterStreamFlags) {
+        if (resetWriterStreamFlags) {
             writer = null;
             characterEncoding = null;
         }
     }
 
     @Override
-    public void setLocale(Locale loc) {
-        locale = loc;
+    public Locale getLocale() {
+        return null == locale ? Locale.getDefault() : locale;
     }
 
     @Override
-    public Locale getLocale() {
-        return null == locale ? Locale.getDefault() : locale;
+    public void setLocale(Locale loc) {
+        locale = loc;
     }
 
     public Locale getLocaleUse() {
@@ -462,12 +468,12 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         return errorState.get() > 0;
     }
 
-    public String getMessage(){
+    public String getMessage() {
         return nettyResponse.getStatus().reasonPhrase();
     }
 
-    private void setError(){
-        errorState.compareAndSet(0,1);
+    private void setError() {
+        errorState.compareAndSet(0, 1);
     }
 
     /**
@@ -478,7 +484,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         @Override
         public void operationComplete(ChannelFuture future) throws Exception {
             ServletHttpExchange exchange = servletHttpExchange;
-            if(exchange != null && exchange.isAbort()){
+            if (exchange != null && exchange.isAbort()) {
                 return;
             }
             nettyResponse.recycle();

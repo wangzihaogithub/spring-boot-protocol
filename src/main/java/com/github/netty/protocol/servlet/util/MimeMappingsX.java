@@ -25,6 +25,7 @@ public class MimeMappingsX implements Iterable<MimeMappingsX.MappingX> {
 
     /**
      * Returns all defined mappings.
+     *
      * @return the mappings.
      */
     public Collection<MappingX> getAll() {
@@ -33,8 +34,9 @@ public class MimeMappingsX implements Iterable<MimeMappingsX.MappingX> {
 
     /**
      * Add a new mime mapping.
+     *
      * @param extension the file extension (excluding '.')
-     * @param mimeType the mime type to map
+     * @param mimeType  the mime type to map
      * @return any previous mapping or {@code null}
      */
     public String add(String extension, String mimeType) {
@@ -44,6 +46,7 @@ public class MimeMappingsX implements Iterable<MimeMappingsX.MappingX> {
 
     /**
      * Get a mime mapping for the given extension.
+     *
      * @param extension the file extension (excluding '.')
      * @return a mime mapping or {@code null}
      */
@@ -54,6 +57,7 @@ public class MimeMappingsX implements Iterable<MimeMappingsX.MappingX> {
 
     /**
      * Remove an existing mapping.
+     *
      * @param extension the file extension (excluding '.')
      * @return the removed mime mapping or {@code null} if no item was removed
      */
@@ -85,7 +89,7 @@ public class MimeMappingsX implements Iterable<MimeMappingsX.MappingX> {
     /**
      * A single mime mapping.
      */
-    public  final class MappingX {
+    public final class MappingX {
 
         private final String extension;
 

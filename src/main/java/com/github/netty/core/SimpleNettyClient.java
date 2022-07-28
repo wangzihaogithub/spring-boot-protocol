@@ -8,14 +8,16 @@ import java.net.InetSocketAddress;
 import java.util.function.Supplier;
 
 /**
- *  An simple netty client
+ * An simple netty client
+ *
  * @author wangzihao
- *  2020/2/27/018
+ * 2020/2/27/018
  */
-public class SimpleNettyClient extends AbstractNettyClient{
+public class SimpleNettyClient extends AbstractNettyClient {
     private ChannelHandler handler;
+
     public SimpleNettyClient(String namePre) {
-        super(namePre,null);
+        super(namePre, null);
     }
 
     @Override

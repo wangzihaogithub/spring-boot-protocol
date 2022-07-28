@@ -22,19 +22,19 @@ import com.github.netty.protocol.mysql.Command;
  *
  */
 public class ClientQueryPacket extends ClientCommandPacket {
-	private final String query;
+    private final String query;
 
-	public ClientQueryPacket(int sequenceId, String query) {
-		super(sequenceId, Command.COM_QUERY);
-		this.query = query;
-	}
+    public ClientQueryPacket(int sequenceId, String query) {
+        super(sequenceId, Command.COM_QUERY);
+        this.query = query;
+    }
 
-	public String getQuery() {
-		return query;
-	}
+    public String getQuery() {
+        return query;
+    }
 
-	@Override
-	public String toString() {
-		return super.toString()+","+query;
-	}
+    @Override
+    public String toString() {
+        return super.toString() + "," + query;
+    }
 }

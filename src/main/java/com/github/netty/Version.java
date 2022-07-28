@@ -5,6 +5,7 @@ import java.util.Properties;
 
 /**
  * server version
+ *
  * @author wangzihao
  */
 public final class Version {
@@ -71,7 +72,7 @@ public final class Version {
         return OS_NAME;
     }
 
-    public static void main(String args[]) {
+    public static void main(String[] args) {
         System.out.println("Server version: " + getServerInfo());
         System.out.println("Server built:   " + getServerBuilt());
         System.out.println("Server number:  " + getServerNumber());

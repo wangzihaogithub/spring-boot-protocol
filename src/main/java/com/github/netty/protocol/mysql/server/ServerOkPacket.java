@@ -29,117 +29,116 @@ import java.util.Set;
  */
 public class ServerOkPacket extends AbstractMySqlPacket implements ServerPacket {
 
-	private final long affectedRows;
-	private final long lastInsertId;
+    private final long affectedRows;
+    private final long lastInsertId;
 
-	private final int warnings;
-	private final String info;
+    private final int warnings;
+    private final String info;
 
-	private final Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
-	private final String sessionStateChanges;
-
-
-	public ServerOkPacket(Builder builder) {
-		super(builder.sequenceId);
-		affectedRows = builder.affectedRows;
-		lastInsertId = builder.lastInsertId;
-
-		warnings = builder.warnings;
-		info = builder.info;
-
-		statusFlags.addAll(builder.statusFlags);
-		sessionStateChanges = builder.sessionStateChanges;
-	}
-
-	public long getAffectedRows() {
-		return affectedRows;
-	}
-
-	public long getLastInsertId() {
-		return lastInsertId;
-	}
-
-	public int getWarnings() {
-		return warnings;
-	}
-
-	public String getInfo() {
-		return info;
-	}
-
-	public Set<ServerStatusFlag> getStatusFlags() {
-		return EnumSet.copyOf(statusFlags);
-	}
-
-	public String getSessionStateChanges() {
-		return sessionStateChanges;
-	}
-
-	@Override
-	public String toString() {
-		return super.toString()+","+statusFlags;
-	}
-
-	public static Builder builder() {
-		return new Builder();
-	}
+    private final Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
+    private final String sessionStateChanges;
 
 
-	public static class Builder {
-		private int sequenceId;
+    public ServerOkPacket(Builder builder) {
+        super(builder.sequenceId);
+        affectedRows = builder.affectedRows;
+        lastInsertId = builder.lastInsertId;
 
-		private long affectedRows;
-		private long lastInsertId;
+        warnings = builder.warnings;
+        info = builder.info;
 
-		private int warnings;
-		private String info;
+        statusFlags.addAll(builder.statusFlags);
+        sessionStateChanges = builder.sessionStateChanges;
+    }
 
-		private Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
-		private String sessionStateChanges;
+    public static Builder builder() {
+        return new Builder();
+    }
 
-		public Builder sequenceId(int sequenceId) {
-			this.sequenceId = sequenceId;
-			return this;
-		}
+    public long getAffectedRows() {
+        return affectedRows;
+    }
 
-		public Builder affectedRows(long affectedRows) {
-			this.affectedRows = affectedRows;
-			return this;
-		}
+    public long getLastInsertId() {
+        return lastInsertId;
+    }
 
-		public Builder lastInsertId(long lastInsertId) {
-			this.lastInsertId = lastInsertId;
-			return this;
-		}
+    public int getWarnings() {
+        return warnings;
+    }
 
-		public Builder addStatusFlags(ServerStatusFlag statusFlag, ServerStatusFlag... statusFlags) {
-			this.statusFlags.add(statusFlag);
-			Collections.addAll(this.statusFlags, statusFlags);
-			return this;
-		}
+    public String getInfo() {
+        return info;
+    }
 
-		public Builder addStatusFlags(Collection<ServerStatusFlag> statusFlags) {
-			this.statusFlags.addAll(statusFlags);
-			return this;
-		}
+    public Set<ServerStatusFlag> getStatusFlags() {
+        return EnumSet.copyOf(statusFlags);
+    }
 
-		public Builder warnings(int warnings) {
-			this.warnings = warnings;
-			return this;
-		}
+    public String getSessionStateChanges() {
+        return sessionStateChanges;
+    }
 
-		public Builder info(String info) {
-			this.info = info;
-			return this;
-		}
+    @Override
+    public String toString() {
+        return super.toString() + "," + statusFlags;
+    }
 
-		public Builder sessionStateChanges(String sessionStateChanges) {
-			this.sessionStateChanges = sessionStateChanges;
-			return this;
-		}
+    public static class Builder {
+        private int sequenceId;
 
-		public ServerOkPacket build() {
-			return new ServerOkPacket(this);
-		}
-	}
+        private long affectedRows;
+        private long lastInsertId;
+
+        private int warnings;
+        private String info;
+
+        private Set<ServerStatusFlag> statusFlags = EnumSet.noneOf(ServerStatusFlag.class);
+        private String sessionStateChanges;
+
+        public Builder sequenceId(int sequenceId) {
+            this.sequenceId = sequenceId;
+            return this;
+        }
+
+        public Builder affectedRows(long affectedRows) {
+            this.affectedRows = affectedRows;
+            return this;
+        }
+
+        public Builder lastInsertId(long lastInsertId) {
+            this.lastInsertId = lastInsertId;
+            return this;
+        }
+
+        public Builder addStatusFlags(ServerStatusFlag statusFlag, ServerStatusFlag... statusFlags) {
+            this.statusFlags.add(statusFlag);
+            Collections.addAll(this.statusFlags, statusFlags);
+            return this;
+        }
+
+        public Builder addStatusFlags(Collection<ServerStatusFlag> statusFlags) {
+            this.statusFlags.addAll(statusFlags);
+            return this;
+        }
+
+        public Builder warnings(int warnings) {
+            this.warnings = warnings;
+            return this;
+        }
+
+        public Builder info(String info) {
+            this.info = info;
+            return this;
+        }
+
+        public Builder sessionStateChanges(String sessionStateChanges) {
+            this.sessionStateChanges = sessionStateChanges;
+            return this;
+        }
+
+        public ServerOkPacket build() {
+            return new ServerOkPacket(this);
+        }
+    }
 }

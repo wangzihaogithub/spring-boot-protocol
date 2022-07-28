@@ -17,6 +17,19 @@ public class WebSocketHandlerEndpoint extends Endpoint {
         this.handler = Objects.requireNonNull(handler, "WebSocketHandler");
     }
 
+    public static void tryCloseWithError(Session session, Throwable exception) {
+        if (logger.isErrorEnabled()) {
+            logger.error("Closing session due to exception for " + session, exception);
+        }
+        if (session.isOpen()) {
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.UNEXPECTED_CONDITION, null));
+            } catch (Throwable e) {
+                // ignore
+            }
+        }
+    }
+
     @Override
     public void onOpen(Session session, EndpointConfig endpointConfig) {
         session.addMessageHandler(new MessageHandler.Partial<Object>() {
@@ -58,19 +71,6 @@ public class WebSocketHandlerEndpoint extends Endpoint {
         } catch (Exception ex) {
             if (logger.isWarnEnabled()) {
                 logger.warn("Unhandled on-close exception for " + session, ex);
-            }
-        }
-    }
-
-    public static void tryCloseWithError(Session session, Throwable exception) {
-        if (logger.isErrorEnabled()) {
-            logger.error("Closing session due to exception for " + session, exception);
-        }
-        if (session.isOpen()) {
-            try {
-                session.close(new CloseReason(CloseReason.CloseCodes.UNEXPECTED_CONDITION, null));
-            } catch (Throwable e) {
-                // ignore
             }
         }
     }

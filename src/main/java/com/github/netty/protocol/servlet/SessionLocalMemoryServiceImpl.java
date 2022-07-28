@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Local memory session service
+ *
  * @author wangzihao
  * 2018/8/19/019
  */
@@ -31,10 +32,10 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
 
     @Override
     public void saveSession(Session session) {
-        if(session == null){
+        if (session == null) {
             return;
         }
-        sessionMap.put(session.getId(),session);
+        sessionMap.put(session.getId(), session);
     }
 
     @Override
@@ -44,19 +45,19 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
 
     @Override
     public void removeSessionBatch(List<String> sessionIdList) {
-        if(sessionIdList == null || sessionIdList.isEmpty()){
+        if (sessionIdList == null || sessionIdList.isEmpty()) {
             return;
         }
 
         //Reduce the creation of iterators
-        if(sessionIdList instanceof RandomAccess){
+        if (sessionIdList instanceof RandomAccess) {
             int size = sessionIdList.size();
-            for(int i=0; i<size; i++){
+            for (int i = 0; i < size; i++) {
                 String id = sessionIdList.get(i);
                 sessionMap.remove(id);
             }
-        }else {
-            for(String id : sessionIdList){
+        } else {
+            for (String id : sessionIdList) {
                 sessionMap.remove(id);
             }
         }
@@ -65,7 +66,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
     @Override
     public Session getSession(String sessionId) {
         Session session = sessionMap.get(sessionId);
-        if(session != null && session.isValid()){
+        if (session != null && session.isValid()) {
             return session;
         }
         sessionMap.remove(sessionId);
@@ -75,8 +76,8 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
     @Override
     public void changeSessionId(String oldSessionId, String newSessionId) {
         Session session = sessionMap.remove(oldSessionId);
-        if(session != null && session.isValid()){
-            sessionMap.put(newSessionId,session);
+        if (session != null && session.isValid()) {
+            sessionMap.put(newSessionId, session);
         }
     }
 
@@ -92,6 +93,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
 
     /**
      * Session expiration detects threads
+     *
      * @return SessionInvalidThread
      */
     public SessionInvalidThread getSessionInvalidThread() {
@@ -102,9 +104,9 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
      * Sessions with a timeout are invalidated and executed periodically
      */
     class SessionInvalidThread extends Thread {
-        private LoggerX logger = LoggerFactoryX.getLogger(getClass());
         //Unit seconds
         private final int sessionLifeCheckInter;
+        private LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
         private SessionInvalidThread(int sessionLifeCheckInter) {
             super("NettyX-" + NamespaceUtil.newIdName(SessionInvalidThread.class));
@@ -117,22 +119,24 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
         @Override
         public void run() {
             logger.debug("LocalMemorySession CheckInvalidSessionThread has been started...");
-            while(true){
+            while (true) {
                 int maxInactiveInterval = sessionLifeCheckInter;
                 Iterator<Session> iterator = sessionMap.values().iterator();
-                while (iterator.hasNext()){
+                while (iterator.hasNext()) {
                     Session session = iterator.next();
-                    if(session.isValid()){
-                        maxInactiveInterval = Math.min(maxInactiveInterval,session.getMaxInactiveInterval());
-                    }else {
+                    if (session.isValid()) {
+                        maxInactiveInterval = Math.min(maxInactiveInterval, session.getMaxInactiveInterval());
+                    } else {
                         String id = session.getId();
-                        logger.debug("Session(ID={}) is invalidated by Session Manager",id);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Session(ID={}) is invalidated by Session Manager", id);
+                        }
                         iterator.remove();
                     }
                 }
                 try {
                     int sleepTime = maxInactiveInterval * 1000;
-                    if(logger.isTraceEnabled()) {
+                    if (logger.isTraceEnabled()) {
                         logger.trace("plan next Check {}", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(System.currentTimeMillis() + sleepTime)));
                     }
                     Thread.sleep(sleepTime);

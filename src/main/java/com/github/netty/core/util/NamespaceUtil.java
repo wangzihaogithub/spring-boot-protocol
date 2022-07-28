@@ -2,7 +2,6 @@ package com.github.netty.core.util;
 
 import java.util.Map;
 import java.util.WeakHashMap;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -12,46 +11,47 @@ public class NamespaceUtil {
 
     private static Namespace defaultNamespace;
 
-    private NamespaceUtil(){}
-
-    public static String newIdName(Object obj){
-        String startName = obj instanceof Class?((Class) obj).getSimpleName():obj.toString();
-        return getDefaultNamespace().newIdName(obj,startName);
+    private NamespaceUtil() {
     }
 
-    public static String newIdName(Object obj,String name){
-        return getDefaultNamespace().newIdName(obj,name);
+    public static String newIdName(Object obj) {
+        String startName = obj instanceof Class ? ((Class) obj).getSimpleName() : obj.toString();
+        return getDefaultNamespace().newIdName(obj, startName);
     }
 
-    public static String getIdName(Object obj,String name){
-        return getDefaultNamespace().getIdName(obj,name);
+    public static String newIdName(Object obj, String name) {
+        return getDefaultNamespace().newIdName(obj, name);
     }
 
-    public static String newIdName(Class obj){
+    public static String getIdName(Object obj, String name) {
+        return getDefaultNamespace().getIdName(obj, name);
+    }
+
+    public static String newIdName(Class obj) {
         String name = StringUtil.firstUpperCase(obj.getSimpleName());
-        return getDefaultNamespace().newIdName(obj,name);
+        return getDefaultNamespace().newIdName(obj, name);
     }
 
-    public static String newIdName(String preName,Class obj){
+    public static String newIdName(String preName, Class obj) {
         return preName + newIdName(obj);
     }
 
-    public static String getIdNameClass(Object obj,String name){
-        return getDefaultNamespace().getIdNameClass(obj,name);
+    public static String getIdNameClass(Object obj, String name) {
+        return getDefaultNamespace().getIdNameClass(obj, name);
     }
 
-    public static int getId(Object obj){
+    public static int getId(Object obj) {
         return getDefaultNamespace().getId(obj);
     }
 
-    public static int getIdClass(Object obj){
+    public static int getIdClass(Object obj) {
         return getDefaultNamespace().getIdClass(obj);
     }
 
     private static Namespace getDefaultNamespace() {
-        if(defaultNamespace == null){
+        if (defaultNamespace == null) {
             synchronized (NamespaceUtil.class) {
-                if(defaultNamespace == null) {
+                if (defaultNamespace == null) {
                     defaultNamespace = new Namespace();
                 }
             }
@@ -64,27 +64,27 @@ public class NamespaceUtil {
     }
 
     static class Namespace {
-        private final Map<Object,AtomicInteger> idIncrMap;
-        private final Map<Object,Integer> idMap;
+        private final Map<Object, AtomicInteger> idIncrMap;
+        private final Map<Object, Integer> idMap;
 
-        Namespace(){
+        Namespace() {
             idIncrMap = new WeakHashMap<>(16);
             idMap = new WeakHashMap<>(16);
         }
 
-        public String newIdName(Object obj,String name){
-            return name+"@"+ newId(obj);
+        public String newIdName(Object obj, String name) {
+            return name + "@" + newId(obj);
         }
 
-        public String getIdName(Object obj,String name){
-            return name+"@"+ getId(obj);
+        public String getIdName(Object obj, String name) {
+            return name + "@" + getId(obj);
         }
 
-        public String getIdNameClass(Object obj,String name){
-            return name+"@"+ getIdClass(obj);
+        public String getIdNameClass(Object obj, String name) {
+            return name + "@" + getIdClass(obj);
         }
 
-        public int getId(Object obj){
+        public int getId(Object obj) {
             Integer id = idMap.get(obj);
             if (id != null) {
                 return id;
@@ -94,7 +94,7 @@ public class NamespaceUtil {
             return id;
         }
 
-        public int getIdClass(Object obj){
+        public int getIdClass(Object obj) {
             Integer id = idMap.get(obj);
             if (id != null) {
                 return id;
@@ -104,7 +104,7 @@ public class NamespaceUtil {
             return id;
         }
 
-        private int newId(Object obj){
+        private int newId(Object obj) {
             AtomicInteger atomicInteger = idIncrMap.get(obj);
             if (atomicInteger == null) {
                 synchronized (idIncrMap) {

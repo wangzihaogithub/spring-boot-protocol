@@ -14,14 +14,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- *  AbstractProtocolDecoder
- *
- *   ACK flag : (0=Don't need, 1=Need)
- *
- *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
+ * AbstractProtocolDecoder
+ * <p>
+ * ACK flag : (0=Don't need, 1=Need)
+ * <p>
+ * -+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
  * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
- *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
+ * -+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
  */
@@ -31,11 +31,11 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
 //    private static final Unsafe UNSAFE = IOUtil.getUnsafe();
 
     public AbstractProtocolDecoder() {
-        this(0,10 * 1024 * 1024);
+        this(0, 10 * 1024 * 1024);
     }
 
     public AbstractProtocolDecoder(int maxLength) {
-        this(0,maxLength);
+        this(0, maxLength);
     }
 
     public AbstractProtocolDecoder(int protocolVersionLength, int maxLength) {
@@ -52,13 +52,13 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
 
     @Override
     protected ByteBuf extractFrame(ChannelHandlerContext ctx, ByteBuf buffer, int index, int length) {
-        return buffer.copy(index,length);
+        return buffer.copy(index, length);
     }
 
     @Override
     protected Object decode(ChannelHandlerContext ctx, ByteBuf buffer) throws Exception {
         ByteBuf msg = (ByteBuf) super.decode(ctx, buffer);
-        if(msg == null){
+        if (msg == null) {
             return null;
         }
 
@@ -68,7 +68,7 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             //Packet type
             packet = newPacket(msg.readUnsignedByte());
 
-            if(Packet.isDebugPacket()) {
+            if (Packet.isDebugPacket()) {
                 Packet.Debug debug = packet.getDebug();
                 debug.setInstancePacket(msg.toString(Charset.defaultCharset()));
                 debug.setInstanceThread(Thread.currentThread());
@@ -95,7 +95,7 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
                         ByteBufUtil.getBytes(msg, msg.readerIndex(), keyLen, false));
                 msg.skipBytes(keyLen);
                 ByteBuf value = msg.readSlice(msg.readUnsignedShort());
-                fieldMap.put(key,value);
+                fieldMap.put(key, value);
             }
 
             //Body
@@ -107,8 +107,8 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
             }
             release = false;
             return packet;
-        }finally {
-            if(release){
+        } finally {
+            if (release) {
                 RecyclableUtil.release(msg);
                 RecyclableUtil.release(packet);
             }
@@ -117,6 +117,7 @@ public abstract class AbstractProtocolDecoder extends LengthFieldBasedFrameDecod
 
     /**
      * new packet
+     *
      * @param packetType packetType
      * @return Packet
      */

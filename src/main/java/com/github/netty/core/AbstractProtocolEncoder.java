@@ -14,13 +14,13 @@ import static com.github.netty.core.util.IOUtil.CHAR_LENGTH;
 
 /**
  * RPC encoder
- *
- *   ACK flag : (0=Don't need, 1=Need)
- *
- *-+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
+ * <p>
+ * ACK flag : (0=Don't need, 1=Need)
+ * <p>
+ * -+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
  * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |
- *-+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
+ * -+---------------+------+----------+------------+-------------+--------------------------------------------+--------------------------+
  *
  * @author wangzihao
  */
@@ -67,7 +67,7 @@ public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEnco
                 //(key.length byte Unsigned) Fields size
                 packetLength += key.length();
                 out.writeByte(key.length());
-                ByteBufUtil.writeAscii(out,key);
+                ByteBufUtil.writeAscii(out, key);
 
                 //(value.length byte Unsigned) Fields size
                 packetLength += value.readableBytes();
@@ -90,14 +90,14 @@ public class AbstractProtocolEncoder<T extends Packet> extends MessageToByteEnco
 //        out.retain();
     }
 
+    public byte[] getVersionBytes() {
+        return versionBytes;
+    }
+
     public void setVersionBytes(byte[] versionBytes) {
         this.versionBytes = Objects.requireNonNull(versionBytes);
         // versionBytesLength(length) + type(1B) + ACK flag(1B) + Fields size(1B)
         this.fixedLength = versionBytes.length + BYTE_LENGTH + BYTE_LENGTH + BYTE_LENGTH;
-    }
-
-    public byte[] getVersionBytes() {
-        return versionBytes;
     }
 
 }

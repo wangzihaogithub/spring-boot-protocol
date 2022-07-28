@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Packet
  * 2019/3/17/017.
+ *
  * @author wangzihao
  */
 public class Packet implements ReferenceCounted {
@@ -28,7 +29,7 @@ public class Packet implements ReferenceCounted {
 
     public static final byte ACK_NO = 0;
     public static final byte ACK_YES = 1;
-
+    private static boolean debugPacket = SystemPropertyUtil.getBoolean("netty-core.debugPacket", false);
     private ByteBuf rawPacket;
     /**
      * Protocol version
@@ -51,11 +52,18 @@ public class Packet implements ReferenceCounted {
      * Body
      */
     private ByteBuf body = Unpooled.EMPTY_BUFFER;
+    private AtomicInteger refCnt = new AtomicInteger(1);
+    private Debug debug;
 
-    public Packet() {}
+    public Packet() {
+    }
 
     public Packet(int packetType) {
         this.packetType = packetType;
+    }
+
+    public static boolean isDebugPacket() {
+        return debugPacket;
     }
 
     public ByteBuf getProtocolVersion() {
@@ -106,18 +114,18 @@ public class Packet implements ReferenceCounted {
         this.rawPacket = rawPacket;
     }
 
-    public ByteBuf putField(AsciiString key, ByteBuf value){
+    public ByteBuf putField(AsciiString key, ByteBuf value) {
         boolean release = true;
         try {
-            Map<AsciiString,ByteBuf> fieldMap = getFieldMap();
-            if(fieldMap == null){
-                throw new NullPointerException("fieldMap is null. put key = "+key);
+            Map<AsciiString, ByteBuf> fieldMap = getFieldMap();
+            if (fieldMap == null) {
+                throw new NullPointerException("fieldMap is null. put key = " + key);
             }
-            ByteBuf old = fieldMap.put(key,value);
+            ByteBuf old = fieldMap.put(key, value);
             release = false;
             return old;
-        }finally {
-            if(release) {
+        } finally {
+            if (release) {
                 RecyclableUtil.release(value);
             }
         }
@@ -129,7 +137,7 @@ public class Packet implements ReferenceCounted {
         StringBuilder sb = new StringBuilder();
         sb.append(getClass().getSimpleName());
         sb.append("{protocolVersion=");
-        sb.append(protocolVersion == null? "null" : protocolVersion.toString(charset));
+        sb.append(protocolVersion == null ? "null" : protocolVersion.toString(charset));
         sb.append(", packetType=");
         sb.append(packetType);
         sb.append(", ack=");
@@ -138,33 +146,30 @@ public class Packet implements ReferenceCounted {
         sb.append(body == null ? "null" : body.readableBytes());
         sb.append(", fieldMap=");
 
-        if(fieldMap == null){
+        if (fieldMap == null) {
             sb.append("null");
-        }else {
-            Iterator<Map.Entry<AsciiString,ByteBuf>> i = fieldMap.entrySet().iterator();
+        } else {
+            Iterator<Map.Entry<AsciiString, ByteBuf>> i = fieldMap.entrySet().iterator();
             if (i.hasNext()) {
                 sb.append('{');
-                for (;;) {
-                    Map.Entry<AsciiString,ByteBuf> e = i.next();
+                for (; ; ) {
+                    Map.Entry<AsciiString, ByteBuf> e = i.next();
                     sb.append(e.getKey());
                     sb.append('=');
                     sb.append(e.getValue().toString(charset));
-                    if (! i.hasNext()) {
+                    if (!i.hasNext()) {
                         sb.append('}');
                         break;
                     }
                     sb.append(',').append(' ');
                 }
-            }else {
+            } else {
                 sb.append("{}");
             }
             sb.append('}');
         }
         return sb.toString();
     }
-
-
-    private AtomicInteger refCnt = new AtomicInteger(1);
 
     protected AtomicInteger getRefCntAtomic() {
         return refCnt;
@@ -211,7 +216,7 @@ public class Packet implements ReferenceCounted {
             // Ensure we don't over-release, and avoid underflow.
             refCnt.getAndAdd(decrement);
             throw new IllegalReferenceCountException(oldRef, -decrement);
-        }else {
+        } else {
             return false;
         }
     }
@@ -219,7 +224,7 @@ public class Packet implements ReferenceCounted {
     /**
      * Called once {@link #refCnt()} is equals 0.
      */
-    protected void deallocate(){
+    protected void deallocate() {
         RecyclableUtil.release(rawPacket);
         RecyclableUtil.release(protocolVersion);
         if (fieldMap != null && fieldMap.size() > 0) {
@@ -233,27 +238,20 @@ public class Packet implements ReferenceCounted {
         this.protocolVersion = null;
         this.body = null;
 
-        if(debug != null) {
+        if (debug != null) {
             debug.releaseStackTrace = new Throwable().getStackTrace();
             debug.releaseThread = Thread.currentThread();
         }
     }
 
     public Debug getDebug() {
-        if(debugPacket && debug == null) {
+        if (debugPacket && debug == null) {
             debug = new Debug();
         }
         return debug;
     }
 
-    private Debug debug;
-    public static boolean isDebugPacket() {
-        return debugPacket;
-    }
-
-    private static boolean debugPacket = SystemPropertyUtil.getBoolean("netty-core.debugPacket",false);
-
-    protected static class Debug{
+    protected static class Debug {
         private volatile Thread instanceThread;
         private volatile String instancePacket;
         private volatile Thread releaseThread;
@@ -263,28 +261,28 @@ public class Packet implements ReferenceCounted {
             return releaseStackTrace;
         }
 
+        public void setReleaseStackTrace(StackTraceElement[] releaseStackTrace) {
+            this.releaseStackTrace = releaseStackTrace;
+        }
+
         public String getInstancePacket() {
             return instancePacket;
-        }
-
-        public Thread getInstanceThread() {
-            return instanceThread;
-        }
-
-        public Thread getReleaseThread() {
-            return releaseThread;
         }
 
         public void setInstancePacket(String instancePacket) {
             this.instancePacket = instancePacket;
         }
 
+        public Thread getInstanceThread() {
+            return instanceThread;
+        }
+
         public void setInstanceThread(Thread instanceThread) {
             this.instanceThread = instanceThread;
         }
 
-        public void setReleaseStackTrace(StackTraceElement[] releaseStackTrace) {
-            this.releaseStackTrace = releaseStackTrace;
+        public Thread getReleaseThread() {
+            return releaseThread;
         }
 
         public void setReleaseThread(Thread releaseThread) {

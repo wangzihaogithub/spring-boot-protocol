@@ -38,8 +38,8 @@ public class MemorySubscriptionsRepository implements ISubscriptionsRepository {
     @Override
     public void removeSubscription(String topic, String clientID) {
         subscriptions.stream()
-            .filter(s -> s.getTopicFilter().toString().equals(topic) && s.getClientId().equals(clientID))
-            .findFirst()
-            .ifPresent(subscriptions::remove);
+                .filter(s -> s.getTopicFilter().toString().equals(topic) && s.getClientId().equals(clientID))
+                .findFirst()
+                .ifPresent(subscriptions::remove);
     }
 }

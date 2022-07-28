@@ -14,41 +14,37 @@ import java.util.*;
 
 /**
  * Servlet request forwarding
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
-public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
+public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
+    /**
+     * The parameter key required by the servlet specification
+     * The set of attribute names that are special for request dispatchers.
+     */
+    private static final String[] specials = {
+            RequestDispatcher.INCLUDE_REQUEST_URI,
+            RequestDispatcher.INCLUDE_CONTEXT_PATH,
+            RequestDispatcher.INCLUDE_SERVLET_PATH,
+            RequestDispatcher.INCLUDE_PATH_INFO,
+            RequestDispatcher.INCLUDE_QUERY_STRING
+    };
+    /**
+     * The parameter values required by the servlet specification
+     * Special attributes.
+     */
+    private final Object[] specialAttributes = new Object[specials.length];
     private String pathInfo = null;
     private String queryString = null;
     private String requestURI = null;
     private String servletPath = null;
     private ServletRequestDispatcher dispatcher;
     private Map<String, String[]> parameterMap = null;
-
     private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
-
     private String includePath;
     private String includeName;
-
-    /**
-     * The parameter key required by the servlet specification
-     * The set of attribute names that are special for request dispatchers.
-     */
-    private static final String specials[] = {
-                    RequestDispatcher.INCLUDE_REQUEST_URI,
-                    RequestDispatcher.INCLUDE_CONTEXT_PATH,
-                    RequestDispatcher.INCLUDE_SERVLET_PATH,
-                    RequestDispatcher.INCLUDE_PATH_INFO,
-                    RequestDispatcher.INCLUDE_QUERY_STRING
-    };
-
-    /**
-     * The parameter values required by the servlet specification
-     * Special attributes.
-     */
-    private final Object[] specialAttributes = new Object[specials.length];
-
     private DispatcherType dispatcherType;
 
     public ServletHttpIncludeRequest(HttpServletRequest source) {
@@ -74,17 +70,17 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        com.github.netty.protocol.servlet.ServletContext servletContext = (com.github.netty.protocol.servlet.ServletContext) getServletContext();
-        return servletContext.getRequestDispatcher(path,getDispatcherType());
-    }
-
-    public void setDispatcherType(DispatcherType dispatcherType) {
-        this.dispatcherType = dispatcherType;
+        com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
+        return servletContext.getRequestDispatcher(path, getDispatcherType());
     }
 
     @Override
     public DispatcherType getDispatcherType() {
         return dispatcherType;
+    }
+
+    public void setDispatcherType(DispatcherType dispatcherType) {
+        this.dispatcherType = dispatcherType;
     }
 
     @Override
@@ -118,7 +114,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
 
     @Override
     public String getQueryString() {
-        if(!decodePathsFlag){
+        if (!decodePathsFlag) {
             decodePaths();
         }
         return queryString;
@@ -126,7 +122,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
 
     @Override
     public String getRequestURI() {
-        if(!decodePathsFlag){
+        if (!decodePathsFlag) {
             decodePaths();
         }
         return requestURI;
@@ -134,11 +130,11 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
 
     @Override
     public String getServletPath() {
-        if(this.servletPath == null){
+        if (this.servletPath == null) {
             String servletPath = getServletContext().getServletPath(getRequestURI());
             String contextPath = getServletContext().getContextPath();
-            if(contextPath.length() > 0){
-                servletPath = servletPath.replaceFirst(contextPath,"");
+            if (contextPath.length() > 0) {
+                servletPath = servletPath.replaceFirst(contextPath, "");
             }
             this.servletPath = com.github.netty.protocol.servlet.ServletContext.normPath(servletPath);
         }
@@ -150,17 +146,12 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
         return (com.github.netty.protocol.servlet.ServletContext) super.getServletContext();
     }
 
-    public void setPaths(String pathInfo,String queryString,String requestURI,String servletPath) {
+    public void setPaths(String pathInfo, String queryString, String requestURI, String servletPath) {
         this.pathInfo = pathInfo;
         this.queryString = queryString;
         this.requestURI = requestURI;
         this.servletPath = servletPath;
         this.decodePathsFlag = true;
-    }
-
-    public void setParameterMap(Map<String, String[]> parameterMap) {
-        this.parameterMap = parameterMap;
-        this.decodeParameterFlag = true;
     }
 
     @Override
@@ -173,7 +164,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
         StringBuffer url = new StringBuffer();
         String scheme = getScheme();
         int port = getServerPort();
-        if (port < 0){
+        if (port < 0) {
             port = HttpConstants.HTTP_PORT;
         }
 
@@ -191,16 +182,21 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        if(!decodeParameterFlag){
+        if (!decodeParameterFlag) {
             decodeParameter();
         }
         return parameterMap;
     }
 
+    public void setParameterMap(Map<String, String[]> parameterMap) {
+        this.parameterMap = parameterMap;
+        this.decodeParameterFlag = true;
+    }
+
     @Override
     public String getParameter(String name) {
         String[] values = getParameterMap().get(name);
-        if(values == null || values.length == 0){
+        if (values == null || values.length == 0) {
             return null;
         }
         return values[0];
@@ -214,9 +210,9 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
     /**
      * Parsing path
      */
-    private void decodePaths(){
+    private void decodePaths() {
         String requestURI = includePath;
-        if(requestURI != null) {
+        if (requestURI != null) {
             String queryString;
             int queryInx = requestURI.indexOf('?');
             if (queryInx != -1) {
@@ -234,11 +230,11 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
     /**
      * Parse forward parameter
      */
-    private void decodeParameter(){
-        Map<String,String[]> sourceParameterMap = super.getParameterMap();
-        Map<String,String[]> parameterMap = new LinkedHashMap<>(sourceParameterMap);
+    private void decodeParameter() {
+        Map<String, String[]> sourceParameterMap = super.getParameterMap();
+        Map<String, String[]> parameterMap = new LinkedHashMap<>(sourceParameterMap);
         Charset charset = Charset.forName(getCharacterEncoding());
-        ServletUtil.decodeByUrl(parameterMap, includePath,charset);
+        ServletUtil.decodeByUrl(parameterMap, includePath, charset);
 
         this.parameterMap = Collections.unmodifiableMap(parameterMap);
         this.decodeParameterFlag = true;
@@ -292,7 +288,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
      * Override the <code>setAttribute()</code> method of the
      * wrapped request.
      *
-     * @param name Name of the attribute to set
+     * @param name  Name of the attribute to set
      * @param value Value of the attribute to set
      */
     @Override
@@ -321,7 +317,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
      * Get a special attribute.
      *
      * @return the special attribute pos, or -1 if it is not a special
-     *         attribute
+     * attribute
      */
     protected int getSpecial(String name) {
         for (int i = 0; i < specials.length; i++) {
@@ -363,14 +359,15 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper{
     }
 
     // ----------------------------------- AttributeNamesEnumerator Inner Class
+
     /**
      * Utility class used to expose the special attributes as being available
      * as request attributes.
      */
     protected class AttributeNamesEnumerator implements Enumeration<String> {
-        protected int pos = -1;
         protected final int last;
         protected final Enumeration<String> parentEnumeration;
+        protected int pos = -1;
         protected String next = null;
 
         public AttributeNamesEnumerator() {

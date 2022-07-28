@@ -9,8 +9,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 public class HttpLazyThreadPool implements Supplier<Executor> {
-    private volatile NettyThreadPoolExecutor executor;
     private final String poolName;
+    private /*volatile*/ NettyThreadPoolExecutor executor;
 
     public HttpLazyThreadPool(String poolName) {
         this.poolName = poolName;

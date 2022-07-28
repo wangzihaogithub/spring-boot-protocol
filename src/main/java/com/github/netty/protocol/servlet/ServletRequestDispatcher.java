@@ -9,14 +9,15 @@ import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Objects;
 
 /**
  * Servlet request scheduling
+ *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
 public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
+    private static final Recycler<ServletRequestDispatcher> RECYCLER = new Recycler<>(ServletRequestDispatcher::new);
     /**
      * Scheduling path (mutually exclusive with name field)
      */
@@ -34,14 +35,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      */
     private ServletFilterChain filterChain;
 
-    private static final Recycler<ServletRequestDispatcher> RECYCLER = new Recycler<>(ServletRequestDispatcher::new) ;
-
-    private ServletRequestDispatcher() {}
-
-    public static void main(String[] args) {
-        UrlMapper.Element<ServletRegistration> mapper = new UrlMapper.Element<>("", "/xx/*", null, "name", 1);
-        String pathInfo = getPathInfo("/xx/ab.html?name=w", mapper);
-        System.out.println("pathInfo = " + pathInfo + "," + Objects.equals("ab.html", pathInfo));
+    private ServletRequestDispatcher() {
     }
 
     public static ServletRequestDispatcher newInstance(ServletFilterChain filterChain) {
@@ -50,8 +44,8 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         return instance;
     }
 
-    public static String getPathInfo(String path, UrlMapper.Element<ServletRegistration> mapper){
-        if(path == null){
+    public static String getPathInfo(String path, UrlMapper.Element<ServletRegistration> mapper) {
+        if (path == null) {
             return null;
         }
         if (mapper.isAllPatternFlag() || !mapper.getPattern().endsWith("*")) {
@@ -82,7 +76,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                     }
                 }
             }
-            if(begin != -1){
+            if (begin != -1) {
                 return ServletContext.normPath(path.substring(begin));
             }
         }
@@ -91,26 +85,27 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
 
     /**
      * Forward to other servlets for processing (note: transfer control of the response to other servlets)
-     * @param request request
+     *
+     * @param request  request
      * @param response response
      * @throws ServletException ServletException
-     * @throws IOException IOException
+     * @throws IOException      IOException
      */
     @Override
     public void forward(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-        forward(request,response,DispatcherType.FORWARD);
+        forward(request, response, DispatcherType.FORWARD);
     }
 
-    void forward(ServletRequest request, ServletResponse response,DispatcherType dispatcherType) throws ServletException, IOException {
+    void forward(ServletRequest request, ServletResponse response, DispatcherType dispatcherType) throws ServletException, IOException {
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
-        if(httpResponse == null){
+        if (httpResponse == null) {
             throw new UnsupportedOperationException("Not found Original Response");
         }
         HttpServletRequest httpRequest = ServletUtil.unWrapper(request);
-        if(httpRequest == null){
+        if (httpRequest == null) {
             throw new UnsupportedOperationException("Not found Original Request");
         }
-        if(response.isCommitted()) {
+        if (response.isCommitted()) {
             throw new IOException("Cannot perform this operation after response has been committed");
         }
 
@@ -119,14 +114,14 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         //Pause the current response
         outWrapper.setSuspendFlag(true);
         //To the next servlet
-        ServletHttpForwardResponse forwardResponse = new ServletHttpForwardResponse(httpResponse,outWrapper.unwrap());
+        ServletHttpForwardResponse forwardResponse = new ServletHttpForwardResponse(httpResponse, outWrapper.unwrap());
         // ServletHttpForwardRequest. The class will be passed on new data
         ServletHttpForwardRequest forwardRequest = new ServletHttpForwardRequest(httpRequest);
 
         //According to the name
         if (path == null) {
             forwardRequest.setForwardName(name);
-            forwardRequest.setPaths(httpRequest.getPathInfo(),httpRequest.getQueryString(),httpRequest.getRequestURI(),httpRequest.getServletPath());
+            forwardRequest.setPaths(httpRequest.getPathInfo(), httpRequest.getQueryString(), httpRequest.getRequestURI(), httpRequest.getServletPath());
             forwardRequest.setParameterMap(httpRequest.getParameterMap());
         } else {
             forwardRequest.setForwardPath(path);
@@ -141,29 +136,30 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
         forwardRequest.setDispatcherType(dispatcherType);
         forwardRequest.setDispatcher(this);
-        dispatch(forwardRequest,forwardResponse);
+        dispatch(forwardRequest, forwardResponse);
     }
 
     /**
      * Introduction of response content from other servlets (note: other servlets can write data, but cannot submit data)
-     *  Premise: transfer-encoding is required
-     * @param request request
+     * Premise: transfer-encoding is required
+     *
+     * @param request  request
      * @param response response
      * @throws ServletException ServletException
-     * @throws IOException IOException
+     * @throws IOException      IOException
      */
     @Override
     public void include(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-        include(request,response,DispatcherType.INCLUDE);
+        include(request, response, DispatcherType.INCLUDE);
     }
 
     void include(ServletRequest request, ServletResponse response, DispatcherType dispatcherType) throws ServletException, IOException {
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
-        if(httpResponse == null){
+        if (httpResponse == null) {
             throw new UnsupportedOperationException("Not found Original Response");
         }
         HttpServletRequest httpRequest = ServletUtil.unWrapper(request);
-        if(httpRequest == null){
+        if (httpRequest == null) {
             throw new UnsupportedOperationException("Not found Original Request");
         }
 
@@ -175,7 +171,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         //According to the name
         if (path == null) {
             includeRequest.setIncludeName(name);
-            includeRequest.setPaths(httpRequest.getPathInfo(),httpRequest.getQueryString(),httpRequest.getRequestURI(),httpRequest.getServletPath());
+            includeRequest.setPaths(httpRequest.getPathInfo(), httpRequest.getQueryString(), httpRequest.getRequestURI(), httpRequest.getServletPath());
             includeRequest.setParameterMap(httpRequest.getParameterMap());
         } else {
             includeRequest.setIncludePath(path);
@@ -190,47 +186,49 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
         includeRequest.setDispatcherType(dispatcherType);
         includeRequest.setDispatcher(this);
-        dispatch(includeRequest,includeResponse);
+        dispatch(includeRequest, includeResponse);
     }
 
     /**
      * dispatch
-     * @param request request
+     *
+     * @param request  request
      * @param response response
      * @throws ServletException ServletException
-     * @throws IOException IOException
+     * @throws IOException      IOException
      */
     public void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
         try {
             filterChain.doFilter(request, response);
-        }finally {
+        } finally {
             recycle();
         }
     }
 
     /**
      * dispatch (asynchronous)
-     * @param request request
-     * @param response response
+     *
+     * @param request      request
+     * @param response     response
      * @param asyncContext asyncContext
      * @throws ServletException ServletException
-     * @throws IOException IOException
+     * @throws IOException      IOException
      */
     public void dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext) throws ServletException, IOException {
-        if(path == null){
+        if (path == null) {
             return;
         }
-        if(request instanceof ServletHttpAsyncRequest
-                && path.equals(request.getAttribute(AsyncContext.ASYNC_REQUEST_URI))){
+        if (request instanceof ServletHttpAsyncRequest
+                && path.equals(request.getAttribute(AsyncContext.ASYNC_REQUEST_URI))) {
             throw new IllegalStateException("Asynchronous dispatch operation has already been called. Additional asynchronous dispatch operation within the same asynchronous cycle is not allowed.");
         }
 
         ServletHttpServletResponse httpResponse = ServletUtil.unWrapper(response);
-        if(httpResponse == null){
+        if (httpResponse == null) {
             throw new UnsupportedOperationException("Not found Original Response");
         }
         HttpServletRequest httpRequest = ServletUtil.unWrapper(request);
-        if(httpRequest == null){
+        if (httpRequest == null) {
             throw new UnsupportedOperationException("Not found Original Request");
         }
         if (response.isCommitted()) {
@@ -243,8 +241,8 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         //Pause the current response
         outWrapper.setSuspendFlag(true);
         //To the next servlet
-        ServletHttpAsyncResponse asyncResponse = new ServletHttpAsyncResponse(httpResponse,outWrapper.unwrap());
-        ServletHttpAsyncRequest asyncRequest = new ServletHttpAsyncRequest(request,asyncContext);
+        ServletHttpAsyncResponse asyncResponse = new ServletHttpAsyncResponse(httpResponse, outWrapper.unwrap());
+        ServletHttpAsyncRequest asyncRequest = new ServletHttpAsyncRequest(request, asyncContext);
         asyncRequest.setDispatchPath(path);
         if (asyncRequest.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
             asyncRequest.setAttribute(AsyncContext.ASYNC_CONTEXT_PATH, asyncRequest.getContextPath());
@@ -258,23 +256,23 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         dispatch(asyncRequest, asyncResponse);
     }
 
-    public void setPath(String path) {
-        this.path = path;
-    }
-
     public String getPath() {
         return path;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setPath(String path) {
+        this.path = path;
     }
 
     public String getName() {
-        if(filterChain == null){
+        if (filterChain == null) {
             return name;
         }
         return filterChain.getServletRegistration().getName();
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public ServletFilterChain getFilterChain() {
@@ -289,8 +287,8 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         this.mapperElement = mapperElement;
     }
 
-    void clearFilter(){
-        if(filterChain == null){
+    void clearFilter() {
+        if (filterChain == null) {
             return;
         }
         filterChain.getFilterRegistrationList().clear();

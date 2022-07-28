@@ -35,13 +35,16 @@ public final class BrokerConstants {
 
     /**
      * Defines the SSL implementation to use, default to "JDK".
+     *
      * @see io.netty.handler.ssl.SslProvider#name()
      */
     public static final String SSL_PROVIDER = "ssl_provider";
     public static final String SSL_PORT_PROPERTY_NAME = "ssl_port";
     public static final String JKS_PATH_PROPERTY_NAME = "jks_path";
 
-    /** @see java.security.KeyStore#getInstance(String) for allowed types, default to "jks" */
+    /**
+     * @see java.security.KeyStore#getInstance(String) for allowed types, default to "jks"
+     */
     public static final String KEY_STORE_TYPE = "key_store_type";
     public static final String KEY_STORE_PASSWORD_PROPERTY_NAME = "key_store_password";
     public static final String KEY_MANAGER_PASSWORD_PROPERTY_NAME = "key_manager_password";

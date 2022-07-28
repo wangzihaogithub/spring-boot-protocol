@@ -44,16 +44,48 @@ import java.util.*;
  * Created on 2017-08-25 11:32.
  */
 public class UrlMapper<T> {
-    private int sort = 0;
-    private String rootPath;
-    private Collection<Element<T>> elementList = new TreeSet<>();
     private final boolean singlePattern;
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
     private final Comparator<? super Element<T>> addSortComparator = (o1, o2) -> o1.addSort < o2.addSort ? -1 : 1;
+    private int sort = 0;
+    private String rootPath;
+    private Collection<Element<T>> elementList = new TreeSet<>();
 
     public UrlMapper(boolean singlePattern) {
         this.singlePattern = singlePattern;
         this.antPathMatcher.setCachePatterns(Boolean.TRUE);
+    }
+
+    public static String normPath(String path) {
+        if (path == null || path.isEmpty()) {
+            return path;
+        }
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if (path.length() > 1) {
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+        }
+        return path;
+    }
+
+    public static void main(String[] args) {
+        UrlMapper<Object> urlMapper = new UrlMapper<>(false);
+        urlMapper.addMapping("/t/", "", "default");
+        urlMapper.addMapping("/t/", "", "1");
+        urlMapper.addMapping("/t/", "", "2");
+        urlMapper.addMapping("/*", "", "3");
+        urlMapper.addMapping("/*.do", "", "4");
+
+//        urlMapper.setRootPath("test");
+
+        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
+        assert Objects.equals("1", e1.objectName);
+
+        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
+        assert Objects.equals("3", e2.objectName);
     }
 
     public void clear() {
@@ -147,21 +179,6 @@ public class UrlMapper<T> {
         return null;
     }
 
-    public static String normPath(String path) {
-        if (path == null || path.isEmpty()) {
-            return path;
-        }
-        while (path.startsWith("//")) {
-            path = path.substring(1);
-        }
-        if(path.length() > 1) {
-            if (!path.startsWith("/")) {
-                path = "/" + path;
-            }
-        }
-        return path;
-    }
-
     /**
      * Add multiple mapping objects
      *
@@ -242,9 +259,9 @@ public class UrlMapper<T> {
             } else {
                 this.sort = 100;
             }
-            for (int i = 0, find= 0; i < originalPattern.length(); i++) {
+            for (int i = 0, find = 0; i < originalPattern.length(); i++) {
                 char c = originalPattern.charAt(i);
-                if(c == '/'){
+                if (c == '/') {
                     continue;
                 }
                 find++;
@@ -306,22 +323,5 @@ public class UrlMapper<T> {
         public int compareTo(Element<T> o) {
             return this.sort < o.sort ? -1 : 1;
         }
-    }
-
-    public static void main(String[] args) {
-        UrlMapper<Object> urlMapper = new UrlMapper<>(false);
-        urlMapper.addMapping("/t/", "", "default");
-        urlMapper.addMapping("/t/", "", "1");
-        urlMapper.addMapping("/t/", "", "2");
-        urlMapper.addMapping("/*", "", "3");
-        urlMapper.addMapping("/*.do", "", "4");
-
-//        urlMapper.setRootPath("test");
-
-        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
-        assert Objects.equals("1", e1.objectName);
-
-        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
-        assert Objects.equals("3", e2.objectName);
     }
 }

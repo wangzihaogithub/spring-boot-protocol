@@ -10,9 +10,13 @@ import java.security.PrivilegedAction;
 public final class SystemPropertyUtil {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(SystemPropertyUtil.class);
 
+    private SystemPropertyUtil() {
+    }
+
     /**
      * Returns {@code true} if and only if the system property with the specified {@code key}
      * exists.
+     *
      * @param key key
      * @return contains boolean
      */
@@ -23,6 +27,7 @@ public final class SystemPropertyUtil {
     /**
      * Returns the value of the Java system property with the specified
      * {@code key}, while falling back to {@code null} if the property access fails.
+     *
      * @param key key
      * @return the property value or {@code null}
      */
@@ -32,6 +37,7 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
+     *
      * @param key while falling back to the specified default value if the property access fails.
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
@@ -69,6 +75,7 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
+     *
      * @param key while falling back to the specified default value if the property access fails.
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
@@ -102,6 +109,7 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
+     *
      * @param key while falling back to the specified default value if the property access fails.
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
@@ -129,6 +137,7 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
+     *
      * @param key while falling back to the specified default value if the property access fails.
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
@@ -156,6 +165,7 @@ public final class SystemPropertyUtil {
 
     /**
      * Returns the value of the Java system property with the specified
+     *
      * @param key while falling back to the specified default value if the property access fails.
      * @param def if there's no such property or if an access to the  specified property is not allowed.
      * @return the property value.
@@ -179,8 +189,5 @@ public final class SystemPropertyUtil {
         );
 
         return def;
-    }
-
-    private SystemPropertyUtil() {
     }
 }

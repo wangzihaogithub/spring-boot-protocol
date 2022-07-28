@@ -27,31 +27,31 @@ import java.util.Set;
  *
  */
 public abstract class AbstractAuthPluginDataBuilder<B extends AbstractAuthPluginDataBuilder> {
-	public final ByteBuf authPluginData = Unpooled.buffer();
-	public final Set<CapabilityFlags> capabilities = CapabilityFlags.getImplicitCapabilities();
+    public final ByteBuf authPluginData = Unpooled.buffer();
+    public final Set<CapabilityFlags> capabilities = CapabilityFlags.getImplicitCapabilities();
 
-	public B addCapabilities(CapabilityFlags... capabilities) {
-		Collections.addAll(this.capabilities, capabilities);
-		return (B) this;
-	}
+    public B addCapabilities(CapabilityFlags... capabilities) {
+        Collections.addAll(this.capabilities, capabilities);
+        return (B) this;
+    }
 
-	public B addCapabilities(Collection<CapabilityFlags> capabilities) {
-		this.capabilities.addAll(capabilities);
-		return (B) this;
-	}
+    public B addCapabilities(Collection<CapabilityFlags> capabilities) {
+        this.capabilities.addAll(capabilities);
+        return (B) this;
+    }
 
-	public boolean hasCapability(CapabilityFlags capability) {
-		return capabilities.contains(capability);
-	}
+    public boolean hasCapability(CapabilityFlags capability) {
+        return capabilities.contains(capability);
+    }
 
-	public B addAuthData(byte[] bytes) {
-		authPluginData.writeBytes(bytes);
-		return (B) this;
-	}
+    public B addAuthData(byte[] bytes) {
+        authPluginData.writeBytes(bytes);
+        return (B) this;
+    }
 
-	public B addAuthData(ByteBuf buf, int length) {
-		authPluginData.writeBytes(buf, length);
-		return (B) this;
-	}
+    public B addAuthData(ByteBuf buf, int length) {
+        authPluginData.writeBytes(buf, length);
+        return (B) this;
+    }
 
 }

@@ -26,8 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /*
-* In memory retained messages store
-* */
+ * In memory retained messages store
+ * */
 public final class MemoryRetainedRepository implements IRetainedRepository {
 
     private final ConcurrentMap<Topic, MqttRetainedMessage> storage = new ConcurrentHashMap<>();

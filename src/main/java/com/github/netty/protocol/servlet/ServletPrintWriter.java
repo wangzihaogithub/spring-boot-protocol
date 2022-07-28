@@ -6,15 +6,16 @@ import java.util.Formatter;
 import java.util.Locale;
 
 /**
- *  Printing flow
+ * Printing flow
+ *
  * @author wangzihao
  */
-public class ServletPrintWriter extends PrintWriter{
+public class ServletPrintWriter extends PrintWriter {
+    private static final Writer EMPTY_WRITER = new StringWriter(0);
     private OutputStream out;
     private Charset charset;
     private String lineSeparator = System.lineSeparator();
     private boolean error = false;
-    private static final Writer EMPTY_WRITER = new StringWriter(0);
 
     ServletPrintWriter(OutputStream out, Charset charset) {
         super(EMPTY_WRITER, false);
@@ -47,7 +48,7 @@ public class ServletPrintWriter extends PrintWriter{
 
     @Override
     protected void setError() {
-        if(error){
+        if (error) {
             return;
         }
         this.error = true;
@@ -76,9 +77,9 @@ public class ServletPrintWriter extends PrintWriter{
     @Override
     public void write(String s, int off, int len) {
         String writeStr;
-        if(off == 0 && s.length() == len){
+        if (off == 0 && s.length() == len) {
             writeStr = s;
-        }else {
+        } else {
             writeStr = s.substring(off, off + len);
         }
         byte[] bytes = writeStr.getBytes(charset);
@@ -92,7 +93,7 @@ public class ServletPrintWriter extends PrintWriter{
 
     @Override
     public void write(String s) {
-        write(s,0,s.length());
+        write(s, 0, s.length());
     }
 
     @Override
@@ -187,24 +188,24 @@ public class ServletPrintWriter extends PrintWriter{
 
     @Override
     public void println(Object x) {
-        write(String.valueOf(x) + lineSeparator);
+        write(x + lineSeparator);
     }
 
     @Override
     public PrintWriter printf(String format, Object... args) {
-        format(Locale.getDefault(),format,args);
+        format(Locale.getDefault(), format, args);
         return this;
     }
 
     @Override
     public PrintWriter printf(Locale l, String format, Object... args) {
-        format(l,format,args);
+        format(l, format, args);
         return this;
     }
 
     @Override
     public PrintWriter format(String format, Object... args) {
-        format(Locale.getDefault(),format,args);
+        format(Locale.getDefault(), format, args);
         return this;
     }
 

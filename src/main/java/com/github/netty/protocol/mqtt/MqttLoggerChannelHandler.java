@@ -27,11 +27,10 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- *
  * @author wangzihao
  */
 @Sharable
-public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage,MqttMessage> {
+public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage, MqttMessage> {
     public MqttLoggerChannelHandler() {
         super(false);
     }
@@ -45,9 +44,9 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
     @Override
     protected void onMessageWriter(ChannelHandlerContext ctx, MqttMessage msg, ChannelPromise promise) throws Exception {
         logMQTTMessage(ctx, msg, "C<-B");
-        if(promise.isVoid()) {
+        if (promise.isVoid()) {
             ctx.write(msg, promise);
-        }else {
+        } else {
             ctx.write(msg, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
         }
     }
@@ -80,7 +79,7 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
             case SUBSCRIBE:
                 MqttSubscribeMessage subscribe = (MqttSubscribeMessage) msg;
                 logger.debug("{} SUBSCRIBE <{}> to topics {}", direction, clientID,
-                    subscribe.payload().topicSubscriptions());
+                        subscribe.payload().topicSubscriptions());
                 break;
             case UNSUBSCRIBE:
                 MqttUnsubscribeMessage unsubscribe = (MqttUnsubscribeMessage) msg;
@@ -101,7 +100,7 @@ public class MqttLoggerChannelHandler extends AbstractChannelHandler<MqttMessage
                 MqttSubAckMessage suback = (MqttSubAckMessage) msg;
                 final List<Integer> grantedQoSLevels = suback.payload().grantedQoSLevels();
                 logger.debug("{} SUBACK <{}> packetID <{}>, grantedQoses {}", direction, clientID, MqttUtil.messageId(msg),
-                    grantedQoSLevels);
+                        grantedQoSLevels);
                 break;
             default:
                 break;

@@ -5,14 +5,15 @@ import java.security.Principal;
 
 /**
  * The servlet identity
+ *
  * @author wangzihao
  */
-public class ServletPrincipal implements Principal,Serializable {
+public class ServletPrincipal implements Principal, Serializable {
 
     private final String name;
     private String password;
 
-    public ServletPrincipal(String name,String password) {
+    public ServletPrincipal(String name, String password) {
         if (name == null) {
             throw new NullPointerException("null name is illegal");
         }
@@ -32,7 +33,7 @@ public class ServletPrincipal implements Principal,Serializable {
             return true;
         }
         if (object instanceof ServletPrincipal) {
-            return name.equals(((ServletPrincipal)object).getName());
+            return name.equals(((ServletPrincipal) object).getName());
         }
         return false;
     }

@@ -45,16 +45,12 @@ import java.util.*;
  * 2018/7/15/015
  */
 public class DefaultServlet extends HttpServlet {
+    public static final Properties DEFAULT_MIME_TYPE_MAPPINGS = new Properties();
     private static final List<Range> FULL = Collections.unmodifiableList(new ArrayList<>());
     private static final Charset ISO_8859_1 = Charset.forName("ISO-8859-1");
     private static final String BOUNDARY = "CATALINA_MIME_BOUNDARY";
     private static final byte[] MIME_BOUNDARY_BEGIN = ("\r\n--" + BOUNDARY).getBytes(ISO_8859_1);
     private static final byte[] MIME_BOUNDARY_END = ("\r\n--" + BOUNDARY + "--").getBytes(ISO_8859_1);
-    public static final Properties DEFAULT_MIME_TYPE_MAPPINGS = new Properties();
-
-    private Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
-    private String characterEncoding = "utf-8";
-    private Map<String, String> mimeTypeMappings = new CaseInsensitiveKeyMap<>();
 
     static {
         try (InputStream is = DefaultServlet.class.getResourceAsStream
@@ -65,8 +61,107 @@ public class DefaultServlet extends HttpServlet {
         }
     }
 
+    private Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
+    private String characterEncoding = "utf-8";
+    private Map<String, String> mimeTypeMappings = new CaseInsensitiveKeyMap<>();
+
     public DefaultServlet() {
         DEFAULT_MIME_TYPE_MAPPINGS.forEach((k, v) -> mimeTypeMappings.put(k.toString(), v.toString()));
+    }
+
+    protected static List<Range> parseRange(HttpServletRequest request,
+                                            HttpServletResponse response,
+                                            WebResource resource) throws IOException {
+        // Checking If-Range
+        String ifRangeStr = request.getHeader("If-Range");
+        if (ifRangeStr != null && ifRangeStr.length() > 0) {
+            long headerValueTime = -1L;
+            try {
+                Date ifRangeDate = DateFormatter.parseHttpDate(ifRangeStr);
+                if (ifRangeDate != null) {
+                    headerValueTime = ifRangeDate.getTime();
+                }
+            } catch (IllegalArgumentException e) {
+                // Ignore
+            }
+
+            if (headerValueTime == -1L) {
+                String eTag = resource.getETag();
+                // If the ETag the client gave does not match the entity
+                // etag, then the entire entity is returned.
+                if (!eTag.equals(ifRangeStr.trim())) {
+                    return FULL;
+                }
+            } else {
+                // If the timestamp of the entity the client got differs from
+                // the last modification date of the entity, the entire entity
+                // is returned.
+                long lastModified = resource.getLastModified();
+                if (Math.abs(lastModified - headerValueTime) > 1000) {
+                    return FULL;
+                }
+            }
+        }
+
+        long fileLength = resource.getContentLength();
+        if (fileLength == 0) {
+            // Range header makes no sense for a zero length resource. Tomcat
+            // therefore opts to ignore it.
+            return FULL;
+        }
+
+        // Retrieving the range header (if any is specified
+        String rangeHeader = request.getHeader("Range");
+        if (rangeHeader == null) {
+            // No Range header is the same as ignoring any Range header
+            return FULL;
+        }
+
+        HttpHeaderUtil.Ranges ranges = HttpHeaderUtil.Ranges.parse(new StringReader(rangeHeader));
+        if (ranges == null) {
+            // The Range header is present but not formatted correctly.
+            // Could argue for a 400 response but 416 is more specific.
+            // There is also the option to ignore the (invalid) Range header.
+            // RFC7233#4.4 notes that many servers do ignore the Range header in
+            // these circumstances but Tomcat has always returned a 416.
+            response.addHeader("Content-Range", "bytes */" + fileLength);
+            response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+            return null;
+        }
+
+        // bytes is the only range unit supported (and I don't see the point
+        // of adding new ones).
+        if (!ranges.units.equals("bytes")) {
+            // RFC7233#3.1 Servers must ignore range units they don't understand
+            return FULL;
+        }
+
+        // Convert to internal representation
+        ArrayList<Range> result = new ArrayList<>(ranges.entries.size());
+        for (HttpHeaderUtil.Entry entry : ranges.entries) {
+            Range currentRange = new Range();
+            if (entry.start == -1) {
+                currentRange.start = fileLength - entry.end;
+                if (currentRange.start < 0) {
+                    currentRange.start = 0;
+                }
+                currentRange.end = fileLength - 1;
+            } else if (entry.end == -1) {
+                currentRange.start = entry.start;
+                currentRange.end = fileLength - 1;
+            } else {
+                currentRange.start = entry.start;
+                currentRange.end = entry.end;
+            }
+            currentRange.length = fileLength;
+            if (!currentRange.validate()) {
+                response.addHeader("Content-Range", "bytes */" + fileLength);
+                response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
+                return null;
+            }
+            result.add(currentRange);
+        }
+        return result;
     }
 
     @Override
@@ -224,101 +319,6 @@ public class DefaultServlet extends HttpServlet {
         return new File(resource.getFile());
     }
 
-    protected static List<Range> parseRange(HttpServletRequest request,
-                                            HttpServletResponse response,
-                                            WebResource resource) throws IOException {
-        // Checking If-Range
-        String ifRangeStr = request.getHeader("If-Range");
-        if (ifRangeStr != null && ifRangeStr.length() > 0) {
-            long headerValueTime = -1L;
-            try {
-                Date ifRangeDate = DateFormatter.parseHttpDate(ifRangeStr);
-                if (ifRangeDate != null) {
-                    headerValueTime = ifRangeDate.getTime();
-                }
-            } catch (IllegalArgumentException e) {
-                // Ignore
-            }
-
-            if (headerValueTime == -1L) {
-                String eTag = resource.getETag();
-                // If the ETag the client gave does not match the entity
-                // etag, then the entire entity is returned.
-                if (!eTag.equals(ifRangeStr.trim())) {
-                    return FULL;
-                }
-            } else {
-                // If the timestamp of the entity the client got differs from
-                // the last modification date of the entity, the entire entity
-                // is returned.
-                long lastModified = resource.getLastModified();
-                if (Math.abs(lastModified - headerValueTime) > 1000) {
-                    return FULL;
-                }
-            }
-        }
-
-        long fileLength = resource.getContentLength();
-        if (fileLength == 0) {
-            // Range header makes no sense for a zero length resource. Tomcat
-            // therefore opts to ignore it.
-            return FULL;
-        }
-
-        // Retrieving the range header (if any is specified
-        String rangeHeader = request.getHeader("Range");
-        if (rangeHeader == null) {
-            // No Range header is the same as ignoring any Range header
-            return FULL;
-        }
-
-        HttpHeaderUtil.Ranges ranges = HttpHeaderUtil.Ranges.parse(new StringReader(rangeHeader));
-        if (ranges == null) {
-            // The Range header is present but not formatted correctly.
-            // Could argue for a 400 response but 416 is more specific.
-            // There is also the option to ignore the (invalid) Range header.
-            // RFC7233#4.4 notes that many servers do ignore the Range header in
-            // these circumstances but Tomcat has always returned a 416.
-            response.addHeader("Content-Range", "bytes */" + fileLength);
-            response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
-            return null;
-        }
-
-        // bytes is the only range unit supported (and I don't see the point
-        // of adding new ones).
-        if (!ranges.units.equals("bytes")) {
-            // RFC7233#3.1 Servers must ignore range units they don't understand
-            return FULL;
-        }
-
-        // Convert to internal representation
-        ArrayList<Range> result = new ArrayList<>(ranges.entries.size());
-        for (HttpHeaderUtil.Entry entry : ranges.entries) {
-            Range currentRange = new Range();
-            if (entry.start == -1) {
-                currentRange.start = fileLength - entry.end;
-                if (currentRange.start < 0) {
-                    currentRange.start = 0;
-                }
-                currentRange.end = fileLength - 1;
-            } else if (entry.end == -1) {
-                currentRange.start = entry.start;
-                currentRange.end = fileLength - 1;
-            } else {
-                currentRange.start = entry.start;
-                currentRange.end = entry.end;
-            }
-            currentRange.length = fileLength;
-            if (!currentRange.validate()) {
-                response.addHeader("Content-Range", "bytes */" + fileLength);
-                response.sendError(HttpServletResponse.SC_REQUESTED_RANGE_NOT_SATISFIABLE);
-                return null;
-            }
-            result.add(currentRange);
-        }
-        return result;
-    }
-
     protected static class Range {
         public long start;
         public long end;
@@ -355,9 +355,9 @@ public class DefaultServlet extends HttpServlet {
     }
 
     public static class WebResource {
-        private String weakETag;
         private final long lastModified;
         private final long length;
+        private String weakETag;
 
         public WebResource(File file) {
             this.length = file.length();

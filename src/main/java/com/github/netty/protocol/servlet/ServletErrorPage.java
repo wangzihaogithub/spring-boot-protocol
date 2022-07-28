@@ -5,6 +5,7 @@ import java.net.URLDecoder;
 
 /**
  * Error page
+ *
  * @author wangzihao
  */
 public class ServletErrorPage {
@@ -16,7 +17,7 @@ public class ServletErrorPage {
         this.status = status;
         this.exception = exception;
         try {
-            this.path = URLDecoder.decode(path,"UTF-8");
+            this.path = URLDecoder.decode(path, "UTF-8");
         } catch (UnsupportedEncodingException e) {
             throw new IllegalStateException(e);
         }

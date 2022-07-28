@@ -30,11 +30,18 @@ import java.util.function.Supplier;
 
 /**
  * Servlet context (lifetime same as server)
+ *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
+    //    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
+    private final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
+    /**
+     * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
+     */
+    private final Collection<String> notExistBodyParameters = new HashSet<>();
     /**
      * Default: 20 minutes,
      */
@@ -51,39 +58,30 @@ public class ServletContext implements javax.servlet.ServletContext {
      * Upload file timeout millisecond , -1 is not control timeout.
      */
     private long uploadFileTimeoutMs = -1;
-    private Map<String,Object> attributeMap = new LinkedHashMap<>(16);
-    private Map<String,String> initParamMap = new LinkedHashMap<>(16);
+    private Map<String, Object> attributeMap = new LinkedHashMap<>(16);
+    private Map<String, String> initParamMap = new LinkedHashMap<>(16);
     private Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
     private Map<String, ServletFilterRegistration> filterRegistrationMap = new LinkedHashMap<>(8);
-    private FastThreadLocal<Map<Charset, HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, HttpDataFactory>>(){
+    private FastThreadLocal<Map<Charset, HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, HttpDataFactory>>() {
         @Override
         protected Map<Charset, HttpDataFactory> initialValue() throws Exception {
             return new LinkedHashMap<>(5);
         }
     };
-    private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE,SessionTrackingMode.URL));
-
-//    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
-    private final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
+    private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE, SessionTrackingMode.URL));
     private MimeMappingsX mimeMappings = new MimeMappingsX();
     private ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
     private ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
     private UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>(true);
     private FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
-
     private ResourceManager resourceManager;
     private Supplier<Executor> asyncExecutorSupplier;
     private Supplier<Executor> defaultExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
-
     private Servlet defaultServlet = new DefaultServlet();
     private boolean enableLookupFlag = false;
     private boolean autoFlush;
-    /**
-     * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
-     */
-    private final Collection<String> notExistBodyParameters = new HashSet<>();
     private String serverHeader;
     private String contextPath = "";
     private String requestCharacterEncoding;
@@ -102,23 +100,41 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public ServletContext(ClassLoader classLoader) {
-        this.classLoader = classLoader == null ? getClass().getClassLoader(): classLoader;
+        this.classLoader = classLoader == null ? getClass().getClassLoader() : classLoader;
     }
 
-    public void setDefaultServlet(Servlet defaultServlet) {
-        this.defaultServlet = defaultServlet;
+    public static String normPath(String path) {
+        if (path.isEmpty()) {
+            return path;
+        }
+        while (path.startsWith("//")) {
+            path = path.substring(1);
+        }
+        if (!path.startsWith("/")) {
+            path = "/" + path;
+        }
+        if (path.length() > 1) {
+            while (path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+        }
+        return path;
     }
 
     public Servlet getDefaultServlet() {
         return defaultServlet;
     }
 
-    public void setMaxBufferBytes(int maxBufferBytes) {
-        this.maxBufferBytes = maxBufferBytes;
+    public void setDefaultServlet(Servlet defaultServlet) {
+        this.defaultServlet = defaultServlet;
     }
 
     public int getMaxBufferBytes() {
         return maxBufferBytes;
+    }
+
+    public void setMaxBufferBytes(int maxBufferBytes) {
+        this.maxBufferBytes = maxBufferBytes;
     }
 
     public boolean isAutoFlush() {
@@ -145,16 +161,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.enableLookupFlag = enableLookupFlag;
     }
 
-    public void setServerAddress(InetSocketAddress serverAddress) {
-        this.serverAddress = serverAddress;
+    public void setDocBase(String docBase) {
+        String workspace = '/' + (serverAddress == null || HostUtil.isLocalhost(serverAddress.getHostName()) ? "localhost" : serverAddress.getHostName());
+        setDocBase(docBase, workspace);
     }
 
-    public void setDocBase(String docBase){
-        String workspace = '/' + (serverAddress == null || HostUtil.isLocalhost(serverAddress.getHostName())? "localhost": serverAddress.getHostName());
-        setDocBase(docBase,workspace);
-    }
-
-    public void setDocBase(String docBase,String workspace){
+    public void setDocBase(String docBase, String workspace) {
         ResourceManager old = this.resourceManager;
         this.resourceManager = new ResourceManager(docBase, workspace, classLoader);
         this.resourceManager.mkdirs("/");
@@ -167,7 +179,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
     }
 
-    private LoggerX getLog(){
+    private LoggerX getLog() {
         return LoggerFactoryX.getLogger(contextPath);
     }
 
@@ -176,7 +188,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (executor == null) {
             executor = defaultExecutorSupplier.get();
         }
-        if(executor == null){
+        if (executor == null) {
             throw new IllegalStateException("no found async Executor");
         }
         return executor;
@@ -194,19 +206,19 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.asyncExecutorSupplier = asyncExecutorSupplier;
     }
 
-    public void setDefaultExecutorSupplier(Supplier<Executor> defaultExecutorSupplier) {
-        this.defaultExecutorSupplier = defaultExecutorSupplier;
-    }
-
     public Supplier<Executor> getDefaultExecutorSupplier() {
         return defaultExecutorSupplier;
     }
 
-    public HttpDataFactory getHttpDataFactory(Charset charset){
+    public void setDefaultExecutorSupplier(Supplier<Executor> defaultExecutorSupplier) {
+        this.defaultExecutorSupplier = defaultExecutorSupplier;
+    }
+
+    public HttpDataFactory getHttpDataFactory(Charset charset) {
         Map<Charset, HttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
         HttpDataFactory factory = httpDataFactoryMap.get(charset);
-        if(factory == null){
-            factory = new DefaultHttpDataFactory(uploadMinSize,charset);
+        if (factory == null) {
+            factory = new DefaultHttpDataFactory(uploadMinSize, charset);
             httpDataFactoryMap.put(charset, factory);
         }
         return factory;
@@ -236,36 +248,26 @@ public class ServletContext implements javax.servlet.ServletContext {
         return servletErrorPageManager;
     }
 
-    public void setServletContextName(String servletContextName) {
-        this.servletContextName = servletContextName;
+    public String getServerHeader() {
+        return serverHeader;
     }
 
     public void setServerHeader(String serverHeader) {
         this.serverHeader = serverHeader;
     }
 
-    public String getServerHeader() {
-        return serverHeader;
-    }
-
-    public void setContextPath(String contextPath) {
-        this.contextPath = normPath(contextPath);
-        this.filterUrlMapper.setRootPath(contextPath);
-        this.servletUrlMapper.setRootPath(contextPath);
-    }
-
     public ServletEventListenerManager getServletEventListenerManager() {
         return servletEventListenerManager;
     }
 
-    public long getAsyncTimeout(){
+    public long getAsyncTimeout() {
         String value = getInitParameter("asyncTimeout");
-        if(value == null || value.isEmpty()){
+        if (value == null || value.isEmpty()) {
             return 30000;
         }
         try {
             return Long.parseLong(value);
-        }catch (NumberFormatException e){
+        } catch (NumberFormatException e) {
             return 30000;
         }
     }
@@ -282,14 +284,14 @@ public class ServletContext implements javax.servlet.ServletContext {
         return serverAddress;
     }
 
-    public void setSessionService(SessionService sessionService) {
-        this.sessionService = sessionService;
+    public void setServerAddress(InetSocketAddress serverAddress) {
+        this.serverAddress = serverAddress;
     }
 
     public SessionService getSessionService() {
-        if(sessionService == null){
-            synchronized (this){
-                if(sessionService == null){
+        if (sessionService == null) {
+            synchronized (this) {
+                if (sessionService == null) {
                     sessionService = new SessionLocalMemoryServiceImpl();
                 }
             }
@@ -297,12 +299,16 @@ public class ServletContext implements javax.servlet.ServletContext {
         return sessionService;
     }
 
+    public void setSessionService(SessionService sessionService) {
+        this.sessionService = sessionService;
+    }
+
     public int getSessionTimeout() {
         return sessionTimeout;
     }
 
     public void setSessionTimeout(int sessionTimeout) {
-        if(sessionTimeout <= 0){
+        if (sessionTimeout <= 0) {
             return;
         }
         this.sessionTimeout = sessionTimeout;
@@ -311,6 +317,12 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public String getContextPath() {
         return contextPath;
+    }
+
+    public void setContextPath(String contextPath) {
+        this.contextPath = normPath(contextPath);
+        this.filterUrlMapper.setRootPath(contextPath);
+        this.servletUrlMapper.setRootPath(contextPath);
     }
 
     @Override
@@ -376,21 +388,21 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return getRequestDispatcher(path,DispatcherType.REQUEST);
+        return getRequestDispatcher(path, DispatcherType.REQUEST);
     }
 
     public ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
         UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
-        if(element == null){
+        if (element == null) {
             return null;
         }
         ServletRegistration servletRegistration = element.getObject();
-        if(servletRegistration == null){
+        if (servletRegistration == null) {
             return null;
         }
 
-        ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
-        filterUrlMapper.addMappingObjectsByUri(path,dispatcherType,filterChain.getFilterRegistrationList());
+        ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
+        filterUrlMapper.addMappingObjectsByUri(path, dispatcherType, filterChain.getFilterRegistrationList());
 
         ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
         dispatcher.setMapperElement(element);
@@ -405,12 +417,12 @@ public class ServletContext implements javax.servlet.ServletContext {
             return null;
         }
 
-        ServletFilterChain filterChain = ServletFilterChain.newInstance(this,servletRegistration);
+        ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
         List<FilterMapper.Element<ServletFilterRegistration>> filterList = filterChain.getFilterRegistrationList();
         for (ServletFilterRegistration registration : filterRegistrationMap.values()) {
-            for(String servletName : registration.getServletNameMappings()){
-                if(servletName.equals(name)){
-                    filterList.add(new FilterMapper.Element<>(name,registration));
+            for (String servletName : registration.getServletNameMappings()) {
+                if (servletName.equals(name)) {
+                    filterList.add(new FilterMapper.Element<>(name, registration));
                 }
             }
         }
@@ -423,7 +435,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Servlet getServlet(String name) throws ServletException {
         ServletRegistration registration = servletRegistrationMap.get(name);
-        if(registration == null){
+        if (registration == null) {
             return null;
         }
         return registration.getServlet();
@@ -432,7 +444,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Enumeration<Servlet> getServlets() {
         List<Servlet> list = new ArrayList<>();
-        for(ServletRegistration registration : servletRegistrationMap.values()){
+        for (ServletRegistration registration : servletRegistrationMap.values()) {
             list.add(registration.getServlet());
         }
         return Collections.enumeration(list);
@@ -441,7 +453,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Enumeration<String> getServletNames() {
         List<String> list = new ArrayList<>();
-        for(ServletRegistration registration : servletRegistrationMap.values()){
+        for (ServletRegistration registration : servletRegistrationMap.values()) {
             list.add(registration.getName());
         }
         return Collections.enumeration(list);
@@ -454,12 +466,12 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public void log(Exception exception, String msg) {
-        getLog().debug(msg,exception);
+        getLog().debug(msg, exception);
     }
 
     @Override
     public void log(String message, Throwable throwable) {
-        getLog().debug(message,throwable);
+        getLog().debug(message, throwable);
     }
 
     @Override
@@ -486,15 +498,15 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public boolean setInitParameter(String name, String value) {
-        return initParamMap.putIfAbsent(name,value) == null;
+        return initParamMap.putIfAbsent(name, value) == null;
     }
 
     @Override
     public Object getAttribute(String name) {
-        if(SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE.equals(name)){
+        if (SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE.equals(name)) {
             try {
                 attributeMap.put(name, new WebSocketServerContainer());
-            }catch (Exception ignored){
+            } catch (Exception ignored) {
             }
         }
         return attributeMap.get(name);
@@ -508,17 +520,17 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public void setAttribute(String name, Object object) {
         Objects.requireNonNull(name);
-        if(object == null){
+        if (object == null) {
             removeAttribute(name);
             return;
         }
 
-        Object oldObject = attributeMap.put(name,object);
+        Object oldObject = attributeMap.put(name, object);
         ServletEventListenerManager listenerManager = getServletEventListenerManager();
-        if(listenerManager.hasServletContextAttributeListener()){
-            listenerManager.onServletContextAttributeAdded(new ServletContextAttributeEvent(this,name,object));
-            if(oldObject != null){
-                listenerManager.onServletContextAttributeReplaced(new ServletContextAttributeEvent(this,name,oldObject));
+        if (listenerManager.hasServletContextAttributeListener()) {
+            listenerManager.onServletContextAttributeAdded(new ServletContextAttributeEvent(this, name, object));
+            if (oldObject != null) {
+                listenerManager.onServletContextAttributeReplaced(new ServletContextAttributeEvent(this, name, oldObject));
             }
         }
     }
@@ -527,8 +539,8 @@ public class ServletContext implements javax.servlet.ServletContext {
     public void removeAttribute(String name) {
         Object oldObject = attributeMap.remove(name);
         ServletEventListenerManager listenerManager = getServletEventListenerManager();
-        if(listenerManager.hasServletContextAttributeListener()){
-            listenerManager.onServletContextAttributeRemoved(new ServletContextAttributeEvent(this,name,oldObject));
+        if (listenerManager.hasServletContextAttributeListener()) {
+            listenerManager.onServletContextAttributeRemoved(new ServletContextAttributeEvent(this, name, oldObject));
         }
     }
 
@@ -537,12 +549,16 @@ public class ServletContext implements javax.servlet.ServletContext {
         return servletContextName;
     }
 
+    public void setServletContextName(String servletContextName) {
+        this.servletContextName = servletContextName;
+    }
+
     @Override
     public ServletRegistration addServlet(String servletName, String className) {
         try {
             return addServlet(servletName, (Class<? extends Servlet>) Class.forName(className).newInstance());
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
-            throw new IllegalStateException("addServlet error ="+e+",servletName="+servletName,e);
+            throw new IllegalStateException("addServlet error =" + e + ",servletName=" + servletName, e);
         }
     }
 
@@ -551,12 +567,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         Servlet newServlet = servletEventListenerManager.onServletAdded(servlet);
 
         ServletRegistration servletRegistration;
-        if(newServlet == null){
-            servletRegistration = new ServletRegistration(servletName,servlet,this,servletUrlMapper);
-        }else {
-            servletRegistration = new ServletRegistration(servletName,newServlet,this,servletUrlMapper);
+        if (newServlet == null) {
+            servletRegistration = new ServletRegistration(servletName, servlet, this, servletUrlMapper);
+        } else {
+            servletRegistration = new ServletRegistration(servletName, newServlet, this, servletUrlMapper);
         }
-        servletRegistrationMap.put(servletName,servletRegistration);
+        servletRegistrationMap.put(servletName, servletRegistration);
         return servletRegistration;
     }
 
@@ -566,9 +582,9 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             servlet = servletClass.getConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-            throw new IllegalStateException("createServlet error ="+e+",servletName="+servletName,e);
+            throw new IllegalStateException("createServlet error =" + e + ",servletName=" + servletName, e);
         }
-        return addServlet(servletName,servlet);
+        return addServlet(servletName, servlet);
     }
 
     @Override
@@ -576,7 +592,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             return clazz.getConstructor().newInstance();
         } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
-            throw new ServletException("createServlet error ="+e+",clazz="+clazz,e);
+            throw new ServletException("createServlet error =" + e + ",clazz=" + clazz, e);
         }
     }
 
@@ -595,23 +611,23 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             return addFilter(filterName, (Class<? extends Filter>) Class.forName(className));
         } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("addFilter error ="+e+",filterName="+filterName,e);
+            throw new IllegalStateException("addFilter error =" + e + ",filterName=" + filterName, e);
         }
     }
 
     @Override
     public ServletFilterRegistration addFilter(String filterName, Filter filter) {
-        ServletFilterRegistration registration = new ServletFilterRegistration(filterName,filter,this,filterUrlMapper);
-        filterRegistrationMap.put(filterName,registration);
+        ServletFilterRegistration registration = new ServletFilterRegistration(filterName, filter, this, filterUrlMapper);
+        filterRegistrationMap.put(filterName, registration);
         return registration;
     }
 
     @Override
     public ServletFilterRegistration addFilter(String filterName, Class<? extends Filter> filterClass) {
         try {
-            return addFilter(filterName,filterClass.newInstance());
+            return addFilter(filterName, filterClass.newInstance());
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new IllegalStateException("addFilter error ="+e,e);
+            throw new IllegalStateException("addFilter error =" + e, e);
         }
     }
 
@@ -620,7 +636,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             return clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new ServletException("createFilter error ="+e,e);
+            throw new ServletException("createFilter error =" + e, e);
         }
     }
 
@@ -651,7 +667,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public Set<SessionTrackingMode> getEffectiveSessionTrackingModes() {
-        if(sessionTrackingModeSet == null){
+        if (sessionTrackingModeSet == null) {
             return getDefaultSessionTrackingModes();
         }
         return sessionTrackingModeSet;
@@ -662,7 +678,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             addListener((Class<? extends EventListener>) Class.forName(className));
         } catch (ClassNotFoundException e) {
-            throw new IllegalStateException("addListener error ="+e+",className="+className,e);
+            throw new IllegalStateException("addListener error =" + e + ",className=" + className, e);
         }
     }
 
@@ -672,36 +688,36 @@ public class ServletContext implements javax.servlet.ServletContext {
 
         boolean addFlag = false;
         ServletEventListenerManager listenerManager = getServletEventListenerManager();
-        if(listener instanceof ServletContextAttributeListener){
+        if (listener instanceof ServletContextAttributeListener) {
             listenerManager.addServletContextAttributeListener((ServletContextAttributeListener) listener);
             addFlag = true;
         }
-        if(listener instanceof ServletRequestListener){
+        if (listener instanceof ServletRequestListener) {
             listenerManager.addServletRequestListener((ServletRequestListener) listener);
             addFlag = true;
         }
-        if(listener instanceof ServletRequestAttributeListener){
+        if (listener instanceof ServletRequestAttributeListener) {
             listenerManager.addServletRequestAttributeListener((ServletRequestAttributeListener) listener);
             addFlag = true;
         }
-        if(listener instanceof HttpSessionIdListener){
+        if (listener instanceof HttpSessionIdListener) {
             listenerManager.addHttpSessionIdListenerListener((HttpSessionIdListener) listener);
             addFlag = true;
         }
-        if(listener instanceof HttpSessionAttributeListener){
+        if (listener instanceof HttpSessionAttributeListener) {
             listenerManager.addHttpSessionAttributeListener((HttpSessionAttributeListener) listener);
             addFlag = true;
         }
-        if(listener instanceof HttpSessionListener){
+        if (listener instanceof HttpSessionListener) {
             listenerManager.addHttpSessionListener((HttpSessionListener) listener);
             addFlag = true;
         }
-        if(listener instanceof ServletContextListener){
+        if (listener instanceof ServletContextListener) {
             listenerManager.addServletContextListener((ServletContextListener) listener);
             addFlag = true;
         }
-        if(!addFlag){
-            throw new IllegalArgumentException("applicationContext.addListener.iae.wrongType"+
+        if (!addFlag) {
+            throw new IllegalArgumentException("applicationContext.addListener.iae.wrongType" +
                     listener.getClass().getName());
         }
     }
@@ -711,7 +727,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             addListener(listenerClass.newInstance());
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new IllegalStateException("addListener listenerClass ="+listenerClass,e);
+            throw new IllegalStateException("addListener listenerClass =" + listenerClass, e);
         }
     }
 
@@ -720,7 +736,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         try {
             return clazz.newInstance();
         } catch (InstantiationException | IllegalAccessException e) {
-            throw new ServletException("addListener clazz ="+clazz,e);
+            throw new ServletException("addListener clazz =" + clazz, e);
         }
     }
 
@@ -742,16 +758,16 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public String getVirtualServerName() {
         return Version.getServerInfo()
-        .concat(" (")
-        .concat(serverAddress.getHostName())
-        .concat(":")
-        .concat(SystemPropertyUtil.get("user.name"))
-        .concat(")");
+                .concat(" (")
+                .concat(serverAddress.getHostName())
+                .concat(":")
+                .concat(SystemPropertyUtil.get("user.name"))
+                .concat(")");
     }
 
     @Override
     public String getRequestCharacterEncoding() {
-        if(requestCharacterEncoding == null){
+        if (requestCharacterEncoding == null) {
             return HttpConstants.DEFAULT_CHARSET.name();
         }
         return requestCharacterEncoding;
@@ -764,7 +780,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getResponseCharacterEncoding() {
-        if(responseCharacterEncoding == null){
+        if (responseCharacterEncoding == null) {
             return HttpConstants.DEFAULT_CHARSET.name();
         }
         return responseCharacterEncoding;
@@ -778,23 +794,5 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public javax.servlet.ServletRegistration.Dynamic addJspFile(String jspName, String jspFile) {
         throw new UnsupportedOperationException("addJspFile");
-    }
-
-    public static String normPath(String path) {
-        if(path.isEmpty()){
-            return path;
-        }
-        while (path.startsWith("//")) {
-            path = path.substring(1);
-        }
-        if (!path.startsWith("/")) {
-            path = "/" + path;
-        }
-        if(path.length() > 1) {
-            while (path.endsWith("/")) {
-                path = path.substring(0, path.length() - 1);
-            }
-        }
-        return path;
     }
 }

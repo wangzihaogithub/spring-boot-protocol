@@ -29,9 +29,9 @@ import java.util.function.Supplier;
 
 /**
  * Mysql Protocol Payload
- *
+ * <p>
  * mysql client will not send the first packet, the server will, after receiving the link, immediately return the authentication information
- *
+ * <p>
  * |-------------------------------------------------------------------------------
  * |Type	    |   Name	       |  Description
  * |-------------------------------------------------------------------------------
@@ -44,13 +44,14 @@ import java.util.function.Supplier;
  */
 public class MysqlProtocol extends AbstractProtocol {
     protected final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private final List<MysqlPacketListener> mysqlPacketListeners = new CopyOnWriteArrayList<>();
     private InetSocketAddress mysqlAddress;
     private int maxPacketSize = Constants.DEFAULT_MAX_PACKET_SIZE;
     private Supplier<MysqlBackendBusinessHandler> backendBusinessHandler = MysqlBackendBusinessHandler::new;
     private Supplier<MysqlFrontendBusinessHandler> frontendBusinessHandler = MysqlFrontendBusinessHandler::new;
-    private final List<MysqlPacketListener> mysqlPacketListeners = new CopyOnWriteArrayList<>();
 
-    public MysqlProtocol() {}
+    public MysqlProtocol() {
+    }
 
     public MysqlProtocol(InetSocketAddress mysqlAddress) {
         this.mysqlAddress = mysqlAddress;
@@ -74,6 +75,7 @@ public class MysqlProtocol extends AbstractProtocol {
     /**
      * mysql client will not send the first packet, the server will, after receiving the link, immediately return the authentication information
      * TODO: 2月24日 024 mysql canSupport impl
+     *
      * @param msg client first message
      * @return true=support, false=no support
      */
@@ -107,44 +109,44 @@ public class MysqlProtocol extends AbstractProtocol {
 //        }
     }
 
-    protected String newSessionId(InetSocketAddress frontendAddress,InetSocketAddress backendAddress){
+    protected String newSessionId(InetSocketAddress frontendAddress, InetSocketAddress backendAddress) {
         String backendId = backendAddress.getHostString() + "_" + backendAddress.getPort();
         String frontendId = frontendAddress.getHostString() + "_" + frontendAddress.getPort();
-        return backendId+"-"+frontendId;
+        return backendId + "-" + frontendId;
     }
 
     @Override
     public void addPipeline(Channel frontendChannel, ByteBuf clientFirstMsg) throws Exception {
-        Session session = new Session(newSessionId((InetSocketAddress)frontendChannel.remoteAddress(),mysqlAddress));
+        Session session = new Session(newSessionId((InetSocketAddress) frontendChannel.remoteAddress(), mysqlAddress));
         session.setFrontendChannel(frontendChannel);
 
         SimpleNettyClient mysqlClient = new SimpleNettyClient("Mysql");
         mysqlClient.handlers(() -> {
-                MysqlBackendBusinessHandler backendBusinessHandler = this.backendBusinessHandler.get();
-                backendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
-                backendBusinessHandler.setMaxPacketSize(maxPacketSize);
-                backendBusinessHandler.setSession(session);
-                return new ChannelHandler[]{
-                        new MysqlProxyHandler(session::getFrontendChannel),
-                        new ServerConnectionDecoder(session,maxPacketSize),
-                        new ClientPacketEncoder(session),
-                        new ServerPacketEncoder(session),
-                        backendBusinessHandler};
-            })
-            .ioRatio(80)
-            .ioThreadCount(1)
-            .connect(mysqlAddress).get()
-            .addListener((ChannelFutureListener) future -> {
-                if (future.isSuccess()) {
-                    session.setBackendChannel(future.channel());
-                } else {
-                    String stackTrace = ProxyException.stackTraceToString(future.cause());
-                    ServerErrorPacket errorPacket = new ServerErrorPacket(
-                            0,ProxyException.ERROR_BACKEND_CONNECT_FAIL,
-                            "#HY000".getBytes(), stackTrace);
-                    frontendChannel.writeAndFlush(errorPacket).addListener(ChannelFutureListener.CLOSE);
-                }
-            });
+            MysqlBackendBusinessHandler backendBusinessHandler = this.backendBusinessHandler.get();
+            backendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
+            backendBusinessHandler.setMaxPacketSize(maxPacketSize);
+            backendBusinessHandler.setSession(session);
+            return new ChannelHandler[]{
+                    new MysqlProxyHandler(session::getFrontendChannel),
+                    new ServerConnectionDecoder(session, maxPacketSize),
+                    new ClientPacketEncoder(session),
+                    new ServerPacketEncoder(session),
+                    backendBusinessHandler};
+        })
+                .ioRatio(80)
+                .ioThreadCount(1)
+                .connect(mysqlAddress).get()
+                .addListener((ChannelFutureListener) future -> {
+                    if (future.isSuccess()) {
+                        session.setBackendChannel(future.channel());
+                    } else {
+                        String stackTrace = ProxyException.stackTraceToString(future.cause());
+                        ServerErrorPacket errorPacket = new ServerErrorPacket(
+                                0, ProxyException.ERROR_BACKEND_CONNECT_FAIL,
+                                "#HY000".getBytes(), stackTrace);
+                        frontendChannel.writeAndFlush(errorPacket).addListener(ChannelFutureListener.CLOSE);
+                    }
+                });
 
         MysqlFrontendBusinessHandler frontendBusinessHandler = this.frontendBusinessHandler.get();
         frontendBusinessHandler.setMaxPacketSize(maxPacketSize);
@@ -152,28 +154,20 @@ public class MysqlProtocol extends AbstractProtocol {
         frontendBusinessHandler.setMysqlPacketListeners(mysqlPacketListeners);
         frontendChannel.pipeline().addLast(
                 new MysqlProxyHandler(newBackendChannelSupplier(session)),
-                new ClientConnectionDecoder(session,maxPacketSize),
+                new ClientConnectionDecoder(session, maxPacketSize),
                 new ClientPacketEncoder(session),
                 new ServerPacketEncoder(session),
                 frontendBusinessHandler);
     }
 
-    protected Supplier<Channel> newBackendChannelSupplier(Session session){
-        return ()-> {
+    protected Supplier<Channel> newBackendChannelSupplier(Session session) {
+        return () -> {
             Channel backendChannel = session.getBackendChannel();
             if (backendChannel == null) {
-                throw new ProxyException(ProxyException.ERROR_BACKEND_NO_CONNECTION,"cannot find a backendChannel");
+                throw new ProxyException(ProxyException.ERROR_BACKEND_NO_CONNECTION, "cannot find a backendChannel");
             }
             return backendChannel;
         };
-    }
-
-    public void setMysqlAddress(InetSocketAddress mysqlAddress) {
-        this.mysqlAddress = mysqlAddress;
-    }
-
-    public void setMaxPacketSize(int maxPacketSize) {
-        this.maxPacketSize = maxPacketSize;
     }
 
     public void setBackendBusinessHandler(Supplier<MysqlBackendBusinessHandler> backendBusinessHandler) {
@@ -188,8 +182,16 @@ public class MysqlProtocol extends AbstractProtocol {
         return mysqlAddress;
     }
 
+    public void setMysqlAddress(InetSocketAddress mysqlAddress) {
+        this.mysqlAddress = mysqlAddress;
+    }
+
     public int getMaxPacketSize() {
         return maxPacketSize;
+    }
+
+    public void setMaxPacketSize(int maxPacketSize) {
+        this.maxPacketSize = maxPacketSize;
     }
 
     public List<MysqlPacketListener> getMysqlPacketListeners() {

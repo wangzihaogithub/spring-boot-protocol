@@ -22,7 +22,7 @@ public class BrokerConfiguration {
     private final boolean reauthorizeSubscriptionsOnConnect;
 
     public BrokerConfiguration() {
-        this(true,false,false);
+        this(true, false, false);
     }
 
     public BrokerConfiguration(boolean allowAnonymous, boolean allowZeroByteClientId,

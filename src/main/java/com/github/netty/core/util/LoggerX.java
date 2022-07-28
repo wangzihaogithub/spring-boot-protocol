@@ -4,11 +4,10 @@ import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
- *
  * JDK logging level  [SEVERE   WARNING   INFO   CONFIG  FINE   FINER    FINEST]
  *
  * @author wangzihao
- *  2018/8/25/025
+ * 2018/8/25/025
  */
 public class LoggerX {
 
@@ -36,15 +35,15 @@ public class LoggerX {
     }
 
     public void trace(String format, Object arg) {
-        logger.trace(format,arg);
+        logger.trace(format, arg);
     }
 
     public void trace(String format, Object argA, Object argB) {
-        logger.trace(format,argA,argB);
+        logger.trace(format, argA, argB);
     }
 
     public void trace(String format, Object... arguments) {
-        logger.trace(format,arguments);
+        logger.trace(format, arguments);
     }
 
 
@@ -64,12 +63,12 @@ public class LoggerX {
 
 
     public void debug(String format, Object arg) {
-        logger.debug(format,arg);
+        logger.debug(format, arg);
     }
 
 
     public void debug(String format, Object argA, Object argB) {
-        logger.debug(format,argA,argB);
+        logger.debug(format, argA, argB);
     }
 
 
@@ -94,17 +93,17 @@ public class LoggerX {
 
 
     public void info(String format, Object arg) {
-        logger.info(format,arg);
+        logger.info(format, arg);
     }
-   
+
 
     public void info(String format, Object argA, Object argB) {
-        logger.info(format,argA,argB);
+        logger.info(format, argA, argB);
     }
 
 
     public void info(String format, Object... arguments) {
-        logger.info(format,arguments);
+        logger.info(format, arguments);
     }
 
 
@@ -129,7 +128,7 @@ public class LoggerX {
 
 
     public void warn(String format, Object argA, Object argB) {
-        logger.warn(format, argA,argB);
+        logger.warn(format, argA, argB);
     }
 
 
@@ -159,7 +158,7 @@ public class LoggerX {
 
 
     public void error(String format, Object argA, Object argB) {
-        logger.error(format, argA,argB);
+        logger.error(format, argA, argB);
     }
 
 

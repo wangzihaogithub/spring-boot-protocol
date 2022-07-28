@@ -25,22 +25,22 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
 
 /**
  * Internal RPC protocol registry
- *
+ * <p>
  * ACK flag : (0=Don't need, 1=Need)
  * Request Packet (note:  1 = request type)
  * -+------8B--------+--1B--+--1B--+------4B------+-----4B-----+-----4B-----+------1B--------+-----length-----+------1B-------+---length----+-----4B------+-------length-------------+
  * | header/version | type | ACK   | total length | Request ID | timeout/ms | service length | service name   | method length | method name | data length |         data             |
  * |   NRPC/010     |  1   | 1    |     55       |     1       |     1000   |       8        | "/sys/user"    |      7        |  getUser    |     24      | {"age":10,"name":"wang"} |
  * -+----------------+------+------+--------------+------------+------------+----------------+----------------+---------------+-------------+-------------+--------------------------+
- *
- *
+ * <p>
+ * <p>
  * Response Packet (note: 2 = response type)
  * -+------8B--------+--1B--+--1B--+------4B------+-----4B-----+---2B---+--------1B------+--length--+---1B---+-----4B------+----------length----------+
  * | header/version | type | ACK   | total length | Request ID | status | message length | message  | encode | data length |         data             |
  * |   NRPC/010     |  2   | 0    |     35       |     1      |  200   |       2        |  ok      | 1      |     24      | {"age":10,"name":"wang"} |
  * -+----------------+------+------+--------------+------------+--------+----------------+----------+--------+-------------+--------------------------+
- *
- *
+ * <p>
+ * <p>
  * -+------2B-------+--1B--+----1B----+-----8B-----+------1B-----+----------------dynamic---------------------+-------dynamic------------+
  * | packet length | type | ACK flag |   version  | Fields size |                Fields                      |          Body            |
  * |      76       |  1   |   1      |   NRPC/201 |     2       | 11requestMappingName6/hello10methodName8sayHello  | {"age":10,"name":"wang"} |

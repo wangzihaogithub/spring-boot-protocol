@@ -11,6 +11,7 @@ import java.lang.annotation.*;
 public @interface NRpcMethod {
     /**
      * method name. if empty then java method name
+     *
      * @return method name.
      */
     String value() default "";
@@ -26,6 +27,7 @@ public @interface NRpcMethod {
      * timeout is -1 then never timeout
      * timeout is 0 then use client timeout
      * timeout other then use server timeout
+     *
      * @return method timeout
      */
     int timeout() default -1;

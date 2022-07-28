@@ -11,7 +11,7 @@ import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.SpringUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -50,7 +50,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     /**
      * skip for {@link NettyRequestUpgradeStrategy}
      *
-     * @param ctx netty ctx
+     * @param ctx     netty ctx
      * @param request netty request
      * @see NettyRequestUpgradeStrategy the handler
      */

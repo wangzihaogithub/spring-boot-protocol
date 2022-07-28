@@ -15,8 +15,6 @@ import javax.servlet.ServletRequestWrapper;
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
-import java.io.IOException;
-import java.io.Reader;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -39,6 +37,7 @@ import java.util.Map;
 public class ServletUtil {
     private static final String EMPTY_STRING = "";
     private static final char SPACE = 0x20;
+    private static final Cookie[] EMPTY_COOKIE = {};
     private static long lastTimestamp = System.currentTimeMillis();
     private static Date lastDate = new Date(lastTimestamp);
     private static String nowRFCTime = DateFormatter.format(lastDate);
@@ -176,8 +175,6 @@ public class ServletUtil {
         }
         return buf.toString();
     }
-
-    private static final Cookie[] EMPTY_COOKIE = {};
 
     /**
      * Decodes the specified Set-Cookie HTTP header value into a
@@ -448,8 +445,8 @@ public class ServletUtil {
         CharBuffer charBuf = CharBuffer.allocate(decodedCapacity);
 
         // jdk9 bug. java.lang.NoSuchMethodError: java.nio.ByteBuffer.clear()Ljava/nio/ByteBuffer;
-        Buffer byteBufHandler = Buffer.class.cast(byteBuf);
-        Buffer charBufHandler = Buffer.class.cast(charBuf);
+        Buffer byteBufHandler = (Buffer) byteBuf;
+        Buffer charBufHandler = (Buffer) charBuf;
 
         strBuf.setLength(0);
         strBuf.append(s, from, firstEscaped);

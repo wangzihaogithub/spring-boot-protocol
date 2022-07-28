@@ -32,8 +32,8 @@ public class MqttClientDescriptor {
         if (o == null || getClass() != o.getClass()) return false;
         MqttClientDescriptor that = (MqttClientDescriptor) o;
         return port == that.port &&
-            Objects.equals(clientID, that.clientID) &&
-            Objects.equals(address, that.address);
+                Objects.equals(clientID, that.clientID) &&
+                Objects.equals(address, that.address);
     }
 
     @Override
@@ -44,9 +44,9 @@ public class MqttClientDescriptor {
     @Override
     public String toString() {
         return "MqttClientDescriptor{" +
-            "clientID='" + clientID + '\'' +
-            ", address='" + address + '\'' +
-            ", port=" + port +
-            '}';
+                "clientID='" + clientID + '\'' +
+                ", address='" + address + '\'' +
+                ", port=" + port +
+                '}';
     }
 }

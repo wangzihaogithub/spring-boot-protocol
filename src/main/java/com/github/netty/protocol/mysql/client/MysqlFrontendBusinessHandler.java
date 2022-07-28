@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 
 /**
  * Here the user business logic
- *
+ * <p>
  * follows
  * 1. server to client {@link ServerHandshakePacket}
  * 2. client to server {@link ClientHandshakePacket}
@@ -24,13 +24,13 @@ import java.util.regex.Pattern;
  * 4. client to server query... {@link ClientQueryPacket}
  * 5. server to client {@link ServerOkPacket}
  * 6. any....
- *
+ * <p>
  * Initial Handshake starts with server sending the `Initial Handshake Packet` {@link ServerHandshakePacket}.
  * After this, optionally,
  * client can request an SSL connection to be established with `SSL Connection Request Packet` TODO ,
  * and then client sends the `Handshake Response Packet` {@link ClientHandshakePacket}.
  */
-public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientPacket,MysqlPacket> {
+public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientPacket, MysqlPacket> {
     protected static Pattern SETTINGS_PATTERN = Pattern.compile("@@(\\w+)\\sAS\\s(\\w+)");
     private int maxPacketSize;
     private Session session;
@@ -45,45 +45,45 @@ public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientP
         if (msg instanceof ClientHandshakePacket) {
             onHandshake(ctx, (ClientHandshakePacket) msg);
         }
-        if(mysqlPacketListeners != null && !mysqlPacketListeners.isEmpty()){
+        if (mysqlPacketListeners != null && !mysqlPacketListeners.isEmpty()) {
             for (MysqlPacketListener mysqlPacketListener : mysqlPacketListeners) {
                 try {
                     mysqlPacketListener.onMysqlPacket(msg, ctx, session, Constants.HANDLER_TYPE_FRONTEND);
-                }catch (Exception e){
-                    logger.warn("{} exception = {} ",mysqlPacketListener.toString(),e.toString(),e);
+                } catch (Exception e) {
+                    logger.warn("{} exception = {} ", mysqlPacketListener.toString(), e.toString(), e);
                 }
             }
         }
         onMysqlPacket(ctx, msg);
     }
 
-    protected void onMysqlPacket(ChannelHandlerContext ctx, ClientPacket packet){
+    protected void onMysqlPacket(ChannelHandlerContext ctx, ClientPacket packet) {
 
     }
 
     @Override
     protected void onUserEventTriggered(ChannelHandlerContext ctx, Object evt) {
         super.onUserEventTriggered(ctx, evt);
-        if(evt instanceof EventHandshakeSuccessful){
-            onHandshakeSuccessful(ctx,(EventHandshakeSuccessful) evt);
+        if (evt instanceof EventHandshakeSuccessful) {
+            onHandshakeSuccessful(ctx, (EventHandshakeSuccessful) evt);
         }
     }
 
-    protected void onHandshake(ChannelHandlerContext ctx, ClientHandshakePacket packet){
+    protected void onHandshake(ChannelHandlerContext ctx, ClientHandshakePacket packet) {
         session.setClientCharsetAttr(packet.getCharacterSet());
         session.setFrontendCapabilities(packet.getCapabilities());
     }
 
-    protected void onHandshakeSuccessful(ChannelHandlerContext ctx, EventHandshakeSuccessful event){
-        if(ctx.pipeline().context(ClientConnectionDecoder.class) != null) {
+    protected void onHandshakeSuccessful(ChannelHandlerContext ctx, EventHandshakeSuccessful event) {
+        if (ctx.pipeline().context(ClientConnectionDecoder.class) != null) {
             ctx.pipeline().replace(ClientConnectionDecoder.class,
-                    "ClientCommandDecoder", new ClientCommandDecoder(session,getMaxPacketSize()));
+                    "ClientCommandDecoder", new ClientCommandDecoder(session, getMaxPacketSize()));
         }
     }
 
     public ClientHandshakePacket newClientHandshakePacket(String user, String password, String database,
                                                           ServerHandshakePacket serverHandshakePacket,
-                                                          Set<CapabilityFlags> capabilities){
+                                                          Set<CapabilityFlags> capabilities) {
         ClientHandshakePacket packet = ClientHandshakePacket.create()
                 .addCapabilities(capabilities)
                 .username(user)
@@ -97,8 +97,9 @@ public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientP
     /**
      * String query = packet.getQuery();
      * if (isServerSettingQuery(query)) {
-     *      sendSettingPacket(ctx, packet);
+     * sendSettingPacket(ctx, packet);
      * }
+     *
      * @param query query sql
      * @return isServerSettingQuery
      */
@@ -202,12 +203,12 @@ public class MysqlFrontendBusinessHandler extends AbstractChannelHandler<ClientP
                 .build();
     }
 
-    public void setMaxPacketSize(int maxPacketSize) {
-        this.maxPacketSize = maxPacketSize;
-    }
-
     public int getMaxPacketSize() {
         return maxPacketSize;
+    }
+
+    public void setMaxPacketSize(int maxPacketSize) {
+        this.maxPacketSize = maxPacketSize;
     }
 
     public Session getSession() {

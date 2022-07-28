@@ -13,10 +13,10 @@ import io.netty.handler.codec.rtsp.RtspDecoder;
 import io.netty.handler.codec.rtsp.RtspEncoder;
 
 /**
- *
  * Real-time streaming media transfer protocol (commonly used for live streaming, video)
+ *
  * @author wangzihao
- *  2018/12/5/005
+ * 2018/12/5/005
  */
 public class RtspProtocol extends AbstractProtocol {
     private final int maxInitialLineLength;
@@ -25,7 +25,7 @@ public class RtspProtocol extends AbstractProtocol {
     private ChannelHandler channelHandler;
 
     public RtspProtocol() {
-        this(4096,8192,8192,new RtspServerChannelHandler());
+        this(4096, 8192, 8192, new RtspServerChannelHandler());
     }
 
     public RtspProtocol(int maxInitialLineLength, int maxHeaderSize, int maxContentLength, ChannelHandler channelHandler) {
@@ -43,24 +43,21 @@ public class RtspProtocol extends AbstractProtocol {
     @Override
     public boolean canSupport(ByteBuf msg) {
         int protocolEndIndex = IOUtil.indexOf(msg, HttpConstants.LF);
-        if(protocolEndIndex < 9){
+        if (protocolEndIndex < 9) {
             return false;
         }
 
-        if(msg.getByte(protocolEndIndex - 9) == 'R'
+        return msg.getByte(protocolEndIndex - 9) == 'R'
                 && msg.getByte(protocolEndIndex - 8) == 'T'
                 && msg.getByte(protocolEndIndex - 7) == 'S'
-                &&  msg.getByte(protocolEndIndex - 6) == 'P'){
-            return true;
-        }
-        return false;
+                && msg.getByte(protocolEndIndex - 6) == 'P';
     }
 
     @Override
     public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
         ChannelPipeline pipeline = channel.pipeline();
         pipeline.addLast(new RtspEncoder());
-        pipeline.addLast(new RtspDecoder(maxInitialLineLength,maxHeaderSize,maxContentLength,false));
+        pipeline.addLast(new RtspDecoder(maxInitialLineLength, maxHeaderSize, maxContentLength, false));
         pipeline.addLast(channelHandler);
     }
 

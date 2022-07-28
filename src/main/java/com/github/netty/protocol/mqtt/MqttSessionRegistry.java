@@ -37,31 +37,7 @@ import java.util.stream.Collectors;
 
 public class MqttSessionRegistry {
 
-    public abstract static class EnqueuedMessage {
-    }
-
-    static class PublishedMessage extends EnqueuedMessage {
-
-        final Topic topic;
-        final MqttQoS publishingQos;
-        final ByteBuf payload;
-
-        PublishedMessage(Topic topic, MqttQoS publishingQos, ByteBuf payload) {
-            this.topic = topic;
-            this.publishingQos = publishingQos;
-            this.payload = payload;
-        }
-    }
-
-    static final class PubRelMarker extends EnqueuedMessage {
-    }
-
-    private enum PostConnectAction {
-        NONE, SEND_STORED_MESSAGES
-    }
-
     private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttSessionRegistry.class);
-
     private final ConcurrentMap<String, MqttSession> pool = new ConcurrentHashMap<>();
     private final ISubscriptionsDirectory subscriptionsDirectory;
     private final IQueueRepository queueRepository;
@@ -200,7 +176,7 @@ public class MqttSessionRegistry {
     private MqttSession createNewSession(MqttConnection mqttConnection, MqttConnectMessage msg, String clientId) {
         final boolean clean = msg.variableHeader().isCleanSession();
         final Queue<EnqueuedMessage> sessionQueue =
-                    queues.computeIfAbsent(clientId, (String cli) -> queueRepository.createQueue(cli, clean));
+                queues.computeIfAbsent(clientId, (String cli) -> queueRepository.createQueue(cli, clean));
         final MqttSession newSession;
         if (msg.variableHeader().isWillFlag()) {
             final MqttSession.Will will = createWill(msg);
@@ -253,5 +229,28 @@ public class MqttSessionRegistry {
 
     private void dropQueuesForClient(String clientId) {
         queues.remove(clientId);
+    }
+
+    private enum PostConnectAction {
+        NONE, SEND_STORED_MESSAGES
+    }
+
+    public abstract static class EnqueuedMessage {
+    }
+
+    static class PublishedMessage extends EnqueuedMessage {
+
+        final Topic topic;
+        final MqttQoS publishingQos;
+        final ByteBuf payload;
+
+        PublishedMessage(Topic topic, MqttQoS publishingQos, ByteBuf payload) {
+            this.topic = topic;
+            this.publishingQos = publishingQos;
+            this.payload = payload;
+        }
+    }
+
+    static final class PubRelMarker extends EnqueuedMessage {
     }
 }

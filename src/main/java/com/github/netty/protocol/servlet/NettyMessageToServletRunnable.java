@@ -66,7 +66,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private final Protocol protocol;
     private final boolean ssl;
     private ServletHttpExchange exchange;
-    private volatile HttpRunnable httpRunnable;
+    private /*volatile */ HttpRunnable httpRunnable;
 
     public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         this.servletContext = servletContext;
@@ -109,7 +109,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             }
         }
 
-        // discard
+        // abort discard
         if (needDiscard) {
             discard(msg);
         }
@@ -126,6 +126,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 if (asyncContext != null && !asyncContext.isComplete()) {
                     asyncContext.complete(new ClosedChannelException());
                 }
+            } else if (exchange.closeStatus() == CLOSE_NO) {
+                exchange.abort();
             }
             exchange.close();
         }
@@ -155,10 +157,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 byteBuf = null;
             }
             ServletHttpExchange exchange = this.exchange;
-            if (byteBuf != null && byteBuf.isReadable()) {
-                LOGGER.warn("http packet discard {} = '{}', exchange.closeStatus = {}, httpRunnable = {}",
+            if (byteBuf != null && byteBuf.isReadable() && LOGGER.isDebugEnabled()) {
+                LOGGER.debug("http packet discard {} = '{}', exchange.closeStatus = {}, httpRunnable = {}",
                         msg.getClass().getName(),
-                        byteBuf.toString(byteBuf.readerIndex(), Math.min(byteBuf.readableBytes(), 2048), Charset.forName("UTF-8")),
+                        byteBuf.toString(byteBuf.readerIndex(), Math.min(byteBuf.readableBytes(), 100), Charset.forName("UTF-8")),
                         exchange != null ? exchange.closeStatus() : "null",
                         httpRunnable);
             }
@@ -253,7 +255,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 realThrowable = throwable;
             } finally {
                 try {
-                    handleErrorPage(errorPageManager,realThrowable, request, response);
+                    handleErrorPage(errorPageManager, realThrowable, request, response);
                 } catch (Throwable e) {
                     logger.warn("handleErrorPage error = {}", e.toString(), e);
                 } finally {

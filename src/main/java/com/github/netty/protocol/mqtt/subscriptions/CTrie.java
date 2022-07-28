@@ -7,20 +7,8 @@ import java.util.Set;
 
 public class CTrie {
 
-    interface IVisitor<T> {
-
-        void visit(CNode node, int deep);
-
-        T getResult();
-    }
-
     private static final Token ROOT = new Token("root");
     private static final INode NO_PARENT = null;
-
-    private enum Action {
-        OK, REPEAT
-    }
-
     INode root;
 
     CTrie() {
@@ -41,10 +29,6 @@ public class CTrie {
             return Optional.empty();
         }
         return Optional.of(inode.mainNode());
-    }
-
-    enum NavigationAction {
-        MATCH, GODEEP, STOP
     }
 
     private NavigationAction evaluate(Topic topic, CNode cnode) {
@@ -190,14 +174,12 @@ public class CTrie {
     }
 
     /**
-     *
      * Cleans Disposes of TNode in separate Atomic CAS operation per
      * http://bravenewgeek.com/breaking-and-entering-lose-the-lock-while-embracing-concurrency/
-     *
+     * <p>
      * We roughly follow this theory above, but we allow CNode with no Subscriptions to linger (for now).
      *
-     *
-     * @param inode inode that handle to the tomb node.
+     * @param inode   inode that handle to the tomb node.
      * @param iParent inode parent.
      * @return REPEAT if the this methods wasn't successful or OK.
      */
@@ -229,5 +211,20 @@ public class CTrie {
         for (INode child : node.mainNode().allChildren()) {
             dfsVisit(child, visitor, deep);
         }
+    }
+
+    private enum Action {
+        OK, REPEAT
+    }
+
+    enum NavigationAction {
+        MATCH, GODEEP, STOP
+    }
+
+    interface IVisitor<T> {
+
+        void visit(CNode node, int deep);
+
+        T getResult();
     }
 }

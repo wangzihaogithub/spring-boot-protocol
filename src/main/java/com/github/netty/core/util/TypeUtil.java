@@ -30,21 +30,18 @@ public class TypeUtil {
         if (clazz.isPrimitive()) {
             return true;
         }
-        if(clazz.equals(Boolean.class) ||
+        return clazz.equals(Boolean.class) ||
                 clazz.equals(Byte.class) ||
                 clazz.equals(Character.class) ||
                 clazz.equals(Double.class) ||
                 clazz.equals(Float.class) ||
                 clazz.equals(Integer.class) ||
                 clazz.equals(Long.class) ||
-                clazz.equals(Short.class)) {
-            return true;
-        }
-        return false;
+                clazz.equals(Short.class);
     }
 
     public static <T> TypeResult getGenericType(Class<T> type,
-                                                 Class<? extends T> clazz) {
+                                                Class<? extends T> clazz) {
 
         // Look to see if this class implements the interface of interest
 
@@ -122,18 +119,18 @@ public class TypeUtil {
     }
 
     /*
-       * For a generic parameter, return either the Class used or if the type
-       * is unknown, the index for the type in definition of the class
-       */
+     * For a generic parameter, return either the Class used or if the type
+     * is unknown, the index for the type in definition of the class
+     */
     private static TypeResult getTypeParameter(Class<?> clazz, Type argType) {
         if (argType instanceof Class<?>) {
             return new TypeResult((Class<?>) argType, -1, 0);
         } else if (argType instanceof ParameterizedType) {
-            return new TypeResult((Class<?>)((ParameterizedType) argType).getRawType(), -1, 0);
+            return new TypeResult((Class<?>) ((ParameterizedType) argType).getRawType(), -1, 0);
         } else if (argType instanceof GenericArrayType) {
             Type arrayElementType = ((GenericArrayType) argType).getGenericComponentType();
             TypeResult result = getTypeParameter(clazz, arrayElementType);
-            if(result != null) {
+            if (result != null) {
                 result.incrementDimension(1);
             }
             return result;
@@ -145,34 +142,6 @@ public class TypeUtil {
                 }
             }
             return null;
-        }
-    }
-
-    public static class TypeResult {
-        private final Class<?> clazz;
-        private final int index;
-        private int dimension;
-
-        public TypeResult(Class<?> clazz, int index, int dimension) {
-            this.clazz= clazz;
-            this.index = index;
-            this.dimension = dimension;
-        }
-
-        public Class<?> getClazz() {
-            return clazz;
-        }
-
-        public int getIndex() {
-            return index;
-        }
-
-        public int getDimension() {
-            return dimension;
-        }
-
-        public void incrementDimension(int inc) {
-            dimension += inc;
         }
     }
 
@@ -843,7 +812,7 @@ public class TypeUtil {
         }
 
         if (clazz.isEnum()) {
-            return (T) castToEnum(obj, clazz);
+            return castToEnum(obj, clazz);
         }
 
         if (Calendar.class.isAssignableFrom(clazz)) {
@@ -935,7 +904,7 @@ public class TypeUtil {
         }
 
         if (type instanceof Class) {
-            return (T) cast(obj, (Class<T>) type);
+            return cast(obj, (Class<T>) type);
         }
 
         if (type instanceof ParameterizedType) {
@@ -1020,6 +989,34 @@ public class TypeUtil {
         }
 
         throw new IllegalArgumentException("can not cast to : " + type);
+    }
+
+    public static class TypeResult {
+        private final Class<?> clazz;
+        private final int index;
+        private int dimension;
+
+        public TypeResult(Class<?> clazz, int index, int dimension) {
+            this.clazz = clazz;
+            this.index = index;
+            this.dimension = dimension;
+        }
+
+        public Class<?> getClazz() {
+            return clazz;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        public int getDimension() {
+            return dimension;
+        }
+
+        public void incrementDimension(int inc) {
+            dimension += inc;
+        }
     }
 
 }

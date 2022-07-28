@@ -53,26 +53,46 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     private static final LoggerX LOGGER =
             LoggerFactoryX.getLogger(ChunkedWriteHandler.class);
     private final Queue<PendingWrite> queue;
-    private volatile ChannelHandlerContext ctx;
     private final AtomicBoolean flushIng = new AtomicBoolean(false);
+    private final AtomicLong unFlushBytes = new AtomicLong();
+    private /*volatile*/ ChannelHandlerContext ctx;
     /**
      * output stream maxBufferBytes
      * Each buffer accumulate the maximum number of bytes (default 1M)
      */
     private LongSupplier maxBufferBytes;
-    private final AtomicLong unFlushBytes = new AtomicLong();
 
     public ChunkedWriteHandler(LongSupplier maxBufferBytes) {
-        this(new ArrayDeque<PendingWrite>(),maxBufferBytes);
+        this(new ArrayDeque<PendingWrite>(), maxBufferBytes);
     }
 
-    public ChunkedWriteHandler(Queue<PendingWrite> queue,LongSupplier maxBufferBytes) {
+    public ChunkedWriteHandler(Queue<PendingWrite> queue, LongSupplier maxBufferBytes) {
         this.queue = queue;
         this.maxBufferBytes = maxBufferBytes;
     }
 
-    public void setMaxBufferBytes(LongSupplier maxBufferBytes) {
-        this.maxBufferBytes = maxBufferBytes;
+    private static void handleEndOfInputFuture(ChannelFuture future, PendingWrite currentWrite, ChunkedInput input) {
+        if (!future.isSuccess()) {
+            closeInput(input);
+            currentWrite.fail(future.cause());
+        } else {
+            // read state of the input in local variables before closing it
+            long inputProgress = input.progress();
+            long inputLength = input.length();
+            closeInput(input);
+            currentWrite.progress(inputProgress, inputLength);
+            currentWrite.success(inputLength);
+        }
+    }
+
+    private static void closeInput(ChunkedInput<?> chunks) {
+        try {
+            chunks.close();
+        } catch (Throwable t) {
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("Failed to close a chunked input.", t);
+            }
+        }
     }
 
     public Collection<PendingWrite> getUnFlushList() {
@@ -81,6 +101,10 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
 
     public long getMaxBufferBytes() {
         return maxBufferBytes.getAsLong();
+    }
+
+    public void setMaxBufferBytes(LongSupplier maxBufferBytes) {
+        this.maxBufferBytes = maxBufferBytes;
     }
 
     @Override
@@ -112,15 +136,15 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private PendingWrite removeFirst(){
+    private PendingWrite removeFirst() {
         PendingWrite remove = queue.poll();
-        if(remove != null) {
+        if (remove != null) {
             unFlushBytes.addAndGet(-remove.bytes);
         }
         return remove;
     }
 
-    private void add(PendingWrite pendingWrite){
+    private void add(PendingWrite pendingWrite) {
         queue.add(pendingWrite);
         unFlushBytes.addAndGet(pendingWrite.bytes);
     }
@@ -129,7 +153,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         add(PendingWrite.newInstance(msg, promise));
 
-        if(unFlushBytes.get() >= maxBufferBytes.getAsLong()){
+        if (unFlushBytes.get() >= maxBufferBytes.getAsLong()) {
             doFlush(ctx);
         }
     }
@@ -353,20 +377,6 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static void handleEndOfInputFuture(ChannelFuture future, PendingWrite currentWrite, ChunkedInput input) {
-        if (!future.isSuccess()) {
-            closeInput(input);
-            currentWrite.fail(future.cause());
-        } else {
-            // read state of the input in local variables before closing it
-            long inputProgress = input.progress();
-            long inputLength = input.length();
-            closeInput(input);
-            currentWrite.progress(inputProgress, inputLength);
-            currentWrite.success(inputLength);
-        }
-    }
-
     private void handleFuture(ChannelFuture future, PendingWrite currentWrite, boolean resume) {
         ChunkedInput<?> input = (ChunkedInput<?>) currentWrite.msg;
         if (future.isSuccess()) {
@@ -380,14 +390,14 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
         }
     }
 
-    private static void closeInput(ChunkedInput<?> chunks) {
-        try {
-            chunks.close();
-        } catch (Throwable t) {
-            if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn("Failed to close a chunked input.", t);
-            }
-        }
+    @Override
+    public String toString() {
+        return "ChunkedWriteHandler{" +
+                "maxBufferBytes=" + maxBufferBytes +
+                ", unFlushBytes=" + unFlushBytes +
+                ", queueSize=" + queue.size() +
+                ", ctx=" + ctx +
+                '}';
     }
 
     private static final class PendingWrite implements Recyclable {
@@ -432,7 +442,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 // No need to notify the progress or fulfill the promise because it's done already.
                 return;
             }
-            if(promise.tryFailure(cause)){
+            if (promise.tryFailure(cause)) {
                 ReferenceCountUtil.release(msg);
             }
 //            recycle();
@@ -443,7 +453,7 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
                 // No need to notify the progress or fulfill the promise because it's done already.
                 return;
             }
-            if(promise.trySuccess()){
+            if (promise.trySuccess()) {
                 progress(total, total);
             }
 //            recycle();
@@ -461,15 +471,5 @@ public class ChunkedWriteHandler extends ChannelDuplexHandler {
             this.promise = null;
             RECYCLER.recycleInstance(this);
         }
-    }
-
-    @Override
-    public String toString() {
-        return "ChunkedWriteHandler{" +
-                "maxBufferBytes=" + maxBufferBytes +
-                ", unFlushBytes=" + unFlushBytes +
-                ", queueSize=" + queue.size() +
-                ", ctx=" + ctx +
-                '}';
     }
 }

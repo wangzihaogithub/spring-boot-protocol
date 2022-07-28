@@ -20,25 +20,25 @@ package com.github.netty.protocol.mysql;
  *
  */
 public abstract class AbstractMySqlPacket implements MysqlPacket {
-	private final long timestamp = System.currentTimeMillis();
-	private final int sequenceId;
+    private final long timestamp = System.currentTimeMillis();
+    private final int sequenceId;
 
-	public AbstractMySqlPacket(int sequenceId) {
-		this.sequenceId = sequenceId;
-	}
+    public AbstractMySqlPacket(int sequenceId) {
+        this.sequenceId = sequenceId;
+    }
 
-	@Override
-	public long getTimestamp() {
-		return timestamp;
-	}
+    @Override
+    public long getTimestamp() {
+        return timestamp;
+    }
 
-	@Override
-	public int getSequenceId() {
-		return sequenceId;
-	}
+    @Override
+    public int getSequenceId() {
+        return sequenceId;
+    }
 
-	@Override
-	public String toString() {
-		return getClass().getSimpleName();
-	}
+    @Override
+    public String toString() {
+        return getClass().getSimpleName();
+    }
 }

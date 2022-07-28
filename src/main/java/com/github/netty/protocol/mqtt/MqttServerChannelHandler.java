@@ -34,19 +34,19 @@ import java.io.IOException;
 import static io.netty.channel.ChannelFutureListener.CLOSE_ON_FAILURE;
 
 /**
- *  开发一个MQTT库需要提供如下命令：
-     Connect ：当一个TCP/IP套接字在服务器端和客户端连接建立时需要使用的命令。
-     publish  ： 是由客户端向服务端发送，告诉服务器端自己感兴趣的Topic。每一个publishMessage 都会与一个Topic的名字联系在一起。
-     pubRec:   是publish命令的响应，只不过使用了2级QoS协议。它是2级QoS协议的第二条消息
-     pubRel:    是2级QoS协议的第三条消息
-     publComp: 是2级QoS协议的第四条消息
-     subscribe： 允许一个客户端注册自已感兴趣的Topic 名字，发布到这些Topic的消息会以publish Message的形式由服务器端发送给客户端。
-     unsubscribe:  从客户端到服务器端，退订一个Topic。
-     Ping： 有客户端向服务器端发送的“are you alive”的消息。
-     disconnect：断开这个TCP/IP协议。
+ * 开发一个MQTT库需要提供如下命令：
+ * Connect ：当一个TCP/IP套接字在服务器端和客户端连接建立时需要使用的命令。
+ * publish  ： 是由客户端向服务端发送，告诉服务器端自己感兴趣的Topic。每一个publishMessage 都会与一个Topic的名字联系在一起。
+ * pubRec:   是publish命令的响应，只不过使用了2级QoS协议。它是2级QoS协议的第二条消息
+ * pubRel:    是2级QoS协议的第三条消息
+ * publComp: 是2级QoS协议的第四条消息
+ * subscribe： 允许一个客户端注册自已感兴趣的Topic 名字，发布到这些Topic的消息会以publish Message的形式由服务器端发送给客户端。
+ * unsubscribe:  从客户端到服务器端，退订一个Topic。
+ * Ping： 有客户端向服务器端发送的“are you alive”的消息。
+ * disconnect：断开这个TCP/IP协议。
  */
 @Sharable
-public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage,Object> {
+public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage, Object> {
 
     private static final AttributeKey<MqttConnection> ATTR_KEY_CONNECTION = AttributeKey.valueOf(MqttConnection.class + "#MQTTConnection");
 
@@ -56,7 +56,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     private final MqttPostOffice postOffice;
     private final BrokerInterceptor interceptor;
 
-    public MqttServerChannelHandler(BrokerInterceptor interceptor,BrokerConfiguration brokerConfig, IAuthenticator authenticator,
+    public MqttServerChannelHandler(BrokerInterceptor interceptor, BrokerConfiguration brokerConfig, IAuthenticator authenticator,
                                     MqttSessionRegistry sessionRegistry, MqttPostOffice postOffice) {
         super(true);
         this.interceptor = interceptor;
@@ -70,7 +70,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
         return channel.attr(ATTR_KEY_CONNECTION).get();
     }
 
-    private void mqttConnection(Channel channel,MqttConnection connection) {
+    private void mqttConnection(Channel channel, MqttConnection connection) {
         channel.attr(ATTR_KEY_CONNECTION).set(connection);
     }
 
@@ -86,7 +86,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
             mqttConnection.handleMessage(msg);
         } catch (Throwable ex) {
             //ctx.fireExceptionCaught(ex);
-            logger.error("Error processing protocol message: "+ msg.fixedHeader().messageType(), ex);
+            logger.error("Error processing protocol message: " + msg.fixedHeader().messageType(), ex);
             ctx.channel().close().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) {
@@ -99,9 +99,9 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         Channel channel = ctx.channel();
-        MqttConnection connection =  new MqttConnection(interceptor,channel, brokerConfig, authenticator, sessionRegistry, postOffice);
+        MqttConnection connection = new MqttConnection(interceptor, channel, brokerConfig, authenticator, sessionRegistry, postOffice);
         connection.setAuthFlushed(AutoFlushChannelHandler.isAutoFlush(ctx.pipeline()));
-        mqttConnection(channel,connection);
+        mqttConnection(channel, connection);
     }
 
     @Override
@@ -112,7 +112,7 @@ public class MqttServerChannelHandler extends AbstractChannelHandler<MqttMessage
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        logger.error("Unexpected exception while processing MQTT message. Closing Netty channel. CId="+ MqttUtil.clientID(ctx.channel()), cause);
+        logger.error("Unexpected exception while processing MQTT message. Closing Netty channel. CId=" + MqttUtil.clientID(ctx.channel()), cause);
         ctx.close().addListener(CLOSE_ON_FAILURE);
     }
 

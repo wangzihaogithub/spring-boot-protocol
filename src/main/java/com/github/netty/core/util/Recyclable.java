@@ -4,6 +4,7 @@ import java.util.function.Consumer;
 
 /**
  * recycled
+ *
  * @author wangzihao
  */
 public interface Recyclable {
@@ -11,17 +12,19 @@ public interface Recyclable {
     /**
      * recycle
      */
-    default void recycle(){}
+    default void recycle() {
+    }
 
     /**
      * async recycle
+     *
      * @param consumer callback
-     * @param <T> last recycle object
+     * @param <T>      last recycle object
      */
-    default <T> void recycle(Consumer<T> consumer){
-        if(consumer == null){
+    default <T> void recycle(Consumer<T> consumer) {
+        if (consumer == null) {
             recycle();
-        }else {
+        } else {
             consumer.accept(null);
         }
     }

@@ -135,7 +135,7 @@ public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
                     TypeUtil.TypeResult typeResult = TypeUtil.getGenericType(MessageHandler.Whole.class, whole.getClass());
                     if (typeResult == null
                             || typeResult.getClazz() == Object.class
-                            || typeResult.getClazz() == messageType){
+                            || typeResult.getClazz() == messageType) {
                         try {
                             if (frame instanceof PingWebSocketFrame) {
                                 ByteBuffer applicationData = ByteBuffer.wrap((byte[]) message);

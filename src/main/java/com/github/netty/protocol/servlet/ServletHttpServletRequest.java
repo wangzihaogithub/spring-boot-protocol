@@ -26,8 +26,9 @@ import java.util.function.Supplier;
 
 /**
  * The servlet request
+ *
  * @author wangzihao
- *  2018/7/15/015
+ * 2018/7/15/015
  */
 public class ServletHttpServletRequest implements HttpServletRequest, Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
@@ -39,11 +40,56 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
     };
     private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
-	private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
+    private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
+    private final AtomicBoolean decodeBodyFlag = new AtomicBoolean();
+    private final Map<String, Object> attributeMap = new LinkedHashMap<>(32);
+    private final LinkedMultiValueMap<String, String> parameterMap = new LinkedMultiValueMap<>(16);
+    private final Map<String, String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
+        @Override
+        public Set<Entry<String, String[]>> entrySet() {
+            if (parameterMap.isEmpty()) {
+                return Collections.emptySet();
+            }
+            HashSet<Entry<String, String[]>> result = new LinkedHashSet<>(6);
+            Set<Entry<String, List<String>>> entries = parameterMap.entrySet();
+            for (Entry<String, List<String>> entry : entries) {
+                List<String> value = entry.getValue();
+                String[] valueArr = value != null ? value.toArray(new String[value.size()]) : null;
+                result.add(new SimpleImmutableEntry<>(entry.getKey(), valueArr));
+            }
+            return result;
+        }
+
+        @Override
+        public String[] get(Object key) {
+            List<String> value = parameterMap.get(key);
+            if (value == null) {
+                return null;
+            } else {
+                return value.toArray(new String[value.size()]);
+            }
+        }
+
+        @Override
+        public boolean containsKey(Object key) {
+            return parameterMap.containsKey(key);
+        }
+
+        @Override
+        public boolean containsValue(Object value) {
+            return parameterMap.containsValue(value);
+        }
+
+        @Override
+        public int size() {
+            return parameterMap.size();
+        }
+    };
+    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier, resourceManagerSupplier);
+    private final List<Part> fileUploadList = new ArrayList<>();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
-
     private String serverName;
     private int serverPort;
     private String remoteHost;
@@ -59,68 +105,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private ServletSecurityElement servletSecurityElement;
     private ServletRequestDispatcher dispatcher;
     private ResourceManager resourceManager;
-
-    private boolean decodePathsFlag = false;
-    private boolean decodeCookieFlag = false;
-    private boolean decodeParameterByUrlFlag = false;
-    private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
-    private boolean remoteSchemeFlag = false;
-    private boolean usingInputStreamFlag = false;
-    private final AtomicBoolean decodeBodyFlag = new AtomicBoolean();
-
-    private BufferedReader reader;
-    private HttpRequest nettyRequest;
-    private boolean isMultipart;
-    private boolean isFormUrlEncoder;
-    private final Map<String,Object> attributeMap = Collections.synchronizedMap(new LinkedHashMap<>(16));
-    private final LinkedMultiValueMap<String,String> parameterMap = new LinkedMultiValueMap<>(16);
-    private final Map<String,String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
-	    @Override
-	    public Set<Entry<String, String[]>> entrySet() {
-	    	if(isEmpty()){
-	    		return Collections.emptySet();
-		    }
-		    HashSet<Entry<String, String[]>> result = new HashSet<>(6);
-		    Set<Entry<String, List<String>>> entries = parameterMap.entrySet();
-		    for (Entry<String,List<String>> entry : entries) {
-			    List<String> value = entry.getValue();
-			    String[] valueArr = value != null? value.toArray(new String[value.size()]): null;
-			    result.add(new SimpleImmutableEntry<>(entry.getKey(),valueArr));
-		    }
-		    return result;
-	    }
-
-	    @Override
-	    public String[] get(Object key) {
-		    List<String> value = parameterMap.get(key);
-		    if(value == null){
-		    	return null;
-		    }else {
-			    return value.toArray(new String[value.size()]);
-		    }
-	    }
-
-	    @Override
-	    public boolean containsKey(Object key) {
-		    return parameterMap.containsKey(key);
-	    }
-
-	    @Override
-	    public boolean containsValue(Object value) {
-		    return parameterMap.containsValue(value);
-	    }
-
-	    @Override
-	    public int size() {
-		    return parameterMap.size();
-	    }
-    };
-    private final Supplier<ResourceManager> resourceManagerSupplier = ()-> {
-        if(resourceManager == null){
-            synchronized (this){
-                if(resourceManager == null){
+    private final Supplier<ResourceManager> resourceManagerSupplier = () -> {
+        if (resourceManager == null) {
+            synchronized (this) {
+                if (resourceManager == null) {
                     String location = null;
-                    if(multipartConfigElement != null) {
+                    if (multipartConfigElement != null) {
                         location = multipartConfigElement.getLocation();
                     }
                     ResourceManager resourceManager;
@@ -139,21 +129,31 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return resourceManager;
     };
-    private final Supplier<InterfaceHttpPostRequestDecoder> postRequestDecoderSupplier = ()->{
-        if(!isMultipart && !isFormUrlEncoder){
+    private boolean decodePathsFlag = false;
+    private boolean decodeCookieFlag = false;
+    private boolean decodeParameterByUrlFlag = false;
+    private /*volatile*/ InterfaceHttpPostRequestDecoder postRequestDecoder = null;
+    private boolean remoteSchemeFlag = false;
+    private boolean usingInputStreamFlag = false;
+    private BufferedReader reader;
+    private HttpRequest nettyRequest;
+    private boolean isMultipart;
+    private boolean isFormUrlEncoder;
+    private final Supplier<InterfaceHttpPostRequestDecoder> postRequestDecoderSupplier = () -> {
+        if (!isMultipart && !isFormUrlEncoder) {
             return null;
         }
-        if(this.postRequestDecoder == null) {
+        if (this.postRequestDecoder == null) {
             synchronized (this) {
                 if (this.postRequestDecoder == null) {
                     Charset charset = Charset.forName(getCharacterEncoding());
                     HttpDataFactory httpDataFactory = getHttpDataFactory(charset);
                     InterfaceHttpPostRequestDecoder postRequestDecoder;
-                    if(isMultipart){
+                    if (isMultipart) {
                         postRequestDecoder = new HttpPostMultipartRequestDecoder(httpDataFactory, nettyRequest, charset);
-                    }else if(isFormUrlEncoder){
+                    } else if (isFormUrlEncoder) {
                         postRequestDecoder = new HttpPostStandardRequestDecoder(httpDataFactory, nettyRequest, charset);
-                    }else {
+                    } else {
                         throw new HttpPostRequestDecoder.ErrorDataDecoderException();
                     }
                     this.postRequestDecoder = postRequestDecoder;
@@ -162,30 +162,30 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return this.postRequestDecoder;
     };
-    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier,resourceManagerSupplier);
-    private final List<Part> fileUploadList = new ArrayList<>();
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
 
-    protected ServletHttpServletRequest() {}
+    protected ServletHttpServletRequest() {
+    }
 
     public static ServletHttpServletRequest newInstance(ServletHttpExchange exchange, HttpRequest httpRequest) {
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.servletHttpExchange = exchange;
         instance.nettyRequest = httpRequest;
         instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
-        if(instance.isMultipart){
+        if (instance.isMultipart) {
             instance.isFormUrlEncoder = false;
-        }else {
+        } else {
             String contentType = instance.getContentType();
             instance.isFormUrlEncoder = contentType != null && HttpHeaderUtil.isFormUrlEncoder(contentType.toLowerCase());
         }
         instance.resourceManager = null;
-        if(instance.postRequestDecoder != null){
+        if (instance.postRequestDecoder != null) {
             try {
                 instance.postRequestDecoder.destroy();
-            }catch (IllegalStateException ignored){}
+            } catch (IllegalStateException ignored) {
+            }
             instance.postRequestDecoder = null;
         }
 
@@ -203,20 +203,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.servletSecurityElement = servletSecurityElement;
     }
 
-    void setDispatcherType(DispatcherType dispatcherType) {
-        this.dispatcherType = dispatcherType;
-    }
-
     void setDispatcher(ServletRequestDispatcher dispatcher) {
         this.dispatcher = dispatcher;
     }
 
-    public int getFileSizeThreshold(){
+    public int getFileSizeThreshold() {
         int fileSizeThreshold = 16384;
-        if(multipartConfigElement != null) {
-            fileSizeThreshold = Math.max(multipartConfigElement.getFileSizeThreshold(),fileSizeThreshold);
-        }else {
-            fileSizeThreshold = Math.max((int) getServletContext().getUploadMinSize(),fileSizeThreshold);
+        if (multipartConfigElement != null) {
+            fileSizeThreshold = Math.max(multipartConfigElement.getFileSizeThreshold(), fileSizeThreshold);
+        } else {
+            fileSizeThreshold = Math.max((int) getServletContext().getUploadMinSize(), fileSizeThreshold);
         }
         return fileSizeThreshold;
     }
@@ -225,7 +221,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return isMultipart;
     }
 
-    public boolean isAsync(){
+    public boolean isAsync() {
         return asyncContext != null;
     }
 
@@ -252,15 +248,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Parse request scheme
      */
-    private void decodeScheme(){
+    private void decodeScheme() {
         String proto = getHeader(HttpHeaderConstants.X_FORWARDED_PROTO.toString());
-        if(HttpConstants.HTTPS.equalsIgnoreCase(proto)){
+        if (HttpConstants.HTTPS.equalsIgnoreCase(proto)) {
             this.scheme = HttpConstants.HTTPS;
             this.remoteSchemeFlag = true;
-        }else if(HttpConstants.HTTP.equalsIgnoreCase(proto)){
+        } else if (HttpConstants.HTTP.equalsIgnoreCase(proto)) {
             this.scheme = HttpConstants.HTTP;
             this.remoteSchemeFlag = true;
-        }else {
+        } else {
             this.scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
             this.remoteSchemeFlag = false;
         }
@@ -269,22 +265,22 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Parse area
      */
-    private void decodeLocale(){
+    private void decodeLocale() {
         Locale[] locales;
         String headerValue = getHeader(HttpHeaderConstants.ACCEPT_LANGUAGE.toString());
-        if(headerValue == null){
+        if (headerValue == null) {
             locales = DEFAULT_LOCALS;
-        }else {
+        } else {
             String[] values = headerValue.split(",");
             int length = values.length;
             locales = new Locale[length];
-            for(int i=0; i< length; i++){
+            for (int i = 0; i < length; i++) {
                 String value = values[i];
                 String[] valueSp = value.split(";");
                 Locale locale;
-                if(valueSp.length > 0) {
+                if (valueSp.length > 0) {
                     locale = Locale.forLanguageTag(valueSp[0]);
-                }else {
+                } else {
                     locale = Locale.forLanguageTag(value);
                 }
                 locales[i] = locale;
@@ -301,12 +297,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (characterEncoding == null) {
             characterEncoding = getServletContext().getRequestCharacterEncoding();
         }
-       this.characterEncoding = characterEncoding;
+        this.characterEncoding = characterEncoding;
     }
 
-    private HttpDataFactory getHttpDataFactory(Charset charset){
+    private HttpDataFactory getHttpDataFactory(Charset charset) {
         HttpDataFactory factory = getServletContext().getHttpDataFactory(charset);
-        if(multipartConfigElement != null) {
+        if (multipartConfigElement != null) {
             factory.setMaxLimit(multipartConfigElement.getMaxFileSize());
         }
         return factory;
@@ -314,15 +310,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     /**
      * parse parameter specification
-     *
+     * <p>
      * the getParameterValues method returns an array of String objects containing all the parameter values associated with the parameter name. The getParameter
-     The return value of the * method must be the first value in the String object array returned by the getParameterValues method. GetParameterMap method
+     * The return value of the * method must be the first value in the String object array returned by the getParameterValues method. GetParameterMap method
      * returns a java.util.map object of the request parameter, with the parameter name as the Map key and the parameter value as the Map value.
      * the query string and the data from the POST request are aggregated into the set of request parameters. The query string data is sent before the POST data. For example,
      * if the request consists of the query string a= hello and the POST data a=goodbye&a=world, the resulting parameter set order will be =(hello,goodbye,world).
      * these apis do not expose the path parameters of GET requests (as defined in HTTP 1.1). They must be from the getRequestURI method or getPathInfo
      * is resolved in the string value returned by the.
-     *
+     * <p>
      * the following conditions must be met before the POST form data is populated into the parameter set:
      * 1. The request is an HTTP or HTTPS request.
      * 2. The HTTP method is POST.
@@ -331,7 +327,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * if these conditions are not met and POST form data is not included in the parameter set, the servlet must be able to pass the input of the request object
      * stream gets POST data. If these conditions are met, it is no longer valid to read the POST data directly from the input stream of the request object.
      */
-    private void decodeBody(){
+    private void decodeBody() {
         //wait LastHttpContent
         try {
             getInputStream0().awaitDataIfNeed();
@@ -339,7 +335,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             PlatformDependent.throwException(e);
         }
 
-        if(postRequestDecoder == null){
+        if (postRequestDecoder == null) {
             return;
         }
         /*
@@ -347,13 +343,13 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
          * Attribute, FileUpload, InternalAttribute
          */
         while (true) {
-        	try {
-		        if (!postRequestDecoder.hasNext()) {
-		        	return;
-		        }
-	        }catch (HttpPostRequestDecoder.EndOfDataDecoderException e){
-        		return;
-	        }
+            try {
+                if (!postRequestDecoder.hasNext()) {
+                    return;
+                }
+            } catch (HttpPostRequestDecoder.EndOfDataDecoderException e) {
+                return;
+            }
 
             InterfaceHttpData interfaceData = postRequestDecoder.next();
             switch (interfaceData.getHttpDataType()) {
@@ -368,15 +364,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     }
                     parameterMap.add(name, value);
 
-                    if(isMultipart) {
-                        ServletTextPart part = new ServletTextPart(data,resourceManagerSupplier);
+                    if (isMultipart) {
+                        ServletTextPart part = new ServletTextPart(data, resourceManagerSupplier);
                         fileUploadList.add(part);
                     }
                     break;
                 }
                 case FileUpload: {
                     FileUpload data = (FileUpload) interfaceData;
-                    ServletFilePart part = new ServletFilePart(data,resourceManagerSupplier);
+                    ServletFilePart part = new ServletFilePart(data, resourceManagerSupplier);
                     fileUploadList.add(part);
                     break;
                 }
@@ -390,16 +386,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Parsing URL parameters
      */
-    private void decodeUrlParameter(){
+    private void decodeUrlParameter() {
         Charset charset = Charset.forName(getCharacterEncoding());
-        ServletUtil.decodeByUrl(parameterMap, nettyRequest.uri(),charset);
+        ServletUtil.decodeByUrl(parameterMap, nettyRequest.uri(), charset);
         this.decodeParameterByUrlFlag = true;
     }
 
     /**
      * Parsing the cookie
      */
-    private void decodeCookie(){
+    private void decodeCookie() {
         String value = getHeader(HttpHeaderConstants.COOKIE.toString());
         if (value != null && value.length() > 0) {
             this.cookies = ServletUtil.decodeCookie(value);
@@ -416,8 +412,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * <code>REMOTE_HOST</code>.
      * qualified name of the client
      */
-    private void decodeRemoteHost(){
-        if(getServletContext().isEnableLookupFlag()){
+    private void decodeRemoteHost() {
+        if (getServletContext().isEnableLookupFlag()) {
             InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
             if (inetSocketAddress == null) {
                 throw new IllegalStateException("request invalid");
@@ -428,7 +424,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             } catch (IOException e) {
                 //Ignore
             }
-        }else {
+        } else {
             this.remoteHost = getRemoteAddr();
         }
     }
@@ -439,10 +435,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * header value, if any, or the resolved server name, or the server IP
      * address.
      */
-    private void decodeServerNameAndPort(){
+    private void decodeServerNameAndPort() {
         String host = getHeader(HttpHeaderConstants.HOST.toString());
         StringBuilder sb;
-        if(host != null && host.length() > 0) {
+        if (host != null && host.length() > 0) {
             sb = RecyclableUtil.newStringBuilder();
             int i = 0, length = host.length();
             boolean hasPort = false;
@@ -452,21 +448,21 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     serverName = sb.toString();
                     sb.setLength(0);
                     hasPort = true;
-                }else {
+                } else {
                     sb.append(c);
                 }
                 i++;
             }
-            if(hasPort && sb.length() > 0){
+            if (hasPort && sb.length() > 0) {
                 serverPort = Integer.parseInt(sb.toString());
-            }else {
+            } else {
                 serverName = sb.toString();
                 sb.setLength(0);
             }
-        }else {
+        } else {
             serverName = getRemoteHost();
         }
-        if(serverPort == 0) {
+        if (serverPort == 0) {
             String scheme = getScheme();
             if (remoteSchemeFlag) {
                 if (HttpConstants.HTTPS.equalsIgnoreCase(scheme)) {
@@ -483,7 +479,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Parsing path
      */
-    private void decodePaths(){
+    private void decodePaths() {
         String requestURI = nettyRequest.uri();
         String queryString;
         int queryInx = requestURI.indexOf('?');
@@ -500,15 +496,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     /**
      * New session ID
+     *
      * @return session ID
      */
-    private String newSessionId(){
+    private String newSessionId() {
         return String.valueOf(SNOWFLAKE_ID_WORKER.nextId());
     }
 
     @Override
     public Cookie[] getCookies() {
-        if(decodeCookieFlag){
+        if (decodeCookieFlag) {
             return cookies;
         }
         decodeCookie();
@@ -517,19 +514,20 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     /**
      * servlet standard:
-     *
+     * <p>
      * returns the value of the specified request header
      * is the long value, representing a
      * date object. Using this method
      * contains a header for the date, for example
-     Return date is
-     The number of milliseconds since January 1, 1970.
-     The first name is case insensitive.
-     , if the request does not have a header
+     * Return date is
+     * The number of milliseconds since January 1, 1970.
+     * The first name is case insensitive.
+     * , if the request does not have a header
      * specify a name, and this method returns -1. If the header Cannot convert to date,
+     *
      * @param name ，Specifies the name of the title
-     * @throws IllegalArgumentException IllegalArgumentException
      * @return Indicates the specified date in milliseconds as of January 1, 1970, or -1, if a title is specified. Not included in request
+     * @throws IllegalArgumentException IllegalArgumentException
      */
     @Override
     public long getDateHeader(String name) throws IllegalArgumentException {
@@ -554,13 +552,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * getDateHeader
      * if the getIntHeader method cannot be converted to a header value of int, then a NumberFormatException is thrown. If getDateHeader side
      * method cannot convert the head into a Date object, then an IllegalArgumentException is thrown.
+     *
      * @param name name
      * @return header value
      */
     @Override
     public String getHeader(String name) {
-       Object value = getNettyHeaders().get((CharSequence) name);
-        return value == null? null :value.toString();
+        Object value = getNettyHeaders().get((CharSequence) name);
+        return value == null ? null : value.toString();
     }
 
     @Override
@@ -568,10 +567,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         Set nameSet = getNettyHeaders().names();
         return new Enumeration<String>() {
             private Iterator iterator = nameSet.iterator();
+
             @Override
             public boolean hasMoreElements() {
                 return iterator.hasNext();
             }
+
             @Override
             public String nextElement() {
                 return iterator.next().toString();
@@ -581,6 +582,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     /**
      * Copy the implementation of tomcat
+     *
      * @return RequestURL
      */
     @Override
@@ -588,7 +590,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         StringBuffer url = new StringBuffer();
         String scheme = getScheme();
         int port = getServerPort();
-        if (port < 0){
+        if (port < 0) {
             port = HttpConstants.HTTP_PORT;
         }
 
@@ -604,13 +606,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return url;
     }
 
-    // now set PathInfo to null and ServletPath to ur-contextpath
-    // satisfies the requirements of SpringBoot, but not the semantics of ServletPath and PathInfo
-    // need to be set when RequestUrlPatternMapper matches, pass MapperData when new NettyRequestDispatcher
-
     /**
      * PathInfo：Part of the request Path that is not part of the Context Path or Servlet Path. If there's no extra path, it's either null,
      * Or a string that starts with '/'.
+     *
      * @return pathInfo
      */
     @Override
@@ -621,9 +620,13 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return this.pathInfo;
     }
 
+    // now set PathInfo to null and ServletPath to ur-contextpath
+    // satisfies the requirements of SpringBoot, but not the semantics of ServletPath and PathInfo
+    // need to be set when RequestUrlPatternMapper matches, pass MapperData when new NettyRequestDispatcher
+
     @Override
     public String getQueryString() {
-        if(!decodePathsFlag){
+        if (!decodePathsFlag) {
             decodePaths();
         }
         return this.queryString;
@@ -631,7 +634,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getRequestURI() {
-        if(!decodePathsFlag){
+        if (!decodePathsFlag) {
             decodePaths();
         }
         return this.requestURI;
@@ -640,15 +643,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Servlet Path: the Path section corresponds directly to the mapping of the activation request. The path starts with the "/" character, if the request is in the "/ *" or "" mode."
      * matches, in which case it is an empty string.
+     *
      * @return servletPath
      */
     @Override
     public String getServletPath() {
-        if(this.servletPath == null){
+        if (this.servletPath == null) {
             String servletPath = getServletContext().getServletPath(getRequestURI());
             String contextPath = getServletContext().getContextPath();
-            if(contextPath.length() > 0){
-                servletPath = servletPath.replaceFirst(contextPath,"");
+            if (contextPath.length() > 0) {
+                servletPath = servletPath.replaceFirst(contextPath, "");
             }
             this.servletPath = ServletContext.normPath(servletPath);
         }
@@ -657,13 +661,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Enumeration<String> getHeaders(String name) {
-        Collection collection = getNettyHeaders().getAll((CharSequence)name);
+        Collection collection = getNettyHeaders().getAll((CharSequence) name);
         return new Enumeration<String>() {
             private Iterator iterator = collection.iterator();
+
             @Override
             public boolean hasMoreElements() {
                 return iterator.hasNext();
             }
+
             @Override
             public String nextElement() {
                 return iterator.next().toString();
@@ -671,17 +677,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         };
     }
 
-
     /**
      * servlet standard:
-     *
+     * <p>
      * returns the value of the specified request header
      * as int. If the request has no title
      * the name specified by this method returns -1. if This method does not convert headers to integers
      * throws a NumberFormatException code. The first name is case insensitive.
-     * @param name  specifies the name of the request header
-     * @exception NumberFormatException If the header value cannot be converted to an int。
+     *
+     * @param name specifies the name of the request header
      * @return An integer request header representing a value or -1 if the request does not return -1 for the header with this name
+     * @throws NumberFormatException If the header value cannot be converted to an int。
      */
     @Override
     public int getIntHeader(String name) {
@@ -696,7 +702,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     public String getMethod() {
         return nettyRequest.method().toString();
     }
-
 
     /**
      * Context Path: the Path prefix associated with the ServletContext is part of this servlet. If the context is web-based
@@ -724,9 +729,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (sessionId == null || sessionId.isEmpty()) {
             sessionId = getRequestedSessionId();
         }
-	    ServletContext servletContext = getServletContext();
-	    SessionService sessionService = servletContext.getSessionService();
-	    Session session = sessionService.getSession(sessionId);
+        ServletContext servletContext = getServletContext();
+        SessionService sessionService = servletContext.getSessionService();
+        Session session = sessionService.getSession(sessionId);
         if (session == null && !create) {
             return null;
         }
@@ -742,7 +747,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         if (httpSession == null) {
             httpSession = new ServletHttpSession(servletContext);
-        }else {
+        } else {
             httpSession.setServletContext(servletContext);
         }
         httpSession.wrap(session);
@@ -764,14 +769,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         String newSessionId = newSessionId();
         ServletContext servletContext = getServletContext();
 
-        servletContext.getSessionService().changeSessionId(oldSessionId,newSessionId);
+        servletContext.getSessionService().changeSessionId(oldSessionId, newSessionId);
 
         sessionId = newSessionId;
         httpSession.setId(sessionId);
 
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
-        if(listenerManager.hasHttpSessionIdListener()){
-            listenerManager.onHttpSessionIdChanged(new HttpSessionEvent(httpSession),oldSessionId);
+        if (listenerManager.hasHttpSessionIdListener()) {
+            listenerManager.onHttpSessionIdChanged(new HttpSessionEvent(httpSession), oldSessionId);
         }
         return newSessionId;
     }
@@ -878,30 +883,30 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     }
 
     @Override
-    public ServletInputStreamWrapper getInputStream(){
-        if(reader != null){
+    public ServletInputStreamWrapper getInputStream() {
+        if (reader != null) {
             throw new IllegalStateException("getReader() has already been called for this request");
         }
         usingInputStreamFlag = true;
         return inputStream;
     }
 
-    ServletInputStreamWrapper getInputStream0(){
+    ServletInputStreamWrapper getInputStream0() {
         return inputStream;
     }
 
     @Override
     public String getParameter(String name) {
         String[] values;
-        if(getServletContext().getNotExistBodyParameters().contains(name)){
-            if(!decodeParameterByUrlFlag) {
+        if (getServletContext().getNotExistBodyParameters().contains(name)) {
+            if (!decodeParameterByUrlFlag) {
                 decodeUrlParameter();
             }
             values = unmodifiableParameterMap.get(name);
-        }else {
+        } else {
             values = getParameterMap().get(name);
         }
-        if(values == null || values.length == 0){
+        if (values == null || values.length == 0) {
             return null;
         }
         return values[0];
@@ -919,16 +924,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Map<String, String[]> getParameterMap() {
-        if(!decodeParameterByUrlFlag) {
+        if (!decodeParameterByUrlFlag) {
             decodeUrlParameter();
         }
 
-        if(decodeBodyFlag.compareAndSet(false,true)) {
+        if (decodeBodyFlag.compareAndSet(false, true)) {
             if (HttpConstants.POST.equalsIgnoreCase(getMethod())
                     && getContentLength() > 0) {
                 decodeBody();
             }
-        }else {
+        } else {
             try {
                 getInputStream0().awaitDataIfNeed();
             } catch (IOException e) {
@@ -950,7 +955,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getScheme() {
-        if(scheme == null){
+        if (scheme == null) {
             decodeScheme();
         }
         return scheme;
@@ -958,7 +963,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getServerName() {
-        if(serverName == null){
+        if (serverName == null) {
             decodeServerNameAndPort();
         }
         return serverName;
@@ -966,7 +971,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public int getServerPort() {
-        if(serverPort == 0){
+        if (serverPort == 0) {
             decodeServerNameAndPort();
         }
         return serverPort;
@@ -974,17 +979,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public BufferedReader getReader() throws IOException {
-        if(usingInputStreamFlag){
+        if (usingInputStreamFlag) {
             throw new IllegalStateException("getInputStream() has already been called for this request");
         }
-        if(reader == null){
-            synchronized (this){
-                if(reader == null){
+        if (reader == null) {
+            synchronized (this) {
+                if (reader == null) {
                     String charset = getCharacterEncoding();
-                    if(charset == null){
+                    if (charset == null) {
                         charset = getServletContext().getRequestCharacterEncoding();
                     }
-                    reader = new BufferedReader(new InputStreamReader(getInputStream0(),charset));
+                    reader = new BufferedReader(new InputStreamReader(getInputStream0(), charset));
                 }
             }
         }
@@ -994,11 +999,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getRemoteAddr() {
         InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
-        if(inetSocketAddress == null){
+        if (inetSocketAddress == null) {
             return null;
         }
         InetAddress inetAddress = inetSocketAddress.getAddress();
-        if(inetAddress == null){
+        if (inetAddress == null) {
             return null;
         }
         return inetAddress.getHostAddress();
@@ -1006,7 +1011,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getRemoteHost() {
-        if(remoteHost == null) {
+        if (remoteHost == null) {
             decodeRemoteHost();
         }
         return remoteHost;
@@ -1015,7 +1020,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public int getRemotePort() {
         InetSocketAddress inetSocketAddress = servletHttpExchange.getRemoteAddress();
-        if(inetSocketAddress == null){
+        if (inetSocketAddress == null) {
             return 0;
         }
         return inetSocketAddress.getPort();
@@ -1025,19 +1030,19 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     public void setAttribute(String name, Object object) {
         Objects.requireNonNull(name);
 
-        if(object == null){
+        if (object == null) {
             removeAttribute(name);
             return;
         }
 
-        Object oldObject = getAttributeMap().put(name,object);
+        Object oldObject = getAttributeMap().put(name, object);
 
         ServletContext servletContext = getServletContext();
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
-        if(listenerManager.hasServletRequestAttributeListener()){
-            listenerManager.onServletRequestAttributeAdded(new ServletRequestAttributeEvent(servletContext,this,name,object));
-            if(oldObject != null){
-                listenerManager.onServletRequestAttributeReplaced(new ServletRequestAttributeEvent(servletContext,this,name,oldObject));
+        if (listenerManager.hasServletRequestAttributeListener()) {
+            listenerManager.onServletRequestAttributeAdded(new ServletRequestAttributeEvent(servletContext, this, name, object));
+            if (oldObject != null) {
+                listenerManager.onServletRequestAttributeReplaced(new ServletRequestAttributeEvent(servletContext, this, name, oldObject));
             }
         }
     }
@@ -1048,19 +1053,19 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         ServletContext servletContext = getServletContext();
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
-        if(listenerManager.hasServletRequestAttributeListener()){
-            listenerManager.onServletRequestAttributeRemoved(new ServletRequestAttributeEvent(servletContext,this,name,oldObject));
+        if (listenerManager.hasServletRequestAttributeListener()) {
+            listenerManager.onServletRequestAttributeRemoved(new ServletRequestAttributeEvent(servletContext, this, name, oldObject));
         }
     }
 
     @Override
     public Locale getLocale() {
-        if(this.locales == null){
+        if (this.locales == null) {
             decodeLocale();
         }
 
         Locale[] locales = this.locales;
-        if(locales == null || locales.length == 0) {
+        if (locales == null || locales.length == 0) {
             return null;
         }
         return locales[0];
@@ -1068,15 +1073,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Enumeration<Locale> getLocales() {
-        if(this.locales == null){
+        if (this.locales == null) {
             decodeLocale();
         }
         return new Enumeration<Locale>() {
             private int index = 0;
+
             @Override
             public boolean hasMoreElements() {
                 return index < locales.length;
             }
+
             @Override
             public Locale nextElement() {
                 Locale locale = locales[index];
@@ -1093,7 +1100,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return getServletContext().getRequestDispatcher(path,getDispatcherType());
+        return getServletContext().getRequestDispatcher(path, getDispatcherType());
     }
 
     @Override
@@ -1123,17 +1130,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletAsyncContext startAsync() throws IllegalStateException {
-        return startAsync(this,servletHttpExchange.getResponse());
+        return startAsync(this, servletHttpExchange.getResponse());
     }
 
     @Override
     public ServletAsyncContext startAsync(ServletRequest servletRequest, ServletResponse servletResponse) throws IllegalStateException {
-        if(!isAsyncSupported()){
+        if (!isAsyncSupported()) {
             throw new IllegalStateException("Asynchronous is not supported");
         }
 
         ServletContext servletContext = getServletContext();
-        if(asyncContext == null) {
+        if (asyncContext == null) {
             asyncContext = new ServletAsyncContext(servletHttpExchange, servletContext, servletContext.getExecutor());
             asyncContext.setTimeout(servletContext.getAsyncTimeout());
         }
@@ -1169,6 +1176,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return this.dispatcherType;
     }
 
+    void setDispatcherType(DispatcherType dispatcherType) {
+        this.dispatcherType = dispatcherType;
+    }
+
     @Override
     public String getPathTranslated() {
         ServletContext servletContext = getServletContext();
@@ -1187,6 +1198,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     /**
      * "BASIC", or "DIGEST", or "SSL".
+     *
      * @return Authentication type
      */
     @Override
@@ -1198,7 +1210,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getRemoteUser() {
         Principal principal = getUserPrincipal();
-        if(principal != null){
+        if (principal != null) {
             return principal.getName();
         }
         return null;
@@ -1232,59 +1244,59 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Collection<Part> getParts() throws IOException, ServletException {
-        if(decodeBodyFlag.compareAndSet(false,true)) {
+        if (decodeBodyFlag.compareAndSet(false, true)) {
             try {
                 decodeBody();
             } catch (CodecException e) {
                 Throwable cause = getCause(e);
-                if(cause instanceof IOException){
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
-                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,cause);
-                    throw (IOException)cause;
-                }else if(cause instanceof IllegalStateException){
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
-                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,cause);
-                    throw (IllegalStateException)cause;
-                }else if(cause instanceof IllegalArgumentException){
+                if (cause instanceof IOException) {
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION, cause);
+                    throw (IOException) cause;
+                } else if (cause instanceof IllegalStateException) {
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION, cause);
+                    throw (IllegalStateException) cause;
+                } else if (cause instanceof IllegalArgumentException) {
                     IllegalStateException illegalStateException = new IllegalStateException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(), cause);
                     illegalStateException.setStackTrace(cause.getStackTrace());
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
-                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,illegalStateException);
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION, illegalStateException);
                     throw illegalStateException;
-                }else {
+                } else {
                     ServletException servletException;
-                    if(cause != null){
-                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(),cause);
+                    if (cause != null) {
+                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(), cause);
                         servletException.setStackTrace(cause.getStackTrace());
-                    }else {
-                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(),e);
+                    } else {
+                        servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(), e);
                         servletException.setStackTrace(e.getStackTrace());
                     }
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
-                    setAttribute(RequestDispatcher.ERROR_EXCEPTION,servletException);
+                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
+                    setAttribute(RequestDispatcher.ERROR_EXCEPTION, servletException);
                     throw servletException;
                 }
             } catch (IllegalArgumentException e) {
                 IllegalStateException illegalStateException = new IllegalStateException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(), e);
                 illegalStateException.setStackTrace(e.getStackTrace());
-                setAttribute(RequestDispatcher.ERROR_STATUS_CODE,HttpServletResponse.SC_BAD_REQUEST);
-                setAttribute(RequestDispatcher.ERROR_EXCEPTION,illegalStateException);
+                setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
+                setAttribute(RequestDispatcher.ERROR_EXCEPTION, illegalStateException);
                 throw illegalStateException;
             }
-        }else {
+        } else {
             getInputStream0().awaitDataIfNeed();
         }
         return fileUploadList;
     }
 
-    private Throwable getCause(Throwable throwable){
-        if(throwable.getCause() == null){
+    private Throwable getCause(Throwable throwable) {
+        if (throwable.getCause() == null) {
             return null;
         }
-        while (true){
+        while (true) {
             Throwable cause = throwable;
             throwable = throwable.getCause();
-            if(throwable == null){
+            if (throwable == null) {
                 return cause;
             }
         }
@@ -1309,24 +1321,24 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             T handler = httpUpgradeHandlerClass.newInstance();
             return handler;
         } catch (Exception e) {
-            throw new ServletException(e.getMessage(),e);
+            throw new ServletException(e.getMessage(), e);
         }
     }
 
     @Override
     public void recycle() {
-	    ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
-	    if(httpSession != null) {
-		    if (httpSession.isValid()) {
-			    httpSession.save();
-		    } else{
-			    httpSession.remove();
-		    }
-		    httpSession.clear();
-	    }
+        ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
+        if (httpSession != null) {
+            if (httpSession.isValid()) {
+                httpSession.save();
+            } else {
+                httpSession.remove();
+            }
+            httpSession.clear();
+        }
         this.inputStream.recycle();
 
-        if(!fileUploadList.isEmpty()) {
+        if (!fileUploadList.isEmpty()) {
             for (Part part : fileUploadList) {
                 try {
                     part.delete();
@@ -1334,12 +1346,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 }
             }
         }
-        if(this.postRequestDecoder != null) {
+        if (this.postRequestDecoder != null) {
             this.postRequestDecoder.destroy();
             this.postRequestDecoder = null;
         }
 
-        if(servletHttpExchange.isAbort()){
+        if (servletHttpExchange.isAbort()) {
             return;
         }
         this.nettyRequest = null;

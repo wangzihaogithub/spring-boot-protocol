@@ -22,9 +22,21 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServletErrorPageManager {
     private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private boolean showErrorMessage = false;
     private final Map<String, ServletErrorPage> exceptionPages = new ConcurrentHashMap<>();
     private final Map<Integer, ServletErrorPage> statusPages = new ConcurrentHashMap<>();
+    private boolean showErrorMessage = false;
+
+    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage) {
+        String path = errorPage.getPath();
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        if (!path.startsWith("/")) {
+            path = "/".concat(path);
+        }
+        String contextPath = request.getContextPath();
+        return contextPath == null || contextPath.isEmpty() ? path : contextPath.concat(path);
+    }
 
     public void add(ServletErrorPage errorPage) {
         String exceptionType = errorPage.getExceptionType();
@@ -111,7 +123,7 @@ public class ServletErrorPageManager {
 
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
-        if(!request.getServletHttpExchange().getChannelHandlerContext().channel().isActive()){
+        if (!request.getServletHttpExchange().getChannelHandlerContext().channel().isActive()) {
             return;
         }
 
@@ -175,17 +187,5 @@ public class ServletErrorPageManager {
                 throw (VirtualMachineError) e;
             }
         }
-    }
-
-    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage) {
-        String path = errorPage.getPath();
-        if (path == null || path.isEmpty()) {
-            return null;
-        }
-        if (!path.startsWith("/")) {
-            path = "/".concat(path);
-        }
-        String contextPath = request.getContextPath();
-        return contextPath == null || contextPath.isEmpty() ? path : contextPath.concat(path);
     }
 }

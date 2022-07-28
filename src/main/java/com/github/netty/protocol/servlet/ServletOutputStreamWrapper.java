@@ -15,6 +15,7 @@ import java.util.function.Consumer;
 
 /**
  * Servlets output streams (wrapper classes) that control access to the flow
+ *
  * @author wangzihao
  */
 public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStream
@@ -35,19 +36,21 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     }
 
     /**
-     * Set (on/off) to pause the output operation
-     * @param suspendFlag True = pause, false= resume
-     */
-    public void setSuspendFlag(boolean suspendFlag) {
-        this.suspendFlag = suspendFlag;
-    }
-
-    /**
      * Whether to pause the operation output stream
+     *
      * @return boolean suspendFlag
      */
     public boolean isSuspendFlag() {
         return suspendFlag;
+    }
+
+    /**
+     * Set (on/off) to pause the output operation
+     *
+     * @param suspendFlag True = pause, false= resume
+     */
+    public void setSuspendFlag(boolean suspendFlag) {
+        this.suspendFlag = suspendFlag;
     }
 
     @Override
@@ -67,7 +70,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public ChannelProgressivePromise write(File file, long position, long count) throws IOException {
-        return source.write(file,position,count);
+        return source.write(file, position, count);
     }
 
     @Override
@@ -87,7 +90,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void write(int b) throws IOException {
-        if(isSuspendFlag()){
+        if (isSuspendFlag()) {
             return;
         }
         source.write(b);
@@ -95,7 +98,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void close() {
-        if(isSuspendFlag()){
+        if (isSuspendFlag()) {
             return;
         }
         source.close();
@@ -103,14 +106,14 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void flush() throws IOException {
-        if(isSuspendFlag()){
+        if (isSuspendFlag()) {
             return;
         }
         source.flush();
     }
 
-    public void resetBuffer(){
-        if(isSuspendFlag()){
+    public void resetBuffer() {
+        if (isSuspendFlag()) {
             return;
         }
         source.resetBuffer();
@@ -118,7 +121,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        if(isSuspendFlag()){
+        if (isSuspendFlag()) {
             return;
         }
         source.write(b, off, len);
@@ -126,7 +129,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void write(byte[] b) throws IOException {
-        if(isSuspendFlag()){
+        if (isSuspendFlag()) {
             return;
         }
         source.write(b);
@@ -134,7 +137,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void wrap(ServletOutputStream source) {
-        if(closeListener != null) {
+        if (closeListener != null) {
             source.setCloseListener(closeListener);
         }
         this.source = source;
@@ -148,10 +151,10 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
     @Override
     public <T> void recycle(Consumer<T> consumer) {
         ServletOutputStream out = source;
-        if(out != null){
+        if (out != null) {
             source = null;
             out.recycle(consumer);
-        }else {
+        } else {
             consumer.accept(null);
         }
         suspendFlag = false;

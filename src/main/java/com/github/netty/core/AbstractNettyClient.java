@@ -17,79 +17,65 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- *  An abstract netty client
+ * An abstract netty client
+ *
  * @author wangzihao
- *  2018/8/18/018
+ * 2018/8/18/018
  */
 public abstract class AbstractNettyClient implements Closeable {
-    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    protected final AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private final String name;
     private final String namePre;
-    private Bootstrap bootstrap;
-
-    private EventLoopGroup worker;
+    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     protected InetSocketAddress remoteAddress;
+    private Bootstrap bootstrap;
+    private EventLoopGroup worker;
     private boolean enableEpoll;
     private volatile SocketChannel channel;
-    protected final AtomicBoolean connectIngFlag = new AtomicBoolean(false);
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private AtomicBoolean initFlag = new AtomicBoolean(false);
 
     public AbstractNettyClient() {
-        this("",null);
+        this("", null);
     }
 
-    public AbstractNettyClient(String remoteHost,int remotePort) {
-        this(new InetSocketAddress(remoteHost,remotePort));
+    public AbstractNettyClient(String remoteHost, int remotePort) {
+        this(new InetSocketAddress(remoteHost, remotePort));
     }
 
     public AbstractNettyClient(InetSocketAddress remoteAddress) {
-        this("",remoteAddress);
+        this("", remoteAddress);
     }
 
     /**
-     *
-     * @param namePre 名称前缀
+     * @param namePre       名称前缀
      * @param remoteAddress 远程地址
      */
-    public AbstractNettyClient(String namePre,InetSocketAddress remoteAddress) {
+    public AbstractNettyClient(String namePre, InetSocketAddress remoteAddress) {
         this.enableEpoll = Epoll.isAvailable();
         this.remoteAddress = remoteAddress;
         this.namePre = namePre;
-        this.name = NamespaceUtil.newIdName(namePre,getClass());
-        if(enableEpoll) {
-            logger.info("enable epoll client = {}",this);
+        this.name = NamespaceUtil.newIdName(namePre, getClass());
+        if (enableEpoll) {
+            logger.info("enable epoll client = {}", this);
         }
-    }
-
-    public void setIoRatio(int ioRatio) {
-        if(worker instanceof NioEventLoopGroup){
-            ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
-        }else if(worker instanceof EpollEventLoopGroup){
-//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
-        }
-        this.ioRatio = ioRatio;
-    }
-
-    public void setIoThreadCount(int ioThreadCount) {
-        this.ioThreadCount = ioThreadCount;
     }
 
     protected abstract ChannelHandler newBossChannelHandler();
 
-    protected Bootstrap newClientBootstrap(){
+    protected Bootstrap newClientBootstrap() {
         return new Bootstrap();
     }
 
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
-        if(enableEpoll){
-            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount,new ThreadFactoryX("Epoll",namePre+"Client-Worker", true));
+        if (enableEpoll) {
+            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount, new ThreadFactoryX("Epoll", namePre + "Client-Worker", true));
 //            epollWorker.setIoRatio(ioRatio);
             worker = epollWorker;
-        }else {
-            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount,new ThreadFactoryX("NIO",namePre+"Client-Worker", true));
+        } else {
+            NioEventLoopGroup nioWorker = new NioEventLoopGroup(ioThreadCount, new ThreadFactoryX("NIO", namePre + "Client-Worker", true));
             nioWorker.setIoRatio(ioRatio);
             worker = nioWorker;
         }
@@ -98,9 +84,9 @@ public abstract class AbstractNettyClient implements Closeable {
 
     protected ChannelFactory<? extends Channel> newClientChannelFactory() {
         ChannelFactory<? extends Channel> channelFactory;
-        if(enableEpoll){
+        if (enableEpoll) {
             channelFactory = EpollSocketChannel::new;
-        }else {
+        } else {
             channelFactory = NioSocketChannel::new;
         }
         return channelFactory;
@@ -109,7 +95,7 @@ public abstract class AbstractNettyClient implements Closeable {
     protected AbstractNettyClient init() {
         this.bootstrap = newClientBootstrap();
         this.worker = newWorkerEventLoopGroup();
-        ChannelFactory<?extends Channel> channelFactory = newClientChannelFactory();
+        ChannelFactory<? extends Channel> channelFactory = newClientChannelFactory();
         ChannelHandler bossChannelHandler = newBossChannelHandler();
 
         this.bootstrap
@@ -124,30 +110,28 @@ public abstract class AbstractNettyClient implements Closeable {
                 //禁用Nagle算法，即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
                 .option(ChannelOption.TCP_NODELAY, true)
                 //开启TCP/IP协议实现的心跳机制
-                .option(ChannelOption.SO_KEEPALIVE, true)
-                //netty的默认内存分配器
-                .option(ChannelOption.ALLOCATOR, ByteBufAllocatorX.INSTANCE);
+                .option(ChannelOption.SO_KEEPALIVE, true);
         return this;
     }
 
-    public AbstractNettyClient config(Bootstrap bootstrap){
+    public AbstractNettyClient config(Bootstrap bootstrap) {
         return this;
     }
 
-    public boolean isConnect(){
+    public boolean isConnect() {
         return getActiveSocketChannelCount() > 0;
     }
 
-    public Optional<ChannelFuture> connect(){
+    public Optional<ChannelFuture> connect() {
         return connect(remoteAddress);
     }
 
-    public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress){
-        if(connectIngFlag.compareAndSet(false,true)) {
-            if(initFlag.compareAndSet(false,true)) {
+    public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress) {
+        if (connectIngFlag.compareAndSet(false, true)) {
+            if (initFlag.compareAndSet(false, true)) {
                 init();
             }
-            this.remoteAddress = remoteAddress == null? (InetSocketAddress) bootstrap.config().remoteAddress() : remoteAddress;
+            this.remoteAddress = remoteAddress == null ? (InetSocketAddress) bootstrap.config().remoteAddress() : remoteAddress;
             return Optional.of(bootstrap.connect(this.remoteAddress)
                     .addListener((ChannelFutureListener) future -> {
                         try {
@@ -156,7 +140,7 @@ public abstract class AbstractNettyClient implements Closeable {
                             } else {
                                 future.channel().close();
                             }
-                        }finally {
+                        } finally {
                             connectIngFlag.set(false);
                         }
                         connectAfter(future);
@@ -185,8 +169,21 @@ public abstract class AbstractNettyClient implements Closeable {
         return ioRatio;
     }
 
+    public void setIoRatio(int ioRatio) {
+        if (worker instanceof NioEventLoopGroup) {
+            ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
+        } else if (worker instanceof EpollEventLoopGroup) {
+//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+        }
+        this.ioRatio = ioRatio;
+    }
+
     public int getIoThreadCount() {
         return ioThreadCount;
+    }
+
+    public void setIoThreadCount(int ioThreadCount) {
+        this.ioThreadCount = ioThreadCount;
     }
 
     public boolean isConnectIng() {
@@ -202,13 +199,13 @@ public abstract class AbstractNettyClient implements Closeable {
     }
 
     public ChannelFuture stop() {
-        if(channel == null) {
+        if (channel == null) {
             throw new IllegalStateException("channel is null");
         }
         return channel.close().addListener((ChannelFutureListener) future -> {
             AbstractNettyClient.this.bootstrap = null;
             AbstractNettyClient.this.worker.shutdownGracefully();
-            AbstractNettyClient.this.worker= null;
+            AbstractNettyClient.this.worker = null;
             AbstractNettyClient.this.initFlag.set(false);
             AbstractNettyClient.this.channel = null;
             stopAfter(future);
@@ -217,17 +214,17 @@ public abstract class AbstractNettyClient implements Closeable {
 
     @Override
     public void close() {
-        if(channel != null){
+        if (channel != null) {
             stop();
         }
     }
 
-    protected void stopAfter(ChannelFuture future){
+    protected void stopAfter(ChannelFuture future) {
         //有异常抛出
-        if(future.cause() != null){
-            logger.error("stopAfter. error={}",future.cause(),future.cause());
+        if (future.cause() != null) {
+            logger.error("stopAfter. error={}", future.cause(), future.cause());
         }
-        logger.info("{} stop [remoteAddress = {}]...",getName(),getRemoteAddress());
+        logger.info("{} stop [remoteAddress = {}]...", getName(), getRemoteAddress());
     }
 
     public String getName() {
@@ -238,13 +235,13 @@ public abstract class AbstractNettyClient implements Closeable {
         return remoteAddress.getPort();
     }
 
-    protected void connectAfter(ChannelFuture future){
+    protected void connectAfter(ChannelFuture future) {
         logger.info("{} connect [activeSocketConnectCount = {}, remoteAddress = {}]...",
-                getName(),getActiveSocketChannelCount(),getRemoteAddress());
+                getName(), getActiveSocketChannelCount(), getRemoteAddress());
     }
 
-    public int getActiveSocketChannelCount(){
-        return channel != null && channel.isActive()? 1 : 0;
+    public int getActiveSocketChannelCount() {
+        return channel != null && channel.isActive() ? 1 : 0;
     }
 
     @Override

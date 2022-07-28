@@ -9,7 +9,8 @@ import java.net.InetSocketAddress;
 import java.util.List;
 
 /**
- *  Composite session service
+ * Composite session service
+ *
  * @author wangzihao
  */
 public class SessionCompositeServiceImpl implements SessionService {
@@ -21,31 +22,31 @@ public class SessionCompositeServiceImpl implements SessionService {
     public SessionCompositeServiceImpl() {
     }
 
-    public void enableLocalMemorySession(){
+    public void enableLocalMemorySession() {
         removeSessionService();
         this.sessionService = new SessionLocalMemoryServiceImpl();
     }
 
-    public void enableRemoteRpcSession(InetSocketAddress address){
+    public void enableRemoteRpcSession(InetSocketAddress address) {
         removeSessionService();
         this.sessionService = new SessionRemoteRpcServiceImpl(address);
     }
 
-    public void enableRemoteRpcSession(InetSocketAddress address,int rpcClientIoRatio, int rpcClientIoThreads,
-                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond,int reconnectIntervalMillSeconds){
+    public void enableRemoteRpcSession(InetSocketAddress address, int rpcClientIoRatio, int rpcClientIoThreads,
+                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond, int reconnectIntervalMillSeconds) {
         removeSessionService();
         this.sessionService = new SessionRemoteRpcServiceImpl(address,
-                rpcClientIoRatio,rpcClientIoThreads,
-                enableRpcHeartLog,rpcClientHeartIntervalMillSecond,reconnectIntervalMillSeconds);
+                rpcClientIoRatio, rpcClientIoThreads,
+                enableRpcHeartLog, rpcClientHeartIntervalMillSecond, reconnectIntervalMillSeconds);
     }
 
-    public void enableLocalFileSession(ResourceManager resourceManager){
+    public void enableLocalFileSession(ResourceManager resourceManager) {
         removeSessionService();
         this.sessionService = new SessionLocalFileServiceImpl(resourceManager);
     }
 
-    public void removeSessionService(){
-        if(sessionService == null){
+    public void removeSessionService() {
+        if (sessionService == null) {
             return;
         }
         try {
@@ -54,7 +55,7 @@ public class SessionCompositeServiceImpl implements SessionService {
             } else if (sessionService instanceof SessionLocalFileServiceImpl) {
                 ((SessionLocalFileServiceImpl) sessionService).getSessionInvalidThread().interrupt();
             }
-        }catch (Exception e){
+        } catch (Exception e) {
             //
         }
         sessionService = null;
@@ -64,8 +65,8 @@ public class SessionCompositeServiceImpl implements SessionService {
     public void saveSession(Session session) {
         try {
             getSessionServiceImpl().saveSession(session);
-        }catch (Throwable t){
-            logger.error("saveSession error={}",t.toString(),t);
+        } catch (Throwable t) {
+            logger.error("saveSession error={}", t.toString(), t);
         }
     }
 
@@ -84,8 +85,8 @@ public class SessionCompositeServiceImpl implements SessionService {
         try {
             // TODO: 10-16/0016 Lack of automatic switching
             return getSessionServiceImpl().getSession(sessionId);
-        }catch (Throwable t){
-            logger.error("getSession error={}",t.toString(),t);
+        } catch (Throwable t) {
+            logger.error("getSession error={}", t.toString(), t);
             return null;
         }
     }
@@ -101,9 +102,9 @@ public class SessionCompositeServiceImpl implements SessionService {
     }
 
     protected SessionService getSessionServiceImpl() {
-        if(sessionService == null) {
+        if (sessionService == null) {
             synchronized (this) {
-                if(sessionService == null) {
+                if (sessionService == null) {
                     enableLocalMemorySession();
                 }
             }

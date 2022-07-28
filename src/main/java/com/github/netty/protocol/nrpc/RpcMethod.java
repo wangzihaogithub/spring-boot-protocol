@@ -15,7 +15,6 @@ import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Future;
 import java.util.function.Function;
@@ -294,10 +293,7 @@ public class RpcMethod<INSTANCE> {
                 return false;
             }
         }
-        if (this.parameterNames.length != that.parameterNames.length) {
-            return false;
-        }
-        return true;
+        return this.parameterNames.length == that.parameterNames.length;
     }
 
     public String getMethodDescriptorName() {

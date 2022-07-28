@@ -53,6 +53,13 @@ public class MqttPostOffice {
         this.interceptor = interceptor;
     }
 
+    static MqttQoS lowerQosToTheSubscriptionDesired(Subscription sub, MqttQoS qos) {
+        if (qos.value() > sub.getRequestedQos().value()) {
+            qos = sub.getRequestedQos();
+        }
+        return qos;
+    }
+
     public void fireWill(MqttSession.Will will) {
         // MQTT 3.1.2.8-17
         publish2Subscribers(will.payload, new Topic(will.topic), will.qos);
@@ -67,11 +74,11 @@ public class MqttPostOffice {
 
         // store topics subscriptions in session
         List<Subscription> newSubscriptions = ackTopics.stream()
-            .filter(req -> req.qualityOfService() != FAILURE)
-            .map(req -> {
-                final Topic topic = new Topic(req.topicName());
-                return new Subscription(clientID, topic, req.qualityOfService());
-            }).collect(Collectors.toList());
+                .filter(req -> req.qualityOfService() != FAILURE)
+                .map(req -> {
+                    final Topic topic = new Topic(req.topicName());
+                    return new Subscription(clientID, topic, req.qualityOfService());
+                }).collect(Collectors.toList());
 
         for (Subscription subscription : newSubscriptions) {
             subscriptions.add(subscription);
@@ -92,12 +99,9 @@ public class MqttPostOffice {
     }
 
     /**
-     * @param clientID
-     *            the clientID
-     * @param username
-     *            the username
-     * @param msg
-     *            the subscribe message to verify
+     * @param clientID the clientID
+     * @param username the username
+     * @param msg      the subscribe message to verify
      * @return the list of verified topics for the given subscribe message.
      */
     List<MqttTopicSubscription> verifyTopicsReadAccess(String clientID, String username, MqttSubscribeMessage msg) {
@@ -160,7 +164,7 @@ public class MqttPostOffice {
         }
 
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.SUBACK, false, AT_MOST_ONCE,
-            false, 0);
+                false, 0);
         MqttSubAckPayload payload = new MqttSubAckPayload(grantedQoSLevels);
         return new MqttSubAckMessage(fixedHeader, from(messageId), payload);
     }
@@ -174,7 +178,7 @@ public class MqttPostOffice {
                 // close the connection, not valid topicFilter is a protocol violation
                 mqttConnection.dropConnection();
                 LOG.warn("Topic filter is not valid. CId={}, topics: {}, offending topic filter: {}", clientID,
-                         topics, topic);
+                        topics, topic);
                 return;
             }
 
@@ -248,7 +252,7 @@ public class MqttPostOffice {
             boolean isSessionPresent = targetSession != null;
             if (isSessionPresent) {
                 LOG.debug("Sending PUBLISH message to active subscriber CId: {}, topicFilter: {}, qos: {}",
-                          sub.getClientId(), sub.getTopicFilter(), qos);
+                        sub.getClientId(), sub.getTopicFilter(), qos);
                 //TODO determine the user bounded to targetSession
                 if (!authorizatorPolicy.canRead(topic, "TODO", sub.getClientId())) {
                     LOG.debug("Authorizator prohibit Client {} to be notified on {}", sub.getClientId(), topic);
@@ -262,7 +266,7 @@ public class MqttPostOffice {
                 // If we are, the subscriber disconnected after the subscriptions tree selected that session as a
                 // destination.
                 LOG.debug("PUBLISH to not yet present session. CId: {}, topicFilter: {}, qos: {}", sub.getClientId(),
-                          sub.getTopicFilter(), qos);
+                        sub.getTopicFilter(), qos);
             }
         }
     }
@@ -298,13 +302,6 @@ public class MqttPostOffice {
         interceptor.notifyTopicPublished(mqttPublishMessage, clientID, username);
     }
 
-    static MqttQoS lowerQosToTheSubscriptionDesired(Subscription sub, MqttQoS qos) {
-        if (qos.value() > sub.getRequestedQos().value()) {
-            qos = sub.getRequestedQos();
-        }
-        return qos;
-    }
-
     /**
      * Intended usage is only for embedded versions of the broker, where the hosting application
      * want to use the broker to send a publish message. Like normal external publish message but
@@ -312,8 +309,7 @@ public class MqttPostOffice {
      * also doesn't notifyTopicPublished because using internally the owner should already know
      * where it's publishing.
      *
-     * @param msg
-     *            the message to publish
+     * @param msg the message to publish
      */
     public void internalPublish(MqttPublishMessage msg) {
         final MqttQoS qos = msg.fixedHeader().qosLevel();

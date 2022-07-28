@@ -6,6 +6,7 @@ import java.io.PrintStream;
 
 /**
  * ProxyException
+ *
  * @author wangzihaogithub 2020-4-23 12:09:02
  */
 public class ProxyException extends RuntimeException {
@@ -18,29 +19,14 @@ public class ProxyException extends RuntimeException {
         super();
     }
 
-    public ProxyException(int errorNumber,String message) {
+    public ProxyException(int errorNumber, String message) {
         super(message);
         this.errorNumber = errorNumber;
     }
 
-    public ProxyException(int errorNumber,String message, Throwable cause) {
-        super(message, cause, false,false);
+    public ProxyException(int errorNumber, String message, Throwable cause) {
+        super(message, cause, false, false);
         this.errorNumber = errorNumber;
-    }
-
-    public int getErrorNumber() {
-        return errorNumber;
-    }
-
-    public void setErrorNumber(int errorNumber) {
-        this.errorNumber = errorNumber;
-    }
-
-    @Override
-    public String toString() {
-        String s = getClass().getSimpleName();
-        String message = getLocalizedMessage();
-        return (message != null) ? (s + ": " + message) : s;
     }
 
     public static String stackTraceToString(Throwable cause) {
@@ -57,6 +43,21 @@ public class ProxyException extends RuntimeException {
                 // ignore as should never happen
             }
         }
+    }
+
+    public int getErrorNumber() {
+        return errorNumber;
+    }
+
+    public void setErrorNumber(int errorNumber) {
+        this.errorNumber = errorNumber;
+    }
+
+    @Override
+    public String toString() {
+        String s = getClass().getSimpleName();
+        String message = getLocalizedMessage();
+        return (message != null) ? (s + ": " + message) : s;
     }
 
 }

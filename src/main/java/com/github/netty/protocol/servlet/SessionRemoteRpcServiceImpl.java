@@ -17,25 +17,25 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Remote session service
+ *
  * @author wangzihao
  * 2018/8/19/019
  */
 public class SessionRemoteRpcServiceImpl implements SessionService {
     private static final String SESSION_GROUP = "/session";
     private static final LoggerX logger = LoggerFactoryX.getLogger(SessionRemoteRpcServiceImpl.class);
-
-    private String name = NamespaceUtil.newIdName(getClass());
     private static final byte[] EMPTY = {};
+    private String name = NamespaceUtil.newIdName(getClass());
     private InetSocketAddress address;
     private int ioRatio;
     private int ioThreadCount;
     private boolean enableRpcHeartLog;
     private int rpcClientHeartIntervalMillSecond;
     private int reconnectIntervalMillSeconds;
-    private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>(){
+    private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>() {
         @Override
         protected RpcClient initialValue() throws Exception {
-            RpcClient rpcClient = new RpcClient("Session",address);
+            RpcClient rpcClient = new RpcClient("Session", address);
             rpcClient.setIoRatio(ioRatio);
             rpcClient.setIoThreadCount(ioThreadCount);
 //            rpcClient.setSocketChannelCount(clientChannels);
@@ -47,12 +47,12 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     };
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address) {
-        this(address,100,0,false,20,20);
+        this(address, 100, 0, false, 20, 20);
     }
 
     public SessionRemoteRpcServiceImpl(InetSocketAddress address,
                                        int rpcClientIoRatio, int rpcClientIoThreads,
-                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond,int reconnectIntervalMillSeconds) {
+                                       boolean enableRpcHeartLog, int rpcClientHeartIntervalMillSecond, int reconnectIntervalMillSeconds) {
         this.address = address;
         this.ioRatio = rpcClientIoRatio;
         this.ioThreadCount = rpcClientIoThreads;
@@ -66,32 +66,32 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
         byte[] bytes = encode(session);
         long expireSecond = (session.getMaxInactiveInterval() * 1000 + session.getCreationTime() - System.currentTimeMillis()) / 1000;
         if (expireSecond > 0) {
-            getRpcDBService().put4(session.getId(), bytes, (int) expireSecond,SESSION_GROUP);
+            getRpcDBService().put4(session.getId(), bytes, (int) expireSecond, SESSION_GROUP);
         } else {
-            getRpcDBService().remove2(session.getId(),SESSION_GROUP);
+            getRpcDBService().remove2(session.getId(), SESSION_GROUP);
         }
     }
 
     @Override
     public void removeSession(String sessionId) {
-        getRpcDBService().remove2(sessionId,SESSION_GROUP);
+        getRpcDBService().remove2(sessionId, SESSION_GROUP);
     }
 
     @Override
     public void removeSessionBatch(List<String> sessionIdList) {
-        getRpcDBService().removeBatch2(sessionIdList,SESSION_GROUP);
+        getRpcDBService().removeBatch2(sessionIdList, SESSION_GROUP);
     }
 
     @Override
     public Session getSession(String sessionId) {
-        byte[] bytes = getRpcDBService().get2(sessionId,SESSION_GROUP);
+        byte[] bytes = getRpcDBService().get2(sessionId, SESSION_GROUP);
         Session session = decode(bytes);
         return session;
     }
 
     @Override
     public void changeSessionId(String oldSessionId, String newSessionId) {
-        getRpcDBService().changeKey3(oldSessionId,newSessionId,SESSION_GROUP);;
+        getRpcDBService().changeKey3(oldSessionId, newSessionId, SESSION_GROUP);
     }
 
     @Override
@@ -101,11 +101,12 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
 
     /**
      * decoding
+     *
      * @param bytes
      * @return
      */
-    protected Session decode(byte[] bytes){
-        if(bytes == null || bytes.length == 0){
+    protected Session decode(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
             return null;
         }
 
@@ -123,32 +124,32 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             session.setAccessCount(ois.readInt());
 
             int attributeSize = ois.readInt();
-            if(attributeSize > 0) {
+            if (attributeSize > 0) {
                 Map<String, Object> attributeMap = new ConcurrentHashMap<>(6);
-                for(int i = 0; i< attributeSize; i++){
+                for (int i = 0; i < attributeSize; i++) {
                     String key = ois.readUTF();
                     Object value = ois.readObject();
-                    attributeMap.put(key,value);
+                    attributeMap.put(key, value);
                 }
                 session.setAttributeMap(attributeMap);
             }
 
             return session;
         } catch (Exception e) {
-            throw new RpcDecodeException("decode http session error="+e,e);
+            throw new RpcDecodeException("decode http session error=" + e, e);
         } finally {
             try {
-                if(ois != null) {
+                if (ois != null) {
                     ois.close();
                 }
             } catch (IOException e) {
-               //skip
+                //skip
             }
             try {
-                if(bfi != null){
+                if (bfi != null) {
                     bfi.close();
                 }
-            }catch (Exception e){
+            } catch (Exception e) {
                 //skip
             }
         }
@@ -164,11 +165,12 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
 
     /**
      * coding
+     *
      * @param session
      * @return
      */
-    protected byte[] encode(Session session){
-        if(session == null){
+    protected byte[] encode(Session session) {
+        if (session == null) {
             return EMPTY;
         }
 
@@ -182,22 +184,22 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             oout.writeInt(session.getMaxInactiveInterval());
             oout.writeInt(session.getAccessCount());
 
-            Map<String,Object> attributeMap = session.getAttributeMap();
+            Map<String, Object> attributeMap = session.getAttributeMap();
 
             int attributeSize = 0;
-            if(attributeMap != null) {
+            if (attributeMap != null) {
                 for (Map.Entry<String, Object> entry : attributeMap.entrySet()) {
                     if (entry.getValue() instanceof Serializable) {
                         attributeSize++;
-                    }else {
-                        logger.warn("The value of key={} in the http session property is not serialized and has been skipped automatically",entry.getKey());
+                    } else {
+                        logger.warn("The value of key={} in the http session property is not serialized and has been skipped automatically", entry.getKey());
                     }
                 }
             }
 
             oout.writeInt(attributeSize);
-            if(attributeSize > 0) {
-                for (Map.Entry<String,Object> entry : attributeMap.entrySet()){
+            if (attributeSize > 0) {
+                for (Map.Entry<String, Object> entry : attributeMap.entrySet()) {
                     Object value = entry.getValue();
                     if (value instanceof Serializable) {
                         String key = entry.getKey();
@@ -210,7 +212,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
             oout.flush();
             return bout.toByteArray();
         } catch (IOException e) {
-            throw new RpcEncodeException("encode http session error="+e,e);
+            throw new RpcEncodeException("encode http session error=" + e, e);
         } finally {
             if (oout != null) {
                 try {

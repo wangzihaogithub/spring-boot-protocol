@@ -11,6 +11,7 @@ import java.util.function.Consumer;
  */
 public class NettyThreadX extends FastThreadLocalThread {
     private List<Consumer<NettyThreadX>> threadStopListenerList;
+
     public NettyThreadX() {
         super();
     }
@@ -47,9 +48,9 @@ public class NettyThreadX extends FastThreadLocalThread {
     public void run() {
         try {
             super.run();
-        }finally {
-            if(threadStopListenerList != null){
-                for(Consumer<NettyThreadX> threadStopListener : threadStopListenerList) {
+        } finally {
+            if (threadStopListenerList != null) {
+                for (Consumer<NettyThreadX> threadStopListener : threadStopListenerList) {
                     threadStopListener.accept(this);
                 }
             }
@@ -57,7 +58,7 @@ public class NettyThreadX extends FastThreadLocalThread {
     }
 
     public void addThreadStopListener(Consumer<NettyThreadX> threadStopListener) {
-        if(threadStopListenerList == null){
+        if (threadStopListenerList == null) {
             threadStopListenerList = new ArrayList<>();
         }
         threadStopListenerList.add(threadStopListener);

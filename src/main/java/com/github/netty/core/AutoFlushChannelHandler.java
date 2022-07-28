@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
  * specialized version, just flushing data after no read is done on the channel after a period. It's
  * used to avoid aggressively flushing from the ProtocolProcessor.
  */
-public class AutoFlushChannelHandler extends AbstractChannelHandler<Object,Object> {
+public class AutoFlushChannelHandler extends AbstractChannelHandler<Object, Object> {
     private static final long MIN_TIMEOUT_NANOS = TimeUnit.MILLISECONDS.toNanos(1);
 
     private final long writerIdleTimeNanos;
@@ -48,21 +48,23 @@ public class AutoFlushChannelHandler extends AbstractChannelHandler<Object,Objec
         writerIdleTimeNanos = Math.max(unit.toNanos(writerIdleTime), MIN_TIMEOUT_NANOS);
     }
 
-    public static boolean isAutoFlush(ChannelPipeline pipeline){
+    public static boolean isAutoFlush(ChannelPipeline pipeline) {
         return pipeline.context(AutoFlushChannelHandler.class) != null;
     }
-    public static boolean flushIfNeed(ChannelHandlerContext context){
-        if(isAutoFlush(context.pipeline())){
+
+    public static boolean flushIfNeed(ChannelHandlerContext context) {
+        if (isAutoFlush(context.pipeline())) {
             context.flush();
             return true;
-        }else {
+        } else {
             return false;
         }
     }
-    public static ChannelFuture writeIfFlush(ChannelHandlerContext context, Object message){
-        if(isAutoFlush(context.pipeline())){
+
+    public static ChannelFuture writeIfFlush(ChannelHandlerContext context, Object message) {
+        if (isAutoFlush(context.pipeline())) {
             return context.write(message);
-        }else {
+        } else {
             return context.writeAndFlush(message);
         }
     }

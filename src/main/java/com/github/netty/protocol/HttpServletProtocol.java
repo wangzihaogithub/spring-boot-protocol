@@ -1,16 +1,17 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.core.AbstractNettyServer;
-import com.github.netty.core.AbstractProtocol;
-import com.github.netty.core.DispatcherChannelHandler;
-import com.github.netty.core.util.*;
+import com.github.netty.core.*;
+import com.github.netty.core.util.ChunkedWriteHandler;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.ResourceManager;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
 import com.github.netty.protocol.servlet.util.*;
 import com.github.netty.protocol.servlet.websocket.WebSocketHandler;
 import com.github.netty.protocol.servlet.websocket.WebsocketServletUpgrader;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
@@ -30,6 +31,7 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletException;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -50,6 +52,12 @@ import java.util.function.Supplier;
 public class HttpServletProtocol extends AbstractProtocol {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(HttpServletProtocol.class);
     private static final boolean EXIST_JAVAX_WEBSOCKET;
+    private static final ByteBuf OUT_OF_MAX_CONNECTION_RESPONSE = Unpooled.copiedBuffer(
+            "HTTP/1.1 503\r\n" +
+                    "Retry-After: 60\r\n" +
+                    "Connection: Close\r\n" +
+                    "Content-Length: 0\r\n" +
+                    "\r\n", Charset.forName("ISO-8859-1"));
 
     static {
         boolean existJavaxWebsocket;
@@ -78,7 +86,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
             "text/css", "text/javascript", "application/javascript", "application/json", "application/xml"};
     private boolean onServerStart = false;
-    private volatile WebsocketServletUpgrader websocketServletUpgrader;
+    private /*volatile*/ WebsocketServletUpgrader websocketServletUpgrader;
 
     public HttpServletProtocol(ServletContext servletContext) {
         this(servletContext, null, null);
@@ -139,6 +147,15 @@ public class HttpServletProtocol extends AbstractProtocol {
 
         destroyFilter();
         destroyServlet();
+    }
+
+    @Override
+    public boolean onOutOfMaxConnection(ByteBuf clientFirstMsg, TcpChannel tcpChannel,
+                                        int currentConnections,
+                                        int maxConnections) {
+        OUT_OF_MAX_CONNECTION_RESPONSE.retain();
+        tcpChannel.writeAndFlush(OUT_OF_MAX_CONNECTION_RESPONSE);
+        return false;
     }
 
     protected void configurableServletContext() throws Exception {
@@ -315,32 +332,6 @@ public class HttpServletProtocol extends AbstractProtocol {
         return new HttpServerCodec(maxInitialLineLength, maxHeaderSize, maxChunkSize, false);
     }
 
-    class HttpContentCompressor extends io.netty.handler.codec.http.HttpContentCompressor {
-        public HttpContentCompressor(int contentSizeThreshold) {
-//            super(contentSizeThreshold, new CompressionOptions[0]);
-            super(6, 15, 8, contentSizeThreshold);
-        }
-
-        @Override
-        protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
-            // sendfile not support compression
-            if (response instanceof NettyHttpResponse && ((NettyHttpResponse) response).isWriteSendFile()) {
-                return null;
-            }
-            if (compressionMimeTypes.length > 0) {
-                List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
-                for (String mimeType : compressionMimeTypes) {
-                    for (String value : values) {
-                        if (value.contains(mimeType)) {
-                            return super.beginEncode(response, acceptEncoding);
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-    }
-
     public long getMaxBufferBytes() {
         return servletContext.getMaxBufferBytes();
     }
@@ -406,12 +397,12 @@ public class HttpServletProtocol extends AbstractProtocol {
         this.sslContextBuilder = SslContextBuilders.newSslContextBuilderPem(crtFile, pemFile);
     }
 
-    public void setSslContextBuilder(SslContextBuilder sslContextBuilder) {
-        this.sslContextBuilder = sslContextBuilder;
-    }
-
     public SslContextBuilder getSslContextBuilder() {
         return sslContextBuilder;
+    }
+
+    public void setSslContextBuilder(SslContextBuilder sslContextBuilder) {
+        this.sslContextBuilder = sslContextBuilder;
     }
 
     public void setMaxContentLength(long maxContentLength) {
@@ -456,6 +447,36 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public void setContentSizeThreshold(int contentSizeThreshold) {
         this.contentSizeThreshold = contentSizeThreshold;
+    }
+
+    public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {
+        getWebsocketServletUpgrader().upgradeWebsocket(servletContext, ctx, request, false, 65536);
+    }
+
+    class HttpContentCompressor extends io.netty.handler.codec.http.HttpContentCompressor {
+        public HttpContentCompressor(int contentSizeThreshold) {
+//            super(contentSizeThreshold, new CompressionOptions[0]);
+            super(6, 15, 8, contentSizeThreshold);
+        }
+
+        @Override
+        protected Result beginEncode(HttpResponse response, String acceptEncoding) throws Exception {
+            // sendfile not support compression
+            if (response instanceof NettyHttpResponse && ((NettyHttpResponse) response).isWriteSendFile()) {
+                return null;
+            }
+            if (compressionMimeTypes.length > 0) {
+                List<String> values = response.headers().getAll(HttpHeaderConstants.CONTENT_TYPE);
+                for (String mimeType : compressionMimeTypes) {
+                    for (String value : values) {
+                        if (value.contains(mimeType)) {
+                            return super.beginEncode(response, acceptEncoding);
+                        }
+                    }
+                }
+            }
+            return null;
+        }
     }
 
     class SslUpgradeHandler extends ApplicationProtocolNegotiationHandler {
@@ -514,7 +535,9 @@ public class HttpServletProtocol extends AbstractProtocol {
             pipeline.remove(this);
             String upgradeToProtocol = upgrade(ctx, request);
             if (upgradeToProtocol != null) {
-                logger.debug("upgradeToProtocol = {}", upgradeToProtocol);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("upgradeToProtocol = {}", upgradeToProtocol);
+                }
             } else {
                 addServletPipeline(pipeline, Protocol.http1_1);
                 pipeline.fireChannelRegistered();
@@ -555,10 +578,6 @@ public class HttpServletProtocol extends AbstractProtocol {
             }
             return null;
         }
-    }
-
-    public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {
-        getWebsocketServletUpgrader().upgradeWebsocket(servletContext, ctx, request, false, 65536);
     }
 
 }

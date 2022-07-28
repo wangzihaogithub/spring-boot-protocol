@@ -8,10 +8,10 @@ import io.netty.util.ReferenceCountUtil;
 
 import static com.github.netty.core.util.IOUtil.BYTE_LENGTH;
 import static com.github.netty.core.util.IOUtil.INT_LENGTH;
-import static com.github.netty.protocol.nrpc.codec.RpcEncoder.PROTOCOL_HEADER;
-import static com.github.netty.protocol.nrpc.codec.RpcEncoder.RPC_CHARSET;
 import static com.github.netty.protocol.nrpc.RpcPacket.RequestPacket;
 import static com.github.netty.protocol.nrpc.RpcPacket.ResponsePacket;
+import static com.github.netty.protocol.nrpc.codec.RpcEncoder.PROTOCOL_HEADER;
+import static com.github.netty.protocol.nrpc.codec.RpcEncoder.RPC_CHARSET;
 
 /**
  * RPC decoder

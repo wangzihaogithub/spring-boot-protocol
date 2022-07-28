@@ -161,6 +161,20 @@ public class NettyHttp2Client {
         return old;
     }
 
+    private static InetSocketAddress newInetSocketAddress(URL url, int defaultPort) throws UnknownHostException {
+        InetAddress inetAddress = InetAddress.getByName(url.getHost());
+        int port = url.getPort();
+        return new InetSocketAddress(inetAddress, port == -1 ? defaultPort : port);
+    }
+
+    private static String getHostString(InetSocketAddress address) {
+        String hostString = address.getHostString();
+        if (hostString == null) {
+            hostString = address.getAddress().getHostAddress();
+        }
+        return hostString;
+    }
+
     public NettyHttp2Client requestTimeout(int requestTimeout) {
         this.requestTimeout = requestTimeout;
         return this;
@@ -229,12 +243,6 @@ public class NettyHttp2Client {
             }
         }
         return this;
-    }
-
-    private static InetSocketAddress newInetSocketAddress(URL url, int defaultPort) throws UnknownHostException {
-        InetAddress inetAddress = InetAddress.getByName(url.getHost());
-        int port = url.getPort();
-        return new InetSocketAddress(inetAddress, port == -1 ? defaultPort : port);
     }
 
     public URL getUrl() {
@@ -585,6 +593,28 @@ public class NettyHttp2Client {
         return closePromise;
     }
 
+    public boolean isSsl() {
+        return HttpScheme.HTTPS == scheme;
+    }
+
+    public InetSocketAddress getRemoteAddress() {
+        return remoteAddress;
+    }
+
+    public Http2Settings getSettings() {
+        return settings;
+    }
+
+    @Override
+    public String toString() {
+        if (isClose()) {
+            return "closed, ! " + remoteAddress;
+        } else {
+            String toString = channel == null ? String.valueOf(remoteAddress) : channel + ", setting=" + settings;
+            return "pending=" + pendingWriteQueue.size() + ", " + toString;
+        }
+    }
+
     public interface H2FutureListener extends GenericFutureListener<H2Response> {
     }
 
@@ -836,31 +866,19 @@ public class NettyHttp2Client {
         }
     }
 
-    public boolean isSsl() {
-        return HttpScheme.HTTPS == scheme;
-    }
-
-    public InetSocketAddress getRemoteAddress() {
-        return remoteAddress;
-    }
-
-    public Http2Settings getSettings() {
-        return settings;
-    }
-
     /**
      * Configures the client pipeline to support HTTP/2 frames.
      */
     public static class Http2Handler extends ChannelInitializer<SocketChannel> {
-        private Http2FrameLogger logger;
-        private HttpToHttp2ConnectionHandler connectionHandler;
-        private int maxContentLength;
         private final SslContext sslCtx;
         private final HttpResponseHandler responseHandler;
         private final Http2SettingsHandler settingsHandler;
         private final int connectTimeout;
         private final InetSocketAddress remoteAddress;
         private final Http2Connection connection;
+        private Http2FrameLogger logger;
+        private HttpToHttp2ConnectionHandler connectionHandler;
+        private int maxContentLength;
 
         public Http2Handler(HttpScheme scheme, int maxContentLength, int connectTimeout, InetSocketAddress remoteAddress) throws SSLException {
             this.sslCtx = newSslContext(scheme);
@@ -918,12 +936,12 @@ public class NettyHttp2Client {
             this.logger = logger;
         }
 
-        public void setMaxContentLength(int maxContentLength) {
-            this.maxContentLength = maxContentLength;
-        }
-
         public int getMaxContentLength() {
             return maxContentLength;
+        }
+
+        public void setMaxContentLength(int maxContentLength) {
+            this.maxContentLength = maxContentLength;
         }
 
         protected HttpToHttp2ConnectionHandler newConnectionHandler(Http2Connection connection) {
@@ -1081,6 +1099,10 @@ public class NettyHttp2Client {
         private static InternalLogger logger = InternalLoggerFactory.getInstance(HttpResponseHandler.class);
         private final Map<Integer, H2Response> streamIdPromiseMap = new ConcurrentHashMap<>(64);
 
+        public HttpResponseHandler() {
+            super(false);
+        }
+
         /**
          * Create an association between an anticipated response stream id and a {@link ChannelPromise}
          *
@@ -1094,10 +1116,6 @@ public class NettyHttp2Client {
 
         public Map<Integer, H2Response> getStreamIdPromiseMap() {
             return streamIdPromiseMap;
-        }
-
-        public HttpResponseHandler() {
-            super(false);
         }
 
         @Override
@@ -1116,24 +1134,6 @@ public class NettyHttp2Client {
         @Override
         public String toString() {
             return streamIdPromiseMap.toString();
-        }
-    }
-
-    private static String getHostString(InetSocketAddress address) {
-        String hostString = address.getHostString();
-        if (hostString == null) {
-            hostString = address.getAddress().getHostAddress();
-        }
-        return hostString;
-    }
-
-    @Override
-    public String toString() {
-        if (isClose()) {
-            return "closed, ! " + remoteAddress;
-        } else {
-            String toString = channel == null ? String.valueOf(remoteAddress) : channel + ", setting=" + settings;
-            return "pending=" + pendingWriteQueue.size() + ", " + toString;
         }
     }
 }

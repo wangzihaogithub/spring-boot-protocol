@@ -250,7 +250,7 @@ public class HttpHeaderUtil {
      * @param length  length
      */
     public static void setContentLength(HttpHeaders headers, long length) {
-        headers.set(HttpHeaderConstants.CONTENT_LENGTH, (CharSequence) String.valueOf(length));
+        headers.set(HttpHeaderConstants.CONTENT_LENGTH, String.valueOf(length));
     }
 
     /**
@@ -457,6 +457,12 @@ public class HttpHeaderUtil {
         return Long.parseLong(digits);
     }
 
+    public enum SkipResult {
+        FOUND,
+        NOT_FOUND,
+        EOF
+    }
+
     public static class Entry {
         public final long start;
         public final long end;
@@ -524,11 +530,5 @@ public class HttpHeaderUtil {
             }
             return new Ranges(units, entries);
         }
-    }
-
-    public enum SkipResult {
-        FOUND,
-        NOT_FOUND,
-        EOF
     }
 }

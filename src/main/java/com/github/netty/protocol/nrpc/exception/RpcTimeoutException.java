@@ -2,14 +2,16 @@ package com.github.netty.protocol.nrpc.exception;
 
 /**
  * RpcTimeoutException
+ *
  * @author wangzihao
- *  2018/8/20/020
+ * 2018/8/20/020
  */
 public class RpcTimeoutException extends RpcException {
     private long createTimestamp;
     private long expiryTimestamp;
     private long timestamp = System.currentTimeMillis();
-    public RpcTimeoutException(String message,boolean writableStackTrace,long createTimestamp,long expiryTimestamp) {
+
+    public RpcTimeoutException(String message, boolean writableStackTrace, long createTimestamp, long expiryTimestamp) {
         super(message, null, false, writableStackTrace);
         this.createTimestamp = createTimestamp;
         this.expiryTimestamp = expiryTimestamp;

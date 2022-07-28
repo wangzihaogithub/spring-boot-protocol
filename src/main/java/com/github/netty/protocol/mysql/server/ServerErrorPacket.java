@@ -23,27 +23,27 @@ import com.github.netty.protocol.mysql.AbstractMySqlPacket;
  */
 public class ServerErrorPacket extends AbstractMySqlPacket implements ServerPacket {
 
-	private final int errorNumber;
-	private final byte[] sqlState;
-	private final String message;
+    private final int errorNumber;
+    private final byte[] sqlState;
+    private final String message;
 
-	public ServerErrorPacket(int sequenceId, int errorNumber, byte[] sqlState, String message) {
-		super(sequenceId);
-		this.errorNumber = errorNumber;
-		this.sqlState = sqlState;
-		this.message = message;
-	}
+    public ServerErrorPacket(int sequenceId, int errorNumber, byte[] sqlState, String message) {
+        super(sequenceId);
+        this.errorNumber = errorNumber;
+        this.sqlState = sqlState;
+        this.message = message;
+    }
 
-	public int getErrorNumber() {
-		return errorNumber;
-	}
+    public int getErrorNumber() {
+        return errorNumber;
+    }
 
-	public byte[] getSqlState() {
-		return sqlState;
-	}
+    public byte[] getSqlState() {
+        return sqlState;
+    }
 
-	public String getMessage() {
-		return message;
-	}
+    public String getMessage() {
+        return message;
+    }
 
 }

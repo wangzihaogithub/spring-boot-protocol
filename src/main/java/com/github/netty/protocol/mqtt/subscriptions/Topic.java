@@ -39,16 +39,6 @@ public class Topic implements Serializable {
 
     private transient boolean valid;
 
-    /**
-     * Factory method
-     *
-     * @param s the topic string (es "/a/b").
-     * @return the created Topic instance.
-     * */
-    public static Topic asTopic(String s) {
-        return new Topic(s);
-    }
-
     public Topic(String topic) {
         this.topic = topic;
     }
@@ -58,6 +48,16 @@ public class Topic implements Serializable {
         List<String> strTokens = tokens.stream().map(Token::toString).collect(Collectors.toList());
         this.topic = String.join("/", strTokens);
         this.valid = true;
+    }
+
+    /**
+     * Factory method
+     *
+     * @param s the topic string (es "/a/b").
+     * @return the created Topic instance.
+     */
+    public static Topic asTopic(String s) {
+        return new Topic(s);
     }
 
     public List<Token> getTokens() {
@@ -77,7 +77,7 @@ public class Topic implements Serializable {
     private List<Token> parseTopic(String topic) throws ParseException {
         if (topic.length() == 0) {
             throw new ParseException("Bad format of topic, topic MUST be at least 1 character [MQTT-4.7.3-1] and " +
-                                     "this was empty", 0);
+                    "this was empty", 0);
         }
         List<Token> res = new ArrayList<>();
         String[] splitted = topic.split("/");
@@ -140,7 +140,7 @@ public class Topic implements Serializable {
 
     /**
      * @return a new Topic corresponding to this less than the head token
-     * */
+     */
     public Topic exceptHeadToken() {
         List<Token> tokens = getTokens();
         if (tokens.isEmpty()) {
@@ -161,8 +161,7 @@ public class Topic implements Serializable {
     /**
      * Verify if the 2 topics matching respecting the rules of MQTT Appendix A
      *
-     * @param subscriptionTopic
-     *            the topic filter of the subscription
+     * @param subscriptionTopic the topic filter of the subscription
      * @return true if the two topics match.
      */
     // TODO reimplement with iterators or with queues

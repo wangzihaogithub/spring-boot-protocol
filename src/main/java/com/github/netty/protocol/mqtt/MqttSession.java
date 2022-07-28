@@ -35,72 +35,21 @@ class MqttSession {
     private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttSession.class);
     private static final int FLIGHT_BEFORE_RESEND_MS = 5_000;
     private static final int INFLIGHT_WINDOW_SIZE = 10;
-
-    static class InFlightPacket implements Delayed {
-
-        final int packetId;
-        private long startTime;
-
-        InFlightPacket(int packetId, long delayInMilliseconds) {
-            this.packetId = packetId;
-            this.startTime = System.currentTimeMillis() + delayInMilliseconds;
-        }
-
-        @Override
-        public long getDelay(TimeUnit unit) {
-            long diff = startTime - System.currentTimeMillis();
-            return unit.convert(diff, TimeUnit.MILLISECONDS);
-        }
-
-        @Override
-        public int compareTo(Delayed o) {
-            if ((this.startTime - ((InFlightPacket) o).startTime) == 0) {
-                return 0;
-            }
-            if ((this.startTime - ((InFlightPacket) o).startTime) > 0) {
-                return 1;
-            } else {
-                return -1;
-            }
-        }
-    }
-
-    enum SessionStatus {
-        CONNECTED, CONNECTING, DISCONNECTING, DISCONNECTED
-    }
-
-    static final class Will {
-
-        final String topic;
-        final ByteBuf payload;
-        final MqttQoS qos;
-        final boolean retained;
-
-        Will(String topic, ByteBuf payload, MqttQoS qos, boolean retained) {
-            this.topic = topic;
-            this.payload = payload;
-            this.qos = qos;
-            this.retained = retained;
-        }
-    }
-
     private final String clientId;
-    private boolean clean;
-    private Will will;
-    private Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue;
     private final AtomicReference<SessionStatus> status = new AtomicReference<>(SessionStatus.DISCONNECTED);
-    private MqttConnection mqttConnection;
-    private List<Subscription> subscriptions = new ArrayList<>();
     private final Map<Integer, MqttSessionRegistry.EnqueuedMessage> inflightWindow = new HashMap<>();
     private final DelayQueue<InFlightPacket> inflightTimeouts = new DelayQueue<>();
     private final Map<Integer, MqttPublishMessage> qos2Receiving = new HashMap<>();
     private final AtomicInteger inflightSlots = new AtomicInteger(INFLIGHT_WINDOW_SIZE); // this should be configurable
-
+    private boolean clean;
+    private Will will;
+    private Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue;
+    private MqttConnection mqttConnection;
+    private List<Subscription> subscriptions = new ArrayList<>();
     MqttSession(String clientId, boolean clean, Will will, Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue) {
         this(clean, clientId, sessionQueue);
         this.will = will;
     }
-
     MqttSession(boolean clean, String clientId, Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue) {
         this.clientId = clientId;
         this.clean = clean;
@@ -223,7 +172,7 @@ class MqttSession {
                 LOG.error("Not admissible");
                 break;
             }
-            default:{
+            default: {
                 break;
             }
         }
@@ -240,7 +189,7 @@ class MqttSession {
             int packetId = mqttConnection.nextPacketId();
             inflightWindow.put(packetId, new MqttSessionRegistry.PublishedMessage(topic, qos, payload));
             inflightTimeouts.add(new InFlightPacket(packetId, FLIGHT_BEFORE_RESEND_MS));
-            MqttPublishMessage publishMsg = MqttConnection.notRetainedPublishWithMessageId(topic.toString(), qos,payload, packetId);
+            MqttPublishMessage publishMsg = MqttConnection.notRetainedPublishWithMessageId(topic.toString(), qos, payload, packetId);
             mqttConnection.sendPublish(publishMsg);
 
             // TODO drainQueueToConnection();?
@@ -257,7 +206,7 @@ class MqttSession {
             inflightWindow.put(packetId, new MqttSessionRegistry.PublishedMessage(topic, qos, payload));
             inflightTimeouts.add(new InFlightPacket(packetId, FLIGHT_BEFORE_RESEND_MS));
             MqttPublishMessage publishMsg = MqttConnection.notRetainedPublishWithMessageId(topic.toString(), qos,
-                                                                                           payload, packetId);
+                    payload, packetId);
             mqttConnection.sendPublish(publishMsg);
 
             drainQueueToConnection();
@@ -269,9 +218,9 @@ class MqttSession {
 
     private boolean canSkipQueue() {
         return sessionQueue.isEmpty() &&
-            inflightSlots.get() > 0 &&
-            connected() &&
-            mqttConnection.channel.isWritable();
+                inflightSlots.get() > 0 &&
+                connected() &&
+                mqttConnection.channel.isWritable();
     }
 
     void pubAckReceived(int ackPacketId) {
@@ -290,7 +239,7 @@ class MqttSession {
         for (InFlightPacket notAckPacketId : expired) {
             if (inflightWindow.containsKey(notAckPacketId.packetId)) {
                 final MqttSessionRegistry.PublishedMessage msg =
-                    (MqttSessionRegistry.PublishedMessage) inflightWindow.get(notAckPacketId.packetId);
+                        (MqttSessionRegistry.PublishedMessage) inflightWindow.get(notAckPacketId.packetId);
                 final Topic topic = msg.topic;
                 final MqttQoS qos = msg.publishingQos;
                 final ByteBuf payload = msg.payload;
@@ -333,8 +282,8 @@ class MqttSession {
             } else {
                 final MqttSessionRegistry.PublishedMessage msgPub = (MqttSessionRegistry.PublishedMessage) msg;
                 MqttPublishMessage publishMsg = MqttConnection.notRetainedPublishWithMessageId(msgPub.topic.toString(),
-                    msgPub.publishingQos,
-                    msgPub.payload, sendPacketId);
+                        msgPub.publishingQos,
+                        msgPub.payload, sendPacketId);
                 mqttConnection.sendPublish(publishMsg);
             }
         }
@@ -366,7 +315,7 @@ class MqttSession {
 
     public void receivedPubRelQos2(int messageID) {
         final MqttPublishMessage removedMsg = qos2Receiving.remove(messageID);
-        if(removedMsg.refCnt() > 0) {
+        if (removedMsg.refCnt() > 0) {
             removedMsg.release();
         }
     }
@@ -381,10 +330,58 @@ class MqttSession {
     @Override
     public String toString() {
         return "Session{" +
-            "clientId='" + clientId + '\'' +
-            ", clean=" + clean +
-            ", status=" + status +
-            ", inflightSlots=" + inflightSlots +
-            '}';
+                "clientId='" + clientId + '\'' +
+                ", clean=" + clean +
+                ", status=" + status +
+                ", inflightSlots=" + inflightSlots +
+                '}';
+    }
+
+    enum SessionStatus {
+        CONNECTED, CONNECTING, DISCONNECTING, DISCONNECTED
+    }
+
+    static class InFlightPacket implements Delayed {
+
+        final int packetId;
+        private long startTime;
+
+        InFlightPacket(int packetId, long delayInMilliseconds) {
+            this.packetId = packetId;
+            this.startTime = System.currentTimeMillis() + delayInMilliseconds;
+        }
+
+        @Override
+        public long getDelay(TimeUnit unit) {
+            long diff = startTime - System.currentTimeMillis();
+            return unit.convert(diff, TimeUnit.MILLISECONDS);
+        }
+
+        @Override
+        public int compareTo(Delayed o) {
+            if ((this.startTime - ((InFlightPacket) o).startTime) == 0) {
+                return 0;
+            }
+            if ((this.startTime - ((InFlightPacket) o).startTime) > 0) {
+                return 1;
+            } else {
+                return -1;
+            }
+        }
+    }
+
+    static final class Will {
+
+        final String topic;
+        final ByteBuf payload;
+        final MqttQoS qos;
+        final boolean retained;
+
+        Will(String topic, ByteBuf payload, MqttQoS qos, boolean retained) {
+            this.topic = topic;
+            this.payload = payload;
+            this.qos = qos;
+            this.retained = retained;
+        }
     }
 }

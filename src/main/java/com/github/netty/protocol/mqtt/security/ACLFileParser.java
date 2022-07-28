@@ -37,14 +37,15 @@ public final class ACLFileParser {
 
     private static final LoggerX LOG = LoggerFactoryX.getLogger(ACLFileParser.class);
 
+    private ACLFileParser() {
+    }
+
     /**
      * Parse the configuration from file.
      *
-     * @param file
-     *            to parse
+     * @param file to parse
      * @return the collector of authorizations form reader passed into.
-     * @throws ParseException
-     *             if the format is not compliant.
+     * @throws ParseException if the format is not compliant.
      */
     public static AuthorizationsCollector parse(File file) throws ParseException {
         if (file == null) {
@@ -74,11 +75,9 @@ public final class ACLFileParser {
     /**
      * Parse the ACL configuration file
      *
-     * @param reader
-     *            to parse
+     * @param reader to parse
      * @return the collector of authorizations form reader passed into.
-     * @throws ParseException
-     *             if the format is not compliant.
+     * @throws ParseException if the format is not compliant.
      */
     public static AuthorizationsCollector parse(Reader reader) throws ParseException {
         if (reader == null) {
@@ -120,8 +119,5 @@ public final class ACLFileParser {
             throw new ParseException("Failed to read", 1);
         }
         return collector;
-    }
-
-    private ACLFileParser() {
     }
 }

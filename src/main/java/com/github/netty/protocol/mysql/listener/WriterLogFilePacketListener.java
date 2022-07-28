@@ -31,29 +31,32 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
     }
 
     public void setLogWriteInterval(int logWriteInterval) {
-        System.setProperty(KEY_LOG_WRITE_INTERVAL,String.valueOf(logWriteInterval));
+        System.setProperty(KEY_LOG_WRITE_INTERVAL, String.valueOf(logWriteInterval));
     }
+
     public void setLogFileName(String fileName) {
-        System.setProperty(KEY_LOG_FILE_NAME,fileName);
+        System.setProperty(KEY_LOG_FILE_NAME, fileName);
     }
+
     public void setLogPath(String path) {
-        System.setProperty(KEY_LOG_PATH,path);
+        System.setProperty(KEY_LOG_PATH, path);
     }
 
     @Override
     public void onMysqlPacket(MysqlPacket packet, ChannelHandlerContext currentContext, Session session, String handlerType) {
-        if(!enable){
+        if (!enable) {
             return;
         }
         String sessionId = session.getId();
         Queue<LogRecord> logRecords = Lazy.UNWRITE_LOG_MAP.computeIfAbsent(sessionId, k -> new ConcurrentLinkedQueue<>());
-        logRecords.add(new LogRecord(session,packet,handlerType));
+        logRecords.add(new LogRecord(session, packet, handlerType));
     }
 
     public static class LogRecord {
         Session session;
         MysqlPacket mysqlPacket;
         String handlerType;
+
         public LogRecord(Session session, MysqlPacket mysqlPacket, String handlerType) {
             this.session = session;
             this.mysqlPacket = mysqlPacket;
@@ -61,10 +64,11 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
         }
     }
 
-    public static class Lazy{
+    public static class Lazy {
         public static final Map<String, Queue<LogRecord>> UNWRITE_LOG_MAP = new ConcurrentHashMap<>();
-        public static final ThreadPoolX WRITE_LOG_THREAD_POOL = new ThreadPoolX("Mysql-log",1,Thread.MIN_PRIORITY,false);
+        public static final ThreadPoolX WRITE_LOG_THREAD_POOL = new ThreadPoolX("Mysql-log", 1, Thread.MIN_PRIORITY, false);
         public static final WriterLogRunnable RUNNABLE;
+
         static {
             try {
                 long writeInterval = SystemPropertyUtil.getLong(KEY_LOG_WRITE_INTERVAL, 5000L);
@@ -74,19 +78,20 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
                 WRITE_LOG_THREAD_POOL.scheduleAtFixedRate(RUNNABLE,
                         writeInterval, writeInterval, TimeUnit.MILLISECONDS);
                 Runtime.getRuntime().addShutdownHook(new Thread(RUNNABLE, "netty-mysql.log.hook"));
-            }catch (Exception e){
-                throw new Error("netty-mysql.log, Lazy.class. init error="+e.toString(),e);
+            } catch (Exception e) {
+                throw new Error("netty-mysql.log, Lazy.class. init error=" + e.toString(), e);
             }
         }
     }
 
-    public static class WriterLogRunnable implements Runnable{
+    public static class WriterLogRunnable implements Runnable {
         private final LoggerX loggerX = LoggerFactoryX.getLogger(getClass());
         private final Pattern jsonEscapePattern = Pattern.compile("\"", Pattern.LITERAL);
         private final String jsonEscapeReplace = Matcher.quoteReplacement("\\\"");
         private final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         private final String fileName;
         private final String path;
+
         public WriterLogRunnable(String fileName, String path) {
             this.fileName = fileName;
             this.path = path;
@@ -99,13 +104,14 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
             for (Map.Entry<String, Queue<LogRecord>> entry : Lazy.UNWRITE_LOG_MAP.entrySet()) {
                 String key = IOUtil.trimFilename(entry.getKey());
                 Queue<LogRecord> queue = entry.getValue();
-                if(queue == null || queue.isEmpty()){
+                if (queue == null || queue.isEmpty()) {
                     removeKeyList.add(key);
                     continue;
                 }
                 try {
                     IOUtil.writeFile(new Iterator<ByteBuffer>() {
                         private LogRecord record;
+
                         @Override
                         public boolean hasNext() {
                             return (record = queue.poll()) != null;
@@ -131,15 +137,15 @@ public class WriterLogFilePacketListener implements MysqlPacketListener {
                             sb.append("\"\n},\n");
                             return ByteBuffer.wrap(sb.toString().getBytes());
                         }
-                    },path,key.concat(fileName),true);
+                    }, path, key.concat(fileName), true);
                 } catch (IOException e) {
                     loggerX.error("writer mysql log error={},key={},path={},fileName={}",
-                            e.toString(),key,path,fileName,e);
+                            e.toString(), key, path, fileName, e);
                 }
             }
             for (String key : removeKeyList) {
                 Queue<LogRecord> records = Lazy.UNWRITE_LOG_MAP.get(key);
-                if(records != null && records.isEmpty()){
+                if (records != null && records.isEmpty()) {
                     Lazy.UNWRITE_LOG_MAP.remove(key);
                 }
             }

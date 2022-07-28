@@ -7,14 +7,16 @@ import java.util.List;
 
 /**
  * Session service
+ *
  * @author wangzihao
  * 2018/8/19/019
  */
-@NRpcService(value = "/_nrpc/sessionService",timeout = 1000)
+@NRpcService(value = "/_nrpc/sessionService", timeout = 1000)
 public interface SessionService {
 
     /**
      * Get session (by id)
+     *
      * @param sessionId sessionId
      * @return Session
      */
@@ -22,24 +24,28 @@ public interface SessionService {
 
     /**
      * Save the session
+     *
      * @param session session
      */
     void saveSession(@NRpcParam("session") Session session);
 
     /**
      * Delete session
+     *
      * @param sessionId sessionId
      */
     void removeSession(@NRpcParam("sessionId") String sessionId);
 
     /**
      * Delete session (batch)
+     *
      * @param sessionIdList sessionIdList
      */
     void removeSessionBatch(@NRpcParam("sessionIdList") List<String> sessionIdList);
 
     /**
      * Change the sessionId
+     *
      * @param oldSessionId oldSessionId
      * @param newSessionId newSessionId
      */
@@ -47,6 +53,7 @@ public interface SessionService {
 
     /**
      * Get the number of sessions
+     *
      * @return count
      */
     int count();

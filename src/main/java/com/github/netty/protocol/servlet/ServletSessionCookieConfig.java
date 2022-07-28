@@ -4,8 +4,9 @@ import javax.servlet.SessionCookieConfig;
 
 /**
  * Configuration of session cookies
+ *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
 public class ServletSessionCookieConfig implements SessionCookieConfig {
     private boolean httpOnly;
@@ -29,38 +30,13 @@ public class ServletSessionCookieConfig implements SessionCookieConfig {
     }
 
     @Override
-    public String getDomain() {
-        return domain;
-    }
-
-    @Override
-    public int getMaxAge() {
-        return maxAge;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getPath() {
-        return path;
-    }
-
-    @Override
-    public boolean isHttpOnly() {
-        return httpOnly;
-    }
-
-    @Override
-    public boolean isSecure() {
-        return secure;
-    }
-
-    @Override
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    @Override
+    public String getDomain() {
+        return domain;
     }
 
     @Override
@@ -69,8 +45,8 @@ public class ServletSessionCookieConfig implements SessionCookieConfig {
     }
 
     @Override
-    public void setHttpOnly(boolean httpOnly) {
-        this.httpOnly = httpOnly;
+    public int getMaxAge() {
+        return maxAge;
     }
 
     @Override
@@ -79,13 +55,38 @@ public class ServletSessionCookieConfig implements SessionCookieConfig {
     }
 
     @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
     public void setName(String name) {
         this.name = name;
     }
 
     @Override
+    public String getPath() {
+        return path;
+    }
+
+    @Override
     public void setPath(String path) {
         this.path = path;
+    }
+
+    @Override
+    public boolean isHttpOnly() {
+        return httpOnly;
+    }
+
+    @Override
+    public void setHttpOnly(boolean httpOnly) {
+        this.httpOnly = httpOnly;
+    }
+
+    @Override
+    public boolean isSecure() {
+        return secure;
     }
 
     @Override

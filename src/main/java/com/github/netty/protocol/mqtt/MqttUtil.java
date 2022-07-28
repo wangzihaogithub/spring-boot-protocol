@@ -32,10 +32,13 @@ import java.util.Map;
  */
 public final class MqttUtil {
 
-    private static final AttributeKey<Integer> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(String.class+"#keepAlive");
-    private static final AttributeKey<Boolean> ATTR_KEY_CLEANSESSION = AttributeKey.valueOf(Boolean.class+"#removeTemporaryQoS2");
-    private static final AttributeKey<String> ATTR_KEY_CLIENTID = AttributeKey.valueOf(String.class+"#ClientID");
-    private static final AttributeKey<String> ATTR_KEY_USERNAME = AttributeKey.valueOf(String.class+"#username");
+    private static final AttributeKey<Integer> ATTR_KEY_KEEPALIVE = AttributeKey.valueOf(String.class + "#keepAlive");
+    private static final AttributeKey<Boolean> ATTR_KEY_CLEANSESSION = AttributeKey.valueOf(Boolean.class + "#removeTemporaryQoS2");
+    private static final AttributeKey<String> ATTR_KEY_CLIENTID = AttributeKey.valueOf(String.class + "#ClientID");
+    private static final AttributeKey<String> ATTR_KEY_USERNAME = AttributeKey.valueOf(String.class + "#username");
+
+    private MqttUtil() {
+    }
 
     public static Object getAttribute(ChannelHandlerContext ctx, AttributeKey<Object> key) {
         Attribute<Object> attr = ctx.channel().attr(key);
@@ -101,8 +104,5 @@ public final class MqttUtil {
             bytesContent = copy.array();
         }
         return new String(bytesContent, Charset.forName("UTF-8"));
-    }
-
-    private MqttUtil() {
     }
 }

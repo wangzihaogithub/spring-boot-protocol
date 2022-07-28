@@ -2,8 +2,9 @@ package com.github.netty.protocol.nrpc.exception;
 
 /**
  * RpcException
+ *
  * @author wangzihao
- *  2018/8/20/020
+ * 2018/8/20/020
  */
 public class RpcException extends RuntimeException {
 

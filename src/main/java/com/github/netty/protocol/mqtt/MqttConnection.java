@@ -20,7 +20,6 @@ import com.github.netty.core.util.LoggerX;
 import com.github.netty.protocol.mqtt.config.BrokerConfiguration;
 import com.github.netty.protocol.mqtt.exception.MqttSessionCorruptedException;
 import com.github.netty.protocol.mqtt.interception.BrokerInterceptor;
-import com.github.netty.protocol.mqtt.interception.InterceptAcknowledgedMessage;
 import com.github.netty.protocol.mqtt.security.IAuthenticator;
 import com.github.netty.protocol.mqtt.subscriptions.Topic;
 import io.netty.buffer.ByteBuf;
@@ -48,14 +47,14 @@ public final class MqttConnection {
     private static final LoggerX LOG = LoggerFactoryX.getLogger(MqttConnection.class);
 
     final Channel channel;
+    private final MqttPostOffice postOffice;
+    private final AtomicInteger lastPacketId = new AtomicInteger(0);
+    private final BrokerInterceptor interceptor;
     private BrokerConfiguration brokerConfig;
     private IAuthenticator authenticator;
     private MqttSessionRegistry sessionRegistry;
-    private final MqttPostOffice postOffice;
     private boolean connected;
     private boolean authFlushed;
-    private final AtomicInteger lastPacketId = new AtomicInteger(0);
-    private final BrokerInterceptor interceptor;
 
     public MqttConnection(BrokerInterceptor interceptor, Channel channel, BrokerConfiguration brokerConfig, IAuthenticator authenticator,
                           MqttSessionRegistry sessionRegistry, MqttPostOffice postOffice) {
@@ -67,6 +66,33 @@ public final class MqttConnection {
         this.postOffice = postOffice;
         this.connected = false;
         this.authFlushed = false;
+    }
+
+    static MqttMessage pubrel(int messageID) {
+        MqttFixedHeader pubRelHeader = new MqttFixedHeader(MqttMessageType.PUBREL, false, AT_LEAST_ONCE, false, 0);
+        return new MqttMessage(pubRelHeader, from(messageID));
+    }
+
+    private static MqttPublishMessage retainedPublish(String topic, MqttQoS qos, ByteBuf message) {
+        return retainedPublishWithMessageId(topic, qos, message, 0);
+    }
+
+    private static MqttPublishMessage retainedPublishWithMessageId(String topic, MqttQoS qos, ByteBuf message,
+                                                                   int messageId) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBLISH, false, qos, true, 0);
+        MqttPublishVariableHeader varHeader = new MqttPublishVariableHeader(topic, messageId);
+        return new MqttPublishMessage(fixedHeader, varHeader, message);
+    }
+
+    static MqttPublishMessage notRetainedPublish(String topic, MqttQoS qos, ByteBuf message) {
+        return notRetainedPublishWithMessageId(topic, qos, message, 0);
+    }
+
+    static MqttPublishMessage notRetainedPublishWithMessageId(String topic, MqttQoS qos, ByteBuf message,
+                                                              int messageId) {
+        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBLISH, false, qos, false, 0);
+        MqttPublishVariableHeader varHeader = new MqttPublishVariableHeader(topic, messageId);
+        return new MqttPublishMessage(fixedHeader, varHeader, message);
     }
 
     public boolean isAuthFlushed() {
@@ -110,7 +136,7 @@ public final class MqttConnection {
                 break;
             case PINGREQ:
                 MqttFixedHeader pingHeader = new MqttFixedHeader(MqttMessageType.PINGRESP, false, AT_MOST_ONCE,
-                                                                false, 0);
+                        false, 0);
                 MqttMessage pingResp = new MqttMessage(pingHeader);
                 channel.writeAndFlush(pingResp).addListener(CLOSE_ON_FAILURE);
                 break;
@@ -130,11 +156,6 @@ public final class MqttConnection {
         final int messageID = ((MqttMessageIdVariableHeader) msg.variableHeader()).messageId();
         final MqttSession session = sessionRegistry.retrieve(getClientId());
         session.processPubRec(messageID);
-    }
-
-    static MqttMessage pubrel(int messageID) {
-        MqttFixedHeader pubRelHeader = new MqttFixedHeader(MqttMessageType.PUBREL, false, AT_LEAST_ONCE, false, 0);
-        return new MqttMessage(pubRelHeader, from(messageID));
     }
 
     private void processPubAck(MqttMessage msg) {
@@ -164,7 +185,7 @@ public final class MqttConnection {
 
             if (!cleanSession) {
                 LOG.warn("MQTT client ID cannot be empty for persistent session. Username: {}, channel: {}",
-                         username, channel);
+                        username, channel);
                 abortConnection(CONNECTION_REFUSED_IDENTIFIER_REJECTED);
                 return;
             }
@@ -172,7 +193,7 @@ public final class MqttConnection {
             // Generating client id.
             clientId = UUID.randomUUID().toString().replace("-", "");
             LOG.debug("Client has connected with integration generated id: {}, username: {}, channel: {}", clientId,
-                      username, channel);
+                    username, channel);
         }
 
         if (!login(msg, clientId)) {
@@ -199,7 +220,7 @@ public final class MqttConnection {
 
     private void setupInflightResender(Channel channel) {
         channel.pipeline()
-            .addFirst("inflightResender", new MqttInflightResenderChannelHandler(5_000, TimeUnit.MILLISECONDS));
+                .addFirst("inflightResender", new MqttInflightResenderChannelHandler(5_000, TimeUnit.MILLISECONDS));
     }
 
     private void initializeKeepAliveTimeout(Channel channel, MqttConnectMessage msg, String clientId) {
@@ -211,7 +232,7 @@ public final class MqttConnection {
         setIdleTime(channel.pipeline(), idleTime);
 
         LOG.debug("Connection has been configured CId={}, keepAlive={}, removeTemporaryQoS2={}, idleTime={}",
-            clientId, keepAlive, msg.variableHeader().isCleanSession(), idleTime);
+                clientId, keepAlive, msg.variableHeader().isCleanSession(), idleTime);
     }
 
     private void setIdleTime(ChannelPipeline pipeline, int idleTime) {
@@ -233,7 +254,7 @@ public final class MqttConnection {
 
     private MqttConnAckMessage connAck(MqttConnectReturnCode returnCode, boolean sessionPresent) {
         MqttFixedHeader mqttFixedHeader = new MqttFixedHeader(MqttMessageType.CONNACK, false, MqttQoS.AT_MOST_ONCE,
-            false, 0);
+                false, 0);
         MqttConnAckVariableHeader mqttConnAckVariableHeader = new MqttConnAckVariableHeader(returnCode, sessionPresent);
         return new MqttConnAckMessage(mqttFixedHeader, mqttConnAckVariableHeader);
     }
@@ -308,7 +329,7 @@ public final class MqttConnection {
         channel.close().addListener(FIRE_EXCEPTION_ON_FAILURE);
         LOG.trace("Processed DISCONNECT CId={}, channel: {}", clientID, channel);
 
-        interceptor.notifyClientDisconnected(clientID,userName);
+        interceptor.notifyClientDisconnected(clientID, userName);
     }
 
     void processSubscribe(MqttSubscribeMessage msg) {
@@ -337,7 +358,7 @@ public final class MqttConnection {
 
     void sendUnsubAckMessage(List<String> topics, String clientID, int messageID) {
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.UNSUBACK, false, AT_MOST_ONCE,
-            false, 0);
+                false, 0);
         MqttUnsubAckMessage ackMessage = new MqttUnsubAckMessage(fixedHeader, from(messageID));
 
         LOG.trace("Sending UNSUBACK message. CId={}, messageId: {}, topics: {}", clientID, messageID, topics);
@@ -351,7 +372,7 @@ public final class MqttConnection {
         final String topicName = msg.variableHeader().topicName();
         final String clientId = getClientId();
         LOG.trace("Processing PUBLISH message. CId={}, topic: {}, messageId: {}, qos: {}", clientId, topicName,
-                  msg.variableHeader().packetId(), qos);
+                msg.variableHeader().packetId(), qos);
         ByteBuf payload = msg.payload();
         final boolean retain = msg.fixedHeader().isRetain();
         final Topic topic = new Topic(topicName);
@@ -385,7 +406,7 @@ public final class MqttConnection {
     void sendPublishReceived(int messageID) {
         LOG.trace("sendPubRec invoked on channel: {}", channel);
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBREC, false, AT_MOST_ONCE,
-            false, 0);
+                false, 0);
         MqttPubAckMessage pubRecMessage = new MqttPubAckMessage(fixedHeader, from(messageID));
         sendIfWritableElseDrop(pubRecMessage);
     }
@@ -404,10 +425,10 @@ public final class MqttConnection {
         MqttQoS qos = publishMsg.fixedHeader().qosLevel();
         if (LOG.isTraceEnabled()) {
             LOG.trace("Sending PUBLISH({}) message. MessageId={}, CId={}, topic={}, payload={}", qos, packetId,
-                      clientId, topicName, MqttUtil.payload2Str(publishMsg.payload()));
+                    clientId, topicName, MqttUtil.payload2Str(publishMsg.payload()));
         } else {
             LOG.debug("Sending PUBLISH({}) message. MessageId={}, CId={}, topic={}", qos, packetId, clientId,
-                      topicName);
+                    topicName);
         }
         sendIfWritableElseDrop(publishMsg);
     }
@@ -417,9 +438,9 @@ public final class MqttConnection {
             LOG.debug("OUT {} on channel {}", msg.fixedHeader().messageType(), channel);
         }
         if (channel.isWritable()) {
-            if(authFlushed){
+            if (authFlushed) {
                 channel.write(msg).addListener(FIRE_EXCEPTION_ON_FAILURE);
-            }else {
+            } else {
                 channel.writeAndFlush(msg).addListener(FIRE_EXCEPTION_ON_FAILURE);
             }
         }
@@ -436,7 +457,7 @@ public final class MqttConnection {
     void sendPubAck(int messageID) {
         LOG.trace("sendPubAck invoked");
         MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBACK, false, AT_MOST_ONCE,
-                                                  false, 0);
+                false, 0);
         MqttPubAckMessage pubAckMessage = new MqttPubAckMessage(fixedHeader, from(messageID));
         sendIfWritableElseDrop(pubAckMessage);
     }
@@ -463,32 +484,10 @@ public final class MqttConnection {
         sendPublish(publishMsg);
     }
 
-    private static MqttPublishMessage retainedPublish(String topic, MqttQoS qos, ByteBuf message) {
-        return retainedPublishWithMessageId(topic, qos, message, 0);
-    }
-
-    private static MqttPublishMessage retainedPublishWithMessageId(String topic, MqttQoS qos, ByteBuf message,
-                                                                   int messageId) {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBLISH, false, qos, true, 0);
-        MqttPublishVariableHeader varHeader = new MqttPublishVariableHeader(topic, messageId);
-        return new MqttPublishMessage(fixedHeader, varHeader, message);
-    }
-
     // TODO move this method in Session
     void sendPublishNotRetainedQos0(Topic topic, MqttQoS qos, ByteBuf payload) {
         MqttPublishMessage publishMsg = notRetainedPublish(topic.toString(), qos, payload);
         sendPublish(publishMsg);
-    }
-
-    static MqttPublishMessage notRetainedPublish(String topic, MqttQoS qos, ByteBuf message) {
-        return notRetainedPublishWithMessageId(topic, qos, message, 0);
-    }
-
-    static MqttPublishMessage notRetainedPublishWithMessageId(String topic, MqttQoS qos, ByteBuf message,
-                                                              int messageId) {
-        MqttFixedHeader fixedHeader = new MqttFixedHeader(MqttMessageType.PUBLISH, false, qos, false, 0);
-        MqttPublishVariableHeader varHeader = new MqttPublishVariableHeader(topic, messageId);
-        return new MqttPublishMessage(fixedHeader, varHeader, message);
     }
 
     public void resendNotAckedPublishes() {

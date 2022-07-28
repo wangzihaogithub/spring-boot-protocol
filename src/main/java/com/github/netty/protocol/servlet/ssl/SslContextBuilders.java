@@ -31,7 +31,7 @@ public class SslContextBuilders {
         return SslContextBuilder.forServer(keyManagerFactory);
     }
 
-    public static SslContextBuilder newSslContextBuilderPem(File crtFile, File pemFile)  {
+    public static SslContextBuilder newSslContextBuilderPem(File crtFile, File pemFile) {
         return SslContextBuilder.forServer(crtFile, pemFile);
     }
 

@@ -26,9 +26,9 @@ import java.io.Serializable;
 public final class Subscription implements Serializable {
 
     private static final long serialVersionUID = -3383457629635732794L;
-    private final MqttQoS requestedQos; // max QoS acceptable
     final String clientId;
     final Topic topicFilter;
+    private final MqttQoS requestedQos; // max QoS acceptable
 
     public Subscription(String clientId, Topic topicFilter, MqttQoS requestedQos) {
         this.requestedQos = requestedQos;

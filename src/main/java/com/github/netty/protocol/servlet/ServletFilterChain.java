@@ -15,10 +15,12 @@ import java.util.List;
 
 /**
  * The servlet filter chain
+ *
  * @author wangzihao
  */
 public class ServletFilterChain implements FilterChain, Recyclable {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletEventListenerManager.class);
+    private static final Recycler<ServletFilterChain> RECYCLER = new Recycler<>(ServletFilterChain::new);
     /**
      * Consider that each request is handled by only one thread, and that the ServletContext will create a new SimpleFilterChain object on each request
      * therefore, the FilterChain's Iterator is used as a private variable of the FilterChain, without thread safety problems
@@ -26,16 +28,15 @@ public class ServletFilterChain implements FilterChain, Recyclable {
     private List<FilterMapper.Element<ServletFilterRegistration>> filterRegistrationList = new ArrayList<>(16);
     private ServletRegistration servletRegistration;
     private ServletContext servletContext;
-    private int pos;
 
 //    public static final Set<Filter> FILTER_SET = new HashSet<>();
 //    public static final AtomicLong SERVLET_TIME = new AtomicLong();
 //    public static final AtomicLong FILTER_TIME = new AtomicLong();
 //    private long beginTime;
+    private int pos;
 
-    private static final Recycler<ServletFilterChain> RECYCLER = new Recycler<>(ServletFilterChain::new);
-
-    protected ServletFilterChain(){}
+    protected ServletFilterChain() {
+    }
 
     public static ServletFilterChain newInstance(ServletContext servletContext, ServletRegistration servletRegistration) {
         ServletFilterChain instance = RECYCLER.getInstance();
@@ -55,9 +56,9 @@ public class ServletFilterChain implements FilterChain, Recyclable {
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
 
         //Initialization request
-        if(pos == 0){
+        if (pos == 0) {
             ServletHttpServletRequest httpServletRequest = ServletUtil.unWrapper(request);
-            if(httpServletRequest != null) {
+            if (httpServletRequest != null) {
                 httpServletRequest.setMultipartConfigElement(servletRegistration.getMultipartConfigElement());
                 httpServletRequest.setServletSecurityElement(servletRegistration.getServletSecurityElement());
             }
@@ -100,17 +101,17 @@ public class ServletFilterChain implements FilterChain, Recyclable {
         }
 
         // do filter() and service()
-        if(pos < filterRegistrationList.size()){
+        if (pos < filterRegistrationList.size()) {
             FilterMapper.Element<ServletFilterRegistration> element = filterRegistrationList.get(pos);
             pos++;
             Filter filter = element.getObject().getFilter();
             filter.doFilter(request, response, this);
-        }else {
+        } else {
             try {
                 servletRegistration.getServlet().service(request, response);
-            }finally {
-                if(listenerManager.hasServletRequestListener()) {
-                    listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext,request));
+            } finally {
+                if (listenerManager.hasServletRequestListener()) {
+                    listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext, request));
                 }
                 recycle();
             }

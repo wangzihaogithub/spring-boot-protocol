@@ -62,10 +62,7 @@ public class Token {
             return false;
         }
         final Token other = (Token) obj;
-        if ((this.name == null) ? (other.name != null) : !this.name.equals(other.name)) {
-            return false;
-        }
-        return true;
+        return (this.name == null) ? (other.name == null) : this.name.equals(other.name);
     }
 
     @Override

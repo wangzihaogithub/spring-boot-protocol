@@ -2,8 +2,9 @@ package com.github.netty.protocol.nrpc.exception;
 
 /**
  * RpcResponseException
+ *
  * @author wangzihao
- *  2018/8/21/021
+ * 2018/8/21/021
  */
 public class RpcResponseException extends RpcException {
     /**
@@ -11,7 +12,7 @@ public class RpcResponseException extends RpcException {
      */
     private Integer status;
 
-    public RpcResponseException(Integer status,String message) {
+    public RpcResponseException(Integer status, String message) {
         super(message, null, false, false);
         this.status = status;
     }

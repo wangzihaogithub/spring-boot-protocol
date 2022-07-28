@@ -16,16 +16,11 @@ public enum Protocol {
     h2c(true),
     h2c_prior_knowledge(true);
 
-    Protocol(boolean http2) {
-        this.http2 = http2;
-    }
-
     private static final ByteBuf CONNECTION_PREFACE = unreleasableBuffer(connectionPrefaceBuf()).asReadOnly();
-
     private final boolean http2;
 
-    public boolean isHttp2() {
-        return http2;
+    Protocol(boolean http2) {
+        this.http2 = http2;
     }
 
     public static boolean isHttpPacket(ByteBuf packet) {
@@ -60,27 +55,19 @@ public enum Protocol {
                     && packet.getByte(6) == ' '
                     && packet.getByte(7) == '/') {
                 return true;
-            } else if (packet.getByte(0) == 'P'
+            } else return packet.getByte(0) == 'P'
                     && packet.getByte(1) == 'A'
                     && packet.getByte(2) == 'T'
                     && packet.getByte(3) == 'C'
                     && packet.getByte(4) == 'H'
                     && packet.getByte(5) == ' '
-                    && packet.getByte(6) == '/') {
-                return true;
-            } else {
-                return false;
-            }
+                    && packet.getByte(6) == '/';
         } else if (protocolEndIndex < 9) {
             return false;
-        } else if (packet.getByte(protocolEndIndex - 9) == 'H'
+        } else return packet.getByte(protocolEndIndex - 9) == 'H'
                 && packet.getByte(protocolEndIndex - 8) == 'T'
                 && packet.getByte(protocolEndIndex - 7) == 'T'
-                && packet.getByte(protocolEndIndex - 6) == 'P') {
-            return true;
-        } else {
-            return false;
-        }
+                && packet.getByte(protocolEndIndex - 6) == 'P';
     }
 
     public static boolean isPriHttp2(ByteBuf clientFirstMsg) {
@@ -88,6 +75,10 @@ public enum Protocol {
         int bytesRead = Math.min(clientFirstMsg.readableBytes(), prefaceLength);
         return ByteBufUtil.equals(CONNECTION_PREFACE, CONNECTION_PREFACE.readerIndex(),
                 clientFirstMsg, clientFirstMsg.readerIndex(), bytesRead);
+    }
+
+    public boolean isHttp2() {
+        return http2;
     }
 
 }

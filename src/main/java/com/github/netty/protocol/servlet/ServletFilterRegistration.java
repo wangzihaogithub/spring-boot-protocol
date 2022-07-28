@@ -11,10 +11,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * servlet Filter registration
+ *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
-public class ServletFilterRegistration implements FilterRegistration,FilterRegistration.Dynamic {
+public class ServletFilterRegistration implements FilterRegistration, FilterRegistration.Dynamic {
 
     private String filterName;
     private Filter filter;
@@ -22,42 +23,16 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     private ServletContext servletContext;
     private FilterMapper<ServletFilterRegistration> urlMapper;
     private boolean asyncSupported = true;
-    private Map<String,String> initParameterMap = new LinkedHashMap<>();
+    private Map<String, String> initParameterMap = new LinkedHashMap<>();
     private MappingSet mappingSet = new MappingSet();
-    class MappingSet extends LinkedHashSet<String>{
-        @Override
-        public boolean add(String pattern) {
-            return add(pattern,false,null);
-        }
-
-        @Override
-        public boolean addAll(Collection c) {
-            for (Object o : c) {
-                add(o.toString());
-            }
-            return c.size() > 0;
-        }
-
-        public boolean add(String pattern,boolean isMatchAfter,EnumSet<DispatcherType> dispatcherTypes) {
-            urlMapper.addMapping(pattern, ServletFilterRegistration.this, filterName,isMatchAfter,dispatcherTypes);
-            return super.add(pattern);
-        }
-
-        @Override
-        public void clear() {
-            urlMapper.clear();
-            super.clear();
-        }
-    }
     private Set<String> servletNameMappingSet = new HashSet<>();
     private AtomicBoolean initFilter = new AtomicBoolean();
-
     public ServletFilterRegistration(String filterName, Filter servlet, ServletContext servletContext, FilterMapper<ServletFilterRegistration> urlMapper) {
         this.filterName = filterName;
         this.filter = servlet;
         this.servletContext = servletContext;
         this.urlMapper = urlMapper;
-        this.filterConfig = new FilterConfig(){
+        this.filterConfig = new FilterConfig() {
             @Override
             public String getFilterName() {
                 return ServletFilterRegistration.this.filterName;
@@ -92,8 +67,13 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
         return asyncSupported;
     }
 
+    @Override
+    public void setAsyncSupported(boolean isAsyncSupported) {
+        this.asyncSupported = isAsyncSupported;
+    }
+
     public boolean isInitFilterCas(boolean expect, boolean update) {
-        return initFilter.compareAndSet(expect,update);
+        return initFilter.compareAndSet(expect, update);
     }
 
     public boolean isInitFilter() {
@@ -112,7 +92,7 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
 
     @Override
     public boolean setInitParameter(String name, String value) {
-        return initParameterMap.put(name,value) != null;
+        return initParameterMap.put(name, value) != null;
     }
 
     @Override
@@ -132,13 +112,8 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     }
 
     @Override
-    public void setAsyncSupported(boolean isAsyncSupported) {
-        this.asyncSupported = isAsyncSupported;
-    }
-
-    @Override
     public void addMappingForServletNames(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... servletNames) {
-        if(servletNames != null) {
+        if (servletNames != null) {
             servletNameMappingSet.addAll(Arrays.asList(servletNames));
         }
     }
@@ -150,9 +125,9 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
 
     @Override
     public void addMappingForUrlPatterns(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String... urlPatterns) {
-        if(urlPatterns != null) {
+        if (urlPatterns != null) {
             for (String urlPattern : urlPatterns) {
-                mappingSet.add(urlPattern, isMatchAfter,dispatcherTypes);
+                mappingSet.add(urlPattern, isMatchAfter, dispatcherTypes);
             }
         }
     }
@@ -165,5 +140,31 @@ public class ServletFilterRegistration implements FilterRegistration,FilterRegis
     @Override
     public String toString() {
         return getName();
+    }
+
+    class MappingSet extends LinkedHashSet<String> {
+        @Override
+        public boolean add(String pattern) {
+            return add(pattern, false, null);
+        }
+
+        @Override
+        public boolean addAll(Collection c) {
+            for (Object o : c) {
+                add(o.toString());
+            }
+            return c.size() > 0;
+        }
+
+        public boolean add(String pattern, boolean isMatchAfter, EnumSet<DispatcherType> dispatcherTypes) {
+            urlMapper.addMapping(pattern, ServletFilterRegistration.this, filterName, isMatchAfter, dispatcherTypes);
+            return super.add(pattern);
+        }
+
+        @Override
+        public void clear() {
+            urlMapper.clear();
+            super.clear();
+        }
     }
 }

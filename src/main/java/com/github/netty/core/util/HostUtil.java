@@ -10,8 +10,9 @@ import java.util.StringJoiner;
 /**
  * Copyright (c) 2010, 2014, Oracle and/or its affiliates. All rights reserved.
  * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
+ * <p>
  * Common functions that involve the host platform
+ *
  * @author wangzihao
  */
 public class HostUtil {
@@ -33,7 +34,7 @@ public class HostUtil {
             pid = Integer.parseInt(name.split("@")[0]);
             userName = name.split("@")[1];
 
-            is64bit =  osArch.equals("x64")
+            is64bit = osArch.equals("x64")
                     || osArch.equals("x86_64")
                     || osArch.equals("ia64");
 
@@ -43,33 +44,31 @@ public class HostUtil {
 
     /**
      * 端口是否已存在
+     *
      * @param port port
      * @return true = 存在, false=不存在
      */
     public static boolean isExistPort(int port) {
         try {
             Socket socket = new Socket();
-            InetSocketAddress address = new InetSocketAddress("127.0.0.1",port);
+            InetSocketAddress address = new InetSocketAddress("127.0.0.1", port);
             socket.bind(address);
             socket.close();
             return false;
         } catch (Exception e) {
-            if(e instanceof BindException){
-                return true;
-            }
-            return false;
+            return e instanceof BindException;
         }
     }
 
-    public static boolean isLocalhost(String host){
-        return "localhost".equalsIgnoreCase(host) || host.contains("0.0.0.0") ||  host.contains("127.0.0.1");
+    public static boolean isLocalhost(String host) {
+        return "localhost".equalsIgnoreCase(host) || host.contains("0.0.0.0") || host.contains("127.0.0.1");
     }
 
-    public static int getPid(){
+    public static int getPid() {
         return pid;
     }
 
-    public static String getUserName(){
+    public static String getUserName() {
         return userName;
     }
 
@@ -99,14 +98,14 @@ public class HostUtil {
 
     public static String getIPAddress() {
         InetAddress inetAddress = getInetAddress();
-        if(inetAddress == null){
+        if (inetAddress == null) {
             return null;
         }
         return inetAddress.getHostAddress();
     }
 
     public static InetAddress getInetAddress() {
-        if(inetAddress != null){
+        if (inetAddress != null) {
             return inetAddress;
         }
         try {
@@ -143,6 +142,7 @@ public class HostUtil {
 
     /**
      * Returns true if the platform is embedded.
+     *
      * @return 是否虚拟容器
      */
     public static boolean isEmbedded() {
@@ -151,7 +151,8 @@ public class HostUtil {
 
     /**
      * mac地址
-     * @return 例( ‎00-24-7E-0A-22-93)
+     *
+     * @return 例(‎ 00 - 24 - 7E - 0A - 22 - 93)
      */
     public static String getMac() {
         try {
@@ -172,7 +173,7 @@ public class HostUtil {
     }
 
     private static String getSplitString(String str, String split, int length) {
-        if(str == null || split.length() == 0){
+        if (str == null || split.length() == 0) {
             return "";
         }
         int len = str.length();
@@ -193,7 +194,7 @@ public class HostUtil {
     }
 
     private static String bytesToHexString(byte[] src) {
-        StringBuilder stringBuilder = new StringBuilder("");
+        StringBuilder stringBuilder = new StringBuilder();
 
         for (int i = 0; i < src.length; i++) {
             int v = src[i] & 0xFF;

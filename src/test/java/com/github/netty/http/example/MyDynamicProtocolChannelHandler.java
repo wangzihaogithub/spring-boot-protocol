@@ -1,16 +1,11 @@
 package com.github.netty.http.example;
 
-import com.github.netty.core.util.IOUtil;
+import com.github.netty.core.ProtocolHandler;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.core.TcpChannel;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelId;
-import io.netty.channel.ChannelPromise;
+import io.netty.channel.*;
 import org.springframework.stereotype.Component;
-
-import java.nio.charset.Charset;
 
 /**
  * Users can expand their own. This is all the agreements before entering entrance
@@ -20,95 +15,62 @@ import java.nio.charset.Charset;
 public class MyDynamicProtocolChannelHandler extends DynamicProtocolChannelHandler {
 
     @Override
-    protected void onOutOfMaxConnection(ChannelHandlerContext ctx, ByteBuf msg, TcpChannel tcpChannel) {
-        if(tcpChannel.getProtocolName().contains("http")){
-            onOutOfMaxConnectionByHttp(tcpChannel);
-        }else {
-            ctx.close();
-        }
-        if(msg != null && msg.refCnt() > 0) {
-            msg.release();
-        }
-    }
-
-    private void onOutOfMaxConnectionByHttp(TcpChannel tcpChannel){
-        String body = "{\"name\":\"Denial-of-Service\"}";
-        byte[] bodyBytes = body.getBytes(Charset.forName("UTF-8"));
-
-        String head = "HTTP/1.1 503\r\n" +
-                "Retry-After: 60\r\n" +
-                "Content-Length: "+bodyBytes.length+"\r\n" +
-                "Content-Type: application/json;charset=utf-8\r\n"+
-                "\r\n";
-        byte[] headBytes = head.getBytes(Charset.forName("ISO-8859-1"));
-
-        tcpChannel.writeAndFlush(IOUtil.merge(headBytes,bodyBytes))
-                .addListener(ChannelFutureListener.CLOSE);
+    protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf clientFirstMsg) throws Exception {
+        super.onMessageReceived(ctx, clientFirstMsg);
     }
 
     @Override
-    protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf msg) {
-        super.onNoSupportProtocol(ctx, msg);
+    protected void addPipeline(ChannelHandlerContext ctx, ProtocolHandler protocolHandler, ByteBuf clientFirstMsg) throws Exception {
+        super.addPipeline(ctx, protocolHandler, clientFirstMsg);
     }
 
     @Override
-    public void addTcpChannel(ChannelId id, TcpChannel tcpChannel) {
-        super.addTcpChannel(id, tcpChannel);
+    public ProtocolHandler getProtocolHandler(ByteBuf clientFirstMsg) {
+        return super.getProtocolHandler(clientFirstMsg);
     }
 
     @Override
-    public void removeTcpChannel(ChannelId id) {
-        super.removeTcpChannel(id);
+    public ProtocolHandler getProtocolHandler(Channel channel) {
+        return super.getProtocolHandler(channel);
     }
 
     @Override
-    public int getTcpChannelCount() {
-        return super.getTcpChannelCount();
+    protected boolean onOutOfMaxConnection(ChannelHandlerContext ctx, ByteBuf clientFirstMsg, TcpChannel tcpChannel, int currentConnections, int maxConnections) {
+        return super.onOutOfMaxConnection(ctx, clientFirstMsg, tcpChannel, currentConnections, maxConnections);
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        super.channelActive(ctx);
+    protected void onProtocolBindTimeout(ChannelHandlerContext ctx, TcpChannel tcpChannel) {
+        super.onProtocolBindTimeout(ctx, tcpChannel);
     }
 
     @Override
-    protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {
-        super.onMessageReceived(ctx, msg);
+    protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf clientFirstMsg) {
+        super.onNoSupportProtocol(ctx, clientFirstMsg);
     }
 
     @Override
-    protected void onMessageWriter(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
-        super.onMessageWriter(ctx, msg, promise);
+    public TcpChannel getConnection(ChannelId id) {
+        return super.getConnection(id);
     }
 
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        super.userEventTriggered(ctx, evt);
+    public void addConnection(ChannelId id, TcpChannel tcpChannel) {
+        super.addConnection(id, tcpChannel);
     }
 
     @Override
-    public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-        super.channelRegistered(ctx);
+    public void removeConnection(ChannelId id) {
+        super.removeConnection(id);
     }
 
     @Override
-    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
-        super.channelUnregistered(ctx);
+    public int getConnectionCount() {
+        return super.getConnectionCount();
     }
 
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
-        super.channelReadComplete(ctx);
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        super.exceptionCaught(ctx, cause);
     }
-
-    @Override
-    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
-        super.channelWritabilityChanged(ctx);
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        super.channelInactive(ctx);
-    }
-
 }

@@ -319,9 +319,6 @@ public class HttpHeaderConstants {
     public static final CharSequence WWW_AUTHENTICATE = "WWW-Authenticate";
 
 
-
-
-
     /**
      * {@code "application/x-www-form-urlencoded"}
      */
@@ -362,7 +359,7 @@ public class HttpHeaderConstants {
     /**
      * {@code "100-continue"}
      */
-    public static final CharSequence CONTINUE =  "100-continue";
+    public static final CharSequence CONTINUE = "100-continue";
     /**
      * {@code "deflate"}
      */

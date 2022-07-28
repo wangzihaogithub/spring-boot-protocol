@@ -6,16 +6,11 @@ import java.util.function.Function;
 
 /**
  * Ordered
+ *
  * @author wangzihao
- *  2019/8/31/022
+ * 2019/8/31/022
  */
 public interface Ordered {
-    /**
-     * Priority order
-     * @return The smaller the value of order, the more likely it is to be executed first
-     */
-    int getOrder();
-
     /**
      * Avoid TreeSet overwrites data
      * return -1 or 1. not return 0
@@ -23,12 +18,12 @@ public interface Ordered {
     Comparator<Ordered> COMPARATOR = (c1, c2) ->
             c1 == c2 ? 0 : c1.getOrder() < c2.getOrder() ? -1 : 1;
 
-
     /**
      * test comparator
+     *
      * @param args args
      */
-    public static void main(String[] args) {
+    static void main(String[] args) {
         /** no overwrites by {{@link COMPARATOR}} */
         TreeSet<Ordered> set1 = new TreeSet<>(COMPARATOR);
         set1.add(() -> 1);
@@ -41,4 +36,11 @@ public interface Ordered {
         set2.add(() -> 1);
         System.out.println("overwrites. set2 = " + set2.size());
     }
+
+    /**
+     * Priority order
+     *
+     * @return The smaller the value of order, the more likely it is to be executed first
+     */
+    int getOrder();
 }

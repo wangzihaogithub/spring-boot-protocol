@@ -6,7 +6,6 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.protocol.servlet.DefaultServlet;
 import com.github.netty.protocol.servlet.ServletRegistration;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.boot.web.reactive.server.ConfigurableReactiveWebServerFactory;
@@ -29,23 +28,23 @@ import java.util.function.Supplier;
 
 /**
  * Netty container factory TCP layer server factory
- *
+ * <p>
  * EmbeddedWebApplicationContext - createEmbeddedServletContainer
  * ImportAwareBeanPostProcessor
  *
  * @author wangzihao
- *  2018/7/14/014
+ * 2018/7/14/014
  */
 public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
-        implements ConfigurableReactiveWebServerFactory,ConfigurableServletWebServerFactory {
+        implements ConfigurableReactiveWebServerFactory, ConfigurableServletWebServerFactory {
     protected NettyProperties properties;
     private Collection<ProtocolHandler> protocolHandlers = new TreeSet<>(Ordered.COMPARATOR);
     private Collection<ServerListener> serverListeners = new TreeSet<>(Ordered.COMPARATOR);
     private Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
 
     public NettyTcpServerFactory() {
-        this(new NettyProperties(),DynamicProtocolChannelHandler::new);
+        this(new NettyProperties(), DynamicProtocolChannelHandler::new);
     }
 
     public NettyTcpServerFactory(NettyProperties properties,
@@ -54,8 +53,26 @@ public class NettyTcpServerFactory
         this.channelHandlerSupplier = channelHandlerSupplier;
     }
 
+    public static InetSocketAddress getServerSocketAddress(InetAddress address, int port) {
+        if (address == null) {
+            try {
+                address = InetAddress.getByAddress(new byte[]{0, 0, 0, 0});
+                if (!address.isAnyLocalAddress()) {
+                    address = InetAddress.getByName("::1");
+                }
+                if (!address.isAnyLocalAddress()) {
+                    address = new InetSocketAddress(port).getAddress();
+                }
+            } catch (UnknownHostException e) {
+                address = new InetSocketAddress(port).getAddress();
+            }
+        }
+        return new InetSocketAddress(address, port);
+    }
+
     /**
      * Reactive container (temporarily replaced by servlets)
+     *
      * @param httpHandler httpHandler
      * @return NettyTcpServer
      */
@@ -63,22 +80,23 @@ public class NettyTcpServerFactory
     public WebServer getWebServer(HttpHandler httpHandler) {
         try {
             ServletContext servletContext = getServletContext();
-            if(servletContext != null) {
+            if (servletContext != null) {
                 ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
                 servletRegistration.setAsyncSupported(true);
                 servletRegistration.addMapping("/");
             }
 
             //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
-            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners,channelHandlerSupplier);
-        }catch (Exception e){
-            throw new IllegalStateException(e.getMessage(),e);
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers, serverListeners, channelHandlerSupplier);
+        } catch (Exception e) {
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
     /**
      * Get servlet container
+     *
      * @param initializers Initialize the
      * @return NettyTcpServer
      */
@@ -92,7 +110,7 @@ public class NettyTcpServerFactory
             }
 
             //JSP is not supported
-            if(super.shouldRegisterJspServlet()){
+            if (super.shouldRegisterJspServlet()) {
                 Jsp jsp = getJsp();
             }
 
@@ -102,29 +120,29 @@ public class NettyTcpServerFactory
             }
 
             //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(),getPort());
-            return new NettyTcpServer(serverAddress, properties, protocolHandlers,serverListeners,channelHandlerSupplier);
-        }catch (Exception e){
-            throw new IllegalStateException(e.getMessage(),e);
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
+            return new NettyTcpServer(serverAddress, properties, protocolHandlers, serverListeners, channelHandlerSupplier);
+        } catch (Exception e) {
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
     @Override
     public File getDocumentRoot() {
         File dir = properties.getHttpServlet().getBasedir();
-        if(dir == null){
+        if (dir == null) {
             dir = super.getDocumentRoot();
         }
-        if(dir == null){
+        if (dir == null) {
             //The temporary directory
             dir = super.createTempDir("netty-docbase");
         }
         return dir;
     }
 
-    public ServletContext getServletContext(){
-        for(ProtocolHandler protocolHandler : protocolHandlers){
-            if(protocolHandler instanceof HttpServletProtocol){
+    public ServletContext getServletContext() {
+        for (ProtocolHandler protocolHandler : protocolHandlers) {
+            if (protocolHandler instanceof HttpServletProtocol) {
                 return ((HttpServletProtocol) protocolHandler).getServletContext();
             }
         }
@@ -137,22 +155,5 @@ public class NettyTcpServerFactory
 
     public Collection<ServerListener> getServerListeners() {
         return serverListeners;
-    }
-
-    public static InetSocketAddress getServerSocketAddress(InetAddress address,int port) {
-        if(address == null) {
-            try {
-                address = InetAddress.getByAddress(new byte[]{0,0,0,0});
-                if(!address.isAnyLocalAddress()){
-                    address = InetAddress.getByName("::1");
-                }
-                if(!address.isAnyLocalAddress()){
-                    address = new InetSocketAddress(port).getAddress();
-                }
-            } catch (UnknownHostException e) {
-                address = new InetSocketAddress(port).getAddress();
-            }
-        }
-        return new InetSocketAddress(address,port);
     }
 }

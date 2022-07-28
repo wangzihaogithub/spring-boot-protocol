@@ -10,14 +10,15 @@ import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.internal.TypeParameterMatcher;
 
 /**
- *  An abstract netty ChannelHandler
+ * An abstract netty ChannelHandler
+ *
  * @author wangzihao
  */
-public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
-    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
+public abstract class AbstractChannelHandler<I, O> extends ChannelDuplexHandler {
     private final TypeParameterMatcher matcherInbound;
     private final TypeParameterMatcher matcherOutbound;
     private final boolean autoRelease;
+    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     protected AbstractChannelHandler() {
         this(true);
@@ -35,7 +36,7 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
         try {
             boolean match = matcherInbound.match(msg);
             if (logger.isTraceEnabled()) {
-                logger.trace("ChannelRead({}) -> match({}) ",messageToString(msg),match);
+                logger.trace("ChannelRead({}) -> match({}) ", messageToString(msg), match);
             }
             if (match) {
                 I imsg = (I) msg;
@@ -51,31 +52,31 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
         }
     }
 
-    protected void onMessageReceived(ChannelHandlerContext ctx, I msg) throws Exception{
+    protected void onMessageReceived(ChannelHandlerContext ctx, I msg) throws Exception {
         ctx.fireChannelRead(msg);
     }
 
     @Override
     public final void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
         boolean match = matcherOutbound.match(msg);
-        if(logger.isTraceEnabled()) {
+        if (logger.isTraceEnabled()) {
             logger.trace("ChannelWrite({}) -> match({}) ", messageToString(msg), match);
         }
         if (match) {
             O imsg = (O) msg;
-            onMessageWriter(ctx, imsg,promise);
-        }else {
+            onMessageWriter(ctx, imsg, promise);
+        } else {
             ctx.write(msg, promise);
         }
     }
 
-    protected void onMessageWriter(ChannelHandlerContext ctx, O msg, ChannelPromise promise) throws Exception{
-        ctx.write(msg,promise);
+    protected void onMessageWriter(ChannelHandlerContext ctx, O msg, ChannelPromise promise) throws Exception {
+        ctx.write(msg, promise);
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if(evt instanceof IdleStateEvent){
+        if (evt instanceof IdleStateEvent) {
             IdleStateEvent e = (IdleStateEvent) evt;
             switch (e.state()) {
                 case READER_IDLE:
@@ -90,30 +91,30 @@ public abstract class AbstractChannelHandler<I,O> extends ChannelDuplexHandler {
                 default:
                     break;
             }
-        }else {
-            onUserEventTriggered(ctx,evt);
+        } else {
+            onUserEventTriggered(ctx, evt);
         }
         ctx.fireUserEventTriggered(evt);
     }
 
-    protected void onUserEventTriggered(ChannelHandlerContext ctx,Object evt){
+    protected void onUserEventTriggered(ChannelHandlerContext ctx, Object evt) {
 
     }
 
-    protected void onAllIdle(ChannelHandlerContext ctx){
+    protected void onAllIdle(ChannelHandlerContext ctx) {
 
     }
 
-    protected void onWriterIdle(ChannelHandlerContext ctx){
+    protected void onWriterIdle(ChannelHandlerContext ctx) {
 
     }
 
-    protected void onReaderIdle(ChannelHandlerContext ctx){
+    protected void onReaderIdle(ChannelHandlerContext ctx) {
 
     }
 
-    public String messageToString(Object msg){
-        if(msg == null){
+    public String messageToString(Object msg) {
+        if (msg == null) {
             return "null";
         }
         return msg.getClass().getSimpleName();

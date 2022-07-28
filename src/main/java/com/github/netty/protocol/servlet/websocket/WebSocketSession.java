@@ -146,10 +146,7 @@ public class WebSocketSession implements Session {
      * @return boolean isChannelActive
      */
     public static boolean isChannelActive(Channel channel) {
-        if (channel != null && channel.isActive()) {
-            return true;
-        }
-        return false;
+        return channel != null && channel.isActive();
     }
 
     private static CloseReason valueOf(CloseWebSocketFrame frame) {

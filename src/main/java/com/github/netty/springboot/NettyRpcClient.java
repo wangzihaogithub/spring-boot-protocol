@@ -12,6 +12,7 @@ public @interface NettyRpcClient {
     /**
      * The serviceName is the same as serviceName
      * example value "service-provider"
+     *
      * @return serviceName
      */
     String serviceName();
@@ -20,6 +21,7 @@ public @interface NettyRpcClient {
 
     /**
      * Timeout time (milliseconds)
+     *
      * @return timeout
      */
     int timeout() default -1;

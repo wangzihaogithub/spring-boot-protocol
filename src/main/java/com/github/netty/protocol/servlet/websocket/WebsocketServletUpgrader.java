@@ -10,7 +10,8 @@ import io.netty.channel.*;
 import io.netty.handler.codec.http.HttpRequest;
 
 import javax.servlet.http.Cookie;
-import javax.websocket.*;
+import javax.websocket.Endpoint;
+import javax.websocket.Extension;
 import javax.websocket.server.ServerEndpointConfig;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -21,16 +22,6 @@ public class WebsocketServletUpgrader {
     private EndpointHolder notFoundHandlerEndpointHolder = new EndpointHolder(
             WebSocketNotFoundHandlerEndpoint.INSTANCE,
             ServerEndpointConfig.Builder.create(WebSocketNotFoundHandlerEndpoint.class, "/").build());
-
-    public static class EndpointHolder {
-        private Endpoint localEndpoint;
-        private ServerEndpointConfig config;
-
-        EndpointHolder(Endpoint localEndpoint, ServerEndpointConfig config) {
-            this.localEndpoint = localEndpoint;
-            this.config = config;
-        }
-    }
 
     public boolean addHandler(String pathPattern, WebSocketHandler handler) {
         return addEndpoint(pathPattern, new WebSocketHandlerEndpoint(handler));
@@ -138,6 +129,16 @@ public class WebsocketServletUpgrader {
             }
         }
         return requestParameterMap;
+    }
+
+    public static class EndpointHolder {
+        private Endpoint localEndpoint;
+        private ServerEndpointConfig config;
+
+        EndpointHolder(Endpoint localEndpoint, ServerEndpointConfig config) {
+            this.localEndpoint = localEndpoint;
+            this.config = config;
+        }
     }
 
 }

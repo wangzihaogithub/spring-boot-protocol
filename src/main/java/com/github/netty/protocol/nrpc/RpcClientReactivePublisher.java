@@ -7,21 +7,16 @@ import com.github.netty.protocol.nrpc.exception.RpcTimeoutException;
 import com.github.netty.protocol.nrpc.exception.RpcWriteException;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.util.concurrent.DefaultPromise;
-import io.netty.util.concurrent.GlobalEventExecutor;
-import io.netty.util.concurrent.Promise;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
-import static com.github.netty.protocol.nrpc.RpcPacket.ACK_NO;
-import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 import static com.github.netty.protocol.nrpc.RpcClientAop.CONTEXT_LOCAL;
 import static com.github.netty.protocol.nrpc.RpcContext.RpcState.*;
+import static com.github.netty.protocol.nrpc.RpcPacket.ACK_NO;
 import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
+import static com.github.netty.protocol.nrpc.codec.DataCodec.Encode.BINARY;
 
 /**
  * async response.
@@ -30,14 +25,14 @@ import static com.github.netty.protocol.nrpc.RpcPacket.ACK_YES;
  * 2019/11/3/019
  */
 public class RpcClientReactivePublisher implements Publisher<Object>, Subscription, RpcDone {
-    private long currentRequestCount;
-    private volatile boolean cancelFlag = false;
-    private volatile Subscriber<? super Object> subscriber;
     private final RpcContext<RpcClient> rpcContext;
     private final RpcClient rpcClient;
     private final DataCodec dataCodec;
     private final String requestMappingName;
     private final String version;
+    private long currentRequestCount;
+    private volatile boolean cancelFlag = false;
+    private volatile Subscriber<? super Object> subscriber;
     private int timeout;
     private ChunkListener chunkListener;
 
@@ -69,7 +64,7 @@ public class RpcClientReactivePublisher implements Publisher<Object>, Subscripti
             } else {
                 result = dataCodec.decodeChunkResponseData(response.getData(), rpcContext.getRpcMethod());
             }
-            chunkListener.onChunk(result,chunkId ,ack);
+            chunkListener.onChunk(result, chunkId, ack);
             rpcClient.onStateUpdate(rpcContext, READ_CHUNK);
         } finally {
             RecyclableUtil.release(response);

@@ -21,13 +21,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author wangzihao
  */
 public class NettyReportRunnable implements Runnable {
+    public static boolean reportChannel = true;
+    public static boolean reportRpc = false;
     private LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private AtomicInteger reportCount = new AtomicInteger();
     private long beginTime = System.currentTimeMillis();
     private Runnable channelRunnable = Epoll.isAvailable() ?
             new EpollChannelReportRunnable(logger) : new NioChannelReportRunnable(logger);
-    public static boolean reportChannel = true;
-    public static boolean reportRpc = false;
 
     public static void start() {
         ThreadPoolX.getDefaultInstance().scheduleAtFixedRate(new NettyReportRunnable(), 5, 5, TimeUnit.SECONDS);
