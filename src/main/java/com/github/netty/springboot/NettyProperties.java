@@ -280,11 +280,6 @@ public class NettyProperties implements Serializable {
         private String sessionRemoteServerAddress;
 
         /**
-         * 每次调用servlet的 OutputStream.writer(). 大小超过这个值, 就使用堆外内存
-         */
-        private int responseWriterChunkMaxHeapByteLength = 0;
-
-        /**
          * servlet文件存储的根目录。(servlet文件上传下载) 如果未指定，则使用临时目录。
          */
         private File basedir;
@@ -409,14 +404,6 @@ public class NettyProperties implements Serializable {
 
         public void setSessionRemoteServerAddress(String sessionRemoteServerAddress) {
             this.sessionRemoteServerAddress = sessionRemoteServerAddress;
-        }
-
-        public int getResponseWriterChunkMaxHeapByteLength() {
-            return responseWriterChunkMaxHeapByteLength;
-        }
-
-        public void setResponseWriterChunkMaxHeapByteLength(int responseWriterChunkMaxHeapByteLength) {
-            this.responseWriterChunkMaxHeapByteLength = responseWriterChunkMaxHeapByteLength;
         }
 
         public File getBasedir() {

@@ -1989,7 +1989,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          */
         @SuppressWarnings({"cast", "unchecked"})
         public static <E> Weigher<? super Iterable<E>> iterable() {
-            return (Weigher) IterableWeigher.INSTANCE;
+            return IterableWeigher.INSTANCE;
         }
 
         /**
@@ -2008,7 +2008,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          */
         @SuppressWarnings({"cast", "unchecked"})
         public static <E> Weigher<? super Collection<E>> collection() {
-            return (Weigher) CollectionWeigher.INSTANCE;
+            return CollectionWeigher.INSTANCE;
         }
 
         /**
@@ -2027,7 +2027,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          */
         @SuppressWarnings({"cast", "unchecked"})
         public static <E> Weigher<? super List<E>> list() {
-            return (Weigher) ListWeigher.INSTANCE;
+            return ListWeigher.INSTANCE;
         }
 
         /**
@@ -2046,7 +2046,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          */
         @SuppressWarnings({"cast", "unchecked"})
         public static <E> Weigher<? super Set<E>> set() {
-            return (Weigher) SetWeigher.INSTANCE;
+            return SetWeigher.INSTANCE;
         }
 
         /**
@@ -2066,7 +2066,7 @@ public final class ConcurrentLinkedHashMap<K, V> extends AbstractMap<K, V> imple
          */
         @SuppressWarnings({"cast", "unchecked"})
         public static <A, B> Weigher<? super Map<A, B>> map() {
-            return (Weigher) MapWeigher.INSTANCE;
+            return MapWeigher.INSTANCE;
         }
 
         enum SingletonEntryWeigher implements EntryWeigher<Object, Object> {

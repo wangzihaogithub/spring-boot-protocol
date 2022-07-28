@@ -47,10 +47,6 @@ public class ServletContext implements javax.servlet.ServletContext {
      */
     private int sessionTimeout = 1200;
     /**
-     * The maximum number of bytes written to the outputstream.writer () method of the servlet each time it is called is exceeded
-     */
-    private int responseWriterChunkMaxHeapByteLength = 0;
-    /**
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
      */
     private long uploadMinSize = 4096 * 16;
@@ -270,14 +266,6 @@ public class ServletContext implements javax.servlet.ServletContext {
         } catch (NumberFormatException e) {
             return 30000;
         }
-    }
-
-    public int getResponseWriterChunkMaxHeapByteLength() {
-        return responseWriterChunkMaxHeapByteLength;
-    }
-
-    public void setResponseWriterChunkMaxHeapByteLength(int responseWriterChunkMaxHeapByteLength) {
-        this.responseWriterChunkMaxHeapByteLength = responseWriterChunkMaxHeapByteLength;
     }
 
     public InetSocketAddress getServerAddress() {

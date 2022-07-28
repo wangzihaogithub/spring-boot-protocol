@@ -46,10 +46,12 @@ class MqttSession {
     private Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue;
     private MqttConnection mqttConnection;
     private List<Subscription> subscriptions = new ArrayList<>();
+
     MqttSession(String clientId, boolean clean, Will will, Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue) {
         this(clean, clientId, sessionQueue);
         this.will = will;
     }
+
     MqttSession(boolean clean, String clientId, Queue<MqttSessionRegistry.EnqueuedMessage> sessionQueue) {
         this.clientId = clientId;
         this.clean = clean;

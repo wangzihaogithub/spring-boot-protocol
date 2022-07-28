@@ -2,7 +2,6 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.DefaultLastHttpContent;
@@ -39,7 +38,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     protected ServletHttpExchange servletHttpExchange;
     protected WriteListener writeListener;
     protected ChannelProgressivePromise lastContentPromise;
-    private int responseWriterChunkMaxHeapByteLength;
     private ChannelProgressivePromise blockPromise;
 
     protected ServletOutputStream() {
@@ -50,7 +48,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         instance.blockPromise = null;
         instance.setServletHttpExchange(servletHttpExchange);
         instance.writeBytes.set(0);
-        instance.responseWriterChunkMaxHeapByteLength = servletHttpExchange.getServletContext().getResponseWriterChunkMaxHeapByteLength();
         instance.isSendResponse.set(false);
         instance.isClosed.set(false);
         return instance;
@@ -217,7 +214,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         }
 
         ChannelHandlerContext context = servletHttpExchange.getChannelHandlerContext();
-        ByteBuf ioByteBuf = allocByteBuf(context.alloc(), len);
+        ByteBuf ioByteBuf = context.alloc().ioBuffer(len);
         ioByteBuf.writeBytes(b, off, len);
         IOUtil.writerModeToReadMode(ioByteBuf);
 
@@ -333,23 +330,6 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (exchange != null && !exchange.isChannelActive() && exchange.isAsyncStartIng()) {
             throw new IOException("connection was forcibly closed by the remote host. " + exchange.getChannelHandlerContext().channel());
         }
-    }
-
-    /**
-     * Allocation buffer
-     *
-     * @param allocator allocator distributor
-     * @param len       The required byte length
-     * @return ByteBuf
-     */
-    protected ByteBuf allocByteBuf(ByteBufAllocator allocator, int len) {
-        ByteBuf ioByteBuf;
-        if (len > responseWriterChunkMaxHeapByteLength && NettyUtil.freeDirectMemory() > len) {
-            ioByteBuf = allocator.buffer(len);
-        } else {
-            ioByteBuf = allocator.heapBuffer(len);
-        }
-        return ioByteBuf;
     }
 
     /**
