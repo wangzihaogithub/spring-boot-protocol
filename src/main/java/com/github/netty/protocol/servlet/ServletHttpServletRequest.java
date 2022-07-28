@@ -85,7 +85,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             return parameterMap.size();
         }
     };
-    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier, resourceManagerSupplier);
+
     private final List<Part> fileUploadList = new ArrayList<>();
     private ServletHttpExchange servletHttpExchange;
     private ServletAsyncContext asyncContext;
@@ -162,6 +162,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return this.postRequestDecoder;
     };
+    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier, resourceManagerSupplier);
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
