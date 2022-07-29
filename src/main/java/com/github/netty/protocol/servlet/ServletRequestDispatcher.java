@@ -136,7 +136,11 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
         forwardRequest.setDispatcherType(dispatcherType);
         forwardRequest.setDispatcher(this);
-        dispatch(forwardRequest, forwardResponse);
+        try {
+            dispatch(forwardRequest, forwardResponse);
+        } finally {
+            recycle();
+        }
     }
 
     /**
@@ -186,7 +190,11 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
         includeRequest.setDispatcherType(dispatcherType);
         includeRequest.setDispatcher(this);
-        dispatch(includeRequest, includeResponse);
+        try {
+            dispatch(includeRequest, includeResponse);
+        } finally {
+            recycle();
+        }
     }
 
     /**
@@ -198,11 +206,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
      * @throws IOException      IOException
      */
     public void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
-        try {
-            filterChain.doFilter(request, response);
-        } finally {
-            recycle();
-        }
+        filterChain.doFilter(request, response);
     }
 
     /**
@@ -253,7 +257,11 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
         asyncRequest.setDispatcher(this);
         //Return to the task
-        dispatch(asyncRequest, asyncResponse);
+        try {
+            dispatch(asyncRequest, asyncResponse);
+        } finally {
+            recycle();
+        }
     }
 
     public String getPath() {
@@ -287,15 +295,12 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         this.mapperElement = mapperElement;
     }
 
-    void clearFilter() {
+    @Override
+    public void recycle() {
         if (filterChain == null) {
             return;
         }
-        filterChain.getFilterRegistrationList().clear();
-    }
-
-    @Override
-    public void recycle() {
+        filterChain.recycle();
         path = null;
         name = null;
         mapperElement = null;

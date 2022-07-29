@@ -113,9 +113,19 @@ public class ServletFilterChain implements FilterChain, Recyclable {
                 if (listenerManager.hasServletRequestListener()) {
                     listenerManager.onServletRequestDestroyed(new ServletRequestEvent(servletContext, request));
                 }
-                recycle();
             }
         }
+    }
+
+    public boolean isFilterEnd() {
+        return pos == filterRegistrationList.size();
+    }
+
+    public ServletFilterRegistration getFilterRegistration() {
+        if (isFilterEnd()) {
+            return null;
+        }
+        return filterRegistrationList.get(pos).getObject();
     }
 
     public ServletRegistration getServletRegistration() {
