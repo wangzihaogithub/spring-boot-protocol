@@ -716,7 +716,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletHttpSession getSession(boolean create) {
-        String sessionId = getRequestedSessionId0();
+        final String sessionId = getRequestedSessionId0();
         ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
         if (httpSession != null && httpSession.isValid()) {
             if (httpSession.getId().equals(sessionId)) {
@@ -725,9 +725,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         if (sessionIdSource == null && !create) {
             return null;
-        }
-        if (sessionId == null || sessionId.isEmpty()) {
-            sessionId = getRequestedSessionId();
         }
         ServletContext servletContext = getServletContext();
         SessionService sessionService = servletContext.getSessionService();
