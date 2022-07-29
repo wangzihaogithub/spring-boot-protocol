@@ -155,6 +155,9 @@ public class UrlMapper<T> {
         String path = normPath(absoluteUri);
         Collection<Element<T>> elementList = this.elementList;
         for (Element<T> element : elementList) {
+            if (element.isAllPatternFlag()) {
+                continue;
+            }
             if (antPathMatcher.match(element.pattern, path, "*")) {
                 return element.servletPath;
             }
