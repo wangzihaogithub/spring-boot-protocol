@@ -283,8 +283,25 @@ github地址 : https://github.com/wangzihaogithub
         10:10:26.026 [NettyX-Server-Boss-NIO-1-1] INFO com.github.netty.StartupServer - StartupServer@1 start (version = 2.2.3, port = 8080, pid = 6972, protocol = [http], os = windows 10) ...
 
 
-##### 示例2. 纯java版,不引入springboot, 使用HTTP2 模块 (HTTP2不用配置, 自动开启h2c)
+##### 示例2. 纯java版,不引入springboot, 使用HTTP2 模块 
 
+        开启h2c
+            server:
+              netty:
+                enable-h2c: true
+        
+        或 HttpServletProtocol#setEnableH2c(true)
+        
+        开启h2
+          server:
+            port: 443
+            http2:
+              enabled: true
+            ssl:
+              key-store: 'classpath:mydomain.com.jks'
+              key-store-password: 'classpath:jks-password.txt'
+              key-store-type: 'JKS'      
+              
         1. 说明:  http2分为两个协议 http2加密(h2), http2明文(h2c)
         
         h2版本的协议是建立在TLS层之上的HTTP/2协议，这个标志被用在TLS应用层协议协商（TLS-ALPN）域和任何其它的TLS之上的HTTP/2协议。
