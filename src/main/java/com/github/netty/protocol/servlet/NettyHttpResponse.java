@@ -296,9 +296,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         // Cookies processing
         //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
         ServletHttpSession httpSession = servletRequest.getSession(false);
-        if (httpSession != null && httpSession.isNew()
-//		        && !httpSession.getId().equals(servletRequest.getRequestedSessionId())
-        ) {
+        if (httpSession != null && httpSession.isNew()) {
             String sessionCookieName = sessionCookieConfig.getName();
             if (sessionCookieName == null || sessionCookieName.isEmpty()) {
                 sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;
@@ -307,11 +305,9 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             if (sessionCookiePath == null || sessionCookiePath.isEmpty()) {
                 sessionCookiePath = HttpConstants.DEFAULT_SESSION_COOKIE_PATH;
             }
-            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName, servletRequest.getRequestedSessionId(), -1,
+            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName, httpSession.getId(), -1,
                     sessionCookiePath, sessionCookieConfig.getDomain(), sessionCookieConfig.isSecure(), Boolean.TRUE);
             headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
-
-            httpSession.setNewSessionFlag(false);
         }
 
         //Cookies set by other businesses or frameworks are written to the response header one by one

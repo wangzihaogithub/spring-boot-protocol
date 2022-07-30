@@ -1,12 +1,9 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.ExpiryLRUMap;
 import com.github.netty.core.util.NamespaceUtil;
 
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Local memory session service
@@ -15,19 +12,26 @@ import java.util.concurrent.ConcurrentHashMap;
  * 2018/8/19/019
  */
 public class SessionLocalMemoryServiceImpl implements SessionService {
-    private String name = NamespaceUtil.newIdName(getClass());
-    private Map<String, Session> sessionMap;
-    private SessionInvalidThread sessionInvalidThread;
+    private final String name = NamespaceUtil.newIdName(getClass());
+    private final ExpiryLRUMap<String, Session> sessionMap = new ExpiryLRUMap<>();
+    private final ServletContext servletContext;
 
-    public SessionLocalMemoryServiceImpl() {
-        this(new ConcurrentHashMap<>(32));
+    public SessionLocalMemoryServiceImpl(ServletContext servletContext) {
+        this.servletContext = servletContext;
+        sessionMap.setOnExpiryConsumer(this::onInvalidate);
+        sessionMap.setOnRemoveConsumer(this::onInvalidate);
     }
 
-    public SessionLocalMemoryServiceImpl(Map<String, Session> sessionMap) {
-        this.sessionMap = sessionMap;
-        //The expired session is checked every 30 seconds
-        this.sessionInvalidThread = new SessionInvalidThread(30);
-        this.sessionInvalidThread.start();
+    private void onInvalidate(ExpiryLRUMap.Node<String, Session> node) {
+        if (node.isCovered()) {
+            return;
+        }
+        ServletHttpSession httpSession = new ServletHttpSession(node.getData(), servletContext);
+        if (httpSession.hasListener()) {
+            servletContext.getDefaultExecutorSupplier().get().execute(httpSession::invalidate0);
+        } else {
+            httpSession.invalidate0();
+        }
     }
 
     @Override
@@ -35,7 +39,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
         if (session == null) {
             return;
         }
-        sessionMap.put(session.getId(), session);
+        sessionMap.put(session.getId(), session, session.getMaxInactiveInterval() * 1000);
     }
 
     @Override
@@ -65,19 +69,18 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
 
     @Override
     public Session getSession(String sessionId) {
-        Session session = sessionMap.get(sessionId);
-        if (session != null && session.isValid()) {
-            return session;
-        }
-        sessionMap.remove(sessionId);
-        return null;
+        return sessionMap.get(sessionId);
     }
 
     @Override
     public void changeSessionId(String oldSessionId, String newSessionId) {
         Session session = sessionMap.remove(oldSessionId);
-        if (session != null && session.isValid()) {
-            sessionMap.put(newSessionId, session);
+        if (session != null) {
+            long expireTimestamp = session.getCreationTime() + (session.getMaxInactiveInterval() * 1000L);
+            long timeout = expireTimestamp - System.currentTimeMillis();
+            if (timeout > 0) {
+                sessionMap.put(newSessionId, session, timeout);
+            }
         }
     }
 
@@ -91,59 +94,4 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
         return name;
     }
 
-    /**
-     * Session expiration detects threads
-     *
-     * @return SessionInvalidThread
-     */
-    public SessionInvalidThread getSessionInvalidThread() {
-        return sessionInvalidThread;
-    }
-
-    /**
-     * Sessions with a timeout are invalidated and executed periodically
-     */
-    class SessionInvalidThread extends Thread {
-        //Unit seconds
-        private final int sessionLifeCheckInter;
-        private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-
-        private SessionInvalidThread(int sessionLifeCheckInter) {
-            super("NettyX-" + NamespaceUtil.newIdName(SessionInvalidThread.class));
-            this.sessionLifeCheckInter = sessionLifeCheckInter;
-            setDaemon(true);
-            setPriority(MIN_PRIORITY);
-            setDaemon(true);
-        }
-
-        @Override
-        public void run() {
-            logger.debug("LocalMemorySession CheckInvalidSessionThread has been started...");
-            while (true) {
-                int maxInactiveInterval = sessionLifeCheckInter;
-                Iterator<Session> iterator = sessionMap.values().iterator();
-                while (iterator.hasNext()) {
-                    Session session = iterator.next();
-                    if (session.isValid()) {
-                        maxInactiveInterval = Math.min(maxInactiveInterval, session.getMaxInactiveInterval());
-                    } else {
-                        String id = session.getId();
-                        if (logger.isDebugEnabled()) {
-                            logger.debug("Session(ID={}) is invalidated by Session Manager", id);
-                        }
-                        iterator.remove();
-                    }
-                }
-                try {
-                    int sleepTime = maxInactiveInterval * 1000;
-                    if (logger.isTraceEnabled()) {
-                        logger.trace("plan next Check {}", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date(System.currentTimeMillis() + sleepTime)));
-                    }
-                    Thread.sleep(sleepTime);
-                } catch (InterruptedException e) {
-                    return;
-                }
-            }
-        }
-    }
 }

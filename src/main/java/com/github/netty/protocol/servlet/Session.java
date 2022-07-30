@@ -25,8 +25,12 @@ public class Session implements Serializable {
     public Session() {
     }
 
-    public Session(String id) {
+    public Session(String id, int maxInactiveInterval) {
         this.id = id;
+        long currTime = System.currentTimeMillis();
+        this.creationTime = currTime;
+        this.lastAccessedTime = currTime;
+        this.maxInactiveInterval = maxInactiveInterval;
     }
 
     /**

@@ -41,7 +41,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     /**
      * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
      */
-    private final Collection<String> notExistBodyParameters = new HashSet<>();
+    private final Collection<String> notExistBodyParameters = new HashSet<>(Arrays.asList("_method", "JSESSIONID"));
     /**
      * Default: 20 minutes,
      */
@@ -280,7 +280,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (sessionService == null) {
             synchronized (this) {
                 if (sessionService == null) {
-                    sessionService = new SessionLocalMemoryServiceImpl();
+                    sessionService = new SessionLocalMemoryServiceImpl(this);
                 }
             }
         }

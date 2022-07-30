@@ -18,13 +18,15 @@ public class SessionCompositeServiceImpl implements SessionService {
     private String name = NamespaceUtil.newIdName(getClass());
 
     private SessionService sessionService;
+    private final ServletContext servletContext;
 
-    public SessionCompositeServiceImpl() {
+    public SessionCompositeServiceImpl(ServletContext servletContext) {
+        this.servletContext = servletContext;
     }
 
     public void enableLocalMemorySession() {
         removeSessionService();
-        this.sessionService = new SessionLocalMemoryServiceImpl();
+        this.sessionService = new SessionLocalMemoryServiceImpl(servletContext);
     }
 
     public void enableRemoteRpcSession(InetSocketAddress address) {
@@ -42,7 +44,7 @@ public class SessionCompositeServiceImpl implements SessionService {
 
     public void enableLocalFileSession(ResourceManager resourceManager) {
         removeSessionService();
-        this.sessionService = new SessionLocalFileServiceImpl(resourceManager);
+        this.sessionService = new SessionLocalFileServiceImpl(resourceManager, servletContext);
     }
 
     public void removeSessionService() {
@@ -50,9 +52,7 @@ public class SessionCompositeServiceImpl implements SessionService {
             return;
         }
         try {
-            if (sessionService instanceof SessionLocalMemoryServiceImpl) {
-                ((SessionLocalMemoryServiceImpl) sessionService).getSessionInvalidThread().interrupt();
-            } else if (sessionService instanceof SessionLocalFileServiceImpl) {
+            if (sessionService instanceof SessionLocalFileServiceImpl) {
                 ((SessionLocalFileServiceImpl) sessionService).getSessionInvalidThread().interrupt();
             }
         } catch (Exception e) {

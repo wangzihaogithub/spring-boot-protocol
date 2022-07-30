@@ -7,7 +7,6 @@ import com.github.netty.core.util.Wrapper;
 import javax.servlet.http.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The servlet session
@@ -17,8 +16,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletHttpSession.class);
-    private final List<HttpSessionBindingListener> httpSessionBindingListenerList = new ArrayList<>();
-    private ServletContext servletContext;
+    private final List<HttpSessionBindingListener> httpSessionBindingListenerList = new ArrayList<>(2);
+    private final ServletContext servletContext;
     private String id;
     private Map<String, Object> attributeMap;
     private long creationTime;
@@ -26,48 +25,23 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     private long lastAccessedTime;
     //Unit seconds
     private int maxInactiveInterval;
-    private boolean newSessionFlag;
-    private AtomicInteger accessCount;
+    private int accessCount;
     private Session source;
-    /**
-     * The servlet principal
-     */
-    private ServletPrincipal principal;
 
-    ServletHttpSession() {
-    }
-
-    ServletHttpSession(ServletContext servletContext) {
+    ServletHttpSession(Session session, ServletContext servletContext) {
         this.servletContext = servletContext;
-    }
-
-    public ServletPrincipal getPrincipal() {
-        return principal;
-    }
-
-    public void setPrincipal(ServletPrincipal principal) {
-        this.principal = principal;
+        this.wrap(session);
     }
 
     private Map<String, Object> getAttributeMap() {
         if (attributeMap == null) {
-            attributeMap = new ConcurrentHashMap<>(16);
+            attributeMap = new ConcurrentHashMap<>(6);
         }
         return attributeMap;
     }
 
     public void save() {
-        if (id == null) {
-            return;
-        }
         getServletContext().getSessionService().saveSession(unwrap());
-    }
-
-    public void remove() {
-        if (id == null) {
-            return;
-        }
-        getServletContext().getSessionService().removeSession(getId());
     }
 
     @Override
@@ -92,10 +66,6 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     @Override
     public ServletContext getServletContext() {
         return servletContext;
-    }
-
-    public void setServletContext(ServletContext servletContext) {
-        this.servletContext = servletContext;
     }
 
     @Override
@@ -199,9 +169,11 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
             listenerManager.onHttpSessionAttributeRemoved(new HttpSessionBindingEvent(this, name, oldValue));
         }
 
-        HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this, name, oldValue);
-        for (HttpSessionBindingListener listener : httpSessionBindingListenerList) {
-            listener.valueUnbound(valueUnboundEvent);
+        if (!httpSessionBindingListenerList.isEmpty()) {
+            HttpSessionBindingEvent valueUnboundEvent = new HttpSessionBindingEvent(this, name, oldValue);
+            for (HttpSessionBindingListener listener : httpSessionBindingListenerList) {
+                listener.valueUnbound(valueUnboundEvent);
+            }
         }
     }
 
@@ -212,12 +184,14 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 
     @Override
     public void invalidate() {
-        if (servletContext != null) {
-            ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
-            if (listenerManager.hasHttpSessionListener()) {
-                listenerManager.onHttpSessionDestroyed(new HttpSessionEvent(this));
-            }
-            servletContext.getSessionService().removeSession(id);
+        invalidate0();
+        servletContext.getSessionService().removeSession(id);
+    }
+
+    public void invalidate0() {
+        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        if (listenerManager.hasHttpSessionListener()) {
+            listenerManager.onHttpSessionDestroyed(new HttpSessionEvent(this));
         }
 
         if (attributeMap != null) {
@@ -234,9 +208,23 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         maxInactiveInterval = -1;
     }
 
+    public boolean hasListener() {
+        if (!httpSessionBindingListenerList.isEmpty()) {
+            return true;
+        }
+        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        if (listenerManager.hasHttpSessionListener()) {
+            return true;
+        }
+        if (listenerManager.hasHttpSessionAttributeListener()) {
+            return true;
+        }
+        return false;
+    }
+
     @Override
     public boolean isNew() {
-        return newSessionFlag;
+        return accessCount == 1;
     }
 
     /**
@@ -248,23 +236,21 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));
     }
 
-    public void setNewSessionFlag(boolean newSessionFlag) {
-        this.newSessionFlag = newSessionFlag;
+    public void access() {
+        accessCount++;
 
-        if (newSessionFlag) {
+        if (isNew()) {
+            currAccessedTime = System.currentTimeMillis();
+            lastAccessedTime = currAccessedTime;
             ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
             if (listenerManager.hasHttpSessionListener()) {
                 listenerManager.onHttpSessionCreated(new HttpSessionEvent(this));
             }
+        } else {
+            lastAccessedTime = currAccessedTime;
+            currAccessedTime = System.currentTimeMillis();
         }
-    }
-
-    public ServletHttpSession access() {
-        currAccessedTime = System.currentTimeMillis();
-        lastAccessedTime = currAccessedTime;
-        accessCount.incrementAndGet();
-        servletContext.getSessionService().saveSession(unwrap());
-        return this;
+        save();
     }
 
     @Override
@@ -277,9 +263,10 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         this.lastAccessedTime = source.getLastAccessedTime();
         //Unit seconds
         this.maxInactiveInterval = source.getMaxInactiveInterval();
-        this.accessCount = new AtomicInteger(source.getAccessCount());
+        this.accessCount = source.getAccessCount();
 
         if (attributeMap != null) {
+            httpSessionBindingListenerList.clear();
             for (Object value : attributeMap.values()) {
                 if (!(value instanceof HttpSessionBindingListener)) {
                     continue;
@@ -295,21 +282,10 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         source.setCreationTime(creationTime);
         source.setLastAccessedTime(lastAccessedTime);
 
-        source.setAccessCount(accessCount.get());
+        source.setAccessCount(accessCount);
         source.setMaxInactiveInterval(maxInactiveInterval);
         source.setAttributeMap(attributeMap);
         return source;
-    }
-
-    public void clear() {
-        this.id = null;
-        this.attributeMap = null;
-        this.creationTime = 0;
-        this.lastAccessedTime = 0;
-        this.maxInactiveInterval = 0;
-        this.accessCount = null;
-        this.source = null;
-        this.principal = null;
     }
 
     @Override

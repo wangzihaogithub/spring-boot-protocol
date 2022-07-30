@@ -21,8 +21,10 @@ public class SessionLocalFileServiceImpl implements SessionService {
     private String rootPath = "/session";
     private ResourceManager resourceManager;
     private SessionInvalidThread sessionInvalidThread;
+    private final ServletContext servletContext;
 
-    public SessionLocalFileServiceImpl(ResourceManager resourceManager) {
+    public SessionLocalFileServiceImpl(ResourceManager resourceManager, ServletContext servletContext) {
+        this.servletContext = servletContext;
         this.resourceManager = Objects.requireNonNull(resourceManager);
         //The expired session is checked every 20 seconds
         this.sessionInvalidThread = new SessionInvalidThread(20 * 1000);
@@ -227,6 +229,14 @@ public class SessionLocalFileServiceImpl implements SessionService {
                                     String id = session.getId();
                                     logger.info("NettyX - Session(ID=" + id + ") is invalidated by Session Manager");
                                     removeSession(id);
+
+                                    // call event
+                                    ServletHttpSession httpSession = new ServletHttpSession(session, servletContext);
+                                    if (httpSession.hasListener()) {
+                                        servletContext.getDefaultExecutorSupplier().get().execute(httpSession::invalidate0);
+                                    } else {
+                                        httpSession.invalidate0();
+                                    }
                                 }
                             } catch (Exception e) {
                                 logger.warn("SessionInvalidCheck removeSession error case:{0}", e);

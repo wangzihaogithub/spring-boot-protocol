@@ -19,7 +19,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.Principal;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -33,12 +32,6 @@ import java.util.function.Supplier;
 public class ServletHttpServletRequest implements HttpServletRequest, Recyclable {
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
-    private static final String RFC1123_DATE = "EEE, dd MMM yyyy HH:mm:ss zzz";
-    private static final SimpleDateFormat[] FORMATS_TEMPLATE = {
-            new SimpleDateFormat(RFC1123_DATE, Locale.ENGLISH),
-            new SimpleDateFormat("EEEEEE, dd-MMM-yy HH:mm:ss zzz", Locale.ENGLISH),
-            new SimpleDateFormat("EEE MMMM d HH:mm:ss yyyy", Locale.ENGLISH)
-    };
     private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
     private static final SnowflakeIdWorker SNOWFLAKE_ID_WORKER = new SnowflakeIdWorker();
     private final AtomicBoolean decodeBodyFlag = new AtomicBoolean();
@@ -88,6 +81,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     private final List<Part> fileUploadList = new ArrayList<>();
     private ServletHttpExchange servletHttpExchange;
+    private ServletHttpSession httpSession;
     private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
     private String serverName;
@@ -716,40 +710,51 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletHttpSession getSession(boolean create) {
-        final String sessionId = getRequestedSessionId0();
+        // Scope in request cache. This can reduce multiple acquisitions.
+        if (httpSession != null) {
+            return httpSession;
+        }
+
+        // 1. find trace ID
+        String sessionId = getRequestedSessionId0();
+
+        // 2. fast return. If dont need create.
+        boolean existSessionId = sessionId != null && !sessionId.isEmpty();
+        if (!existSessionId && !create) {
+            return null;
+        }
+
+        ServletContext servletContext;
+        // 3. Scope in TCP connection. The session has already been created.
         ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
-        if (httpSession != null && httpSession.isValid()) {
-            if (httpSession.getId().equals(sessionId)) {
-                return httpSession;
+        if (existSessionId && httpSession != null && sessionId.equals(httpSession.getId()) && httpSession.isValid()) {
+            this.httpSession = httpSession;
+            httpSession.access();
+            return httpSession;
+        } else {
+            servletContext = getServletContext();
+        }
+
+        // 4. Scope in store. The session has already been created.
+        Session session = existSessionId ? servletContext.getSessionService().getSession(sessionId) : null;
+        if (session == null) {
+            if (create) {
+                // 5. Create a new internal session.  It doesn't exist
+                if (!existSessionId) {
+                    this.sessionId = newSessionId();
+                }
+                session = new Session(this.sessionId, servletContext.getSessionTimeout());
+            } else {
+                return null;
             }
         }
-        if (sessionIdSource == null && !create) {
-            return null;
-        }
-        ServletContext servletContext = getServletContext();
-        SessionService sessionService = servletContext.getSessionService();
-        Session session = sessionService.getSession(sessionId);
-        if (session == null && !create) {
-            return null;
-        }
-
-        boolean newSessionFlag = session == null;
-        if (newSessionFlag) {
-            long currTime = System.currentTimeMillis();
-            session = new Session(sessionId);
-            session.setCreationTime(currTime);
-            session.setLastAccessedTime(currTime);
-            session.setMaxInactiveInterval(servletContext.getSessionTimeout());
-        }
-
-        if (httpSession == null) {
-            httpSession = new ServletHttpSession(servletContext);
-        } else {
-            httpSession.setServletContext(servletContext);
-        }
-        httpSession.wrap(session);
-        httpSession.setNewSessionFlag(newSessionFlag);
+        // 6. Transformation decorate HttpSession
+        httpSession = new ServletHttpSession(session, servletContext);
         httpSession.access();
+
+        // 7. bind to current request cache.
+        this.httpSession = httpSession;
+        // 8. bind to current TCP connection.
         servletHttpExchange.setHttpSession(httpSession);
         return httpSession;
     }
@@ -827,7 +832,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 sessionIdSource = null;
             }
         }
-        return sessionId;
+        return this.sessionId = sessionId;
     }
 
     @Override
@@ -1324,14 +1329,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public void recycle() {
-        ServletHttpSession httpSession = servletHttpExchange.getHttpSession();
+        ServletHttpSession httpSession = this.httpSession;
         if (httpSession != null) {
-            if (httpSession.isValid()) {
-                httpSession.save();
-            } else {
-                httpSession.remove();
-            }
-            httpSession.clear();
+            httpSession.save();
         }
         this.inputStream.recycle();
 
@@ -1351,6 +1351,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (servletHttpExchange.isAbort()) {
             return;
         }
+        this.httpSession = null;
         this.nettyRequest = null;
         this.decodeBodyFlag.set(false);
         this.decodeParameterByUrlFlag = false;

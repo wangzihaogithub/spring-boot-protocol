@@ -103,7 +103,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.3.2</version>
+  <version>2.3.3</version>
 </dependency>
 ```
 	
@@ -259,7 +259,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.2</version>
+          <version>2.3.3</version>
         </dependency>
 
         2.编写代码
@@ -320,7 +320,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.2</version>
+          <version>2.3.3</version>
         </dependency>
 
         2.编写代码
@@ -409,7 +409,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.3.2</version>
+              <version>2.3.3</version>
         </dependency>
         
         2.编写启动类
@@ -503,7 +503,7 @@ github地址 : https://github.com/wangzihaogithub
             }
     
             @Override
-            public void addPipeline(Channel channel) throws Exception {
+            public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
                 channel.pipeline().addLast(new AbstractChannelHandler<ByteBuf, ByteBuf>() {
                     private boolean connection;
                     @Override
@@ -567,7 +567,7 @@ github地址 : https://github.com/wangzihaogithub
             }
     
             @Override
-            public void addPipeline(Channel channel) throws Exception {
+            public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
                 channel.pipeline().addLast(new AbstractChannelHandler<ByteBuf, ByteBuf>() {
                     private boolean connection;
                     @Override
@@ -635,7 +635,7 @@ github地址 : https://github.com/wangzihaogithub
                     }
         
                     @Override
-                    public void addPipeline(Channel channel) throws Exception {
+                    public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
                         channel.pipeline().addLast(new AbstractChannelHandler<ByteBuf, ByteBuf>() {
                             @Override
                             protected void onMessageReceived(ChannelHandlerContext ctx, ByteBuf msg) throws Exception {

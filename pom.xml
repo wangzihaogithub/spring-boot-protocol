@@ -4,7 +4,7 @@
 
     <groupId>com.github.wangzihaogithub</groupId>
     <artifactId>spring-boot-protocol</artifactId>
-    <version>2.3.2</version>
+    <version>2.3.3</version>
     <packaging>jar</packaging>
 
     <name>Spring Boot Protocol</name>
@@ -48,7 +48,7 @@
         <connection>scm:git:https://github.com/wangzihaogithub/spring-boot-protocol.git</connection>
         <developerConnection>scm:git:git@github.com:wangzihaogithub/spring-boot-protocol.git</developerConnection>
         <url>git@github.com:wangzihaogithub/spring-boot-protocol.git</url>
-        <tag>v2.3.2</tag>
+        <tag>v2.3.3</tag>
     </scm>
 
     <!-- 开发者信息 -->
@@ -223,7 +223,7 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.19</version>
+            <version>8.0.28</version>
             <scope>test</scope>
         </dependency>
         <!-- 测试mqtt用的,mqtt客户端-->

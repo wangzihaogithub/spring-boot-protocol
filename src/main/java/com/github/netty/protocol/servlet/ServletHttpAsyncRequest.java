@@ -68,7 +68,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
 
     @Override
     public void setRequest(ServletRequest servletRequest) {
-        throw new UnsupportedOperationException("Unsupported Method On Forward setRequest ");
+        throw new UnsupportedOperationException("Unsupported Method On Async setRequest ");
     }
 
     public void setDispatcher(ServletRequestDispatcher dispatcher) {

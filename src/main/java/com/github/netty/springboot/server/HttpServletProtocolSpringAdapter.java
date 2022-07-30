@@ -173,7 +173,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             } else {
                 address = new InetSocketAddress(remoteSessionServerAddress, 80);
             }
-            SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl();
+            SessionCompositeServiceImpl compositeSessionService = new SessionCompositeServiceImpl(servletContext);
             compositeSessionService.enableRemoteRpcSession(address,
                     80,
                     1,
@@ -183,9 +183,9 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             sessionService = compositeSessionService;
         } else if (properties.getHttpServlet().isEnablesLocalFileSession()) {
             //Enable session file storage
-            sessionService = new SessionLocalFileServiceImpl(servletContext.getResourceManager());
+            sessionService = new SessionLocalFileServiceImpl(servletContext.getResourceManager(), servletContext);
         } else {
-            sessionService = new SessionLocalMemoryServiceImpl();
+            sessionService = new SessionLocalMemoryServiceImpl(servletContext);
         }
         return sessionService;
     }

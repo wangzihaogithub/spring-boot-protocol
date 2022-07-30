@@ -41,7 +41,7 @@ import java.lang.annotation.*;
  *              return true;
  *          }
  *
- *          public void addPipeline(Channel channel) throws Exception {
+ *          public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
  *              channel.pipeline().addLast(new StringDecoder());
  *              channel.pipeline().addLast(new StringEncoder());
  *              channel.pipeline().addLast(new MyChannelHandler());
