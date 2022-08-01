@@ -55,7 +55,12 @@ public final class HttpToHttp2FrameCodecConnectionHandlerBuilder extends
         if (compressor) {
             encoder = new CompressorHttp2ConnectionEncoder(encoder);
         }
-        return new HttpToHttp2ConnectionHandler(decoder, encoder, initialSettings,
-                decoupleCloseAndGoAway(), isValidateHeaders());
+        try {
+            return new HttpToHttp2ConnectionHandler(decoder, encoder, initialSettings,
+                    decoupleCloseAndGoAway(), isValidateHeaders());
+        } catch (Throwable e) {
+            // 兼容netty老版本
+            return new HttpToHttp2ConnectionHandler(decoder, encoder, initialSettings, isValidateHeaders());
+        }
     }
 }

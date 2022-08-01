@@ -160,7 +160,7 @@ public class Cookie implements Cloneable, Serializable {
      * @see #setVersion
      */
     public Cookie(String name, String value) {
-        validation.validate(name);
+//        validation.validate(name);
         this.name = name;
         this.value = value;
     }
@@ -413,6 +413,11 @@ public class Cookie implements Cloneable, Serializable {
      */
     public void setHttpOnly(boolean httpOnly) {
         this.httpOnly = httpOnly;
+    }
+
+    @Override
+    public String toString() {
+        return name;
     }
 }
 
