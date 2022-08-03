@@ -9,7 +9,7 @@ import static io.netty.buffer.Unpooled.unreleasableBuffer;
 import static io.netty.handler.codec.http2.Http2CodecUtil.connectionPrefaceBuf;
 
 public enum Protocol {
-
+    /**/
     http1_1(false),
     https1_1(false),
     h2(true),
@@ -40,6 +40,16 @@ public enum Protocol {
                     && packet.getByte(4) == ' '
                     && packet.getByte(5) == '/') {
                 return true;
+            } else if (packet.getByte(0) == 'O'
+                    && packet.getByte(1) == 'P'
+                    && packet.getByte(2) == 'T'
+                    && packet.getByte(3) == 'I'
+                    && packet.getByte(4) == 'O'
+                    && packet.getByte(5) == 'N'
+                    && packet.getByte(6) == 'S'
+                    && packet.getByte(7) == ' '
+                    && packet.getByte(8) == '/') {
+                return true;
             } else if (packet.getByte(0) == 'P'
                     && packet.getByte(1) == 'U'
                     && packet.getByte(2) == 'T'
@@ -55,19 +65,23 @@ public enum Protocol {
                     && packet.getByte(6) == ' '
                     && packet.getByte(7) == '/') {
                 return true;
-            } else return packet.getByte(0) == 'P'
-                    && packet.getByte(1) == 'A'
-                    && packet.getByte(2) == 'T'
-                    && packet.getByte(3) == 'C'
-                    && packet.getByte(4) == 'H'
-                    && packet.getByte(5) == ' '
-                    && packet.getByte(6) == '/';
+            } else {
+                return packet.getByte(0) == 'P'
+                        && packet.getByte(1) == 'A'
+                        && packet.getByte(2) == 'T'
+                        && packet.getByte(3) == 'C'
+                        && packet.getByte(4) == 'H'
+                        && packet.getByte(5) == ' '
+                        && packet.getByte(6) == '/';
+            }
         } else if (protocolEndIndex < 9) {
             return false;
-        } else return packet.getByte(protocolEndIndex - 9) == 'H'
-                && packet.getByte(protocolEndIndex - 8) == 'T'
-                && packet.getByte(protocolEndIndex - 7) == 'T'
-                && packet.getByte(protocolEndIndex - 6) == 'P';
+        } else {
+            return packet.getByte(protocolEndIndex - 9) == 'H'
+                    && packet.getByte(protocolEndIndex - 8) == 'T'
+                    && packet.getByte(protocolEndIndex - 7) == 'T'
+                    && packet.getByte(protocolEndIndex - 6) == 'P';
+        }
     }
 
     public static boolean isPriHttp2(ByteBuf clientFirstMsg) {
