@@ -15,7 +15,10 @@ import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 /**
  * ServletUtil
@@ -28,16 +31,36 @@ public class ServletUtil {
     private static final String CHARSET_APPEND = HttpHeaderConstants.CHARSET + "=";
     private static final char SPACE = ' ';
     private static final Cookie[] EMPTY_COOKIE = {};
+    private static final byte[] HEX2B;
     private static long lastTimestamp = System.currentTimeMillis();
     private static Date lastDate = new Date(lastTimestamp);
     private static String nowRFCTime = DateFormatter.format(lastDate);
 
-    public static void main(String[] args) {
-        Cookie[] cookies = decodeCookie("BIDUPSID=8102ACE79DAB387C5E44B3D7F3B295C9; PSTM=1649222481; BDUSS=FVeDc0ZGJBcGRGcEw1SkdsMlQzbnpOWFh4Y3RtdFkxS0pHRU9hbXp3ZWpGSHRpRUFBQUFBJCQAAAAAAAAAAAEAAADd5-Csd2FuZzg0MjE1NjcyNwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKOHU2Kjh1NiSV; BDUSS_BFESS=FVeDc0ZGJBcGRGcEw1SkdsMlQzbnpOWFh4Y3RtdFkxS0pHRU9hbXp3ZWpGSHRpRUFBQUFBJCQAAAAAAAAAAAEAAADd5-Csd2FuZzg0MjE1NjcyNwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKOHU2Kjh1NiSV; BAIDUID=FA6A4B43A27888C5A28DA5273C28858D:FG=1; BDSFRCVID=WPDOJeC62uE7F0TDiIGC25UBFg2dIoJTH6f3-MK4j1YF2xxe6BRuEG0P2f8g0KuM0UmuogKK0mOTHUkF_2uxOjjg8UtVJeC6EG0Ptf8g0f5; H_BDCLCKID_SF=tbCfVID-tDK3DJ5N5-r_bIC3bfT2K46JHD7yWCkafPbcOR5Jj65CWf4ghM6RBq0OQbutQUo-Lh-aeJ3n3MA--t4nQR3vaM3B2j4e0pF5bhRCsq0x05oWe-bQypoa2lRB5DOMahkMal7xOM5cQlPK5JkgMx6MqpQJQeQ-5KQN3KJmfbL9bT3tjjTyja0HJjLjJn3fL-085JTSDnTkMITjh6PrqfR9BtQmJJuJ5fnK0DQUO4JGLjKhKhDX5bKq2T0fQg-q0DO6MP5xShTKWh_hjPP9DqKj0x-jLg3hVn0MWKbYqIQPKtnJyUnQhtnnBpQW3H8HL4nv2JcJbM5m3x6qLTKkQN3T-PKO5bRh_CFbJK_hbD-4e5REKPF3beTa54cbb4o2WbCQJ4cP8pcNLTDKjnLBypLe0UTj2GPH_4J4-qbKsDokhlO1j4_ejp5gQq5t0KvKhJ67LPO-8p5jDh3v25ksD-RtWxT4QmTy0hvctn6cShnaMUjrDRLbXU6BK5vPbNcZ0l8K3l02V-bIe-t2b6QhDHAtq6-HtRFsL-35HJ6oHRT1bJOK-tFHqxnHK5na02c9aJ5nJDoVhx5XyP5UKfKDLHKtbpjH5mQXWxc8QpP-eCOLXxrs0nI_34Og553DfgjvKl0MLnnWbb0xynoDhnb03xnMBMPjamOnaU5o3fAKftnOM46JehL3346-35543bRTLnLy5KJtMDFRe5DBD5o-jHRaKI6BMJAq_DLKHJOoDDv50MOcy4LdjG5t06bltNnRBlTT0K_hSqoDbT5fyt4p3-AqKjtLBm0JBDjw3DoWJbKCLl5hQfbQ0a5hqP-jW5TuoU5EbR7JOpkxhfnxyhLfQRPH-Rv92DQMVU52QqcqEIQHQT3m5-5bbN3ht6T2-DA__K-2tfK; BDSFRCVID_BFESS=WPDOJeC62uE7F0TDiIGC25UBFg2dIoJTH6f3-MK4j1YF2xxe6BRuEG0P2f8g0KuM0UmuogKK0mOTHUkF_2uxOjjg8UtVJeC6EG0Ptf8g0f5; H_BDCLCKID_SF_BFESS=tbCfVID-tDK3DJ5N5-r_bIC3bfT2K46JHD7yWCkafPbcOR5Jj65CWf4ghM6RBq0OQbutQUo-Lh-aeJ3n3MA--t4nQR3vaM3B2j4e0pF5bhRCsq0x05oWe-bQypoa2lRB5DOMahkMal7xOM5cQlPK5JkgMx6MqpQJQeQ-5KQN3KJmfbL9bT3tjjTyja0HJjLjJn3fL-085JTSDnTkMITjh6PrqfR9BtQmJJuJ5fnK0DQUO4JGLjKhKhDX5bKq2T0fQg-q0DO6MP5xShTKWh_hjPP9DqKj0x-jLg3hVn0MWKbYqIQPKtnJyUnQhtnnBpQW3H8HL4nv2JcJbM5m3x6qLTKkQN3T-PKO5bRh_CFbJK_hbD-4e5REKPF3beTa54cbb4o2WbCQJ4cP8pcNLTDKjnLBypLe0UTj2GPH_4J4-qbKsDokhlO1j4_ejp5gQq5t0KvKhJ67LPO-8p5jDh3v25ksD-RtWxT4QmTy0hvctn6cShnaMUjrDRLbXU6BK5vPbNcZ0l8K3l02V-bIe-t2b6QhDHAtq6-HtRFsL-35HJ6oHRT1bJOK-tFHqxnHK5na02c9aJ5nJDoVhx5XyP5UKfKDLHKtbpjH5mQXWxc8QpP-eCOLXxrs0nI_34Og553DfgjvKl0MLnnWbb0xynoDhnb03xnMBMPjamOnaU5o3fAKftnOM46JehL3346-35543bRTLnLy5KJtMDFRe5DBD5o-jHRaKI6BMJAq_DLKHJOoDDv50MOcy4LdjG5t06bltNnRBlTT0K_hSqoDbT5fyt4p3-AqKjtLBm0JBDjw3DoWJbKCLl5hQfbQ0a5hqP-jW5TuoU5EbR7JOpkxhfnxyhLfQRPH-Rv92DQMVU52QqcqEIQHQT3m5-5bbN3ht6T2-DA__K-2tfK; MCITY=-%3A; BDORZ=B490B5EBF6F3CD402E515D22BCDA1598; ZFY=tJm0FxyxWMOdcxePxlSKr:BAn1tNBbLH1iCVEx4a4qlw:C; BAIDUID_BFESS=FA6A4B43A27888C5A28DA5273C28858D:FG=1; delPer=0; PSINO=1; H_PS_PSSID=36545_36625_36642_36255_36722_36413_36955_36948_36167_36917_36966_36745_26350; BA_HECTOR=ag2lal208g0g258l052klhuv1hefqh916");
-        LinkedMultiValueMap<String,String> map = new LinkedMultiValueMap<>();
-        decodeByUrl(map,"/s?ie=utf-8&f=8&rsv_bp=1&tn=baidu&wd=65536%2F1024&oq=0x20&rsv_pq=a691c8cc00056d8e&rsv_t=7d67rqRGLzSLre32A0lc%2BfclrEw3Mq%2BNaDXCRxDam9XndYsYBig5AE0vWmg&rqlang=cn&rsv_enter=1&rsv_dl=tb&rsv_sug3=8&rsv_sug1=10&rsv_sug7=100&rsv_n=2&rsv_sug2=0&rsv_btype=t&inputT=3012&rsv_sug4=1100455",Charset.forName("utf-8"));
-
-        System.out.println("cookies = " + cookies);
+    static {
+        HEX2B = new byte[65536];
+        Arrays.fill(HEX2B, (byte) -1);
+        HEX2B[48] = 0;
+        HEX2B[49] = 1;
+        HEX2B[50] = 2;
+        HEX2B[51] = 3;
+        HEX2B[52] = 4;
+        HEX2B[53] = 5;
+        HEX2B[54] = 6;
+        HEX2B[55] = 7;
+        HEX2B[56] = 8;
+        HEX2B[57] = 9;
+        HEX2B[65] = 10;
+        HEX2B[66] = 11;
+        HEX2B[67] = 12;
+        HEX2B[68] = 13;
+        HEX2B[69] = 14;
+        HEX2B[70] = 15;
+        HEX2B[97] = 10;
+        HEX2B[98] = 11;
+        HEX2B[99] = 12;
+        HEX2B[100] = 13;
+        HEX2B[101] = 14;
+        HEX2B[102] = 15;
     }
 
     public static String getDateByRfcHttp() {
@@ -307,7 +330,7 @@ public class ServletUtil {
                     // skip obsolete RFC2965 fields
                     String name = header.substring(newNameStart, newNameEnd);
 //                    try {
-                        cookies.add(new Cookie(name, value));
+                    cookies.add(new Cookie(name, value));
 //                    } catch (IllegalArgumentException e) {
 //                        LoggerFactoryX.getLogger(ServletUtil.class).warn("discard cookie. cause = {}", e.toString());
 //                    }
@@ -466,34 +489,5 @@ public class ServletUtil {
         } else {
             throw new IllegalArgumentException(String.format("invalid hex byte '%s' at index %d of '%s'", s.subSequence(pos, pos + 2), pos, s));
         }
-    }
-
-    private static final byte[] HEX2B;
-
-    static {
-        HEX2B = new byte[65536];
-        Arrays.fill(HEX2B, (byte) -1);
-        HEX2B[48] = 0;
-        HEX2B[49] = 1;
-        HEX2B[50] = 2;
-        HEX2B[51] = 3;
-        HEX2B[52] = 4;
-        HEX2B[53] = 5;
-        HEX2B[54] = 6;
-        HEX2B[55] = 7;
-        HEX2B[56] = 8;
-        HEX2B[57] = 9;
-        HEX2B[65] = 10;
-        HEX2B[66] = 11;
-        HEX2B[67] = 12;
-        HEX2B[68] = 13;
-        HEX2B[69] = 14;
-        HEX2B[70] = 15;
-        HEX2B[97] = 10;
-        HEX2B[98] = 11;
-        HEX2B[99] = 12;
-        HEX2B[100] = 13;
-        HEX2B[101] = 14;
-        HEX2B[102] = 15;
     }
 }
