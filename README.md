@@ -103,7 +103,7 @@ github地址 : https://github.com/wangzihaogithub
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.3.4</version>
+  <version>2.3.5</version>
 </dependency>
 ```
 	
@@ -259,7 +259,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.4</version>
+          <version>2.3.5</version>
         </dependency>
 
         2.编写代码
@@ -337,7 +337,7 @@ github地址 : https://github.com/wangzihaogithub
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.4</version>
+          <version>2.3.5</version>
         </dependency>
 
         2.编写代码
@@ -426,7 +426,7 @@ github地址 : https://github.com/wangzihaogithub
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.3.4</version>
+              <version>2.3.5</version>
         </dependency>
         
         2.编写启动类

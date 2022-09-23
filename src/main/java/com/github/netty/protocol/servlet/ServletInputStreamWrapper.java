@@ -3,8 +3,8 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpContent;
-import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder;
 import io.netty.util.internal.PlatformDependent;
 
@@ -59,7 +59,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private int fileSizeThreshold;
     private boolean needCloseClient;
 
-    private /*volatile*/ HttpPostRequestDecoder.ErrorDataDecoderException decoderException;
+    private /*volatile*/ DecoderException decoderException;
     private volatile boolean receiveDataTimeout;
     private /*volatile*/ FileInputStream uploadFileInputStream;
     private /*volatile*/ SeekableByteChannel uploadFileOutputChannel;
@@ -106,13 +106,23 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
 
             ReadListener readListener = this.readListener;
-            InterfaceHttpPostRequestDecoder requestDecoder = this.requestDecoderSupplier.get();
+            InterfaceHttpPostRequestDecoder requestDecoder;
+            try {
+                requestDecoder = this.requestDecoderSupplier.get();
+            } catch (DecoderException e) {
+                requestDecoder = null;
+                this.decoderException = e;
+            }
             if (requestDecoder != null) {
                 byteBuf.markReaderIndex();
                 try {
                     requestDecoder.offer(httpContent);
-                } catch (HttpPostRequestDecoder.ErrorDataDecoderException e) {
-                    this.decoderException = e;
+                } catch (Throwable e) {
+                    if (e instanceof DecoderException) {
+                        this.decoderException = (DecoderException) e;
+                    } else {
+                        this.decoderException = new DecoderException("ServletInputStreamWrapper#onMessage -> requestDecoder.offer(httpContent) error!", e);
+                    }
                     if (readListener != null) {
                         try {
                             readListener.onError(e);
@@ -393,7 +403,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
-    void awaitDataIfNeed() throws HttpPostRequestDecoder.ErrorDataDecoderException, IOException {
+    void awaitDataIfNeed() throws DecoderException, IOException {
         while (!isFinished()) {
             lock.lock();
             try {
@@ -413,7 +423,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 lock.unlock();
             }
         }
-        HttpPostRequestDecoder.ErrorDataDecoderException decoderException = this.decoderException;
+        DecoderException decoderException = this.decoderException;
         if (decoderException != null) {
             this.needCloseClient = true;
             throw decoderException;

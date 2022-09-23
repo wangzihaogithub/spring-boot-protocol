@@ -1,8 +1,8 @@
-package com.github.netty.core;
+package com.github.netty.protocol.servlet;
 
+import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.core.MessageToRunnable;
 import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.protocol.servlet.NettyMessageToServletRunnable;
-import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;

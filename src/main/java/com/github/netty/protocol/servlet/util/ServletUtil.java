@@ -434,7 +434,7 @@ public class ServletUtil {
         parameterMap.add(name, value);
     }
 
-    private static String decodeComponent(String s, int from, int toExcluded, Charset charset) {
+    public static String decodeComponent(String s, int from, int toExcluded, Charset charset) {
         int len = toExcluded - from;
         if (len <= 0) {
             return EMPTY_STRING;
@@ -469,9 +469,18 @@ public class ServletUtil {
             bufIdx = 0;
             do {
                 if (i + 3 > toExcluded) {
-                    throw new IllegalArgumentException("unterminated escape sequence at index " + i + " of: " + s);
+                    return s.substring(from, toExcluded);
+//                    throw new IllegalArgumentException("unterminated escape sequence at index " + i + " of: " + s);
                 }
-                buf[bufIdx++] = decodeHexByte(s, i + 1);
+                int hi = HEX2B[s.charAt(i + 1)];
+                int lo = HEX2B[s.charAt(i + 2)];
+                if (hi != -1 && lo != -1) {
+                    buf[bufIdx++] = (byte) ((hi << 4) + lo);
+                }else{
+                    return s.substring(from, toExcluded);
+//                    throw new IllegalArgumentException(String.format("invalid hex byte '%s' at index %d of '%s'", s.subSequence(pos, pos + 2), pos, s));
+                }
+
                 i += 3;
             } while (i < toExcluded && s.charAt(i) == '%');
             i--;
@@ -481,13 +490,18 @@ public class ServletUtil {
         return strBuf.toString();
     }
 
-    private static byte decodeHexByte(CharSequence s, int pos) {
-        int hi = HEX2B[s.charAt(pos)];
-        int lo = HEX2B[s.charAt(pos + 1)];
-        if (hi != -1 && lo != -1) {
-            return (byte) ((hi << 4) + lo);
-        } else {
-            throw new IllegalArgumentException(String.format("invalid hex byte '%s' at index %d of '%s'", s.subSequence(pos, pos + 2), pos, s));
+    private static int decodeHexNibble(final char c) {
+        // Character.digit() is not used here, as it addresses a larger
+        // set of characters (both ASCII and full-width latin letters).
+        if (c >= '0' && c <= '9') {
+            return c - '0';
         }
+        if (c >= 'A' && c <= 'F') {
+            return c - ('A' - 0xA);
+        }
+        if (c >= 'a' && c <= 'f') {
+            return c - ('a' - 0xA);
+        }
+        return -1;
     }
 }

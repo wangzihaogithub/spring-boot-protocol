@@ -4,6 +4,7 @@ import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.*;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.DateFormatter;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.multipart.*;
@@ -146,9 +147,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     if (isMultipart) {
                         postRequestDecoder = new HttpPostMultipartRequestDecoder(httpDataFactory, nettyRequest, charset);
                     } else if (isFormUrlEncoder) {
-                        postRequestDecoder = new HttpPostStandardRequestDecoder(httpDataFactory, nettyRequest, charset);
+                        postRequestDecoder = new CompatibleHttpPostStandardRequestDecoder(httpDataFactory, nettyRequest, charset);
                     } else {
-                        throw new HttpPostRequestDecoder.ErrorDataDecoderException();
+                        return null;
                     }
                     this.postRequestDecoder = postRequestDecoder;
                 }
@@ -168,7 +169,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.servletHttpExchange = exchange;
         instance.nettyRequest = httpRequest;
-        instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
+        try {
+            instance.isMultipart = HttpPostRequestDecoder.isMultipart(httpRequest);
+        } catch (DecoderException e) {
+            instance.isMultipart = false;
+        }
         if (instance.isMultipart) {
             instance.isFormUrlEncoder = false;
         } else {

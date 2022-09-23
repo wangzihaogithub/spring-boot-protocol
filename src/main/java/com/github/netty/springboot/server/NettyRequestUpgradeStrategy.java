@@ -1,6 +1,6 @@
 package com.github.netty.springboot.server;
 
-import com.github.netty.core.DispatcherChannelHandler;
+import com.github.netty.protocol.servlet.DispatcherChannelHandler;
 import com.github.netty.protocol.servlet.ServletHttpExchange;
 import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
