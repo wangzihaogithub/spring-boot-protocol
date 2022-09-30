@@ -1,14 +1,18 @@
 # Spring-boot-protocol (用Netty实现)
 
-### 支持在一个端口号上，添加多个TCP协议，支持加自定义TCP协议. 
+### 简介
 
-### 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
+- 支持在一个端口号上，添加多个TCP协议，支持加自定义TCP协议 
+- 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
 
-#### 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
+### 优势
 
-#### 2.针对非spring项目# 本项目可以只依赖一个netty（举个使用servlet的例子）
+- 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
+
+- 2.针对非spring项目# 本项目可以只依赖一个netty（举个使用servlet的例子）
+
 
        StartupServer server = new StartupServer(80);
 
@@ -20,13 +24,14 @@
        server.start();
 
 
-#### 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 
+- 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 
+
 
     示例代码：com.github.netty.http.example.HttpGroupByApiController.java
 
-#### 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
+- 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
 
-#### 5.支持# 异步零拷贝。sendFile, mmap. 
+- 5.支持# 异步零拷贝。sendFile, mmap. 
 
         示例代码：com.github.netty.http.example.HttpZeroCopyController.java
 
@@ -35,19 +40,20 @@
 
         com.github.netty.protocol.servlet.DefaultServlet#sendFile
 
-#### 6.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
+- 6.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
 
         1. Netty的池化内存,减少了GC对CPU的消耗 
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
 
-#### 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换)
+- 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换)
 
-#### 8.特性# 单机单端口上同时提供多个TCP协议
+- 8.特性# 单机单端口上同时提供多个TCP协议
 
-#### 9.特性# 支持自定义TCP协议. 如:定长传输,分隔符传输
+- 9.特性# 支持自定义TCP协议. 如:定长传输,分隔符传输
 
-#### 10.特性# 支持Mysql协议代理. 如：记录mysql日志.
+- 10.特性# 支持Mysql协议代理. 如：记录mysql日志.
+
 
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
     
@@ -141,7 +147,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 
 #### 示例代码！ /src/test包下有使用示例代码 ->  [https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test](https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test "https://github.com/wangzihaogithub/spring-boot-protocol/tree/master/src/test")
  
-##### 示例1. Springboot版,使用HTTP或websocket模块(使用springboot后,默认是开启http的)
+##### 示例1. Springboot里使用HTTP或websocket模块(使用springboot后,默认是开启http的)
         
         1. 引入http依赖
         <dependency>
