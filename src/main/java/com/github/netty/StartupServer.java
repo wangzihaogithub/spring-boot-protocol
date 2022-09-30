@@ -78,13 +78,19 @@ public class StartupServer extends AbstractNettyServer {
         return new InetSocketAddress(address, port);
     }
 
-    public void start() throws IllegalStateException {
+    public ChannelFuture start() throws IllegalStateException {
         try {
             super.init();
             for (ServerListener serverListener : serverListeners) {
                 serverListener.onServerStart(this);
             }
             super.run();
+            Throwable bootstrapThrowable = getBootstrapThrowable();
+            if (bootstrapThrowable != null) {
+                throw new IllegalStateException("tcp server bootstrap start fail.. cause = " + bootstrapThrowable, bootstrapThrowable);
+            } else {
+                return getBootstrapFuture();
+            }
         } catch (Exception e) {
             throw new IllegalStateException("tcp server start fail.. cause = " + e, e);
         }

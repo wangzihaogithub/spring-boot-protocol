@@ -38,6 +38,8 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
     private int ioRatio = 100;
     private boolean running = false;
     private AtomicBoolean initFlag = new AtomicBoolean(false);
+    private ChannelFuture bootstrapFuture;
+    private Throwable bootstrapThrowable;
 
     public AbstractNettyServer(int port) {
         this(new InetSocketAddress(port));
@@ -162,12 +164,21 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
                 return;
             }
             init();
-            ChannelFuture channelFuture = bootstrap.bind(serverAddress).addListener((ChannelFutureListener) this::startAfter);
-            this.serverChannel = (ServerSocketChannel) channelFuture.channel();
+            this.bootstrapFuture = bootstrap.bind(serverAddress).addListener((ChannelFutureListener) this::startAfter);
+            this.serverChannel = (ServerSocketChannel) bootstrapFuture.channel();
             this.running = true;
         } catch (Throwable throwable) {
+            this.bootstrapThrowable = throwable;
             logger.error("server run fail. cause={}", throwable.toString(), throwable);
         }
+    }
+
+    public ChannelFuture getBootstrapFuture() {
+        return bootstrapFuture;
+    }
+
+    public Throwable getBootstrapThrowable() {
+        return bootstrapThrowable;
     }
 
     public void stop() {

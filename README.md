@@ -7,12 +7,22 @@
 多协议服务器, Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, Websocket, RTSP(流媒体协议), DNS（域名解析协议）,MYSQL协议.
 
     1.可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
+
+    2.最少依赖，仅依赖netty，使用简单。 （举个servlet的例子）
+       StartupServer server = new StartupServer(80);
+
+       ServletContext servletContext = new ServletContext();
+       servletContext.setDocBase("D://static", "/webapp");
+       servletContext.addServlet("myServlet", new MyHttpServlet()).addMapping("/test");
+       server.addProtocol(new HttpServletProtocol(servletContext));
+
+       server.start();
     
-    2.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
+    3.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
     
-    3.支持h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
+    4.支持h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
     
-    4.支持异步零拷贝。sendFile, mmap. 
+    5.支持异步零拷贝。sendFile, mmap. 
         示例：com.github.netty.http.example.HttpZeroCopyController.java
         ((NettyOutputStream)servletResponse.getOutputStream()).write(new File("c://123.txt"));
         ((NettyOutputStream)servletResponse.getOutputStream()).write(MappedByteBuffer);
@@ -23,7 +33,7 @@
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
     
-    7.RPC性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
+    7.RPC协议性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
     
     8.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
     
