@@ -1,6 +1,6 @@
 # Spring-boot-protocol (用Netty实现)
 
-支持在一个端口号上，添加多个tcp协议，支持加自定义tcp协议. 
+支持在一个端口号上，添加多个TCP协议，支持加自定义TCP协议. 
 
 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
 
@@ -20,15 +20,19 @@
        server.start();
 
 
-#### 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
+#### 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 
+
+    示例代码：com.github.netty.http.example.HttpGroupByApiController.java
 
 #### 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
 
 #### 5.支持# 异步零拷贝。sendFile, mmap. 
 
-        示例：com.github.netty.http.example.HttpZeroCopyController.java
+        示例代码：com.github.netty.http.example.HttpZeroCopyController.java
+
         ((NettyOutputStream)servletResponse.getOutputStream()).write(new File("c://123.txt"));
         ((NettyOutputStream)servletResponse.getOutputStream()).write(MappedByteBuffer);
+
         com.github.netty.protocol.servlet.DefaultServlet#sendFile
 
 #### 6.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
@@ -37,13 +41,13 @@
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
 
-#### 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
+#### 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换)
 
-#### 8.特性# Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
+#### 8.特性# 单机单端口上同时提供多个TCP协议
 
-#### 9.特性# 可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
+#### 9.特性# 支持自定义TCP协议. 如:定长传输,分隔符传输
 
-#### 10.特性# 开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+#### 10.特性# 支持Mysql协议代理. 如：记录mysql日志.
 
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
     
@@ -102,8 +106,7 @@
         "packet":"ServerColumnDefinitionPacket,order_id"
     },
     
-
-github地址 : https://github.com/wangzihaogithub
+github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 
 ### 使用方法
 
