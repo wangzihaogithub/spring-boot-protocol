@@ -48,12 +48,12 @@ public class ServletEventListenerManager {
 
             @Override
             public String getInitParameter(String name) {
-                return null;
+                return servletContext.getInitParameter(name);
             }
 
             @Override
             public Enumeration<String> getInitParameterNames() {
-                return Collections.emptyEnumeration();
+                return servletContext.getInitParameterNames();
             }
         });
     }
