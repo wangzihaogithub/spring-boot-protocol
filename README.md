@@ -6,9 +6,10 @@
 
 多协议服务器, Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, Websocket, RTSP(流媒体协议), DNS（域名解析协议）,MYSQL协议.
 
-    1.可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
+#### 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
 
-    2.最少依赖，仅依赖netty，使用简单。 （举个servlet的例子）
+#### 2.针对非spring项目# 本项目可以只依赖一个netty（举个使用servlet的例子）
+
        StartupServer server = new StartupServer(80);
 
        ServletContext servletContext = new ServletContext();
@@ -17,29 +18,33 @@
        server.addProtocol(new HttpServletProtocol(servletContext));
 
        server.start();
-    
-    3.支持http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
-    
-    4.支持h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
-    
-    5.支持异步零拷贝。sendFile, mmap. 
+
+
+#### 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 示例：com.github.netty.http.example.HttpGroupByApiController.java
+
+#### 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
+
+#### 5.支持# 异步零拷贝。sendFile, mmap. 
+
         示例：com.github.netty.http.example.HttpZeroCopyController.java
         ((NettyOutputStream)servletResponse.getOutputStream()).write(new File("c://123.txt"));
         ((NettyOutputStream)servletResponse.getOutputStream()).write(MappedByteBuffer);
         com.github.netty.protocol.servlet.DefaultServlet#sendFile
-        
-    6.HttpServlet性能比tomcat的NIO2高出 25%/TPS。
+
+#### 6.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
+
         1. Netty的池化内存,减少了GC对CPU的消耗 
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
-    
-    7.RPC协议性能略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
-    
-    8.Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
-    
-    9.可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
 
-    10.开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+#### 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换), 使用习惯保持与springcloud相同
+
+#### 8.特性# Mysql,MQTT等协议可以在不依赖协议网关, 单机单端口同时支持N种协议 (例: HTTP,HTTP2,MQTT,Mysql,Websocket.)
+
+#### 9.特性# 可以添加自定义传输协议. (例: 定长传输, 分隔符传输)
+
+#### 10.特性# 开启Mysql协议,代理处理客户端与服务端的数据包, 记录mysql日志.
+
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
     
     {
@@ -99,10 +104,6 @@
     
 
 github地址 : https://github.com/wangzihaogithub
-
-
-如果需要不依赖spring的servlet, 可以使用 https://github.com/wangzihaogithub/netty-servlet (支持文件零拷贝,可扩展底层通讯)
-
 
 ### 使用方法
 
