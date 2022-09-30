@@ -117,6 +117,14 @@ public class ServletContext implements javax.servlet.ServletContext {
         return path;
     }
 
+    public DefaultServlet getDefaultServletCast() {
+        if (defaultServlet instanceof DefaultServlet) {
+            return (DefaultServlet) defaultServlet;
+        } else {
+            return null;
+        }
+    }
+
     public Servlet getDefaultServlet() {
         return defaultServlet;
     }

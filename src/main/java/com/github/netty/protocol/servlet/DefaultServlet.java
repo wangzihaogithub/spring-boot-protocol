@@ -6,6 +6,8 @@ import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.MimeMappingsX;
 import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.DateFormatter;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.HttpHeaders;
 
 import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
@@ -64,6 +66,7 @@ public class DefaultServlet extends HttpServlet {
     private Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
     private String characterEncoding = "utf-8";
     private Map<String, String> mimeTypeMappings = new CaseInsensitiveKeyMap<>();
+    private HttpHeaders responseHeaders = new DefaultHttpHeaders(false);
 
     public DefaultServlet() {
         DEFAULT_MIME_TYPE_MAPPINGS.forEach((k, v) -> mimeTypeMappings.put(k.toString(), v.toString()));
@@ -176,6 +179,7 @@ public class DefaultServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String requestURI = request.getRequestURI();
         File resource = getFile(requestURI);
+        File sendResource = resource;
         if (resource == null) {
             sendNotFound(request, response);
         } else if (resource.isFile()) {
@@ -183,9 +187,20 @@ public class DefaultServlet extends HttpServlet {
         } else {
             File homePage = getHomePage(request, requestURI);
             if (homePage != null) {
+                sendResource = homePage;
                 sendFile(request, response, homePage, "text/html");
             } else {
                 sendDir(request, response, resource, requestURI);
+            }
+        }
+        doGetAfter(request, response, resource, sendResource);
+    }
+
+    protected void doGetAfter(HttpServletRequest request, HttpServletResponse response,
+                              File resource, File sendResource) {
+        if (!responseHeaders.isEmpty()) {
+            for (Map.Entry<String, String> responseHeader : responseHeaders) {
+                response.setHeader(responseHeader.getKey(), responseHeader.getValue());
             }
         }
     }
@@ -407,4 +422,19 @@ public class DefaultServlet extends HttpServlet {
         }
     }
 
+    public void responseHeaderNoCache() {
+        responseHeaders.set("Cache-Control", "no-cache");
+    }
+
+    public void setResponseHeaderValue(String name, Object value) {
+        responseHeaders.set(name, value);
+    }
+
+    public void addResponseHeaderValue(String name, Object value) {
+        responseHeaders.add(name, value);
+    }
+
+    public HttpHeaders getResponseHeaders() {
+        return responseHeaders;
+    }
 }
