@@ -4,6 +4,8 @@
 
 - 支持在一个端口号上，添加多个TCP协议，支持加自定义TCP协议 
 - 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
+- 解决Netty在EventLoop线程里写繁忙后不返回数据的BUG.
+- 解决Netty的Http遇到请求参数携带%号会报错的问题.
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
 
@@ -28,6 +30,7 @@
 
 
     示例代码：com.github.netty.http.example.HttpGroupByApiController.java
+
 
 - 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
 
@@ -112,6 +115,7 @@
         "packet":"ServerColumnDefinitionPacket,order_id"
     },
     
+
 github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 
 ### 使用方法
