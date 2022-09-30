@@ -6,6 +6,7 @@
 - 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
 - 解决Netty在EventLoop线程里写繁忙后不返回数据的BUG.
 - 解决Netty的Http遇到请求参数携带%号会报错的问题.
+- 从19年开始，一直跑在作者公司某产线的线上环境运行.
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
 
