@@ -1,10 +1,10 @@
 # Spring-boot-protocol (用Netty实现)
 
-将springboot的WebServer改为了NettyTcpServer, 为使用者扩充了网络编程的能力.
+支持在一个端口号上，添加多个tcp协议，支持加自定义tcp协议. 
+
+内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
-
-多协议服务器, Springboot协议扩展包, 允许单端口提供多协议服务.其中内置多种网络传输(标准与规范)的实现库, 轻松添加或扩展协议. 例: HttpServlet, RPC, MQTT（物联网通讯协议）, Websocket, RTSP(流媒体协议), DNS（域名解析协议）,MYSQL协议.
 
 #### 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
 
