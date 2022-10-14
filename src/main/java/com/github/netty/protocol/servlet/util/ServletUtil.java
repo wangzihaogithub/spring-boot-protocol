@@ -31,13 +31,24 @@ public class ServletUtil {
     private static final String CHARSET_APPEND = HttpHeaderConstants.CHARSET + "=";
     private static final char SPACE = ' ';
     private static final Cookie[] EMPTY_COOKIE = {};
-    private static final byte[] HEX2B;
+    private static byte[] HEX2B;
     private static long lastTimestamp = System.currentTimeMillis();
-    private static Date lastDate = new Date(lastTimestamp);
+    private static final Date lastDate = new Date(lastTimestamp);
     private static String nowRFCTime = DateFormatter.format(lastDate);
 
-    static {
-        HEX2B = new byte[65536];
+    private static void initHex2bIfHaveMemory() {
+        if (HEX2B != null) {
+            return;
+        }
+        try {
+            synchronized (ServletUtil.class) {
+                if (HEX2B == null) {
+                    HEX2B = new byte[65536];
+                }
+            }
+        } catch (OutOfMemoryError e) {
+            return;
+        }
         Arrays.fill(HEX2B, (byte) -1);
         HEX2B[48] = 0;
         HEX2B[49] = 1;
@@ -459,6 +470,10 @@ public class ServletUtil {
         StringBuilder strBuf = new StringBuilder(len);
         strBuf.append(s, from, firstEscaped);
 
+        if (HEX2B == null) {
+            initHex2bIfHaveMemory();
+        }
+
         for (int i = firstEscaped; i < toExcluded; i++) {
             char c = s.charAt(i);
             if (c != '%') {
@@ -472,11 +487,18 @@ public class ServletUtil {
                     return s.substring(from, toExcluded);
 //                    throw new IllegalArgumentException("unterminated escape sequence at index " + i + " of: " + s);
                 }
-                int hi = HEX2B[s.charAt(i + 1)];
-                int lo = HEX2B[s.charAt(i + 2)];
+                int hi;
+                int lo;
+                if (HEX2B == null) {
+                    hi = decodeHexNibble(s.charAt(i + 1));
+                    lo = decodeHexNibble(s.charAt(i + 2));
+                } else {
+                    hi = HEX2B[s.charAt(i + 1)];
+                    lo = HEX2B[s.charAt(i + 2)];
+                }
                 if (hi != -1 && lo != -1) {
                     buf[bufIdx++] = (byte) ((hi << 4) + lo);
-                }else{
+                } else {
                     return s.substring(from, toExcluded);
 //                    throw new IllegalArgumentException(String.format("invalid hex byte '%s' at index %d of '%s'", s.subSequence(pos, pos + 2), pos, s));
                 }
