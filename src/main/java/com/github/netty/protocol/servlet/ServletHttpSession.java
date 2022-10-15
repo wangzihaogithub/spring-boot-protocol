@@ -216,10 +216,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         if (listenerManager.hasHttpSessionListener()) {
             return true;
         }
-        if (listenerManager.hasHttpSessionAttributeListener()) {
-            return true;
-        }
-        return false;
+        return listenerManager.hasHttpSessionAttributeListener();
     }
 
     @Override

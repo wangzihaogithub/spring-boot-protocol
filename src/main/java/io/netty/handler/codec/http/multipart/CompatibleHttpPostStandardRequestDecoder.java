@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.netty.util.internal.ObjectUtil.*;
+import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
 
 /**
  * This decoder will decode Body and can handle POST BODY.
@@ -148,9 +148,9 @@ public class CompatibleHttpPostStandardRequestDecoder implements InterfaceHttpPo
      *             errors
      */
     public CompatibleHttpPostStandardRequestDecoder(HttpDataFactory factory, HttpRequest request, Charset charset) {
-        this.request = checkNotNull(request, "request");
-        this.charset = checkNotNull(charset, "charset");
-        this.factory = checkNotNull(factory, "factory");
+        this.request = request;
+        this.charset = charset;
+        this.factory = factory;
         try {
             if (request instanceof HttpContent) {
                 // Offer automatically if the given request is as type of HttpContent
