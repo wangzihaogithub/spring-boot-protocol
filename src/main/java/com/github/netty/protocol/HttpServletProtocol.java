@@ -1,6 +1,9 @@
 package com.github.netty.protocol;
 
-import com.github.netty.core.*;
+import com.github.netty.core.AbstractChannelHandler;
+import com.github.netty.core.AbstractNettyServer;
+import com.github.netty.core.AbstractProtocol;
+import com.github.netty.core.TcpChannel;
 import com.github.netty.core.util.ChunkedWriteHandler;
 import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;

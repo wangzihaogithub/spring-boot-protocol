@@ -3,7 +3,8 @@ package com.github.netty.protocol.servlet;
 import com.github.netty.core.util.ExpiryLRUMap;
 import com.github.netty.core.util.NamespaceUtil;
 
-import java.util.*;
+import java.util.List;
+import java.util.RandomAccess;
 
 /**
  * Local memory session service
