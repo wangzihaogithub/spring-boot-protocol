@@ -329,7 +329,7 @@ public class CompatibleHttpPostStandardRequestDecoder implements InterfaceHttpPo
         if (currentStatus == MultiPartStatus.EPILOGUE) {
             // OK except if end of list
             if (bodyListHttpDataRank >= bodyListHttpData.size()) {
-                throw new EndOfDataDecoderException();
+                return false;
             }
         }
         return !bodyListHttpData.isEmpty() && bodyListHttpDataRank < bodyListHttpData.size();

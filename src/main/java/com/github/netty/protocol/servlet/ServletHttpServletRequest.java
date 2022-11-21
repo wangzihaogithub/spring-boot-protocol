@@ -40,6 +40,26 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private final LinkedMultiValueMap<String, String> parameterMap = new LinkedMultiValueMap<>(16);
     private final Map<String, String[]> unmodifiableParameterMap = new AbstractMap<String, String[]>() {
         @Override
+        public Set<String> keySet() {
+            return parameterMap.keySet();
+        }
+
+        @Override
+        public Collection<String[]> values() {
+            if (parameterMap.isEmpty()) {
+                return Collections.emptySet();
+            }
+            List<String[]> result = new ArrayList<>(6);
+            Set<Entry<String, List<String>>> entries = parameterMap.entrySet();
+            for (Entry<String, List<String>> entry : entries) {
+                List<String> value = entry.getValue();
+                String[] valueArr = value != null ? value.toArray(new String[value.size()]) : null;
+                result.add(valueArr);
+            }
+            return result;
+        }
+
+        @Override
         public Set<Entry<String, String[]>> entrySet() {
             if (parameterMap.isEmpty()) {
                 return Collections.emptySet();
@@ -99,7 +119,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private MultipartConfigElement multipartConfigElement;
     private ServletSecurityElement servletSecurityElement;
     private ServletRequestDispatcher dispatcher;
-    private ResourceManager resourceManager;
+    private volatile ResourceManager resourceManager;
     private final Supplier<ResourceManager> resourceManagerSupplier = () -> {
         if (resourceManager == null) {
             synchronized (this) {
@@ -127,7 +147,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private boolean decodePathsFlag = false;
     private boolean decodeCookieFlag = false;
     private boolean decodeParameterByUrlFlag = false;
-    private /*volatile*/ InterfaceHttpPostRequestDecoder postRequestDecoder = null;
+    private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
     private boolean usingInputStreamFlag = false;
     private BufferedReader reader;
@@ -177,8 +197,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (instance.isMultipart) {
             instance.isFormUrlEncoder = false;
         } else {
-            String contentType = instance.getContentType();
-            instance.isFormUrlEncoder = contentType != null && HttpHeaderUtil.isFormUrlEncoder(contentType.toLowerCase());
+            instance.isFormUrlEncoder = HttpHeaderUtil.isFormUrlEncoder(instance.getContentType());
         }
         instance.resourceManager = null;
         if (instance.postRequestDecoder != null) {
@@ -330,7 +349,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private void decodeBody() {
         //wait LastHttpContent
         try {
-            getInputStream0().awaitDataIfNeed();
+            inputStream.awaitDataIfNeed();
         } catch (IOException e) {
             PlatformDependent.throwException(e);
         }
@@ -936,13 +955,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         if (decodeBodyFlag.compareAndSet(false, true)) {
-            if (HttpConstants.POST.equalsIgnoreCase(getMethod())
-                    && getContentLength() > 0) {
+            if (inputStream.getContentLength() > 0) {
                 decodeBody();
             }
         } else {
             try {
-                getInputStream0().awaitDataIfNeed();
+                inputStream.awaitDataIfNeed();
             } catch (IOException e) {
                 PlatformDependent.throwException(e);
             }
@@ -996,7 +1014,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                     if (charset == null) {
                         charset = getServletContext().getRequestCharacterEncoding();
                     }
-                    reader = new BufferedReader(new InputStreamReader(getInputStream0(), charset));
+                    reader = new BufferedReader(new InputStreamReader(inputStream, charset));
                 }
             }
         }
@@ -1291,7 +1309,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 throw illegalStateException;
             }
         } else {
-            getInputStream0().awaitDataIfNeed();
+            inputStream.awaitDataIfNeed();
         }
         return fileUploadList;
     }

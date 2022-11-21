@@ -16,6 +16,7 @@ import java.util.List;
 public class HttpHeaderUtil {
     private static final int ARRAY_SIZE = 128;
     private static final boolean[] IS_TOKEN = new boolean[ARRAY_SIZE];
+    private static final String CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded";
 
     static {
         boolean[] IS_CONTROL = new boolean[ARRAY_SIZE];
@@ -61,10 +62,21 @@ public class HttpHeaderUtil {
     }
 
     public static boolean isFormUrlEncoder(String contentType) {
-        if (contentType == null) {
+        if (contentType == null || contentType.length() < CONTENT_TYPE_URLENCODED.length()) {
             return false;
         }
-        return contentType.contains("application/x-www-form-urlencoded");
+        for (int i = 0, len = CONTENT_TYPE_URLENCODED.length(); i < len; i++) {
+            char c1 = contentType.charAt(i);
+            char c2 = CONTENT_TYPE_URLENCODED.charAt(i);
+            if (c1 == c2) {
+                continue;
+            }
+            if (Character.toLowerCase(c1) == Character.toLowerCase(c2)) {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     /**
