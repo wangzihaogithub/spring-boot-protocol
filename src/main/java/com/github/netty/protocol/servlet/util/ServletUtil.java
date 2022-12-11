@@ -464,6 +464,9 @@ public class ServletUtil {
 
         // Each encoded byte takes 3 characters (e.g. "%20")
         int decodedCapacity = (toExcluded - firstEscaped) / 3;
+        if (decodedCapacity == 0) {
+            return s.substring(from, toExcluded);
+        }
         byte[] buf = PlatformDependent.allocateUninitializedArray(decodedCapacity);
         int bufIdx;
 
