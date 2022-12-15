@@ -168,7 +168,9 @@ public class FilterMapper<T> {
      */
     public void addMapping(String urlPattern, T object, String objectName, boolean isMatchAfter, EnumSet<DispatcherType> dispatcherTypes) throws IllegalArgumentException {
         Objects.requireNonNull(urlPattern);
-
+        if (!urlPattern.startsWith("/")) {
+            urlPattern = "/" + urlPattern;
+        }
         Element<T> element = new Element<>(rootPath, urlPattern, object, objectName, dispatcherTypes);
         if (isMatchAfter) {
             add(element);

@@ -118,6 +118,9 @@ public class UrlMapper<T> {
         Objects.requireNonNull(urlPattern);
         Objects.requireNonNull(object);
         Objects.requireNonNull(objectName);
+        if (!urlPattern.startsWith("/")) {
+            urlPattern = "/" + urlPattern;
+        }
         Collection<Element<T>> elementList = this.elementList;
 
         for (Element element : elementList) {

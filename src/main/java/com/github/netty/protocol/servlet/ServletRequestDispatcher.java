@@ -77,7 +77,11 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
                 }
             }
             if (begin != -1) {
-                return ServletContext.normPath(path.substring(begin));
+                if (begin == path.length()) {
+                    return "";
+                } else if (begin < path.length()) {
+                    return ServletContext.normPath(path.substring(begin));
+                }
             }
         }
         return null;
