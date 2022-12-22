@@ -80,17 +80,19 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public boolean isReady() {
-        return source.isReady();
+        return source != null && source.isReady();
     }
 
     @Override
     public void setWriteListener(WriteListener listener) {
-        source.setWriteListener(listener);
+        if(source != null) {
+            source.setWriteListener(listener);
+        }
     }
 
     @Override
     public void write(int b) throws IOException {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.write(b);
@@ -98,7 +100,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void close() {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.close();
@@ -106,14 +108,14 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void flush() throws IOException {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.flush();
     }
 
     public void resetBuffer() {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.resetBuffer();
@@ -121,7 +123,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void write(byte[] b, int off, int len) throws IOException {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.write(b, off, len);
@@ -129,7 +131,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
 
     @Override
     public void write(byte[] b) throws IOException {
-        if (isSuspendFlag()) {
+        if (isSuspendFlag() || source == null) {
             return;
         }
         source.write(b);
