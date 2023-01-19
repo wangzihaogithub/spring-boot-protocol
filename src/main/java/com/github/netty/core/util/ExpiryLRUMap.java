@@ -735,7 +735,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
 
         public static ScheduledFuture<?> scheduleWithFixedDelay() {
             long intervalLong = getScheduleInterval();
-            return SCHEDULED.scheduleWithFixedDelay(INSTANCE, intervalLong, intervalLong, TimeUnit.MICROSECONDS);
+            return SCHEDULED.scheduleWithFixedDelay(INSTANCE, intervalLong, intervalLong, TimeUnit.MILLISECONDS);
         }
 
         @Override
