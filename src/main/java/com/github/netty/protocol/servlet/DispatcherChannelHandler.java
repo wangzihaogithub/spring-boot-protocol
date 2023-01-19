@@ -70,7 +70,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
                     run(runnable);
                 }
             } else {
-                logger.error("no handler message = {}", msg.getClass());
+                logger.warn("no handler message = {}", msg.getClass());
                 RecyclableUtil.release(msg);
             }
         } catch (Exception e) {
@@ -114,7 +114,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
         if (cause instanceof Http2Exception) {
 
         } else if (cause.getClass() != IOException.class) {
-            logger.error("handler exception. case={}, channel={}", cause.toString(), context.channel(), cause);
+            logger.warn("handler exception. case={}, channel={}", cause.toString(), context.channel(), cause);
         }
         MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
         if (messageToRunnable != null) {

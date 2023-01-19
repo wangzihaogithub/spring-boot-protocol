@@ -195,7 +195,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                 try {
                     filter.destroy();
                 } catch (Exception e) {
-                    LOGGER.error("destroyFilter error={},filter={}", e.toString(), filter, e);
+                    LOGGER.warn("destroyFilter error={},filter={}", e.toString(), filter, e);
                 }
             }
         }
@@ -215,7 +215,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                 try {
                     servlet.destroy();
                 } catch (Exception e) {
-                    LOGGER.error("destroyServlet error={},servlet={}", e.toString(), servlet, e);
+                    LOGGER.warn("destroyServlet error={},servlet={}", e.toString(), servlet, e);
                 }
             }
         }
@@ -224,7 +224,7 @@ public class HttpServletProtocol extends AbstractProtocol {
             try {
                 defaultServlet.destroy();
             } catch (Exception e) {
-                LOGGER.error("destroyServlet error={},servlet={}", e.toString(), defaultServlet, e);
+                LOGGER.warn("destroyServlet error={},servlet={}", e.toString(), defaultServlet, e);
             }
         }
     }

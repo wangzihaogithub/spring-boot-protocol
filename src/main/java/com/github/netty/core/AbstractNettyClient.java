@@ -225,7 +225,7 @@ public abstract class AbstractNettyClient implements Closeable {
     protected void stopAfter(ChannelFuture future) {
         //有异常抛出
         if (future.cause() != null) {
-            logger.error("stopAfter. error={}", future.cause(), future.cause());
+            logger.warn("stopAfter. error={}", future.cause(), future.cause());
         }
         logger.info("{} stop [remoteAddress = {}]...", getName(), getRemoteAddress());
     }

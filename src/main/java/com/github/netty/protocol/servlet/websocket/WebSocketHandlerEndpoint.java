@@ -18,8 +18,8 @@ public class WebSocketHandlerEndpoint extends Endpoint {
     }
 
     public static void tryCloseWithError(Session session, Throwable exception) {
-        if (logger.isErrorEnabled()) {
-            logger.error("Closing session due to exception for " + session, exception);
+        if (logger.isWarnEnabled()) {
+            logger.warn("Closing session due to exception for " + session, exception);
         }
         if (session.isOpen()) {
             try {

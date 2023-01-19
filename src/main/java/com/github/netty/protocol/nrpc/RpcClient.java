@@ -497,7 +497,7 @@ public class RpcClient extends AbstractNettyClient {
         }
         scheduleReconnectTaskIngFlag.set(false);
         if (future.cause() != null) {
-            logger.error(future.cause().getMessage(), future.cause());
+            logger.warn(future.cause().getMessage(), future.cause());
         }
     }
 

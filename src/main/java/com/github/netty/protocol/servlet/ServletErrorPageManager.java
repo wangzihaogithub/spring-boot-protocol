@@ -31,12 +31,12 @@ public class ServletErrorPageManager {
             return;
         }
         if (requestDispatcher == null) {
-            logger.error("a unknown error! ", throwable);
+            logger.warn("a unknown error! ", throwable);
         } else if (requestDispatcher.getFilterChain().isFilterEnd()) {
-            logger.error("Servlet.service() for servlet [{}] threw exception",
+            logger.warn("Servlet.service() for servlet [{}] threw exception",
                     requestDispatcher.getName(), throwable);
         } else {
-            logger.error("Filter.doFilter() for filter [{}] threw exception",
+            logger.warn("Filter.doFilter() for filter [{}] threw exception",
                     requestDispatcher.getFilterChain().getFilterRegistration().getName(), throwable);
         }
     }
@@ -159,7 +159,7 @@ public class ServletErrorPageManager {
                 response.getWriter().write("not found ".concat(errorPagePath));
                 response.sendError(HttpServletResponse.SC_NOT_FOUND);
             } catch (IOException e) {
-                logger.error("handleErrorPage() sendError. error={}", e.toString(), e);
+                logger.warn("handleErrorPage() sendError. error={}", e.toString(), e);
             }
             return;
         }
@@ -192,7 +192,7 @@ public class ServletErrorPageManager {
                 response.getOutputStream().setSuspendFlag(false);
             }
         } catch (Throwable e) {
-            logger.error("on handleErrorPage error. url=" + request.getRequestURL() + ", case=" + e.getMessage(), e);
+            logger.warn("on handleErrorPage error. url=" + request.getRequestURL() + ", case=" + e.getMessage(), e);
             if (e instanceof ThreadDeath) {
                 throw (ThreadDeath) e;
             }

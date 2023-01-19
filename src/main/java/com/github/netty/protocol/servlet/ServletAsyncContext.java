@@ -45,47 +45,42 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     /**
      * Has it been recycled
      */
-    private AtomicBoolean recycleFlag = new AtomicBoolean(false);
+    private final AtomicBoolean recycleFlag = new AtomicBoolean(false);
     /**
      * Whether the IO thread has finished executing
      */
-    private AtomicBoolean ioThreadExecuteOverFlag = new AtomicBoolean(false);
+    private final AtomicBoolean ioThreadExecuteOverFlag = new AtomicBoolean(false);
     /**
      * 0=init, 1=start, 2=complete
      */
-    private AtomicInteger status = new AtomicInteger(STATUS_INIT);
+    private final AtomicInteger status = new AtomicInteger(STATUS_INIT);
     /**
      * Timeout time -> ms
      */
     private long timeout;
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
-    private ServletContext servletContext;
-    private ServletHttpExchange servletHttpExchange;
+    private final ServletContext servletContext;
+    private final ServletHttpExchange servletHttpExchange;
     private final Runnable timeoutTask = () -> {
         //Notice the timeout
-        if (timeoutFlag.compareAndSet(false, true)) {
-            try {
-                if (asyncListenerWrapperList != null) {
-                    Throwable throwable = null;
-                    boolean eventNotify = false;
-                    for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
-                        eventNotify = throwable != null;
-                        AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
-                        try {
-                            listenerWrapper.asyncListener.onTimeout(event);
-                        } catch (Throwable e) {
-                            if (throwable != null) {
-                                e.addSuppressed(throwable);
-                            }
-                            throwable = e;
-                        }
+        List<ServletAsyncListenerWrapper> asyncListenerWrapperList = this.asyncListenerWrapperList;
+        if (timeoutFlag.compareAndSet(false, true) && asyncListenerWrapperList != null) {
+            Throwable throwable = null;
+            boolean eventNotify = false;
+            for (ServletAsyncListenerWrapper listenerWrapper : new ArrayList<>(asyncListenerWrapperList)) {
+                eventNotify = throwable != null;
+                AsyncEvent event = new AsyncEvent(this, listenerWrapper.servletRequest, listenerWrapper.servletResponse, throwable);
+                try {
+                    listenerWrapper.asyncListener.onTimeout(event);
+                } catch (Throwable e) {
+                    if (throwable != null) {
+                        e.addSuppressed(throwable);
                     }
-                    if (throwable != null && !eventNotify) {
-                        logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
-                    }
+                    throwable = e;
                 }
-            } finally {
-                recycle();
+            }
+            if (throwable != null && !eventNotify) {
+                logger.warn("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
             }
         }
     };
@@ -209,7 +204,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
                 }
             }
             if (throwable != null && !eventNotify) {
-                logger.error("asyncContext notifyEvent.onError() error={}", throwable.toString(), throwable);
+                logger.warn("asyncContext notifyEvent.onError() error={}", throwable.toString(), throwable);
             }
         }
     }
@@ -245,7 +240,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
                     }
                 }
                 if (throwable != null && !eventNotify) {
-                    logger.error("asyncContext notifyEvent.onComplete() error={}", throwable.toString(), throwable);
+                    logger.warn("asyncContext notifyEvent.onComplete() error={}", throwable.toString(), throwable);
                 }
             }
             //If the handler has finished, recycle it yourself
@@ -309,7 +304,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
                 }
             }
             if (throwable != null && !eventNotify) {
-                logger.error("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
+                logger.warn("asyncContext notifyEvent.onTimeout() error={}", throwable.toString(), throwable);
             }
         }
     }

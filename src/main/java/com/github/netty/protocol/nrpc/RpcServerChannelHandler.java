@@ -147,7 +147,7 @@ public class RpcServerChannelHandler extends AbstractChannelHandler<RpcPacket, O
             response.setData(null);
             response.setStatus(SERVER_ERROR);
             response.setMessage(channelHandler.dataCodec.buildThrowableRpcMessage(throwable));
-            logger.error("invoke error = {}", throwable.toString(), throwable);
+            logger.warn("invoke error = {}", throwable.toString(), throwable);
         } else if (result instanceof RpcEmitter) {
             RpcEmitter<?, ?> emitter = (RpcEmitter) result;
             emitter.usable(request, lastResponse, rpcContext, channelHandler, rpcMethod, rpcRunnable);

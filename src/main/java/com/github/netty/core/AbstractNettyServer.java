@@ -253,7 +253,7 @@ public abstract class AbstractNettyServer implements Runnable, Closeable {
         //有异常抛出
         Throwable cause = future.cause();
         if (cause != null) {
-            logger.error("stopAfter error={}", cause.toString(), cause);
+            logger.warn("stopAfter error={}", cause.toString(), cause);
         }
         logger.info("{} stop [port = {} , cause = {}]...", getName(), getPort(), cause);
     }

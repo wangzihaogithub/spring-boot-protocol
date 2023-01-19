@@ -150,7 +150,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
 
                 localEndpoint.onOpen(websocketSession, endpointConfig);
             } else {
-                logger.error("The Websocket handshake failed : " + webSocketURL, future.cause());
+                logger.warn("The Websocket handshake failed : " + webSocketURL, future.cause());
             }
         });
     }

@@ -80,7 +80,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
         } catch (Throwable t) {
             String msg = String.format("servlet init fail! cant do filter() and service(). servlet = %s, class = %s, error = %s",
                     servletRegistration.getName(), servletRegistration.getClassName(), t.toString());
-            logger.error(msg, t);
+            logger.warn(msg, t);
             response.setCharacterEncoding("utf-8");
             response.setContentType("text/html");
             if (response instanceof HttpServletResponse) {

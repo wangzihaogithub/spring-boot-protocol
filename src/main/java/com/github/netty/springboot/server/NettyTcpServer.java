@@ -70,7 +70,7 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             try {
                 serverListener.onServerStop(this);
             } catch (Throwable t) {
-                logger.error("case by stop event [" + t.getMessage() + "]", t);
+                logger.warn("case by stop event [" + t.getMessage() + "]", t);
             }
         }
 

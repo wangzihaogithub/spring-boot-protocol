@@ -127,7 +127,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                         try {
                             readListener.onError(e);
                         } catch (Throwable t) {
-                            LOGGER.error("readListener onError exception. source = {}, again trigger", e.toString(), t.toString(), t);
+                            LOGGER.warn("readListener onError exception. source = {}, again trigger", e.toString(), t.toString(), t);
                         }
                     }
                 } finally {
@@ -143,7 +143,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 try {
                     outputChannel.write(byteBuf.nioBuffer());
                 } catch (IOException e) {
-                    LOGGER.error("upload file write temp file exception. file = {}, message = {}", uploadFile, e.toString(), e);
+                    LOGGER.warn("upload file write temp file exception. file = {}, message = {}", uploadFile, e.toString(), e);
                 }
             } else {
                 //In memory
@@ -164,7 +164,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                     uploadFileOutputChannel.close();
                     uploadFileOutputChannel = null;
                 } catch (FileNotFoundException | SecurityException e) {
-                    LOGGER.error("upload file open temp file excetion. file = {}, message = {}", uploadFile, e.toString(), e);
+                    LOGGER.warn("upload file open temp file excetion. file = {}, message = {}", uploadFile, e.toString(), e);
                 } catch (IOException ignored) {
                 }
             }
@@ -211,7 +211,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                         this.uploadFileInputStream = new FileInputStream(uploadFile);
                     } catch (Exception e) {
                         this.createFileException = e;
-                        LOGGER.error("upload file create temp file Exception. file = {}, message = {}", uploadFile, e.toString(), e);
+                        LOGGER.warn("upload file create temp file Exception. file = {}, message = {}", uploadFile, e.toString(), e);
                     }
                 }
             }
