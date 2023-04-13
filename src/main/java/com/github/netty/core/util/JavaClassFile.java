@@ -1392,10 +1392,12 @@ public class JavaClassFile {
                         parameterNames = new String[lvtIndices.length];
                         //变量局部变量表
                         for (int i = 0; i < localVariableTable.length; i++) {
+                            int localVariableIndex = localVariableTable[i].index();
                             //根据入参位置,寻找方法入参的变量名称
                             for (int j = 0; j < lvtIndices.length; j++) {
-                                if (i == lvtIndices[j]) {
+                                if (localVariableIndex == lvtIndices[j]) {
                                     parameterNames[j] = localVariableTable[i].name();
+                                    break;
                                 }
                             }
                         }

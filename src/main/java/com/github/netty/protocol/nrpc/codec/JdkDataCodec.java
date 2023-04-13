@@ -116,6 +116,10 @@ public class JdkDataCodec implements DataCodec {
                 if (value == null && !parameterMap.containsKey(name)) {
                     value = parameterMap.get("arg" + i);
                 }
+                if (value == null && name.length() > 1) {
+                    String upperCaseName = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+                    value = parameterMap.get(upperCaseName);
+                }
                 if (isNeedCast(value, type)) {
                     value = cast(value, type);
                 }
