@@ -151,8 +151,12 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public void dispatch(javax.servlet.ServletContext context, String path) {
-        if (isComplete()) {
-            return;
+        int statusInt = status.get();
+        if (statusInt == STATUS_COMPLETE) {
+            throw new IllegalStateException("The request associated with the AsyncContext has already completed processing.");
+        }
+        if (statusInt == STATUS_DISPATCH) {
+            throw new IllegalStateException("Asynchronous dispatch operation has already been called. Additional asynchronous dispatch operation within the same asynchronous cycle is not allowed.");
         }
         status.set(STATUS_DISPATCH);
         String contextPath = context.getContextPath();
@@ -171,20 +175,22 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         }
 
         ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath, DispatcherType.ASYNC);
-        try {
-            if (dispatcher == null) {
-                logger.warn("not found dispatcher. contextPath={}, path={}", context.getContextPath(), path);
-                httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            } else {
+        NettyMessageToServletRunnable.addAsyncContextDispatch(() -> {
+            try {
                 try {
-                    dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
+                    if (dispatcher == null) {
+                        logger.warn("not found dispatcher. contextPath={}, path={}", context.getContextPath(), path);
+                        httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    } else {
+                        dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
+                    }
                 } catch (Throwable e) {
                     onError(e);
                 }
+            } finally {
+                complete();
             }
-        } finally {
-            complete();
-        }
+        });
     }
 
     public void onError(Throwable throwable) {
@@ -272,7 +278,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         executor.execute(runnable);
     }
 
-    public void setStart() {
+    void setStart() {
         if (status.get() >= STATUS_DISPATCH || timeoutFlag.get()) {
             throw new IllegalStateException("The request associated with the AsyncContext has already completed processing.");
         }
@@ -376,7 +382,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     }
 
     public boolean isChannelActive() {
-        return servletHttpExchange != null && servletHttpExchange.isChannelActive();
+        return servletHttpExchange.isChannelActive();
     }
 
     private static class ServletAsyncListenerWrapper {

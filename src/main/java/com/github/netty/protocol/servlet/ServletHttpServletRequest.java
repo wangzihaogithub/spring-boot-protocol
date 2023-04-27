@@ -585,7 +585,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     public Enumeration<String> getHeaderNames() {
         Set nameSet = getNettyHeaders().names();
         return new Enumeration<String>() {
-            private Iterator iterator = nameSet.iterator();
+            private final Iterator iterator = nameSet.iterator();
 
             @Override
             public boolean hasMoreElements() {

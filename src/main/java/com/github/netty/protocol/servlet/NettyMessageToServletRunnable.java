@@ -9,6 +9,7 @@ import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
+import io.netty.util.concurrent.FastThreadLocal;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.Servlet;
@@ -16,10 +17,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static com.github.netty.protocol.servlet.ServletHttpExchange.CLOSE_NO;
 import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.*;
@@ -67,6 +65,17 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private final boolean ssl;
     private ServletHttpExchange exchange;
     private /*volatile */ HttpRunnable httpRunnable;
+
+    private static final FastThreadLocal<List<Runnable>> ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL = new FastThreadLocal<List<Runnable>>() {
+        @Override
+        protected List<Runnable> initialValue() {
+            return new LinkedList<>();
+        }
+    };
+
+    static void addAsyncContextDispatch(Runnable runnable) {
+        ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get().add(runnable);
+    }
 
     public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         this.servletContext = servletContext;
@@ -288,6 +297,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         exchange.close();
                     }
                     recycle();
+                }
+                List<Runnable> asyncContextDispatchList = ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.getIfExists();
+                if(asyncContextDispatchList != null) {
+                    ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.remove();
+                    for (Runnable runnable : asyncContextDispatchList) {
+                        runnable.run();
+                    }
+                    asyncContextDispatchList.clear();
                 }
             }
         }

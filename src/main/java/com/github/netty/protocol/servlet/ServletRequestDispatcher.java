@@ -252,7 +252,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         ServletHttpAsyncResponse asyncResponse = new ServletHttpAsyncResponse(httpResponse, outWrapper.unwrap());
         ServletHttpAsyncRequest asyncRequest = new ServletHttpAsyncRequest(request, asyncContext);
         asyncRequest.setDispatchPath(path);
-        if (asyncRequest.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
+        if (request.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
             asyncRequest.setAttribute(AsyncContext.ASYNC_CONTEXT_PATH, asyncRequest.getContextPath());
             asyncRequest.setAttribute(AsyncContext.ASYNC_PATH_INFO, asyncRequest.getPathInfo());
             asyncRequest.setAttribute(AsyncContext.ASYNC_QUERY_STRING, asyncRequest.getQueryString());
