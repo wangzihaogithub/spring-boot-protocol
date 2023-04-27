@@ -175,22 +175,31 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         }
 
         ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath, DispatcherType.ASYNC);
-        NettyMessageToServletRunnable.addAsyncContextDispatch(() -> {
+        if (NettyMessageToServletRunnable.isCurrentRunAtRequesting()) {
+            NettyMessageToServletRunnable.addAsyncContextDispatch(() -> dispatchAsync(dispatcher, httpServletRequest, httpServletResponse, path));
+        } else {
+            dispatchAsync(dispatcher, httpServletRequest, httpServletResponse, path);
+        }
+    }
+
+    private void dispatchAsync(ServletRequestDispatcher dispatcher,
+                               HttpServletRequest httpServletRequest,
+                               HttpServletResponse httpServletResponse,
+                               String path){
+        try {
             try {
-                try {
-                    if (dispatcher == null) {
-                        logger.warn("not found dispatcher. contextPath={}, path={}", context.getContextPath(), path);
-                        httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                    } else {
-                        dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
-                    }
-                } catch (Throwable e) {
-                    onError(e);
+                if (dispatcher == null) {
+                    logger.warn("not found dispatcher. path={}", path);
+                    httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                } else {
+                    dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
                 }
-            } finally {
-                complete();
+            } catch (Throwable e) {
+                onError(e);
             }
-        });
+        } finally {
+            complete();
+        }
     }
 
     public void onError(Throwable throwable) {

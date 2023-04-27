@@ -66,15 +66,20 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private ServletHttpExchange exchange;
     private /*volatile */ HttpRunnable httpRunnable;
 
-    private static final FastThreadLocal<List<Runnable>> ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL = new FastThreadLocal<List<Runnable>>() {
-        @Override
-        protected List<Runnable> initialValue() {
-            return new LinkedList<>();
-        }
-    };
+    private static final FastThreadLocal<List<Runnable>> ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL = new FastThreadLocal<>();
 
-    static void addAsyncContextDispatch(Runnable runnable) {
-        ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get().add(runnable);
+    static boolean isCurrentRunAtRequesting() {
+        return ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get() != null;
+    }
+
+    static boolean addAsyncContextDispatch(Runnable runnable) {
+        List<Runnable> list = ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get();
+        if (list != null) {
+            list.add(runnable);
+            return true;
+        }else {
+            return false;
+        }
     }
 
     public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
@@ -244,6 +249,9 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 exchange.getServletContext().getDefaultExecutorSupplier().get().execute(this);
                 return;
             }
+
+            LinkedList<Runnable> asyncContextDispatchOperList = new LinkedList<>();
+            ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.set(asyncContextDispatchOperList);
             ServletRequestDispatcher dispatcher = null;
             try {
                 dispatcher = request.getRequestDispatcher(request.getRequestURI());
@@ -298,13 +306,17 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     }
                     recycle();
                 }
-                List<Runnable> asyncContextDispatchList = ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.getIfExists();
-                if(asyncContextDispatchList != null) {
-                    ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.remove();
-                    for (Runnable runnable : asyncContextDispatchList) {
-                        runnable.run();
+
+                try {
+                    while (!asyncContextDispatchOperList.isEmpty()) {
+                        List<Runnable> asyncContextDispatchOperListCopy = new ArrayList<>(asyncContextDispatchOperList);
+                        asyncContextDispatchOperList.clear();
+                        for (Runnable runnable : asyncContextDispatchOperListCopy) {
+                            runnable.run();
+                        }
                     }
-                    asyncContextDispatchList.clear();
+                } finally {
+                    ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.remove();
                 }
             }
         }
