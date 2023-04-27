@@ -185,7 +185,8 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     private void dispatchAsync(ServletRequestDispatcher dispatcher,
                                HttpServletRequest httpServletRequest,
                                HttpServletResponse httpServletResponse,
-                               String path){
+                               String path) {
+        Throwable throwable = null;
         try {
             try {
                 if (dispatcher == null) {
@@ -195,10 +196,11 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
                     dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
                 }
             } catch (Throwable e) {
+                throwable = e;
                 onError(e);
             }
         } finally {
-            complete();
+            complete(throwable);
         }
     }
 
