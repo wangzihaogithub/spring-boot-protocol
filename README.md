@@ -136,7 +136,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 #### 如果不需要集成spring就用这个 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.wangzihaogithub/netty-servlet/badge.svg)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:netty-servlet)
 
 ```xml
-<!-- https://github.com/wangzihaogithub/spring-servlet -->
+<!-- https://github.com/wangzihaogithub/netty-servlet -->
 <!-- https://mvnrepository.com/artifact/com.github.wangzihaogithub/netty-servlet -->
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
