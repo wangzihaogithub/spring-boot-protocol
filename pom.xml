@@ -137,6 +137,15 @@
                     <groupId>io.netty</groupId>
                     <artifactId>netty-transport-rxtx</artifactId>
                 </exclusion>
+
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler-ssl-ocsp</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-handler-proxy</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
