@@ -1725,7 +1725,14 @@ public class ApplicationX {
                             injectResource = null;
                         } else if (isAbstract(autowireClass)) {
                             List implList = applicationX.getBeanForType(autowireClass);
-                            injectResource = implList.isEmpty() ? null : implList.get(0);
+                            int size = implList.size();
+                            if (size == 0) {
+                                injectResource = null;
+                            } else if (size == 1) {
+                                injectResource = implList.get(0);
+                            } else {
+                                injectResource = applicationX.getBean(autowireClass, null, false);
+                            }
                         } else {
                             injectResource = applicationX.getBean(autowireClass, null, false);
                         }
