@@ -103,6 +103,8 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
             onNoSupportProtocol(ctx, clientFirstMsg);
             return;
         }
+        TcpChannel tcpChannel = getConnection(channel.id());
+        tcpChannel.setProtocol(protocolHandler);
         addPipeline(ctx, protocolHandler, clientFirstMsg);
         if (channel.isActive()) {
             channel.pipeline().fireChannelRead(clientFirstMsg);
