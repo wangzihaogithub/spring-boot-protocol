@@ -1570,9 +1570,15 @@ public class ApplicationX {
                 this.requiredClass[i] = parameter.getType();
                 this.autowireType[i] = applicationX.findAutowireType(parameter);
                 switch (this.autowireType[i]) {
+                    default:
                     case BeanDefinition.AUTOWIRE_BY_TYPE: {
                         Annotation parameterInjectAnnotation = findDeclaredAnnotation(parameter, applicationX.autowiredAnnotations, AUTOWIRED_ANNOTATION_CACHE_MAP);
                         this.requiredType[i] = findAnnotationDeclaredType(parameterInjectAnnotation, parameter.getParameterizedType());
+
+                        Annotation qualifierAnnotation = findDeclaredAnnotation(parameter, applicationX.qualifierAnnotations, QUALIFIER_ANNOTATION_CACHE_MAP);
+                        String autowiredBeanName = qualifierAnnotation != null ?
+                                getQualifierAnnotationValue(qualifierAnnotation) : null;
+                        this.requiredName[i] = autowiredBeanName;
                         break;
                     }
                     case BeanDefinition.AUTOWIRE_BY_NAME: {
@@ -1580,9 +1586,6 @@ public class ApplicationX {
                         String autowiredBeanName = qualifierAnnotation != null ?
                                 getQualifierAnnotationValue(qualifierAnnotation) : parameter.getName();
                         this.requiredName[i] = autowiredBeanName;
-                        break;
-                    }
-                    default: {
                         break;
                     }
                 }
@@ -1602,18 +1605,15 @@ public class ApplicationX {
             this.autowireType = new int[]{applicationX.findAutowireType(field)};
             this.requiredClass = new Class[]{field.getType()};
             switch (this.autowireType[0]) {
+                default:
                 case BeanDefinition.AUTOWIRE_BY_TYPE: {
                     this.requiredType = new Type[]{findAnnotationDeclaredType(this.autowiredAnnotation, field.getGenericType())};
-                    break;
                 }
                 case BeanDefinition.AUTOWIRE_BY_NAME: {
                     Annotation qualifierAnnotation = findDeclaredAnnotation(field, applicationX.qualifierAnnotations, QUALIFIER_ANNOTATION_CACHE_MAP);
                     String autowiredBeanName = qualifierAnnotation != null ?
                             getQualifierAnnotationValue(qualifierAnnotation) : field.getName();
                     this.requiredName = new String[]{autowiredBeanName};
-                    break;
-                }
-                default: {
                     break;
                 }
             }
@@ -1704,7 +1704,7 @@ public class ApplicationX {
 
             Object[] values = new Object[autowireType.length];
             for (int i = 0; i < autowireType.length; i++) {
-                Object injectResource;
+                Object injectResource = null;
                 Boolean required = requireds[i];
                 if (required == null) {
                     required = defaultRequired;
@@ -1721,20 +1721,28 @@ public class ApplicationX {
                         Class<?> autowireClass = requiredType[i] instanceof Class ?
                                 (Class) requiredType[i] : findConcreteClass(requiredClass[i], targetClass);
                         desc = autowireClass;
-                        if (autowireClass == Object.class) {
-                            injectResource = null;
-                        } else if (isAbstract(autowireClass)) {
-                            List implList = applicationX.getBeanForType(autowireClass);
-                            int size = implList.size();
-                            if (size == 0) {
+                        if (requiredName[i] != null) {
+                            Object byName = applicationX.getBean(requiredName[i], null, false);
+                            if (byName != null && autowireClass.isAssignableFrom(byName.getClass())) {
+                                injectResource = byName;
+                            }
+                        }
+                        if (injectResource == null) {
+                            if (autowireClass == Object.class) {
                                 injectResource = null;
-                            } else if (size == 1) {
-                                injectResource = implList.get(0);
+                            } else if (isAbstract(autowireClass)) {
+                                List implList = applicationX.getBeanForType(autowireClass);
+                                int size = implList.size();
+                                if (size == 0) {
+                                    injectResource = null;
+                                } else if (size == 1) {
+                                    injectResource = implList.get(0);
+                                } else {
+                                    injectResource = applicationX.getBean(autowireClass, null, false);
+                                }
                             } else {
                                 injectResource = applicationX.getBean(autowireClass, null, false);
                             }
-                        } else {
-                            injectResource = applicationX.getBean(autowireClass, null, false);
                         }
                         break;
                     }
