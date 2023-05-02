@@ -2117,6 +2117,9 @@ public class ApplicationX {
 
         @Override
         public int compare(Object o1, Object o2) {
+            if (o1 == o2) {
+                return 0;
+            }
             int c1 = convertInt(o1);
             int c2 = convertInt(o2);
             return c1 < c2 ? -1 : 1;
