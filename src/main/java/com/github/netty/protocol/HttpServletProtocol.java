@@ -9,7 +9,9 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ResourceManager;
 import com.github.netty.protocol.servlet.*;
+import com.github.netty.protocol.servlet.http2.H2Util;
 import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
+import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.*;
 import com.github.netty.protocol.servlet.websocket.WebSocketHandler;
 import com.github.netty.protocol.servlet.websocket.WebsocketServletUpgrader;
@@ -19,14 +21,12 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http2.*;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.util.AsciiString;
 
 import javax.servlet.Filter;
 import javax.servlet.Servlet;
@@ -83,7 +83,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int http2MaxReservedStreams = 256;
     private boolean enableContentCompression = true;
     private boolean enableH2c = false;
-    private boolean enableH2 = true;
+    private boolean enableH2 = HttpConstants.EXIST_DEPENDENCY_H2;
 
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
@@ -248,8 +248,8 @@ public class HttpServletProtocol extends AbstractProtocol {
         if (isEnableSsl()) {
             pipeline.addLast(sslContext.newHandler(ch.alloc()));
             pipeline.addLast(new SslUpgradeHandler());
-        } else if (Protocol.isPriHttp2(clientFirstMsg)) {
-            pipeline.addLast(newHttp2Handler(getH2LogLevel(pipeline)));
+        } else if (HttpConstants.EXIST_DEPENDENCY_H2 && Protocol.isPriHttp2(clientFirstMsg)) {
+            pipeline.addLast(H2Util.newHttp2Handler(getH2LogLevel(pipeline), http2MaxReservedStreams, (int) maxContentLength, enableContentCompression));
             addServletPipeline(pipeline, Protocol.h2c_prior_knowledge);
             LOGGER.debug("upgradeToProtocol = h2c_prior_knowledge");
         } else {
@@ -298,37 +298,6 @@ public class HttpServletProtocol extends AbstractProtocol {
 
     public void setHttp2MaxReservedStreams(int http2MaxReservedStreams) {
         this.http2MaxReservedStreams = http2MaxReservedStreams;
-    }
-
-    private Http2ConnectionHandler newHttp2Handler(LogLevel logLevel) {
-        DefaultHttp2Connection connection = new DefaultHttp2Connection(true, http2MaxReservedStreams);
-        InboundHttp2ToHttpAdapter listener = new InboundHttp2ToHttpAdapterBuilder(connection)
-                .propagateSettings(false)
-                .validateHttpHeaders(true)
-                .maxContentLength((int) maxContentLength)
-                .build();
-
-        HttpToHttp2FrameCodecConnectionHandlerBuilder build = new HttpToHttp2FrameCodecConnectionHandlerBuilder()
-                .frameListener(listener)
-                .connection(connection)
-                .compressor(enableContentCompression);
-        if (logLevel != null) {
-            build.frameLogger(new Http2FrameLogger(logLevel));
-        }
-        return build.build();
-    }
-
-    private HttpServerUpgradeHandler.UpgradeCodecFactory newUpgradeCodecFactory(LogLevel logLevel) {
-        return new HttpServerUpgradeHandler.UpgradeCodecFactory() {
-            @Override
-            public HttpServerUpgradeHandler.UpgradeCodec newUpgradeCodec(CharSequence protocol) {
-                if (AsciiString.contentEquals(Http2CodecUtil.HTTP_UPGRADE_PROTOCOL_NAME, protocol)) {
-                    return new Http2ServerUpgradeCodec(newHttp2Handler(logLevel));
-                } else {
-                    return null;
-                }
-            }
-        };
     }
 
     protected HttpServerCodec newHttpServerCodec() {
@@ -509,7 +478,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                     break;
                 }
                 case ApplicationProtocolNames.HTTP_2: {
-                    pipeline.addLast(newHttp2Handler(getH2LogLevel(pipeline)));
+                    pipeline.addLast(H2Util.newHttp2Handler(getH2LogLevel(pipeline), http2MaxReservedStreams, (int) maxContentLength, enableContentCompression));
                     addServletPipeline(pipeline, Protocol.h2);
                     pipeline.fireChannelRegistered();
                     pipeline.fireChannelActive();
@@ -563,7 +532,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                             break;
                         }
                         HttpServerCodec serverCodec = pipeline.get(HttpServerCodec.class);
-                        pipeline.addLast(new HttpServerUpgradeHandler(serverCodec, newUpgradeCodecFactory(getH2LogLevel(pipeline)), (int) maxContentLength));
+                        pipeline.addLast(new HttpServerUpgradeHandler(serverCodec, H2Util.newUpgradeCodecFactory(getH2LogLevel(pipeline), http2MaxReservedStreams, (int) maxContentLength, enableContentCompression), (int) maxContentLength));
                         addServletPipeline(pipeline, Protocol.h2c);
                         pipeline.fireChannelRegistered();
                         pipeline.fireChannelActive();

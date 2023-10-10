@@ -7,7 +7,6 @@ import com.github.netty.protocol.servlet.util.*;
 import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http2.HttpConversionUtil;
 
 import javax.servlet.http.Cookie;
 import java.io.Flushable;
@@ -242,15 +241,15 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
 
         if (protocol.isHttp2()) {
             // h2 adapter
-            String streamId = servletRequest.getNettyHeaders().get(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text());
+            String streamId = servletRequest.getNettyHeaders().get(HttpConstants.H2_EXT_STREAM_ID);
             if (streamId != null) {
-                headers.set(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text(), streamId);
+                headers.set(HttpConstants.H2_EXT_STREAM_ID, streamId);
             }
 
             // h2 scheme
-            if (!headers.contains(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text())) {
+            if (!headers.contains(HttpConstants.H2_EXT_SCHEME)) {
                 HttpScheme scheme = ssl ? HttpScheme.HTTPS : HttpScheme.HTTP;
-                headers.set(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), scheme.name());
+                headers.set(HttpConstants.H2_EXT_SCHEME, scheme.name());
             }
         }
 
