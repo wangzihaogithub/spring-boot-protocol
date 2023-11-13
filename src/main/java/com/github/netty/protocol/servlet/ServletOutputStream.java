@@ -264,10 +264,8 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
     @Override
     public void write(int b) throws IOException {
         checkClosed();
-        int byteLen = 1;
-        byte[] bytes = new byte[byteLen];
-        IOUtil.setByte(bytes, 0, b);
-        write(bytes, 0, byteLen);
+        byte[] bytes = new byte[]{(byte) b};
+        write(bytes, 0, bytes.length);
     }
 
     @Override
