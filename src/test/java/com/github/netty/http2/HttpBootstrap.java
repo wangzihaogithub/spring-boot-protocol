@@ -22,6 +22,7 @@ public class HttpBootstrap {
         servletContext.addServlet("myHttpServlet", new MyHttpServlet())
                 .addMapping("/test");
         HttpServletProtocol protocol = new HttpServletProtocol(servletContext);
+        protocol.setEnableH2c(true);
 
 //        protocol.setSslFileJks(
 //                new File("G:\\githubs\\spring-boot-protocol\\webapp\\mydomain.com.jks"),

@@ -15,8 +15,6 @@
  */
 package com.github.netty.protocol.mqtt.subscriptions;
 
-import io.netty.util.internal.StringUtil;
-
 class DumpTreeVisitor implements CTrie.IVisitor<String> {
 
     String s = "";
@@ -32,7 +30,7 @@ class DumpTreeVisitor implements CTrie.IVisitor<String> {
             return "TNode";
         }
         if (node.subscriptions.isEmpty()) {
-            return StringUtil.EMPTY_STRING;
+            return "";
         }
         StringBuilder subScriptionsStr = new StringBuilder(" ~~[");
         int counter = 0;

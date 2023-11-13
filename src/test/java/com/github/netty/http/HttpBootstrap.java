@@ -1,7 +1,6 @@
 package com.github.netty.http;
 
 import com.github.netty.springboot.EnableNettyEmbedded;
-import com.github.netty.springboot.NettyReportRunnable;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -14,7 +13,6 @@ public class HttpBootstrap {
             "/http/application.yaml");
 
     public static void main(String[] args) {
-//        NettyReportRunnable.start();
         System.getProperties().put("spring.config.location", CONFIG_URL.toString());
         SpringApplication.run(HttpBootstrap.class, args);
     }

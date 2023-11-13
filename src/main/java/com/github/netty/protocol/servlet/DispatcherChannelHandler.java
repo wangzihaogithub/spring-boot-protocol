@@ -6,7 +6,6 @@ import com.github.netty.core.util.RecyclableUtil;
 import com.github.netty.protocol.servlet.util.Protocol;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.util.AttributeKey;
 
 import java.io.IOException;
@@ -111,8 +110,8 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
 
     @Override
     public void exceptionCaught(ChannelHandlerContext context, Throwable cause) {
-        if (cause instanceof Http2Exception) {
-
+        if (cause.getClass().getName().startsWith("io.netty.handler.codec.http2")) {
+            // ignore
         } else if (cause.getClass() != IOException.class) {
             logger.warn("handler exception. case={}, channel={}", cause.toString(), context.channel(), cause);
         }

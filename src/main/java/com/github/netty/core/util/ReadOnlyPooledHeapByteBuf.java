@@ -1,7 +1,6 @@
 package com.github.netty.core.util;
 
 import io.netty.buffer.*;
-import io.netty.util.internal.EmptyArrays;
 import io.netty.util.internal.PlatformDependent;
 
 import java.io.IOException;
@@ -25,6 +24,7 @@ import java.util.Set;
  */
 class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     private static final Recycler<ReadOnlyPooledHeapByteBuf> RECYCLER = new Recycler<>(ReadOnlyPooledHeapByteBuf::new);
+    public static final byte[] EMPTY_BYTES = {};
     private byte[] array;
     private ByteBuffer tmpNioBuf;
     private int offset;
@@ -33,7 +33,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
 
     private ReadOnlyPooledHeapByteBuf() {
         super(0);
-        this.array = EmptyArrays.EMPTY_BYTES;
+        this.array = EMPTY_BYTES;
         this.offset = 0;
     }
 
@@ -496,7 +496,7 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     @Override
     protected void deallocate() {
         freeArray(array);
-        array = EmptyArrays.EMPTY_BYTES;
+        array = EMPTY_BYTES;
         parent = null;
         offset = 0;
         RECYCLER.recycleInstance(this);

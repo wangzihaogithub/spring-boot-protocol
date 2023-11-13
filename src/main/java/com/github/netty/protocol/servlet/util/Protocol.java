@@ -3,10 +3,10 @@ package com.github.netty.protocol.servlet.util;
 import com.github.netty.core.util.IOUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpConstants;
 
-import static io.netty.buffer.Unpooled.unreleasableBuffer;
-import static io.netty.handler.codec.http2.Http2CodecUtil.connectionPrefaceBuf;
+import java.nio.charset.Charset;
 
 public enum Protocol {
     /**/
@@ -16,7 +16,7 @@ public enum Protocol {
     h2c(true),
     h2c_prior_knowledge(true);
 
-    private static final ByteBuf CONNECTION_PREFACE = unreleasableBuffer(connectionPrefaceBuf()).asReadOnly();
+    private static final ByteBuf CONNECTION_PREFACE = Unpooled.unreleasableBuffer(Unpooled.directBuffer(24).writeBytes("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".getBytes(Charset.forName("UTF-8")))).asReadOnly();
     private final boolean http2;
 
     Protocol(boolean http2) {
