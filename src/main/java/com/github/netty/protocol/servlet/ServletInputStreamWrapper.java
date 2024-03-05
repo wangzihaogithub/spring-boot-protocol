@@ -145,7 +145,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 } catch (IOException e) {
                     LOGGER.warn("upload file write temp file exception. file = {}, message = {}", uploadFile, e.toString(), e);
                 }
-            } else {
+            } else if (source != null) {
                 //In memory
                 source.addComponent(byteBuf);
                 source.writerIndex(source.capacity());
@@ -244,7 +244,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public void mark(int readlimit) {
         if (uploadFileInputStream != null) {
             uploadFileInputStream.mark(readlimit);
-        } else {
+        } else if (source != null) {
             source.markReaderIndex();
         }
     }
@@ -253,7 +253,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public void reset() throws IOException {
         if (uploadFileInputStream != null) {
             uploadFileInputStream.reset();
-        } else {
+        } else if (source != null) {
             source.resetReaderIndex();
         }
     }
@@ -279,7 +279,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
      */
     @Override
     public boolean isReady() {
-        return contentLength == -1 || source.readableBytes() != 0 || uploadFileInputStream != null;
+        return contentLength == -1 || (source == null || source.readableBytes() != 0) || uploadFileInputStream != null;
     }
 
     /**
@@ -291,6 +291,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (uploadFileInputStream != null) {
             return uploadFileInputStream.skip(n);
         } else {
+            CompositeByteBuf source = this.source;
+            if (source == null) {
+                return 0;
+            }
             long skipLen = Math.min(source.readableBytes(), n);
             source.skipBytes((int) skipLen);
             return skipLen;
@@ -375,13 +379,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
         if (uploadFileInputStream != null) {
             return uploadFileInputStream.read(bytes, off, len);
-        } else {
+        } else if (source != null) {
             if (!source.isReadable()) {
                 return -1;
             }
             int readableBytes = Math.min(source.readableBytes(), len);
             source.readBytes(bytes, off, readableBytes);
             return readableBytes;
+        } else {
+            return -1;
         }
     }
 
@@ -396,6 +402,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (uploadFileInputStream != null) {
             return uploadFileInputStream.read();
         } else {
+            CompositeByteBuf source = this.source;
+            if (source == null) {
+                return -1;
+            }
             if (!source.isReadable()) {
                 return -1;
             }
