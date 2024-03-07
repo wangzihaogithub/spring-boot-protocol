@@ -51,6 +51,7 @@ public class JavaClassFile {
     private static final Attribute.MethodParameter[] EMPTY_METHOD_PARAMETER = {};
     private static final int[] EMPTY_EXCEPTION_INDEX_TABLE = {};
     private static final String[] EMPTY_STRING = {};
+    private static final Member.Type[] EMPTY_TYPE = {};
     private long minorVersion;
     private JavaVersion majorVersion;
     private ConstantPool constantPool;
@@ -1185,6 +1186,24 @@ public class JavaClassFile {
         }
     }
 
+    public static class Parameter{
+        private Member.Type type;
+        private String name;
+
+        public Member.Type getType() {
+            return type;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
     public static class Member {
         private boolean method;
         private int accessFlags;
@@ -1196,6 +1215,7 @@ public class JavaClassFile {
         private Class<?>[] javaArgumentTypes;
         private Type[] argumentTypes;
         private String[] parameterNames;
+        private Parameter[] parameters;
         private Attribute.MethodParameter[] methodParameters;
         /**
          * 局部变量, List<ItemType>, 这里存的是 List
@@ -1298,7 +1318,7 @@ public class JavaClassFile {
         }
 
         /**
-         * 获取泛型 多个嵌套那种复杂的暂时没实现, 目前只支持单个泛型
+         * 获取泛型 多个嵌套那种复杂的用这个{@link #getMethodArgumentTypes}, 目前只支持单个泛型
          * 自己想实现可以用原始数据自己解析 {@link #getSignature()}
          *
          * @return Type
@@ -1333,8 +1353,16 @@ public class JavaClassFile {
         }
 
         public Type[] getMethodArgumentTypes() {
-            if (argumentTypes == null && isMethod()) {
-                argumentTypes = Type.getArgumentTypes(getDescriptorName());
+            if (argumentTypes == null) {
+                String signature = getSignature();
+                if (signature != null) {
+                    int open = signature.indexOf('(');
+                    int close = signature.lastIndexOf(')');
+                    String substring = signature.substring(open == -1 ? 0 : open, close == -1 ? signature.length() : close + 1);
+                    argumentTypes = Type.getArgumentTypes(substring);
+                } else if (isMethod()) {
+                    argumentTypes = Type.getArgumentTypes(getDescriptorName());
+                }
             }
             return argumentTypes;
         }
@@ -1377,6 +1405,21 @@ public class JavaClassFile {
             }
         }
 
+        public Parameter[] getParameters() {
+            if (this.parameters == null) {
+                String[] parameterNames = getParameterNames();
+                Type[] methodArgumentTypes = getMethodArgumentTypes();
+                Parameter[] parameters = new Parameter[parameterNames.length];
+                for (int i = 0; i < parameters.length; i++) {
+                    parameters[i] = new Parameter();
+                    parameters[i].name = parameterNames[i];
+                    parameters[i].type = methodArgumentTypes[i];
+                }
+                this.parameters = parameters;
+            }
+            return parameters;
+        }
+
         public String[] getParameterNames() {
             if (this.parameterNames == null) {
                 String[] parameterNames;
@@ -1385,7 +1428,7 @@ public class JavaClassFile {
                 if (lvtIndices.length == 0) {
                     parameterNames = EMPTY_STRING;
                 } else {
-                    JavaClassFile.Attribute.LocalVariable[] localVariableTable = getLocalVariableTable();
+                    Attribute.LocalVariable[] localVariableTable = getLocalVariableTable();
                     if (localVariableTable == null || localVariableTable.length == 0) {
                         parameterNames = EMPTY_STRING;
                     } else {
@@ -1653,7 +1696,15 @@ public class JavaClassFile {
             /**
              * The (private) sort of object reference types represented with an internal name.
              */
-            private static final int INTERNAL = 12;
+            public static final int INTERNAL = 12;
+            /**
+             * The sort of object reference types. See {@link #getSort}.
+             */
+            public static final int OBJECT_REF = 13;
+            /**
+             * The generic type
+             */
+            public static final int GENERIC_TYPE_NAME = 14;
 
             /**
              * The descriptors of the primitive types.
@@ -1811,6 +1862,8 @@ public class JavaClassFile {
              * and a field or method descriptor in the other cases.
              */
             private final int valueEnd;
+            private static final Type[] EMPTY_GENERIC_TYPES = {};
+            private Type[] genericTypes = EMPTY_GENERIC_TYPES;
 
             // -----------------------------------------------------------------------------------------------
             // Fields
@@ -1831,6 +1884,31 @@ public class JavaClassFile {
                 this.valueBuffer = valueBuffer;
                 this.valueBegin = valueBegin;
                 this.valueEnd = valueEnd;
+            }
+
+            public Type[] getGenericTypes() {
+                return genericTypes;
+            }
+
+            public Type getGenericType(int index) {
+                if (index >= 0 && index < genericTypes.length) {
+                    return genericTypes[index];
+                } else {
+                    return null;
+                }
+            }
+
+            public Class<?> resolveGenericClass(int index) {
+                if (index >= 0 && index < genericTypes.length) {
+                    return genericTypes[index].resolveClass();
+                } else {
+                    return null;
+                }
+            }
+
+            private void addGenericTypes(Type type) {
+                genericTypes = Arrays.copyOf(genericTypes, genericTypes.length + 1);
+                genericTypes[genericTypes.length - 1] = type;
             }
 
             private static Class<?> resolvePrimitiveClassName(String name) {
@@ -2034,41 +2112,78 @@ public class JavaClassFile {
              * descriptor.
              */
             public static Type[] getArgumentTypes(final String methodDescriptor) {
-                // First step: compute the number of argument types in methodDescriptor.
-                int numArgumentTypes = 0;
+                // Second step: create a Type instance for each argument type.
+                List<Type> argumentTypes = null;
                 // Skip the first character, which is always a '('.
                 int currentOffset = 1;
-                // Parse the argument types, one at a each loop iteration.
-                while (methodDescriptor != null && methodDescriptor.charAt(currentOffset) != ')') {
-                    while (methodDescriptor.charAt(currentOffset) == '[') {
-                        currentOffset++;
-                    }
-                    if (methodDescriptor.charAt(currentOffset++) == 'L') {
-                        // Skip the argument descriptor content.
-                        currentOffset = methodDescriptor.indexOf(';', currentOffset) + 1;
-                    }
-                    ++numArgumentTypes;
-                }
-
-                // Second step: create a Type instance for each argument type.
-                Type[] argumentTypes = new Type[numArgumentTypes];
-                // Skip the first character, which is always a '('.
-                currentOffset = 1;
-                // Parse and create the argument types, one at each loop iteration.
-                int currentArgumentTypeIndex = 0;
                 while (methodDescriptor != null && methodDescriptor.charAt(currentOffset) != ')') {
                     final int currentArgumentTypeOffset = currentOffset;
                     while (methodDescriptor.charAt(currentOffset) == '[') {
                         currentOffset++;
                     }
+                    int genericCount = 0;
                     if (methodDescriptor.charAt(currentOffset++) == 'L') {
                         // Skip the argument descriptor content.
-                        currentOffset = methodDescriptor.indexOf(';', currentOffset) + 1;
+                        while (true) {
+                            char c1 = methodDescriptor.charAt(currentOffset);
+                            if (c1 == '<') {
+                                int currentGenericCount = 0;
+                                int typeOffsetEnd = currentArgumentTypeOffset;
+                                List<Type> typeList = new ArrayList<>();
+                                Type root = null;
+                                while (true) {
+                                    char c = methodDescriptor.charAt(currentOffset);
+                                    if (c == '<') {
+                                        addGenericType(typeList, methodDescriptor, typeOffsetEnd, currentOffset);
+                                        if (root == null) {
+                                            root = typeList.get(0);
+                                        }
+                                        typeOffsetEnd = currentOffset + 1;
+                                        currentGenericCount++;
+                                        genericCount++;
+                                    } else if (c == '>') {
+                                        addGenericType(typeList, methodDescriptor, typeOffsetEnd, currentOffset - 1);
+                                        typeList.remove(typeList.size() - 1);
+                                        typeOffsetEnd = currentOffset;
+                                        currentGenericCount--;
+                                    } else if (currentGenericCount == 0) {
+                                        break;
+                                    }
+                                    currentOffset++;
+                                }
+                                if (argumentTypes == null) {
+                                    argumentTypes = new ArrayList<>(3);
+                                }
+                                argumentTypes.add(root);
+                            } else if (c1 == ';') {
+                                currentOffset++;
+                                break;
+                            } else {
+                                currentOffset++;
+                            }
+                        }
                     }
-                    argumentTypes[currentArgumentTypeIndex++] =
-                            getTypeInternal(methodDescriptor, currentArgumentTypeOffset, currentOffset);
+                    if (genericCount == 0) {
+                        if (argumentTypes == null) {
+                            argumentTypes = new ArrayList<>(3);
+                        }
+                        argumentTypes.add(getTypeInternal(methodDescriptor, currentArgumentTypeOffset, currentOffset));
+                    }
                 }
-                return argumentTypes;
+                return argumentTypes == null ? EMPTY_TYPE : argumentTypes.toArray(new Type[argumentTypes.size()]);
+            }
+
+            private static void addGenericType(List<Type> typeList, String methodDescriptor, int begin, int end) {
+                String descriptor = methodDescriptor.substring(begin, end);
+                if (">".equals(descriptor)) {
+                    return;
+                }
+                descriptor = descriptor.concat(";");
+                Type type = getTypeInternal(descriptor, 0, descriptor.length());
+                if (!typeList.isEmpty()) {
+                    typeList.get(typeList.size() - 1).addGenericTypes(type);
+                }
+                typeList.add(type);
             }
 
             /**
@@ -2153,8 +2268,12 @@ public class JavaClassFile {
                         return new Type(ARRAY, descriptorBuffer, descriptorBegin, descriptorEnd);
                     case 'L':
                         return new Type(OBJECT, descriptorBuffer, descriptorBegin + 1, descriptorEnd - 1);
+                    case '*':
+                        return new Type(OBJECT_REF, descriptorBuffer, descriptorBegin + 2, descriptorEnd - 1);
                     case '(':
                         return new Type(METHOD, descriptorBuffer, descriptorBegin, descriptorEnd);
+                    case 'T':
+                        return new Type(GENERIC_TYPE_NAME, descriptorBuffer, descriptorBegin + 1, descriptorEnd - 1);
                     default:
                         throw new IllegalArgumentException();
                 }
@@ -4075,30 +4194,30 @@ public class JavaClassFile {
                 }
             }
 
-            public Annotation.ElementValue newElementValue(char tag, ClassReader reader, int index) {
-                Annotation.ElementValue newElementValue;
+            public ElementValue newElementValue(char tag, ClassReader reader, int index) {
+                ElementValue newElementValue;
                 switch (tag) {
                     case 'e': {
-                        Annotation.EnumElementValue elementValue = new Annotation.EnumElementValue();
+                        EnumElementValue elementValue = new EnumElementValue();
                         elementValue.typeNameIndex = reader.readUint16();
                         elementValue.constNameIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case '@': {
-                        Annotation.AnnotationElementValue elementValue = new Annotation.AnnotationElementValue();
+                        AnnotationElementValue elementValue = new AnnotationElementValue();
                         elementValue.annotationValue = new Annotation(reader, index);
                         newElementValue = elementValue;
                         break;
                     }
                     case 'c': {
-                        Annotation.ClassElementValue elementValue = new Annotation.ClassElementValue();
+                        ClassElementValue elementValue = new ClassElementValue();
                         elementValue.classInfoIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case '[': {
-                        Annotation.ArrayElementValue elementValue = new Annotation.ArrayElementValue();
+                        ArrayElementValue elementValue = new ArrayElementValue();
                         ElementValue[] elementValues = new ElementValue[reader.readUint16()];
                         for (int i = 0; i < elementValues.length; i++) {
                             char elementTag = (char) reader.readInt8();
@@ -4109,55 +4228,55 @@ public class JavaClassFile {
                         break;
                     }
                     case 'B': {
-                        Annotation.ByteElementValue elementValue = new Annotation.ByteElementValue();
+                        ByteElementValue elementValue = new ByteElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'C': {
-                        Annotation.CharElementValue elementValue = new Annotation.CharElementValue();
+                        CharElementValue elementValue = new CharElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'D': {
-                        Annotation.DoubleElementValue elementValue = new Annotation.DoubleElementValue();
+                        DoubleElementValue elementValue = new DoubleElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'F': {
-                        Annotation.FloatElementValue elementValue = new Annotation.FloatElementValue();
+                        FloatElementValue elementValue = new FloatElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'I': {
-                        Annotation.IntElementValue elementValue = new Annotation.IntElementValue();
+                        IntElementValue elementValue = new IntElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'J': {
-                        Annotation.LongElementValue elementValue = new Annotation.LongElementValue();
+                        LongElementValue elementValue = new LongElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'S': {
-                        Annotation.ShortElementValue elementValue = new Annotation.ShortElementValue();
+                        ShortElementValue elementValue = new ShortElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 'Z': {
-                        Annotation.BooleanElementValue elementValue = new Annotation.BooleanElementValue();
+                        BooleanElementValue elementValue = new BooleanElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;
                     }
                     case 's': {
-                        Annotation.StringElementValue elementValue = new Annotation.StringElementValue();
+                        StringElementValue elementValue = new StringElementValue();
                         elementValue.constValueIndex = reader.readUint16();
                         newElementValue = elementValue;
                         break;

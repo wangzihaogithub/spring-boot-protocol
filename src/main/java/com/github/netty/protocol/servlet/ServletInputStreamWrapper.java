@@ -62,7 +62,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private /*volatile*/ DecoderException decoderException;
     private volatile boolean receiveDataTimeout;
     private /*volatile*/ FileInputStream uploadFileInputStream;
-    private /*volatile*/ SeekableByteChannel uploadFileOutputChannel;
+    private volatile SeekableByteChannel uploadFileOutputChannel;
     private /*volatile*/ File uploadFile;
     private String uploadDir = "/upload/";
     private int uploadFileCount = 0;
@@ -158,7 +158,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
         }
 
-        if (isFinished()) {
+        if (isReceived()) {
             if (uploadFile != null) {
                 try {
                     uploadFileOutputChannel.close();
@@ -184,7 +184,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                     readListener.onError(e);
                 }
             }
-            if (isFinished()) {
+            if (isReceived()) {
                 try {
                     readListener.onAllDataRead();
                 } catch (IOException e) {
@@ -258,20 +258,36 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
+    public boolean isReceived() {
+        return closed.get()
+                || contentLength == -1
+                || receiveContentLength.get() >= contentLength
+                || decoderException != null
+                || receiveDataTimeout;
+    }
+
     /**
-     * There is no new HttpContent input for this request, and all of the current content has been read
+     * Returns true when all the data from the stream has been read else
+     * it returns false.
      *
-     * @return True = false after reading
+     * @return when all the data from the strea
      */
     @Override
     public boolean isFinished() {
         if (closed.get()) {
             return true;
         }
-        return contentLength == -1
-                || receiveContentLength.get() >= contentLength
-                || decoderException != null
-                || receiveDataTimeout;
+        if (uploadFileInputStream != null) {
+            try {
+                return uploadFileInputStream.available() == 0;
+            } catch (IOException e) {
+                return true;
+            }
+        } else if (null == source) {
+            return true;
+        } else {
+            return !source.isReadable();
+        }
     }
 
     /**
@@ -279,7 +295,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
      */
     @Override
     public boolean isReady() {
-        return contentLength == -1 || (source == null || source.readableBytes() != 0) || uploadFileInputStream != null;
+        return contentLength == -1 || (source == null || source.isReadable()) || uploadFileInputStream != null;
     }
 
     /**
@@ -414,12 +430,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     void awaitDataIfNeed() throws DecoderException, IOException {
-        while (!isFinished()) {
+        while (!isReceived()) {
             lock.lock();
             try {
                 if (fileUploadTimeoutMs > 0) {
-                    boolean isTimeout = condition.await(fileUploadTimeoutMs, TimeUnit.MILLISECONDS);
-                    if (isTimeout) {
+                    boolean success = condition.await(fileUploadTimeoutMs, TimeUnit.MILLISECONDS);
+                    if (!success) {
                         this.receiveDataTimeout = true;
                         this.needCloseClient = true;
                         throw new IOException("await client data stream timeout. timeout = " + fileUploadTimeoutMs + "/ms");
@@ -461,7 +477,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public void setReadListener(ReadListener readListener) {
         this.readListener = readListener;
-        if (isFinished()) {
+        if (isReady()) {
             try {
                 readListener.onDataAvailable();
             } catch (IOException e) {
