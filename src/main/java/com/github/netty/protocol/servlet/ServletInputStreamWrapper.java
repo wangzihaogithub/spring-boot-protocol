@@ -43,30 +43,51 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private static final FileAttribute[] EMPTY_FILE_ATTRIBUTE = {};
     private static final Set<? extends OpenOption> WRITE_OPTIONS = new HashSet<>(Arrays.asList(
             StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
-
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicLong receiveContentLength = new AtomicLong();
+    private final AtomicLong readIndex = new AtomicLong();
     private final Lock lock = new ReentrantLock();
     private final Condition condition = lock.newCondition();
     private final Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private final Supplier<ResourceManager> resourceManagerSupplier;
-    private final AtomicBoolean readListenerFlag = new AtomicBoolean(true);
-
-    private ReadListener readListener;
+    private final AtomicBoolean onAllDataReadFlag = new AtomicBoolean();
+    private volatile boolean onDataAvailable = false;
+    private volatile ReadListener readListener;
     private CompositeByteBuf source;
     private long contentLength;
     private long fileUploadTimeoutMs;
     private int fileSizeThreshold;
     private boolean needCloseClient;
-
     private /*volatile*/ DecoderException decoderException;
     private volatile boolean receiveDataTimeout;
+    private final Runnable onDataAvailableRunnable = () -> {
+        ReadListener readListener = this.readListener;
+        synchronized (this) {
+            if (onAllDataReadFlag.get() || !onDataAvailable) {
+                return;
+            }
+            try {
+                readListener.onDataAvailable();
+            } catch (IOException e) {
+                readListener.onError(e);
+            }
+            onDataAvailable = false;
+            if (isReceived() && onAllDataReadFlag.compareAndSet(false, true)) {
+                try {
+                    readListener.onAllDataRead();
+                } catch (IOException e) {
+                    readListener.onError(e);
+                }
+            }
+        }
+    };
     private /*volatile*/ FileInputStream uploadFileInputStream;
     private volatile SeekableByteChannel uploadFileOutputChannel;
     private /*volatile*/ File uploadFile;
     private String uploadDir = "/upload/";
     private int uploadFileCount = 0;
     private Exception createFileException;
+    private long mark = -1;
 
     public ServletInputStreamWrapper(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier, Supplier<ResourceManager> resourceManagerSupplier) {
         this.requestDecoderSupplier = requestDecoderSupplier;
@@ -93,9 +114,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.contentLength = contentLength;
     }
 
-    public void onMessage(HttpContent httpContent) {
+    public void onMessage(HttpContent httpContent, ServletContext servletContext) {
         ByteBuf byteBuf = httpContent.content();
         int readableBytes = byteBuf.readableBytes();
+        ReadListener readListener = this.readListener;
         boolean release = true;
         try {
             if (contentLength == -1 && readableBytes > 0 && LOGGER.isDebugEnabled()) {
@@ -104,8 +126,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 return;
             }
 
-
-            ReadListener readListener = this.readListener;
             InterfaceHttpPostRequestDecoder requestDecoder;
             try {
                 requestDecoder = this.requestDecoderSupplier.get();
@@ -158,7 +178,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
         }
 
-        if (isReceived()) {
+        boolean received = isReceived();
+        if (received) {
             if (uploadFile != null) {
                 try {
                     uploadFileOutputChannel.close();
@@ -168,28 +189,18 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 } catch (IOException ignored) {
                 }
             }
-            lock.lock();
-            try {
-                condition.signalAll();
-            } finally {
-                lock.unlock();
-            }
+        }
+
+        lock.lock();
+        try {
+            condition.signalAll();
+        } finally {
+            lock.unlock();
         }
 
         if (readListener != null) {
-            if (readListenerFlag.compareAndSet(true, false)) {
-                try {
-                    readListener.onDataAvailable();
-                } catch (IOException e) {
-                    readListener.onError(e);
-                }
-            }
-            if (isReceived()) {
-                try {
-                    readListener.onAllDataRead();
-                } catch (IOException e) {
-                    readListener.onError(e);
-                }
+            if (received || !onDataAvailable) {
+                servletContext.getExecutor().execute(onDataAvailableRunnable);
             }
         }
     }
@@ -244,7 +255,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public void mark(int readlimit) {
         if (uploadFileInputStream != null) {
             uploadFileInputStream.mark(readlimit);
+            this.mark = readIndex.get();
         } else if (source != null) {
+            this.mark = source.readerIndex();
             source.markReaderIndex();
         }
     }
@@ -253,8 +266,10 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public void reset() throws IOException {
         if (uploadFileInputStream != null) {
             uploadFileInputStream.reset();
+            this.readIndex.set(mark);
         } else if (source != null) {
             source.resetReaderIndex();
+            this.readIndex.set(mark);
         }
     }
 
@@ -262,6 +277,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return closed.get()
                 || contentLength == -1
                 || receiveContentLength.get() >= contentLength
+                || decoderException != null
+                || receiveDataTimeout;
+    }
+
+    public boolean isReadable(int read) {
+        return closed.get()
+                || contentLength == -1
+                || receiveContentLength.get() >= (read == -1 ? contentLength : Math.min(contentLength, readIndex.get() + read))
                 || decoderException != null
                 || receiveDataTimeout;
     }
@@ -277,16 +300,17 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (closed.get()) {
             return true;
         }
+        if (!isReceived()) {
+            return false;
+        }
         if (uploadFileInputStream != null) {
             try {
                 return uploadFileInputStream.available() == 0;
             } catch (IOException e) {
                 return true;
             }
-        } else if (null == source) {
-            return true;
         } else {
-            return !source.isReadable();
+            return null == source || !source.isReadable();
         }
     }
 
@@ -295,7 +319,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
      */
     @Override
     public boolean isReady() {
-        return contentLength == -1 || (source == null || source.isReadable()) || uploadFileInputStream != null;
+        return isReadable(1);
     }
 
     /**
@@ -304,17 +328,19 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public long skip(long n) throws IOException {
         checkClosed();
+        long skipLen;
         if (uploadFileInputStream != null) {
-            return uploadFileInputStream.skip(n);
+            skipLen = uploadFileInputStream.skip(n);
         } else {
             CompositeByteBuf source = this.source;
             if (source == null) {
                 return 0;
             }
-            long skipLen = Math.min(source.readableBytes(), n);
+            skipLen = Math.min(source.readableBytes(), n);
             source.skipBytes((int) skipLen);
-            return skipLen;
         }
+        readIndex.addAndGet(skipLen);
+        return skipLen;
     }
 
     /**
@@ -370,6 +396,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 }
                 this.uploadFileOutputChannel = null;
             }
+            this.readIndex.set(0L);
         }
     }
 
@@ -391,16 +418,16 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             return 0;
         }
 
-        awaitDataIfNeed();
+        awaitDataIfNeed(1);
 
         if (uploadFileInputStream != null) {
-            return uploadFileInputStream.read(bytes, off, len);
-        } else if (source != null) {
-            if (!source.isReadable()) {
-                return -1;
-            }
+            int readableBytes = uploadFileInputStream.read(bytes, off, len);
+            readIndex.addAndGet(readableBytes);
+            return readableBytes;
+        } else if (source != null && source.isReadable()) {
             int readableBytes = Math.min(source.readableBytes(), len);
             source.readBytes(bytes, off, readableBytes);
+            readIndex.addAndGet(readableBytes);
             return readableBytes;
         } else {
             return -1;
@@ -414,23 +441,22 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public int read() throws IOException {
         checkClosed();
 
-        awaitDataIfNeed();
+        awaitDataIfNeed(1);
         if (uploadFileInputStream != null) {
-            return uploadFileInputStream.read();
+            int readableBytes = uploadFileInputStream.read();
+            readIndex.addAndGet(readableBytes);
+            return readableBytes;
+        } else if (this.source != null && this.source.isReadable()) {
+            int readableBytes = source.readByte();
+            readIndex.addAndGet(readableBytes);
+            return readableBytes;
         } else {
-            CompositeByteBuf source = this.source;
-            if (source == null) {
-                return -1;
-            }
-            if (!source.isReadable()) {
-                return -1;
-            }
-            return source.readByte();
+            return -1;
         }
     }
 
-    void awaitDataIfNeed() throws DecoderException, IOException {
-        while (!isReceived()) {
+    void awaitDataIfNeed(int read) throws DecoderException, IOException {
+        while (!isReadable(read)) {
             lock.lock();
             try {
                 if (fileUploadTimeoutMs > 0) {
@@ -477,7 +503,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public void setReadListener(ReadListener readListener) {
         this.readListener = readListener;
-        if (isReady()) {
+        if (isReceived()) {
+            onAllDataReadFlag.set(true);
             try {
                 readListener.onDataAvailable();
             } catch (IOException e) {
@@ -494,10 +521,11 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     @Override
     public void wrap(CompositeByteBuf source) {
         this.closed.set(false);
-        this.readListenerFlag.set(true);
+        this.onAllDataReadFlag.set(false);
         this.source = source;
         this.contentLength = -1;
         this.readListener = null;
+        this.readIndex.set(0L);
         this.receiveContentLength.set(0);
         this.decoderException = null;
         this.needCloseClient = false;

@@ -116,7 +116,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         // body
         if (msg instanceof HttpContent && exchange.closeStatus() == CLOSE_NO) {
             needDiscard = false;
-            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
+            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg, servletContext);
             if (exchange.getRequest().isMultipart() || msg instanceof LastHttpContent) {
                 result = this.httpRunnable;
                 this.httpRunnable = null;

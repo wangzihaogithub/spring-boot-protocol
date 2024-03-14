@@ -349,7 +349,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private void decodeBody() {
         //wait LastHttpContent
         try {
-            inputStream.awaitDataIfNeed();
+            inputStream.awaitDataIfNeed(-1);
         } catch (IOException e) {
             PlatformDependent.throwException(e);
         }
@@ -960,7 +960,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             }
         } else {
             try {
-                inputStream.awaitDataIfNeed();
+                inputStream.awaitDataIfNeed(-1);
             } catch (IOException e) {
                 PlatformDependent.throwException(e);
             }
@@ -1309,7 +1309,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 throw illegalStateException;
             }
         } else {
-            inputStream.awaitDataIfNeed();
+            inputStream.awaitDataIfNeed(-1);
         }
         return fileUploadList;
     }
