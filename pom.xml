@@ -431,16 +431,14 @@
     </build>
 
     <distributionManagement>
-        <repository>
-            <id>nexus-releases</id>
-            <name>lib release</name>
-            <url>http://m2.kanzhun-inc.com/nexus/content/repositories/releases/</url>
-        </repository>
         <snapshotRepository>
-            <id>nexus-snapshots</id>
-            <name>lib snapshot</name>
-            <url>http://m2.kanzhun-inc.com/nexus/content/repositories/snapshots/</url>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
 <!--        <repository>-->
 <!--            <id>lechun-releases</id>-->
 <!--            <name>releases repository</name>-->
@@ -536,16 +534,14 @@
                 </pluginManagement>
             </build>
             <distributionManagement>
-                <repository>
-                    <id>nexus-releases</id>
-                    <name>lib release</name>
-                    <url>http://m2.kanzhun-inc.com/nexus/content/repositories/releases/</url>
-                </repository>
                 <snapshotRepository>
-                    <id>nexus-snapshots</id>
-                    <name>lib snapshot</name>
-                    <url>http://m2.kanzhun-inc.com/nexus/content/repositories/snapshots/</url>
+                    <id>ossrh</id>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
                 </snapshotRepository>
+                <repository>
+                    <id>ossrh</id>
+                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                </repository>
             </distributionManagement>
         </profile>
     </profiles>
