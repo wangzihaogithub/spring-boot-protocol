@@ -7,9 +7,11 @@ import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.StringUtil;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.*;
+import com.github.netty.protocol.servlet.util.Protocol;
 import com.github.netty.springboot.NettyProperties;
 import com.github.netty.springboot.SpringUtil;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.BeansException;
@@ -57,6 +59,11 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     @Override
     public void upgradeWebsocket(ChannelHandlerContext ctx, HttpRequest request) {
         // for spring upgradeWebsocket NettyRequestUpgradeStrategy
+        ChannelPipeline pipeline = ctx.pipeline();
+        addServletPipeline(pipeline, Protocol.http1_1);
+        pipeline.fireChannelRegistered();
+        pipeline.fireChannelActive();
+        pipeline.fireChannelRead(request);
     }
 
     @Override

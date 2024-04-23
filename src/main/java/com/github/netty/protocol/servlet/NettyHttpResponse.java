@@ -28,7 +28,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     protected final AtomicBoolean isSettingResponse = new AtomicBoolean(false);
     private DecoderResult decoderResult;
     private HttpVersion version;
-    private HttpHeaders headers;
+    private final HttpHeaders headers;
     private HttpResponseStatus status;
     private LastHttpContent lastHttpContent;
     private ServletHttpExchange exchange;
