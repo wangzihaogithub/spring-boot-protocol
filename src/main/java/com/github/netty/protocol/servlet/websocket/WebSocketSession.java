@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class WebSocketSession implements Session {
     public static final AttributeKey<WebSocketSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(WebSocketSession.class + "#WebSocketSession");
     public static final SendResult SEND_RESULT_OK = new SendResult();
-    private static AtomicLong ids = new AtomicLong(0);
+    private static final AtomicLong ids = new AtomicLong(0);
     private final Channel channel;
     private final WebSocketServerHandshaker13Extension webSocketServerHandshaker;
     private final Endpoint localEndpoint;

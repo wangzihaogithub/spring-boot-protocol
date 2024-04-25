@@ -21,9 +21,9 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class ServletFilePart implements Part {
-    private FileUpload fileUpload;
+    private final FileUpload fileUpload;
     private ResourceManager resourceManager;
-    private Supplier<ResourceManager> resourceManagerSupplier;
+    private final Supplier<ResourceManager> resourceManagerSupplier;
     private Map<String, String> headerMap;
 
     public ServletFilePart(FileUpload fileUpload, Supplier<ResourceManager> resourceManagerSupplier) {

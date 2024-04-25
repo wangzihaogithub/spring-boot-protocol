@@ -14,8 +14,8 @@ import java.util.List;
  * @author wangzihao
  */
 public class SessionCompositeServiceImpl implements SessionService {
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private String name = NamespaceUtil.newIdName(getClass());
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private final String name = NamespaceUtil.newIdName(getClass());
 
     private SessionService sessionService;
     private final ServletContext servletContext;

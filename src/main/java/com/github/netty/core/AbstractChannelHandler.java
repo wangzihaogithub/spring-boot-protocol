@@ -18,7 +18,7 @@ public abstract class AbstractChannelHandler<I, O> extends ChannelDuplexHandler 
     private final TypeParameterMatcher matcherInbound;
     private final TypeParameterMatcher matcherOutbound;
     private final boolean autoRelease;
-    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    protected final LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
     protected AbstractChannelHandler() {
         this(true);

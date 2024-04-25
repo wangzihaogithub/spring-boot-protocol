@@ -40,7 +40,7 @@ public class SessionLocalMemoryServiceImpl implements SessionService {
         if (session == null) {
             return;
         }
-        sessionMap.put(session.getId(), session, session.getMaxInactiveInterval() * 1000);
+        sessionMap.put(session.getId(), session, session.getMaxInactiveInterval() * 1000L);
     }
 
     @Override

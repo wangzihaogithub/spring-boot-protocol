@@ -34,9 +34,9 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
      * Container configuration information
      */
     private final NettyProperties properties;
-    private Collection<ProtocolHandler> protocolHandlers;
-    private Collection<ServerListener> serverListeners;
-    private Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
+    private final Collection<ProtocolHandler> protocolHandlers;
+    private final Collection<ServerListener> serverListeners;
+    private final Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
 
     public NettyTcpServer(InetSocketAddress serverAddress, NettyProperties properties,
                           Collection<ProtocolHandler> protocolHandlers,

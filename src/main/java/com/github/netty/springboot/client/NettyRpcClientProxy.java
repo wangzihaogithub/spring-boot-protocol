@@ -67,7 +67,7 @@ public class NettyRpcClientProxy implements InvocationHandler {
             NRpcMethod.class, RequestMapping.class);
     private String serviceName;
     private int timeout;
-    private NettyProperties properties;
+    private final NettyProperties properties;
     private Supplier<NettyRpcLoadBalanced> loadBalancedSupplier;
 
     NettyRpcClientProxy(String serviceName, String requestMappingName, Class interfaceClass, NettyProperties properties, Supplier<NettyRpcLoadBalanced> loadBalancedSupplier) {

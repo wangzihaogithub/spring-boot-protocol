@@ -25,14 +25,14 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     private static final String SESSION_GROUP = "/session";
     private static final LoggerX logger = LoggerFactoryX.getLogger(SessionRemoteRpcServiceImpl.class);
     private static final byte[] EMPTY = {};
-    private String name = NamespaceUtil.newIdName(getClass());
-    private InetSocketAddress address;
-    private int ioRatio;
-    private int ioThreadCount;
-    private boolean enableRpcHeartLog;
-    private int rpcClientHeartIntervalMillSecond;
-    private int reconnectIntervalMillSeconds;
-    private FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>() {
+    private final String name = NamespaceUtil.newIdName(getClass());
+    private final InetSocketAddress address;
+    private final int ioRatio;
+    private final int ioThreadCount;
+    private final boolean enableRpcHeartLog;
+    private final int rpcClientHeartIntervalMillSecond;
+    private final int reconnectIntervalMillSeconds;
+    private final FastThreadLocal<RpcClient> rpcClientThreadLocal = new FastThreadLocal<RpcClient>() {
         @Override
         protected RpcClient initialValue() throws Exception {
             RpcClient rpcClient = new RpcClient("Session", address);
@@ -64,7 +64,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     @Override
     public void saveSession(Session session) {
         byte[] bytes = encode(session);
-        long expireSecond = (session.getMaxInactiveInterval() * 1000 + session.getCreationTime() - System.currentTimeMillis()) / 1000;
+        long expireSecond = (session.getMaxInactiveInterval() * 1000L + session.getCreationTime() - System.currentTimeMillis()) / 1000;
         if (expireSecond > 0) {
             getRpcDBService().put4(session.getId(), bytes, (int) expireSecond, SESSION_GROUP);
         } else {
@@ -85,8 +85,7 @@ public class SessionRemoteRpcServiceImpl implements SessionService {
     @Override
     public Session getSession(String sessionId) {
         byte[] bytes = getRpcDBService().get2(sessionId, SESSION_GROUP);
-        Session session = decode(bytes);
-        return session;
+        return decode(bytes);
     }
 
     @Override

@@ -87,7 +87,7 @@ public class IOUtil {
         }
         File parentTarget = new File(targetPath);
         parentTarget.mkdirs();
-        File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
+        File inFile = new File(sourcePath + File.separator + sourceFileName);
         File outFile = new File(parentTarget, targetFileName);
         if (!outFile.exists()) {
             outFile.createNewFile();
@@ -182,7 +182,7 @@ public class IOUtil {
             targetPath = "";
         }
         new File(targetPath).mkdirs();
-        File outFile = new File(targetPath.concat(File.separator).concat(targetFileName));
+        File outFile = new File(targetPath + (File.separator) + (targetFileName));
         if (!outFile.exists()) {
             outFile.createNewFile();
         }
@@ -321,7 +321,7 @@ public class IOUtil {
             targetPath = "";
         }
         new File(targetPath).mkdirs();
-        File outFile = new File(targetPath.concat(File.separator).concat(targetFileName));
+        File outFile = new File(targetPath + (File.separator) + (targetFileName));
         if (!outFile.exists()) {
             outFile.createNewFile();
         }
@@ -340,7 +340,7 @@ public class IOUtil {
         if (sourcePath == null) {
             sourcePath = "";
         }
-        File inFile = new File(sourcePath.concat(File.separator).concat(sourceFileName));
+        File inFile = new File(sourcePath + (File.separator) + (sourceFileName));
         return new FileInputStream(inFile);
     }
 

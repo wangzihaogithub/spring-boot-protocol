@@ -10,7 +10,7 @@ import java.util.function.Supplier;
 
 public class HttpLazyThreadPool implements Supplier<Executor> {
     private final String poolName;
-    private /*volatile*/ NettyThreadPoolExecutor executor;
+    private volatile NettyThreadPoolExecutor executor;
 
     public HttpLazyThreadPool(String poolName) {
         this.poolName = poolName;

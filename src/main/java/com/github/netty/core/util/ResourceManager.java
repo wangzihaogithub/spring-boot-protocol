@@ -4,10 +4,10 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Objects;
-import java.util.Set;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Resource management (note: prefix all directories with/for operations)
@@ -15,15 +15,11 @@ import java.util.Set;
  * @author wangzihao
  */
 public class ResourceManager {
-    /**
-     * lock file
-     * Prevent folder from being deleted
-     */
-    private final RandomAccessFile lock;
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private String rootPath;
-    private ClassLoader classLoader;
-    private String workspace;
+    private final Map<String, Path> mkdirsSet = new ConcurrentHashMap<>();
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private final String rootPath;
+    private final ClassLoader classLoader;
+    private final String workspace;
 
     public ResourceManager(String rootPath) {
         this(rootPath, "");
@@ -45,20 +41,12 @@ public class ResourceManager {
         if (workspace == null || "/".equals(workspace)) {
             workspace = "";
         }
-        if (workspace.length() > 0 && workspace.charAt(0) != '/') {
+        if (!workspace.isEmpty() && workspace.charAt(0) != '/') {
             workspace = "/".concat(workspace);
         }
         this.workspace = workspace;
         this.classLoader = classLoader == null ? getClass().getClassLoader() : classLoader;
-        RandomAccessFile lock;
-        try {
-            File file = writeFile(new byte[]{1}, "/", ".lock", true);
-            lock = new RandomAccessFile(file, "rwd");
-        } catch (IOException e) {
-            lock = null;
-            logger.warn("ResourceManager lock file create fail {}", e.toString());
-        }
-        this.lock = lock;
+        mkdirs("/");
         logger.info("ResourceManager rootPath : '{}', workspace : '{}'", rootPath, workspace);
     }
 
@@ -67,21 +55,13 @@ public class ResourceManager {
             File tempDir = File.createTempFile(prefix + ".", "");
             tempDir.delete();
             tempDir.mkdir();
-            tempDir.deleteOnExit();
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> IOUtil.deleteDir(tempDir)));
             return tempDir;
         } catch (IOException ex) {
             throw new IllegalStateException(
                     "Unable to create tempDir. java.io.tmpdir is set to "
                             + System.getProperty("java.io.tmpdir"),
                     ex);
-        }
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        super.finalize();
-        if (lock != null) {
-            lock.close();
         }
     }
 
@@ -266,7 +246,7 @@ public class ResourceManager {
         if (workspace.isEmpty()) {
             realPath = rootPath.concat(path);
         } else {
-            realPath = rootPath.concat(workspace).concat(path);
+            realPath = rootPath + workspace + path;
         }
         return realPath;
     }
@@ -372,19 +352,29 @@ public class ResourceManager {
     /**
      * Create file (can be created with parent file)
      *
-     * @param path The file path
+     * @param pathStr The file path
      * @return <code>true</code> if and only if the directory was created,
      * along with all necessary parent directories; <code>false</code>
      * otherwise
      */
-    public boolean mkdirs(String path) {
-        if (path == null || path.isEmpty()) {
-            return false;
+    public Path mkdirs(String pathStr) {
+        if (pathStr == null || pathStr.isEmpty()) {
+            throw new NullPointerException("pathStr");
         }
-        if (path.charAt(0) != '/') {
-            throw new IllegalArgumentException("Path '" + path + "' must start with '/'");
+        if (pathStr.charAt(0) != '/') {
+            throw new IllegalArgumentException("Path '" + pathStr + "' must start with '/'");
         }
-        return new File(getRealPath(path)).mkdirs();
+        String realPath = getRealPath(pathStr);
+        Path path = mkdirsSet.get(realPath);
+        if (path == null) {
+            path = Paths.get(realPath);
+            File f = new File(realPath);
+            f.mkdirs();
+            mkdirsSet.put(realPath, path);
+        } else {
+            path.toFile().mkdirs();
+        }
+        return path;
     }
 
     /**

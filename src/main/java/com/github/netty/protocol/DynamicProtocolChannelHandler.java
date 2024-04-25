@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 @ChannelHandler.Sharable
 public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBuf, Object> {
     public static final AttributeKey<TcpChannel> ATTR_KEY_TCP_CHANNEL = AttributeKey.valueOf(TcpChannel.class + "#Dy");
-    private RemoveTcpChannelHandler removeTcpChannelHandler = new RemoveTcpChannelHandler();
+    private final RemoveTcpChannelHandler removeTcpChannelHandler = new RemoveTcpChannelHandler();
     /**
      * Protocol registry list, dynamic protocol will find a suitable protocol to supportPipeline on the new link
      */

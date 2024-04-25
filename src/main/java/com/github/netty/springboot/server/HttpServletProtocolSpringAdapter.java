@@ -24,6 +24,7 @@ import org.springframework.boot.web.server.*;
 import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
 
+import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
@@ -136,7 +137,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
             Number fileSizeThreshold = SpringUtil.getNumberBytes(multipartProperties, "getFileSizeThreshold");
 
             super.setMaxChunkSize(maxRequestSize.longValue());
-            servletContext.setUploadMinSize(fileSizeThreshold.longValue());
+            servletContext.setFileSizeThreshold(fileSizeThreshold.longValue());
             location = multipartProperties.getLocation();
         }
 

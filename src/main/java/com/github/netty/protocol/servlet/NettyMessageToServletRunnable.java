@@ -72,13 +72,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         return ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get() != null;
     }
 
-    static boolean addAsyncContextDispatch(Runnable runnable) {
+    static void addAsyncContextDispatch(Runnable runnable) {
         List<Runnable> list = ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get();
         if (list != null) {
             list.add(runnable);
-            return true;
-        }else {
-            return false;
         }
     }
 
@@ -116,7 +113,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         // body
         if (msg instanceof HttpContent && exchange.closeStatus() == CLOSE_NO) {
             needDiscard = false;
-            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg, servletContext);
+            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
             if (exchange.getRequest().isMultipart() || msg instanceof LastHttpContent) {
                 result = this.httpRunnable;
                 this.httpRunnable = null;

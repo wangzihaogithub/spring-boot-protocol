@@ -23,11 +23,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author wenshao[szujobs@hotmail.com]
  */
 public class TypeUtil {
+    private static final Map<String, TypeResult> GENERIC_TYPE_CACHE = new ConcurrentHashMap<>(16);
+    private static final TypeResult NULL = new TypeResult(null, 0, 0);
 
     public static boolean isPrimitive(Class<?> clazz) {
         if (clazz.isPrimitive()) {
@@ -45,6 +48,16 @@ public class TypeUtil {
 
     public static <T> TypeResult getGenericType(Class<T> type,
                                                 Class<? extends T> clazz) {
+        String cacheKey = System.identityHashCode(type) + "_" + System.identityHashCode(clazz);
+        TypeResult typeResult = GENERIC_TYPE_CACHE.computeIfAbsent(cacheKey, k -> {
+            TypeResult result = getGenericType0(type, clazz);
+            return result == null ? NULL : result;
+        });
+        return typeResult == NULL ? null : typeResult;
+    }
+
+    private static <T> TypeResult getGenericType0(Class<T> type,
+                                                  Class<? extends T> clazz) {
 
         // Look to see if this class implements the interface of interest
 
@@ -73,7 +86,7 @@ public class TypeUtil {
             return null;
         }
 
-        TypeResult superClassTypeResult = getGenericType(type, superClazz);
+        TypeResult superClassTypeResult = getGenericType0(type, superClazz);
         int dimension = superClassTypeResult.getDimension();
         if (superClassTypeResult.getIndex() == -1 && dimension == 0) {
             // Superclass implements interface and defines explicit type for

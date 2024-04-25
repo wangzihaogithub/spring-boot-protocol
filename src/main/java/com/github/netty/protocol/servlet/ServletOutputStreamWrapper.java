@@ -29,7 +29,7 @@ public class ServletOutputStreamWrapper extends javax.servlet.ServletOutputStrea
      */
     private boolean suspendFlag = false;
 
-    private ChannelFutureListener closeListener;
+    private final ChannelFutureListener closeListener;
 
     public ServletOutputStreamWrapper(ChannelFutureListener closeListener) {
         this.closeListener = closeListener;

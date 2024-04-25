@@ -219,8 +219,8 @@ public class NettyEmbeddedAutoConfiguration {
                 int maxThreads = pool.getMaxThreads();
                 int queues = pool.getQueues();
                 int keepAliveSeconds = pool.getKeepAliveSeconds();
-                boolean fixed = pool.isFixed();
-                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, fixed, rejectedHandler);
+                boolean allowCoreThreadTimeOut = pool.isAllowCoreThreadTimeOut();
+                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, allowCoreThreadTimeOut, rejectedHandler);
                 executorSupplier = () -> executor;
             } else {
                 Executor executor = factory.getBean(pool.getExecutor());
@@ -258,8 +258,8 @@ public class NettyEmbeddedAutoConfiguration {
                 int maxThreads = pool.getMaxThreads();
                 int queues = pool.getQueues();
                 int keepAliveSeconds = pool.getKeepAliveSeconds();
-                boolean fixed = pool.isFixed();
-                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, fixed, rejectedHandler);
+                boolean allowCoreThreadTimeOut = pool.isAllowCoreThreadTimeOut();
+                NettyThreadPoolExecutor executor = newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, allowCoreThreadTimeOut, rejectedHandler);
                 executorSupplier = () -> executor;
             } else {
                 executorSupplier = () -> factory.getBean(pool.getExecutor());
@@ -276,29 +276,26 @@ public class NettyEmbeddedAutoConfiguration {
             int maxThreads,
             int queues,
             int keepAliveSeconds,
-            boolean fixed,
+            boolean allowCoreThreadTimeOut,
             RejectedExecutionHandler handler) {
         BlockingQueue<Runnable> workQueue = queues == 0 ?
                 new SynchronousQueue<>() :
                 (queues < 0 ? new LinkedBlockingQueue<>(Integer.MAX_VALUE)
                         : new LinkedBlockingQueue<>(queues));
-        if (fixed) {
-            int max = Math.max(coreThreads, maxThreads);
-            coreThreads = max;
-            maxThreads = max;
-        }
-        int priority = Thread.NORM_PRIORITY;
         boolean daemon = true;
-        return new NettyThreadPoolExecutor(
+        NettyThreadPoolExecutor executor = new NettyThreadPoolExecutor(
                 coreThreads, maxThreads, keepAliveSeconds, TimeUnit.SECONDS,
-                workQueue, poolName, priority, daemon, handler);
+                workQueue, poolName, Thread.NORM_PRIORITY, daemon, handler);
+        executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);
+        executor.prestartCoreThread();
+        return executor;
     }
 
     public static class LazyPool implements Supplier<Executor> {
         protected final NettyProperties.HttpServlet.ServerThreadPool pool;
         protected final RejectedExecutionHandler rejectedHandler;
         protected final NettyEmbeddedAutoConfiguration autoConfiguration;
-        protected /*volatile*/ Executor executor;
+        protected volatile Executor executor;
 
         public LazyPool(NettyEmbeddedAutoConfiguration autoConfiguration, NettyProperties.HttpServlet.ServerThreadPool pool, RejectedExecutionHandler rejectedHandler) {
             this.autoConfiguration = autoConfiguration;
@@ -316,8 +313,8 @@ public class NettyEmbeddedAutoConfiguration {
                         int maxThreads = pool.getMaxThreads();
                         int queues = pool.getQueues();
                         int keepAliveSeconds = pool.getKeepAliveSeconds();
-                        boolean fixed = pool.isFixed();
-                        executor = autoConfiguration.newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, fixed, rejectedHandler);
+                        boolean allowCoreThreadTimeOut = pool.isAllowCoreThreadTimeOut();
+                        executor = autoConfiguration.newNettyThreadPoolExecutor(poolName, coreThreads, maxThreads, queues, keepAliveSeconds, allowCoreThreadTimeOut, rejectedHandler);
                     }
                 }
             }

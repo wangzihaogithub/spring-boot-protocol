@@ -17,9 +17,9 @@ import java.nio.charset.Charset;
 import java.util.*;
 
 public class WebsocketServletUpgrader {
-    private AntPathMatcher pathMatcher = new AntPathMatcher();
-    private Map<String, EndpointHolder> endpointHolderMap = new LinkedHashMap<>();
-    private EndpointHolder notFoundHandlerEndpointHolder = new EndpointHolder(
+    private final AntPathMatcher pathMatcher = new AntPathMatcher();
+    private final Map<String, EndpointHolder> endpointHolderMap = new LinkedHashMap<>();
+    private final EndpointHolder notFoundHandlerEndpointHolder = new EndpointHolder(
             WebSocketNotFoundHandlerEndpoint.INSTANCE,
             ServerEndpointConfig.Builder.create(WebSocketNotFoundHandlerEndpoint.class, "/").build());
 

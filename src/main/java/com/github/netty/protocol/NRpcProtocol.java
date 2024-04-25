@@ -52,8 +52,8 @@ import static com.github.netty.protocol.nrpc.RpcServerChannelHandler.getRequestM
 public class NRpcProtocol extends AbstractProtocol {
     private final List<RpcServerAop> rpcServerAopList = new ArrayList<>();
     private final AnnotationMethodToMethodNameFunction annotationMethodToMethodNameFunction = new AnnotationMethodToMethodNameFunction(NRpcMethod.class);
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private ApplicationX application;
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private final ApplicationX application;
     private Supplier<Executor> executorSupplier;
     /**
      * Maximum message length per pass
@@ -64,7 +64,7 @@ public class NRpcProtocol extends AbstractProtocol {
      * so the name of the method to ensure that each class is unique)
      */
     private boolean methodOverwriteCheck = true;
-    private Map<Object, Instance> instanceMap = new LinkedHashMap<>();
+    private final Map<Object, Instance> instanceMap = new LinkedHashMap<>();
     private String serverDefaultVersion;
 
     public NRpcProtocol(ApplicationX application) {
