@@ -287,7 +287,6 @@ public class NettyEmbeddedAutoConfiguration {
                 coreThreads, maxThreads, keepAliveSeconds, TimeUnit.SECONDS,
                 workQueue, poolName, Thread.NORM_PRIORITY, daemon, handler);
         executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);
-        executor.prestartCoreThread();
         return executor;
     }
 
