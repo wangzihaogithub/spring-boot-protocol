@@ -17,16 +17,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ServletFilterRegistration implements FilterRegistration, FilterRegistration.Dynamic {
 
-    private String filterName;
-    private Filter filter;
-    private FilterConfig filterConfig;
-    private ServletContext servletContext;
-    private FilterMapper<ServletFilterRegistration> urlMapper;
+    private final String filterName;
+    private final Filter filter;
+    private final FilterConfig filterConfig;
+    private final ServletContext servletContext;
+    private final FilterMapper<ServletFilterRegistration> urlMapper;
     private boolean asyncSupported = true;
     private Map<String, String> initParameterMap = new LinkedHashMap<>();
-    private MappingSet mappingSet = new MappingSet();
-    private Set<String> servletNameMappingSet = new HashSet<>();
-    private AtomicBoolean initFilter = new AtomicBoolean();
+    private final MappingSet mappingSet = new MappingSet();
+    private final Set<String> servletNameMappingSet = new HashSet<>();
+    private final AtomicBoolean initFilter = new AtomicBoolean();
     public ServletFilterRegistration(String filterName, Filter servlet, ServletContext servletContext, FilterMapper<ServletFilterRegistration> urlMapper) {
         this.filterName = filterName;
         this.filter = servlet;

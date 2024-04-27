@@ -3,6 +3,7 @@ package com.github.netty.springboot.server;
 import com.github.netty.core.Ordered;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
+import com.github.netty.core.util.IOUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
@@ -39,9 +40,9 @@ public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
         implements ConfigurableReactiveWebServerFactory, ConfigurableServletWebServerFactory {
     protected NettyProperties properties;
-    private Collection<ProtocolHandler> protocolHandlers = new TreeSet<>(Ordered.COMPARATOR);
-    private Collection<ServerListener> serverListeners = new TreeSet<>(Ordered.COMPARATOR);
-    private Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
+    private final Collection<ProtocolHandler> protocolHandlers = new TreeSet<>(Ordered.COMPARATOR);
+    private final Collection<ServerListener> serverListeners = new TreeSet<>(Ordered.COMPARATOR);
+    private final Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
 
     public NettyTcpServerFactory() {
         this(new NettyProperties(), DynamicProtocolChannelHandler::new);
@@ -135,7 +136,9 @@ public class NettyTcpServerFactory
         }
         if (dir == null) {
             //The temporary directory
-            dir = super.createTempDir("netty-docbase");
+            File tempDir = super.createTempDir("netty-docbase");
+            dir = tempDir;
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> IOUtil.deleteDir(tempDir)));
         }
         return dir;
     }

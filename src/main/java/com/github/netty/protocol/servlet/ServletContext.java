@@ -18,6 +18,8 @@ import javax.servlet.descriptor.JspConfigDescriptor;
 import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionIdListener;
 import javax.servlet.http.HttpSessionListener;
+import java.io.Closeable;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.InetSocketAddress;
@@ -35,7 +37,10 @@ import java.util.function.Supplier;
  * 2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
+    public static final int MIN_FILE_SIZE_THRESHOLD = 16384;
+    public static final String DEFAULT_UPLOAD_DIR = "/upload";
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
+    private static final List<ServletContext> INSTANCE_LIST = Collections.synchronizedList(new ArrayList<>(2));
     //    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
     private final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
     /**
@@ -49,27 +54,27 @@ public class ServletContext implements javax.servlet.ServletContext {
     /**
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
      */
-    private long uploadMinSize = 4096 * 16;
+    private long fileSizeThreshold = 4096 * 16;
     /**
      * Upload file timeout millisecond , -1 is not control timeout.
      */
     private long uploadFileTimeoutMs = -1;
-    private Map<String, Object> attributeMap = new LinkedHashMap<>(16);
-    private Map<String, String> initParamMap = new LinkedHashMap<>(16);
-    private Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
-    private Map<String, ServletFilterRegistration> filterRegistrationMap = new LinkedHashMap<>(8);
-    private FastThreadLocal<Map<Charset, HttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, HttpDataFactory>>() {
+    private final Map<String, Object> attributeMap = new LinkedHashMap<>(16);
+    private final Map<String, String> initParamMap = new LinkedHashMap<>(16);
+    private final Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
+    private final Map<String, ServletFilterRegistration> filterRegistrationMap = new LinkedHashMap<>(8);
+    private final FastThreadLocal<Map<Charset, DefaultHttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, DefaultHttpDataFactory>>() {
         @Override
-        protected Map<Charset, HttpDataFactory> initialValue() throws Exception {
-            return new LinkedHashMap<>(5);
+        protected Map<Charset, DefaultHttpDataFactory> initialValue() throws Exception {
+            return new LinkedHashMap<>(3);
         }
     };
-    private Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE, SessionTrackingMode.URL));
-    private MimeMappingsX mimeMappings = new MimeMappingsX();
-    private ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
-    private ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
-    private UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>(true);
-    private FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
+    private final Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE, SessionTrackingMode.URL));
+    private final MimeMappingsX mimeMappings = new MimeMappingsX();
+    private final ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
+    private final ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
+    private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>(true);
+    private final FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
     private ResourceManager resourceManager;
     private Supplier<Executor> asyncExecutorSupplier;
     private Supplier<Executor> defaultExecutorSupplier;
@@ -84,7 +89,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private String responseCharacterEncoding;
     private String servletContextName;
     private InetSocketAddress serverAddress;
-    private ClassLoader classLoader;
+    private final ClassLoader classLoader;
     /**
      * output stream maxBufferBytes
      * Each buffer accumulate the maximum number of bytes (default 1M)
@@ -97,6 +102,35 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public ServletContext(ClassLoader classLoader) {
         this.classLoader = classLoader == null ? getClass().getClassLoader() : classLoader;
+        INSTANCE_LIST.add(this);
+    }
+
+    public static void asyncClose(Closeable closeable) {
+        Executor executor = null;
+        for (ServletContext servletContext : INSTANCE_LIST) {
+            executor = servletContext.asyncExecutorSupplier != null ? servletContext.asyncExecutorSupplier.get() : null;
+            if (executor == null) {
+                executor = servletContext.defaultExecutorSupplier.get();
+            }
+            if (executor != null) {
+                break;
+            }
+        }
+        if (executor != null) {
+            executor.execute(() -> {
+                try {
+                    closeable.close();
+                } catch (IOException ignored) {
+
+                }
+            });
+        } else {
+            try {
+                closeable.close();
+            } catch (IOException ignored) {
+
+            }
+        }
     }
 
     public static String normPath(String path) {
@@ -173,14 +207,13 @@ public class ServletContext implements javax.servlet.ServletContext {
     public void setDocBase(String docBase, String workspace) {
         ResourceManager old = this.resourceManager;
         this.resourceManager = new ResourceManager(docBase, workspace, classLoader);
-        this.resourceManager.mkdirs("/");
         if (old != null) {
             getLog().warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
         }
         DiskFileUpload.deleteOnExitTemporaryFile = true;
         DiskAttribute.deleteOnExitTemporaryFile = true;
-        DiskFileUpload.baseDirectory = resourceManager.getRealPath("/");
-        DiskAttribute.baseDirectory = resourceManager.getRealPath("/");
+        DiskFileUpload.baseDirectory = resourceManager.getRealPath(DEFAULT_UPLOAD_DIR);
+        DiskAttribute.baseDirectory = resourceManager.getRealPath(DEFAULT_UPLOAD_DIR);
     }
 
     private LoggerX getLog() {
@@ -219,25 +252,25 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public HttpDataFactory getHttpDataFactory(Charset charset) {
-        Map<Charset, HttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
-        HttpDataFactory factory = httpDataFactoryMap.get(charset);
-        if (factory == null) {
-            factory = new DefaultHttpDataFactory(uploadMinSize, charset);
-            httpDataFactoryMap.put(charset, factory);
-        }
-        return factory;
+        Map<Charset, DefaultHttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
+        return httpDataFactoryMap.computeIfAbsent(charset, c -> {
+            DefaultHttpDataFactory factory = new DefaultHttpDataFactory(fileSizeThreshold, c);
+            factory.setDeleteOnExit(true);
+            factory.setBaseDir(resourceManager.getRealPath(DEFAULT_UPLOAD_DIR));
+            return factory;
+        });
     }
 
     public String getServletPath(String absoluteUri) {
         return servletUrlMapper.getServletPath(absoluteUri);
     }
 
-    public long getUploadMinSize() {
-        return uploadMinSize;
+    public long getFileSizeThreshold() {
+        return fileSizeThreshold;
     }
 
-    public void setUploadMinSize(long uploadMinSize) {
-        this.uploadMinSize = uploadMinSize;
+    public void setFileSizeThreshold(long fileSizeThreshold) {
+        this.fileSizeThreshold = Math.max(fileSizeThreshold, MIN_FILE_SIZE_THRESHOLD);
     }
 
     public MimeMappingsX getMimeMappings() {
@@ -473,13 +506,13 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public String getServerInfo() {
         return Version.getServerInfo()
-                .concat("(JDK ")
-                .concat(Version.getJvmVersion())
-                .concat(";")
-                .concat(Version.getOsName())
-                .concat(" ")
-                .concat(Version.getArch())
-                .concat(")");
+                + ("(JDK ")
+                + (Version.getJvmVersion())
+                + (";")
+                + (Version.getOsName())
+                + (" ")
+                + (Version.getArch())
+                + (")");
     }
 
     @Override
@@ -561,13 +594,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public ServletRegistration addServlet(String servletName, Servlet servlet) {
         Servlet newServlet = servletEventListenerManager.onServletAdded(servlet);
-
-        ServletRegistration servletRegistration;
-        if (newServlet == null) {
-            servletRegistration = new ServletRegistration(servletName, servlet, this, servletUrlMapper);
-        } else {
-            servletRegistration = new ServletRegistration(servletName, newServlet, this, servletUrlMapper);
-        }
+        ServletRegistration servletRegistration = new ServletRegistration(servletName, newServlet != null ? newServlet : servlet, this, servletUrlMapper);
         servletRegistrationMap.put(servletName, servletRegistration);
         return servletRegistration;
     }
@@ -577,7 +604,8 @@ public class ServletContext implements javax.servlet.ServletContext {
         Servlet servlet = null;
         try {
             servlet = servletClass.getConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
+                 InvocationTargetException e) {
             throw new IllegalStateException("createServlet error =" + e + ",servletName=" + servletName, e);
         }
         return addServlet(servletName, servlet);
@@ -587,7 +615,8 @@ public class ServletContext implements javax.servlet.ServletContext {
     public <T extends Servlet> T createServlet(Class<T> clazz) throws ServletException {
         try {
             return clazz.getConstructor().newInstance();
-        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException | IllegalAccessException e) {
+        } catch (NoSuchMethodException | InvocationTargetException | InstantiationException |
+                 IllegalAccessException e) {
             throw new ServletException("createServlet error =" + e + ",clazz=" + clazz, e);
         }
     }
@@ -754,11 +783,11 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public String getVirtualServerName() {
         return Version.getServerInfo()
-                .concat(" (")
-                .concat(serverAddress.getHostName())
-                .concat(":")
-                .concat(SystemPropertyUtil.get("user.name"))
-                .concat(")");
+                + (" (")
+                + (serverAddress.getHostName())
+                + (":")
+                + (SystemPropertyUtil.get("user.name"))
+                + (")");
     }
 
     @Override

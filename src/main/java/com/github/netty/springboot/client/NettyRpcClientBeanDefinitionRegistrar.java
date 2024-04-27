@@ -51,9 +51,9 @@ public class NettyRpcClientBeanDefinitionRegistrar implements ImportBeanDefiniti
     private ResourceLoader resourceLoader;
     private ClassLoader classLoader;
     private Environment environment;
-    private String enableNettyRpcClientsCanonicalName = EnableNettyRpcClients.class.getCanonicalName();
-    private String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
-    private String lazyCanonicalName = Lazy.class.getCanonicalName();
+    private final String enableNettyRpcClientsCanonicalName = EnableNettyRpcClients.class.getCanonicalName();
+    private final String nettyRpcClientCanonicalName = NettyRpcClient.class.getCanonicalName();
+    private final String lazyCanonicalName = Lazy.class.getCanonicalName();
     private Supplier<NettyRpcLoadBalanced> nettyRpcLoadBalancedSupplier;
     private Supplier<NettyProperties> nettyPropertiesSupplier;
     private BeanFactory beanFactory;

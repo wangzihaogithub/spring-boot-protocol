@@ -28,7 +28,7 @@ public class WebSocketServerHandshaker13Extension extends WebSocketServerHandsha
     private int rsv = 0;
     private String httpDecoderContextName;
     private Channel channel;
-    private List<WebSocketServerExtensionHandshaker> extensionHandshakers = new ArrayList<>();
+    private final List<WebSocketServerExtensionHandshaker> extensionHandshakers = new ArrayList<>();
 
     public WebSocketServerHandshaker13Extension(String webSocketURL, String subprotocols,
                                                 boolean allowExtensions, int maxFramePayloadLength) {

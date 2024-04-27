@@ -31,8 +31,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @ChannelHandler.Sharable
 public class MessageMetricsChannelHandler extends AbstractChannelHandler<Object, Object> {
     private static final AttributeKey<MessageMetrics> ATTR_KEY_METRICS = AttributeKey.valueOf(MessageMetrics.class + "#MessageMetrics");
-    private AtomicLong readMessages = new AtomicLong();
-    private AtomicLong writeMessages = new AtomicLong();
+    private final AtomicLong readMessages = new AtomicLong();
+    private final AtomicLong writeMessages = new AtomicLong();
 
     public MessageMetricsChannelHandler() {
         super(false);

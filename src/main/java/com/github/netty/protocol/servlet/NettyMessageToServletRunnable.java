@@ -72,13 +72,10 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         return ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get() != null;
     }
 
-    static boolean addAsyncContextDispatch(Runnable runnable) {
+    static void addAsyncContextDispatch(Runnable runnable) {
         List<Runnable> list = ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get();
         if (list != null) {
             list.add(runnable);
-            return true;
-        }else {
-            return false;
         }
     }
 

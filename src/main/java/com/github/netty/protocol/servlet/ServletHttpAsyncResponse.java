@@ -15,8 +15,8 @@ import java.nio.charset.Charset;
  * 2018/7/15/015
  */
 public class ServletHttpAsyncResponse extends HttpServletResponseWrapper {
-    private ServletHttpExchange servletHttpExchange;
-    private ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);
+    private final ServletHttpExchange servletHttpExchange;
+    private final ServletOutputStreamWrapper outWrapper = new ServletOutputStreamWrapper(null);
     private PrintWriter writer;
 
     public ServletHttpAsyncResponse(ServletHttpServletResponse response, ServletOutputStream outputStream) {

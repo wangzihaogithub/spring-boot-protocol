@@ -45,7 +45,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
     private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
     private String dispatchPath;
-    private ServletAsyncContext servletAsyncContext;
+    private final ServletAsyncContext servletAsyncContext;
 
     public ServletHttpAsyncRequest(HttpServletRequest source, ServletAsyncContext servletAsyncContext) {
         super(source);

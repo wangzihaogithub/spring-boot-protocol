@@ -428,7 +428,7 @@ public class NettyProperties implements Serializable {
             private int maxThreads = 200;
             private int keepAliveSeconds = 180;
             private int queues = 0;
-            private boolean fixed = false;
+            private boolean allowCoreThreadTimeOut = false;
             private String poolName = "NettyX-http";
             /**
              * 如果出现繁忙拒绝执行, 则会自动dump线程信息. 值为空字符串则不进行dump.
@@ -507,12 +507,12 @@ public class NettyProperties implements Serializable {
                 this.queues = queues;
             }
 
-            public boolean isFixed() {
-                return fixed;
+            public boolean isAllowCoreThreadTimeOut() {
+                return allowCoreThreadTimeOut;
             }
 
-            public void setFixed(boolean fixed) {
-                this.fixed = fixed;
+            public void setAllowCoreThreadTimeOut(boolean allowCoreThreadTimeOut) {
+                this.allowCoreThreadTimeOut = allowCoreThreadTimeOut;
             }
         }
     }
@@ -720,7 +720,7 @@ public class NettyProperties implements Serializable {
             private int maxThreads = 50;
             private int keepAliveSeconds = 180;
             private int queues = 0;
-            private boolean fixed = false;
+            private boolean allowCoreThreadTimeOut = false;
             private String poolName = "NettyX-nrpc";
             /**
              * 如果出现繁忙拒绝执行, 则会自动dump线程信息. 值为空字符串则不进行dump.
@@ -799,12 +799,12 @@ public class NettyProperties implements Serializable {
                 this.queues = queues;
             }
 
-            public boolean isFixed() {
-                return fixed;
+            public void setAllowCoreThreadTimeOut(boolean allowCoreThreadTimeOut) {
+                this.allowCoreThreadTimeOut = allowCoreThreadTimeOut;
             }
 
-            public void setFixed(boolean fixed) {
-                this.fixed = fixed;
+            public boolean isAllowCoreThreadTimeOut() {
+                return allowCoreThreadTimeOut;
             }
         }
     }

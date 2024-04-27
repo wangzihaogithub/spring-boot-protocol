@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet.util;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.*;
 
 import java.io.IOException;
@@ -77,41 +76,6 @@ public class HttpHeaderUtil {
             return false;
         }
         return true;
-    }
-
-    /**
-     * 移除头部不支持拖挂的字段
-     *
-     * @param lastHttpContent 最后一次内容
-     */
-    public static void removeHeaderUnSupportTrailer(LastHttpContent lastHttpContent) {
-        if (lastHttpContent == null) {
-            return;
-        }
-        if (lastHttpContent == LastHttpContent.EMPTY_LAST_CONTENT) {
-            return;
-        }
-        HttpHeaders headers = lastHttpContent.trailingHeaders();
-        if (headers.isEmpty()) {
-            return;
-        }
-        headers.remove(HttpHeaderConstants.TRANSFER_ENCODING.toString());
-        headers.remove(HttpHeaderConstants.CONTENT_LENGTH.toString());
-        headers.remove(HttpHeaderConstants.TRAILER.toString());
-    }
-
-    /**
-     * 是否接受分段传输
-     *
-     * @param headers headers
-     * @return boolean
-     */
-    public static boolean isAcceptTransferChunked(HttpHeaders headers) {
-        String transferEncodingValue = headers.get(HttpHeaderConstants.TE);
-        if (transferEncodingValue == null || transferEncodingValue.isEmpty()) {
-            return true;
-        }
-        return headers.contains(HttpHeaderConstants.TE, HttpHeaderConstants.CHUNKED.toString(), true);
     }
 
     /**
@@ -256,65 +220,6 @@ public class HttpHeaderUtil {
     }
 
     /**
-     * Sets the {@code "Content-Length"} header.
-     *
-     * @param headers headers
-     * @param length  length
-     */
-    public static void setContentLength(HttpHeaders headers, long length) {
-        headers.set(HttpHeaderConstants.CONTENT_LENGTH, String.valueOf(length));
-    }
-
-    /**
-     * Returns {@code true} if and only if the specified message contains the
-     * {@code "Expect: 100-continue"} header.
-     *
-     * @param message message
-     * @return is100ContinueExpected
-     */
-    public static boolean is100ContinueExpected(HttpRequest message) {
-        // Expect: 100-continue is for requests only.
-        if (message == null) {
-            return false;
-        }
-
-        // It works only on HTTP/1.1 or later.
-        if (message.protocolVersion().compareTo(HttpVersion.HTTP_1_1) < 0) {
-            return false;
-        }
-
-        // In most cases, there will be one or zero 'Expect' header.
-        CharSequence value = message.headers().get(HttpHeaderConstants.EXPECT);
-        if (value == null) {
-            return false;
-        }
-        if (HttpHeaderConstants.CONTINUE.toString().equalsIgnoreCase(String.valueOf(value))) {
-            return true;
-        }
-
-        // Multiple 'Expect' headers.  Search through them.
-        return message.headers().contains(HttpHeaderConstants.EXPECT, HttpHeaderConstants.CONTINUE, true);
-    }
-
-    /**
-     * Sets or removes the {@code "Expect: 100-continue"} header to / from the
-     * specified message.  If the specified {@code value} is {@code true},
-     * the {@code "Expect: 100-continue"} header is set and all other previous
-     * {@code "Expect"} headers are removed.  Otherwise, all {@code "Expect"}
-     * headers are removed completely.
-     *
-     * @param message  message
-     * @param expected expected
-     */
-    public static void set100ContinueExpected(HttpMessage message, boolean expected) {
-        if (expected) {
-            message.headers().set(HttpHeaderConstants.EXPECT, HttpHeaderConstants.CONTINUE);
-        } else {
-            message.headers().remove(HttpHeaderConstants.EXPECT);
-        }
-    }
-
-    /**
      * Checks to see if the transfer encoding in a specified {@link HttpMessage} is chunked
      *
      * @param headers The message to check
@@ -351,13 +256,6 @@ public class HttpHeaderUtil {
             } else {
                 headers.set(HttpHeaderConstants.TRANSFER_ENCODING, values);
             }
-        }
-    }
-
-    static void encodeAscii0(CharSequence seq, ByteBuf buf) {
-        int length = seq.length();
-        for (int i = 0; i < length; i++) {
-            buf.writeByte((byte) seq.charAt(i));
         }
     }
 

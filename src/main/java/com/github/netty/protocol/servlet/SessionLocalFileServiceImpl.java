@@ -16,11 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * 2018/8/19/019
  */
 public class SessionLocalFileServiceImpl implements SessionService {
-    private String name = NamespaceUtil.newIdName(getClass());
-    private LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private String rootPath = "/session";
-    private ResourceManager resourceManager;
-    private SessionInvalidThread sessionInvalidThread;
+    private final String name = NamespaceUtil.newIdName(getClass());
+    private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
+    private final String rootPath = "/session";
+    private final ResourceManager resourceManager;
+    private final SessionInvalidThread sessionInvalidThread;
     private final ServletContext servletContext;
 
     public SessionLocalFileServiceImpl(ResourceManager resourceManager, ServletContext servletContext) {
@@ -76,7 +76,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
     @Override
     public void removeSession(String sessionId) {
         String fileName = getFileName(sessionId);
-        resourceManager.delete(rootPath.concat(File.separator).concat(fileName));
+        resourceManager.delete(rootPath + (File.separator) + (fileName));
     }
 
     @Override
@@ -200,7 +200,7 @@ public class SessionLocalFileServiceImpl implements SessionService {
      */
     class SessionInvalidThread extends Thread {
         private final long sessionLifeCheckInter;
-        private LoggerX logger = LoggerFactoryX.getLogger(getClass());
+        private final LoggerX logger = LoggerFactoryX.getLogger(getClass());
 
         private SessionInvalidThread(long sessionLifeCheckInter) {
             super("NettyX-" + NamespaceUtil.newIdName(SessionInvalidThread.class));

@@ -13,7 +13,7 @@ import java.util.concurrent.*;
 public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
     private static final long TEN_MINUTES_MILLS = 10 * 60 * 1000;
     private static volatile long lastPrintTime = 0;
-    private static Semaphore guard = new Semaphore(1);
+    private static final Semaphore guard = new Semaphore(1);
     protected final String info;
     protected final String threadName;
     protected final String dumpPath;

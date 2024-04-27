@@ -8,13 +8,6 @@ package com.github.netty.core.util;
  */
 public interface Wrapper<T> {
 
-    static <T> T unwrap(T source) {
-        if (source instanceof Wrapper) {
-            return (T) ((Wrapper) source).unwrap();
-        }
-        return source;
-    }
-
     /**
      * wrap
      *

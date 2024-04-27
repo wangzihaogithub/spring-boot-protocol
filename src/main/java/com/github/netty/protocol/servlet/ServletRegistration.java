@@ -16,17 +16,17 @@ import java.util.*;
  */
 public class ServletRegistration implements javax.servlet.ServletRegistration, javax.servlet.ServletRegistration.Dynamic {
     private final Servlet servlet;
-    private String servletName;
-    private ServletConfig servletConfig;
-    private ServletContext servletContext;
-    private UrlMapper<ServletRegistration> urlMapper;
+    private final String servletName;
+    private final ServletConfig servletConfig;
+    private final ServletContext servletContext;
+    private final UrlMapper<ServletRegistration> urlMapper;
     private MultipartConfigElement multipartConfigElement;
     private ServletSecurityElement servletSecurityElement;
     private String roleName;
     private boolean asyncSupported = true;
     private int loadOnStartup = -1;
     private Map<String, String> initParameterMap = new LinkedHashMap<>();
-    private Set<String> mappingSet = new LinkedHashSet<String>() {
+    private final Set<String> mappingSet = new LinkedHashSet<String>() {
         @Override
         public boolean add(String pattern) {
             urlMapper.addMapping(pattern, ServletRegistration.this, servletName);
@@ -38,7 +38,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
             for (Object o : c) {
                 add(o.toString());
             }
-            return c.size() > 0;
+            return !c.isEmpty();
         }
 
         @Override
@@ -48,7 +48,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
         }
     };
     private volatile boolean initServlet = false;
-    private Set<String> servletSecuritys = new LinkedHashSet<>();
+    private final Set<String> servletSecuritys = new LinkedHashSet<>();
 
     public ServletRegistration(String servletName, Servlet servlet, ServletContext servletContext, UrlMapper<ServletRegistration> urlMapper) {
         this.servletName = servletName;

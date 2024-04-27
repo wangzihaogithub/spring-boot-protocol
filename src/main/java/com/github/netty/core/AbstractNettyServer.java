@@ -28,16 +28,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractNettyServer implements Runnable, Closeable {
     private final boolean enableEpoll;
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
-    private String name;
+    private final String name;
     private ServerSocketChannel serverChannel;
     private EventLoopGroup boss;
     private EventLoopGroup worker;
     private ServerBootstrap bootstrap;
-    private InetSocketAddress serverAddress;
+    private final InetSocketAddress serverAddress;
     private int ioThreadCount = 0;
     private int ioRatio = 100;
     private boolean running = false;
-    private AtomicBoolean initFlag = new AtomicBoolean(false);
+    private final AtomicBoolean initFlag = new AtomicBoolean(false);
     private ChannelFuture bootstrapFuture;
     private Throwable bootstrapThrowable;
 

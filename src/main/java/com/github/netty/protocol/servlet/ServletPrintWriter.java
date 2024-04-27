@@ -12,9 +12,9 @@ import java.util.Locale;
  */
 public class ServletPrintWriter extends PrintWriter {
     private static final Writer EMPTY_WRITER = new StringWriter(0);
-    private OutputStream out;
-    private Charset charset;
-    private String lineSeparator = System.lineSeparator();
+    private final OutputStream out;
+    private final Charset charset;
+    private final String lineSeparator = System.lineSeparator();
     private boolean error = false;
 
     ServletPrintWriter(OutputStream out, Charset charset) {

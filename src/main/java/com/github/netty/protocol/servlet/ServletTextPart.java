@@ -21,9 +21,9 @@ import java.util.function.Supplier;
  * @author wangzihao
  */
 public class ServletTextPart implements Part {
-    private Attribute attribute;
+    private final Attribute attribute;
     private ResourceManager resourceManager;
-    private Supplier<ResourceManager> resourceManagerSupplier;
+    private final Supplier<ResourceManager> resourceManagerSupplier;
     private Map<String, String> headerMap;
 
     public ServletTextPart(Attribute attribute, Supplier<ResourceManager> resourceManagerSupplier) {

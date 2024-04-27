@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public class NettyMessageToWebSocketRunnable implements MessageToRunnable {
     private static final Recycler<WebsocketRunnable> RECYCLER = new Recycler<>(WebsocketRunnable::new);
-    private MessageToRunnable parent;
+    private final MessageToRunnable parent;
 
     public NettyMessageToWebSocketRunnable(MessageToRunnable parent) {
         this.parent = parent;

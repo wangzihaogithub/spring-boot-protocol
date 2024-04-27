@@ -43,6 +43,7 @@ import java.util.*;
  */
 public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy {
     private int maxFramePayloadLength;
+    private static final String[] SUPPORTED_VERSIONS = new String[]{WebSocketVersion.V13.toHttpHeaderValue()};
 
     public NettyRequestUpgradeStrategy() {
         this(65536);
@@ -54,7 +55,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
 
     @Override
     public String[] getSupportedVersions() {
-        return new String[]{WebSocketVersion.V13.toHttpHeaderValue()};
+        return SUPPORTED_VERSIONS;
     }
 
     @Override
@@ -127,7 +128,7 @@ public class NettyRequestUpgradeStrategy extends AbstractStandardUpgradeStrategy
                                         List<Extension> negotiatedExtensions, Map<String, String> pathParameters,
                                         Endpoint localEndpoint, ServerEndpointConfig endpointConfig, WebSocketServerContainer webSocketContainer) {
         FullHttpRequest nettyRequest = convertFullHttpRequest(servletRequest);
-        ServletHttpExchange exchange = servletRequest.getServletHttpExchange();
+        ServletHttpExchange exchange = servletRequest.getHttpExchange();
         exchange.setWebsocket(true);
         String queryString = servletRequest.getQueryString();
         String httpSessionId = servletRequest.getRequestedSessionId();

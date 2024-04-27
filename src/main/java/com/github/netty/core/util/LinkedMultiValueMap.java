@@ -50,18 +50,18 @@ public class LinkedMultiValueMap<K, V> implements Map<K, List<V>>, Serializable,
 
 
     public void add(K key, V value) {
-        List<V> values = this.targetMap.computeIfAbsent(key, k -> new LinkedList<>());
+        List<V> values = this.targetMap.computeIfAbsent(key, k -> new ArrayList<>(2));
         values.add(value);
     }
 
 
     public void addAll(K key, List<? extends V> values) {
-        List<V> currentValues = this.targetMap.computeIfAbsent(key, k -> new LinkedList<>());
+        List<V> currentValues = this.targetMap.computeIfAbsent(key, k -> new ArrayList<>(values.size()));
         currentValues.addAll(values);
     }
 
     public void set(K key, V value) {
-        List<V> values = new LinkedList<>();
+        List<V> values = new ArrayList<>(1);
         values.add(value);
         this.targetMap.put(key, values);
     }

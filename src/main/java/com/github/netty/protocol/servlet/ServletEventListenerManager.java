@@ -333,7 +333,7 @@ public class ServletEventListenerManager {
         this.servletAddedListener = servletAddedListener;
     }
 
-    public void addservletContainerInitializer(ServletContainerInitializer listener) {
+    public void addServletContainerInitializer(ServletContainerInitializer listener) {
         if (servletContainerInitializerList == null) {
             servletContainerInitializerList = new ArrayList<>();
         }

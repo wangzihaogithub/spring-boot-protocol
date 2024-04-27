@@ -11,7 +11,7 @@ import java.util.Objects;
 public class WebSocketHandlerEndpoint extends Endpoint {
     private static final LoggerX logger = LoggerFactoryX.getLogger(WebSocketHandlerEndpoint.class);
 
-    private WebSocketHandler handler;
+    private final WebSocketHandler handler;
 
     public WebSocketHandlerEndpoint(WebSocketHandler handler) {
         this.handler = Objects.requireNonNull(handler, "WebSocketHandler");

@@ -63,10 +63,10 @@ public class DefaultServlet extends HttpServlet {
         }
     }
 
-    private Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
+    private final Set<String> homePages = new LinkedHashSet<>(Arrays.asList("index.html", "index.htm", "index"));
     private String characterEncoding = "utf-8";
-    private Map<String, String> mimeTypeMappings = new CaseInsensitiveKeyMap<>();
-    private HttpHeaders responseHeaders = new DefaultHttpHeaders(false);
+    private final Map<String, String> mimeTypeMappings = new CaseInsensitiveKeyMap<>();
+    private final HttpHeaders responseHeaders = new DefaultHttpHeaders(false);
 
     public DefaultServlet() {
         DEFAULT_MIME_TYPE_MAPPINGS.forEach((k, v) -> mimeTypeMappings.put(k.toString(), v.toString()));
@@ -77,7 +77,7 @@ public class DefaultServlet extends HttpServlet {
                                             WebResource resource) throws IOException {
         // Checking If-Range
         String ifRangeStr = request.getHeader("If-Range");
-        if (ifRangeStr != null && ifRangeStr.length() > 0) {
+        if (ifRangeStr != null && !ifRangeStr.isEmpty()) {
             long headerValueTime = -1L;
             try {
                 Date ifRangeDate = DateFormatter.parseHttpDate(ifRangeStr);
