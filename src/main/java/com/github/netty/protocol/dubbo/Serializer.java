@@ -1,13 +1,10 @@
-package com.github.netty.javadubbo.example;
+package com.github.netty.protocol.dubbo;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufUtil;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +54,7 @@ public interface Serializer {
         return ID_NULLBYTES_MAP.computeIfAbsent(protserializationProtoId, key -> {
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                 Serializer serializer = Serializer.codeOf(key);
-                Serializer.ObjectOutput out = serializer.serialize(baos);
+                ObjectOutput out = serializer.serialize(baos);
                 out.writeObject(null);
                 out.flushBuffer();
                 return baos.toByteArray();
@@ -79,7 +76,7 @@ public interface Serializer {
 
     ObjectInput deserialize(InputStream input) throws IOException;
 
-    public interface ObjectInput {
+    public interface ObjectInput extends Closeable {
 
         Object readObject() throws IOException;
 
@@ -91,8 +88,26 @@ public interface Serializer {
             return readUTF();
         }
 
+        default Object readThrowable() throws IOException, ClassNotFoundException {
+            Object obj = readObject();
+//            if (!(obj instanceof Throwable)) {
+//                throw new IOException("Response data error, expect Throwable, but get " + obj.getClass());
+//            }
+            return obj;
+        }
+
         default Map<String, Object> readAttachments() throws IOException, ClassNotFoundException {
             return readObject(Map.class);
+        }
+
+        void cleanup();
+
+        long skip(long n) throws IOException;
+
+        @Override
+        default void close() throws IOException {
+            cleanup();
+            skip(Integer.MAX_VALUE);
         }
     }
 
@@ -100,6 +115,8 @@ public interface Serializer {
         void writeObject(Object obj) throws IOException;
 
         void flushBuffer() throws IOException;
+
+        void cleanup();
     }
 
 }

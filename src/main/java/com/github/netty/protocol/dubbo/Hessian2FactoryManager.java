@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.netty.javadubbo.example;
+package com.github.netty.protocol.dubbo;
 
-import com.alibaba.com.caucho.hessian.io.*;
+import com.alibaba.com.caucho.hessian.io.Deserializer;
+import com.alibaba.com.caucho.hessian.io.JavaDeserializer;
+import com.alibaba.com.caucho.hessian.io.JavaSerializer;
+import com.alibaba.com.caucho.hessian.io.SerializerFactory;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -188,7 +191,9 @@ public class Hessian2FactoryManager {
 
         @Override
         protected com.alibaba.com.caucho.hessian.io.Serializer getDefaultSerializer(Class cl) {
-            if (_defaultSerializer != null) {return _defaultSerializer;}
+            if (_defaultSerializer != null) {
+                return _defaultSerializer;
+            }
 
             try {
                 // pre-check if class is allow

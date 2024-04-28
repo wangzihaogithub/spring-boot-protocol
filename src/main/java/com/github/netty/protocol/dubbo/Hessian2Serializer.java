@@ -1,4 +1,4 @@
-package com.github.netty.javadubbo.example;
+package com.github.netty.protocol.dubbo;
 
 import com.alibaba.com.caucho.hessian.io.Hessian2Input;
 import com.alibaba.com.caucho.hessian.io.Hessian2Output;
@@ -32,8 +32,10 @@ public class Hessian2Serializer implements Serializer {
 
     public static class Hessian2ObjectInput implements Serializer.ObjectInput {
         private final Hessian2Input hessian2Input;
+        private final InputStream inputStream;
 
         public Hessian2ObjectInput(InputStream inputStream) {
+            this.inputStream = inputStream;
             Hessian2Input hessian2Input = new Hessian2Input(inputStream);
             hessian2Input.setSerializerFactory(FACTORY_MANAGER.getSerializerFactory(
                     Thread.currentThread().getContextClassLoader()));
@@ -66,6 +68,17 @@ public class Hessian2Serializer implements Serializer {
         public String readUTF() throws IOException {
             return hessian2Input.readString();
         }
+
+        @Override
+        public void cleanup() {
+            hessian2Input.reset();
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            long nBytes = Math.min(inputStream.available(), n);
+            return inputStream.skip(nBytes);
+        }
     }
 
     public static class Hessian2ObjectOutput implements Serializer.ObjectOutput {
@@ -87,6 +100,12 @@ public class Hessian2Serializer implements Serializer {
         public void flushBuffer() throws IOException {
             hessian2Input.flushBuffer();
         }
+
+        @Override
+        public void cleanup() {
+            hessian2Input.reset();
+        }
+
     }
 
 }

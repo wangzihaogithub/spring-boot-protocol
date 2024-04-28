@@ -1,0 +1,47 @@
+package com.github.netty.protocol.dubbo;
+
+import io.netty.buffer.ByteBuf;
+
+public class Header {
+    final ByteBuf headerBytes;
+    // request and serialization flag.
+    final byte flag;
+    final byte status;
+    final long requestId;
+    // 8 - 1-request/0-response
+    final byte type;
+    final int bodyLength;
+
+    public Header(ByteBuf headerBytes, byte flag, byte status, long requestId, byte type, int bodyLength) {
+        this.headerBytes = headerBytes;
+        this.flag = flag;
+        this.status = status;
+        this.requestId = requestId;
+        this.type = type;
+        this.bodyLength = bodyLength;
+    }
+
+    public byte getFlag() {
+        return flag;
+    }
+
+    public byte getStatus() {
+        return status;
+    }
+
+    public long getRequestId() {
+        return requestId;
+    }
+
+    public byte getType() {
+        return type;
+    }
+
+    public int getBodyLength() {
+        return bodyLength;
+    }
+
+    public ByteBuf bytes() {
+        return headerBytes;
+    }
+}
