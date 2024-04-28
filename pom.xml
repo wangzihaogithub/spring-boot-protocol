@@ -251,6 +251,13 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo</artifactId>
+            <version>3.0.0</version>
+            <scope>test</scope>
+        </dependency>
+
         <!--<dependency>-->
             <!--<groupId>io.moquette</groupId>-->
             <!--<artifactId>moquette-broker</artifactId>-->
