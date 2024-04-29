@@ -11,14 +11,47 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.SocketChannel;
 
 import java.net.InetSocketAddress;
-import java.util.Map;
-import java.util.Objects;
+import java.net.SocketAddress;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, ByteBuf> {
+    private static final List<ProxyFrontendHandler> ACTIVE_LIST = Collections.synchronizedList(new ArrayList<>(100));
     private final Map<String, InetSocketAddress> serviceAddressMap = new ConcurrentHashMap<>();
-    private final Map<String, DubboClient> dubboClients = new ConcurrentHashMap<>();
+    private final Map<String, DubboClient> backendClientMap = new ConcurrentHashMap<>();
     private String defaultServiceName;
+    private ChannelHandlerContext ctx;
+
+    public static List<ProxyFrontendHandler> getActiveList() {
+        return ACTIVE_LIST;
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        this.ctx = ctx;
+        ACTIVE_LIST.add(this);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        ACTIVE_LIST.remove(this);
+    }
+
+    public Map<String, DubboClient> getBackendClientMap() {
+        return backendClientMap;
+    }
+
+    public boolean isActive() {
+        return ctx != null && ctx.channel().isActive();
+    }
+
+    public SocketAddress getRemoteAddress() {
+        return ctx == null ? null : ctx.channel().remoteAddress();
+    }
+
+    public ChannelHandlerContext getChannel() {
+        return ctx;
+    }
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, DubboPacket packet) throws Exception {
@@ -76,16 +109,20 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         if (address == null) {
             return null;
         }
-        return dubboClients.computeIfAbsent(serviceName + address, n -> newBackendClient(n, address, fronendChannel));
+        return backendClientMap.computeIfAbsent(serviceName + address, n -> newBackendClient(serviceName, address, fronendChannel));
     }
 
     /**
      * 新建后端链接
      */
     public DubboClient newBackendClient(String serviceName, InetSocketAddress address, Channel fronendChannel) {
-        DubboClient client = new DubboClient(new ProxyBackendHandler(serviceName, fronendChannel));
+        DubboClient client = new DubboClient(serviceName, new ProxyBackendHandler(serviceName, fronendChannel));
         client.connect(address);
         return client;
+    }
+
+    public Map<String, InetSocketAddress> getServiceAddressMap() {
+        return Collections.unmodifiableMap(serviceAddressMap);
     }
 
     public InetSocketAddress getServiceAddress(String serviceName) {
@@ -124,6 +161,11 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         } else {
         }
         return serviceName;
+    }
+
+    @Override
+    public String toString() {
+        return "DubboProxy{" + getRemoteAddress() + " => " + backendClientMap.values() + "}";
     }
 
 }

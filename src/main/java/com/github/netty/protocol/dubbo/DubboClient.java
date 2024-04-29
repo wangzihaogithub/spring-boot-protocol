@@ -3,7 +3,6 @@ package com.github.netty.protocol.dubbo;
 import com.github.netty.core.AbstractNettyClient;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelUtils;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.PlatformDependent;
@@ -15,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 public class DubboClient extends AbstractNettyClient {
+    private final String serviceName;
     private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
     private boolean enableRpcHeartLog = true;
     private long connectTimeout = 1000;
@@ -39,9 +39,14 @@ public class DubboClient extends AbstractNettyClient {
      */
     private volatile long connectTimeoutTimestamp;
 
-    public DubboClient(ChannelHandler channelInitializer) {
-        super("", null);
+    public DubboClient(String serviceName, ChannelHandler channelInitializer) {
+        super(serviceName, null);
+        this.serviceName = serviceName;
         this.handler = channelInitializer;
+    }
+
+    public String getServiceName() {
+        return serviceName;
     }
 
     @Override
@@ -195,6 +200,11 @@ public class DubboClient extends AbstractNettyClient {
         }
     }
 
+    @Override
+    public String toString() {
+        return serviceName + remoteAddress + "(" + state + ")";
+    }
+
     /**
      * Client connection status
      */
@@ -221,5 +231,4 @@ public class DubboClient extends AbstractNettyClient {
             }
         }
     }
-
 }
