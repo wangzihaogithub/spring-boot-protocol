@@ -16,6 +16,6 @@
     <dubbo:protocol name="dubbo" port="20880"/>
 
     <dubbo:reference id="gphelloservice" interface="com.github.netty.javadubbo.example.DemoAPI"
-                     url="dubbo://192.168.11.118:20880/com.github.netty.javadubbo.example.DemoAPI"/>
+                     url="dubbo://127.0.0.1:20880/com.github.netty.javadubbo.example.DemoAPI"/>
 
 </beans>

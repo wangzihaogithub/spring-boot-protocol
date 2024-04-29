@@ -25,4 +25,14 @@ public class DubboPacket {
     public ByteBuf getBodyBytes() {
         return body.bytes();
     }
+
+    public void release() {
+        header.release();
+        body.release();
+    }
+
+    @Override
+    public String toString() {
+        return "[" + header.getRequestId() + "]" + body.getClass().getSimpleName();
+    }
 }

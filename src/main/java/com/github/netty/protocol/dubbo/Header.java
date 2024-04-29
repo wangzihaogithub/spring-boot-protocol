@@ -44,4 +44,8 @@ public class Header {
     public ByteBuf bytes() {
         return headerBytes;
     }
+
+    public boolean release() {
+        return headerBytes.release();
+    }
 }

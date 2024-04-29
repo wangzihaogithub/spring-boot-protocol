@@ -8,4 +8,8 @@ public abstract class Body {
     public ByteBuf bytes() {
         return bodyBytes;
     }
+
+    public boolean release() {
+        return bodyBytes.release();
+    }
 }

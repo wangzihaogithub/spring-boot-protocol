@@ -13,7 +13,7 @@
     <dubbo:application name="dubbo-server"  owner="hao"/>
     <dubbo:registry address="N/A"/>
 
-    <dubbo:protocol name="dubbo" port="20880"/>
+    <dubbo:protocol name="dubbo" port="20881"/>
 
     <dubbo:service interface="com.github.netty.javadubbo.example.DemoAPI" ref="gphelloservice"/>
 

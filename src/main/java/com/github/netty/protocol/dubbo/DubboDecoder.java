@@ -18,18 +18,14 @@ import java.util.Map;
 import static com.github.netty.protocol.dubbo.Constant.*;
 
 public class DubboDecoder extends ByteToMessageDecoder {
-    enum State {
-        READ_HEADER, READ_BODY
-    }
+    private State state = State.READ_HEADER;
+    private DubboPacket packet;
 
     public static boolean isDubboProtocol(ByteBuf buffer) {
         return buffer.readableBytes() >= 2
                 && buffer.getByte(0) == MAGIC_0
                 && buffer.getByte(1) == MAGIC_1;
     }
-
-    private State state = State.READ_HEADER;
-    private DubboPacket packet;
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf buffer, List<Object> out) throws Exception {
@@ -48,7 +44,7 @@ public class DubboDecoder extends ByteToMessageDecoder {
                 }
                 case READ_BODY: {
                     if (buffer.readableBytes() >= this.packet.header.bodyLength) {
-                        ByteBuf slice = buffer.slice(buffer.readerIndex(), this.packet.header.bodyLength);
+                        ByteBuf slice = buffer.retainedSlice(buffer.readerIndex(), this.packet.header.bodyLength);
                         this.packet.body = readBody(buffer);
                         this.packet.body.bodyBytes = slice;
                         this.state = State.READ_HEADER;
@@ -77,7 +73,7 @@ public class DubboDecoder extends ByteToMessageDecoder {
         byte type = buffer.getByte(8);
         int bodyLength = buffer.getInt(12);
 
-        ByteBuf headerBytes = buffer.slice(buffer.readerIndex(), HEADER_LENGTH);
+        ByteBuf headerBytes = buffer.retainedSlice(buffer.readerIndex(), HEADER_LENGTH);
         buffer.skipBytes(HEADER_LENGTH);
         return new Header(headerBytes, flag, status, requestId, type, bodyLength);
     }
@@ -155,5 +151,9 @@ public class DubboDecoder extends ByteToMessageDecoder {
                 return new BodyRequest(dubboVersion, path, version, methodName, parameterTypesDesc, attachments, args);
             }
         }
+    }
+
+    enum State {
+        READ_HEADER, READ_BODY
     }
 }
