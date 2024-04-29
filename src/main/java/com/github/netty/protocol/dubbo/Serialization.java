@@ -15,11 +15,6 @@ public interface Serialization {
     // Cache null object serialize results, for heartbeat request/response serialize use.
     Map<Byte, byte[]> ID_NULLBYTES_MAP = new ConcurrentHashMap<>();
 
-    static ObjectOutput codeOfSerialize(byte serializationProtoId, OutputStream buffer) throws IOException {
-        Serialization serializer = Serialization.codeOf(serializationProtoId);
-        return serializer.serialize(buffer);
-    }
-
     static ObjectInput codeOfDeserialize(byte serializationProtoId, InputStream inputStream) throws IOException {
         Serialization serializer = Serialization.codeOf(serializationProtoId);
         return serializer.deserialize(inputStream);
