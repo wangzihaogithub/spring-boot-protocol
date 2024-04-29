@@ -1,17 +1,18 @@
-package com.github.netty.protocol.dubbo;
+package com.github.netty.protocol.dubbo.serialization;
 
 import com.alibaba.com.caucho.hessian.io.Hessian2Input;
 import com.alibaba.com.caucho.hessian.io.Hessian2Output;
+import com.github.netty.protocol.dubbo.Serialization;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-public class Hessian2Serializer implements Serializer {
+public class Hessian2Serialization implements Serialization {
     private static final Hessian2FactoryManager FACTORY_MANAGER = new Hessian2FactoryManager();
     private final byte contentTypeId;
 
-    public Hessian2Serializer(byte contentTypeId) {
+    public Hessian2Serialization(byte contentTypeId) {
         this.contentTypeId = contentTypeId;
     }
 
@@ -30,7 +31,7 @@ public class Hessian2Serializer implements Serializer {
         return new Hessian2ObjectInput(input);
     }
 
-    public static class Hessian2ObjectInput implements Serializer.ObjectInput {
+    public static class Hessian2ObjectInput implements Serialization.ObjectInput {
         private final Hessian2Input hessian2Input;
         private final InputStream inputStream;
 
@@ -43,7 +44,7 @@ public class Hessian2Serializer implements Serializer {
         }
 
         @Override
-        public Object readObject() throws IOException {
+        public Object readObject() throws IOException, ClassNotFoundException {
             if (!hessian2Input.getSerializerFactory()
                     .getClassLoader()
                     .equals(Thread.currentThread().getContextClassLoader())) {
@@ -54,7 +55,7 @@ public class Hessian2Serializer implements Serializer {
         }
 
         @Override
-        public <T> T readObject(Class<T> cls) throws IOException {
+        public <T> T readObject(Class<T> cls) throws IOException, ClassNotFoundException {
             if (!hessian2Input.getSerializerFactory()
                     .getClassLoader()
                     .equals(Thread.currentThread().getContextClassLoader())) {
@@ -76,12 +77,11 @@ public class Hessian2Serializer implements Serializer {
 
         @Override
         public long skip(long n) throws IOException {
-            long nBytes = Math.min(inputStream.available(), n);
-            return inputStream.skip(nBytes);
+            return inputStream.skip(Math.min(inputStream.available(), n));
         }
     }
 
-    public static class Hessian2ObjectOutput implements Serializer.ObjectOutput {
+    public static class Hessian2ObjectOutput implements Serialization.ObjectOutput {
         private final Hessian2Output hessian2Input;
 
         public Hessian2ObjectOutput(OutputStream outputStream) {

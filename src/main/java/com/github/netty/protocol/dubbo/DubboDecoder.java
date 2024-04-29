@@ -91,17 +91,17 @@ public class DubboDecoder extends ByteToMessageDecoder {
             if (status == OK) {
                 boolean flagEvent = (flag & FLAG_EVENT) != 0;
                 if (flagEvent) {
-                    byte[] payload = Serializer.getPayload(buffer, bodyLength);
-                    if (Serializer.isHeartBeat(payload, serializationProtoId)) {
+                    byte[] payload = Serialization.getPayload(buffer, bodyLength);
+                    if (Serialization.isHeartBeat(payload, serializationProtoId)) {
                         data = null;
                     } else {
-                        try (Serializer.ObjectInput input = Serializer.codeOfDeserialize(serializationProtoId, new ByteArrayInputStream(payload))) {
+                        try (Serialization.ObjectInput input = Serialization.codeOfDeserialize(serializationProtoId, new ByteArrayInputStream(payload))) {
                             data = input.readEvent();
                         }
                     }
                     return new BodyHeartBeat(data);
                 } else {
-                    try (Serializer.ObjectInput in = Serializer.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
+                    try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
                         byte responseWith = buffer.readByte();
                         BodyResponse packetResponse;
                         switch (responseWith) {
@@ -130,13 +130,13 @@ public class DubboDecoder extends ByteToMessageDecoder {
                     }
                 }
             } else {
-                try (Serializer.ObjectInput in = Serializer.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
+                try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
                     return new BodyFail(in.readUTF());
                 }
             }
         } else {
             // decode request.
-            try (Serializer.ObjectInput in = Serializer.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
+            try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
                 String dubboVersion = in.readUTF();
                 String path = in.readUTF();
                 String version = in.readUTF();

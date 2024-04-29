@@ -1,5 +1,6 @@
 package com.github.netty.protocol.dubbo;
 
+import com.github.netty.protocol.dubbo.serialization.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufUtil;
@@ -9,31 +10,43 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public interface Serializer {
-    Map<Byte, Serializer> INSTANCES = new ConcurrentHashMap<>();
+public interface Serialization {
+    Map<Byte, Serialization> INSTANCES = new ConcurrentHashMap<>();
     // Cache null object serialize results, for heartbeat request/response serialize use.
     Map<Byte, byte[]> ID_NULLBYTES_MAP = new ConcurrentHashMap<>();
 
     static ObjectOutput codeOfSerialize(byte serializationProtoId, OutputStream buffer) throws IOException {
-        Serializer serializer = Serializer.codeOf(serializationProtoId);
+        Serialization serializer = Serialization.codeOf(serializationProtoId);
         return serializer.serialize(buffer);
     }
 
     static ObjectInput codeOfDeserialize(byte serializationProtoId, InputStream inputStream) throws IOException {
-        Serializer serializer = Serializer.codeOf(serializationProtoId);
+        Serialization serializer = Serialization.codeOf(serializationProtoId);
         return serializer.deserialize(inputStream);
     }
 
     static ObjectInput codeOfDeserialize(byte serializationProtoId, ByteBuf buffer, int bodyLength) throws IOException {
-        Serializer serializer = Serializer.codeOf(serializationProtoId);
+        Serialization serializer = Serialization.codeOf(serializationProtoId);
         return serializer.deserialize(new ByteBufInputStream(buffer, bodyLength, false));
     }
 
-    static Serializer codeOf(byte serializationProtoId) {
+    static Serialization codeOf(byte serializationProtoId) {
         return INSTANCES.computeIfAbsent(serializationProtoId, k -> {
             switch (serializationProtoId) {
                 case 2: {
-                    return new Hessian2Serializer(serializationProtoId);
+                    return new Hessian2Serialization(serializationProtoId);
+                }
+                case 3: {
+                    return new JavaSerialization(serializationProtoId);
+                }
+                case 4: {
+                    return new CompactedJavaSerialization(serializationProtoId);
+                }
+                case 7: {
+                    return new NativeJavaSerialization(serializationProtoId);
+                }
+                case 23: {
+                    return new FastJson2Serialization(serializationProtoId);
                 }
                 default: {
                     return null;
@@ -53,11 +66,13 @@ public interface Serializer {
     static byte[] getNullBytesOf(byte protserializationProtoId) {
         return ID_NULLBYTES_MAP.computeIfAbsent(protserializationProtoId, key -> {
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                Serializer serializer = Serializer.codeOf(key);
+                Serialization serializer = Serialization.codeOf(key);
                 ObjectOutput out = serializer.serialize(baos);
                 out.writeObject(null);
                 out.flushBuffer();
-                return baos.toByteArray();
+                byte[] byteArray = baos.toByteArray();
+                out.cleanup();
+                return byteArray;
             } catch (Exception e) {
 //                        logger.warn(
 //                                TRANSPORT_FAILED_SERIALIZATION,
@@ -78,9 +93,9 @@ public interface Serializer {
 
     public interface ObjectInput extends Closeable {
 
-        Object readObject() throws IOException;
+        Object readObject() throws IOException, ClassNotFoundException;
 
-        <T> T readObject(Class<T> cls) throws IOException;
+        <T> T readObject(Class<T> cls) throws IOException, ClassNotFoundException;
 
         String readUTF() throws IOException;
 
