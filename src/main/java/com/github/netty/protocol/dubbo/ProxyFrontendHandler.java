@@ -77,7 +77,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
                 }
             }
         };
-        clientChannel.write(packet.getHeader().bytes()).addListener(closeOnFailure);
+        clientChannel.write(packet.getHeader().bytes());
         clientChannel.writeAndFlush(packet.getBody().bytes()).addListener(closeOnFailure);
     }
 

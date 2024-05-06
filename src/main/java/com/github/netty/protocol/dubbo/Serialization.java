@@ -26,25 +26,25 @@ public interface Serialization {
     }
 
     static Serialization codeOf(byte serializationProtoId) {
-        return INSTANCES.computeIfAbsent(serializationProtoId, k -> {
-            switch (serializationProtoId) {
+        return INSTANCES.computeIfAbsent(serializationProtoId, key -> {
+            switch (key) {
                 case 2: {
-                    return new Hessian2Serialization(serializationProtoId);
+                    return new Hessian2Serialization(key);
                 }
                 case 3: {
-                    return new JavaSerialization(serializationProtoId);
+                    return new JavaSerialization(key);
                 }
                 case 4: {
-                    return new CompactedJavaSerialization(serializationProtoId);
+                    return new CompactedJavaSerialization(key);
                 }
                 case 7: {
-                    return new NativeJavaSerialization(serializationProtoId);
+                    return new NativeJavaSerialization(key);
                 }
                 case 23: {
-                    return new FastJson2Serialization(serializationProtoId);
+                    return new FastJson2Serialization(key);
                 }
                 default: {
-                    return null;
+                    throw new UnsupportedOperationException("unsupported serialization proto id: " + key);
                 }
             }
         });
