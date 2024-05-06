@@ -7,6 +7,8 @@ import io.netty.buffer.ByteBufUtil;
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -14,6 +16,7 @@ public interface Serialization {
     Map<Byte, Serialization> INSTANCES = new ConcurrentHashMap<>();
     // Cache null object serialize results, for heartbeat request/response serialize use.
     Map<Byte, byte[]> ID_NULLBYTES_MAP = new ConcurrentHashMap<>();
+    Map<Byte, Map<String, byte[]>> ID_STRING_BYTES_MAP = new ConcurrentHashMap<>();
 
     static ObjectInput codeOfDeserialize(byte serializationProtoId, InputStream inputStream) throws IOException {
         Serialization serializer = Serialization.codeOf(serializationProtoId);
@@ -58,8 +61,8 @@ public interface Serialization {
         return ByteBufUtil.getBytes(buffer, buffer.readerIndex(), length);
     }
 
-    static byte[] getNullBytesOf(byte protserializationProtoId) {
-        return ID_NULLBYTES_MAP.computeIfAbsent(protserializationProtoId, key -> {
+    static byte[] getNullBytesOf(byte serializationProtoId) {
+        return ID_NULLBYTES_MAP.computeIfAbsent(serializationProtoId, key -> {
             try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
                 Serialization serializer = Serialization.codeOf(key);
                 ObjectOutput out = serializer.serialize(baos);
@@ -75,6 +78,29 @@ public interface Serialization {
 //                                "",
 //                                "Serialization extension " + s.getClass().getName()
 //                                        + " not support serializing null object, return an empty bytes instead.");
+                return new byte[0];
+            }
+        });
+    }
+
+    static byte[] getStringBytesOf(byte serializationProtoId, String cacheKey) {
+        Map<String, byte[]> stringMap = ID_STRING_BYTES_MAP.computeIfAbsent(serializationProtoId,
+                key -> Collections.synchronizedMap(new LinkedHashMap(6, 0.75F, true) {
+                    @Override
+                    protected boolean removeEldestEntry(Map.Entry eldest) {
+                        return size() > 30;
+                    }
+                }));
+        return stringMap.computeIfAbsent(cacheKey, key -> {
+            try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                Serialization serializer = Serialization.codeOf(serializationProtoId);
+                ObjectOutput out = serializer.serialize(baos);
+                out.writeUTF(key);
+                out.flushBuffer();
+                byte[] byteArray = baos.toByteArray();
+                out.cleanup();
+                return byteArray;
+            } catch (Exception e) {
                 return new byte[0];
             }
         });
@@ -123,6 +149,8 @@ public interface Serialization {
 
     public interface ObjectOutput {
         void writeObject(Object obj) throws IOException;
+
+        void writeUTF(String obj) throws IOException;
 
         void flushBuffer() throws IOException;
 

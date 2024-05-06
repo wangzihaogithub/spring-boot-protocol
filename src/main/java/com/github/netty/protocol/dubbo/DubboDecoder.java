@@ -1,6 +1,5 @@
 package com.github.netty.protocol.dubbo;
 
-
 import com.github.netty.protocol.dubbo.packet.BodyFail;
 import com.github.netty.protocol.dubbo.packet.BodyHeartBeat;
 import com.github.netty.protocol.dubbo.packet.BodyRequest;
@@ -18,8 +17,6 @@ import java.util.Map;
 import static com.github.netty.protocol.dubbo.Constant.*;
 
 public class DubboDecoder extends ByteToMessageDecoder {
-    // header length.
-    private static final int HEADER_LENGTH = 16;
     private State state = State.READ_HEADER;
     private DubboPacket packet;
 

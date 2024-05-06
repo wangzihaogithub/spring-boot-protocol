@@ -97,6 +97,11 @@ public class Hessian2Serialization implements Serialization {
         }
 
         @Override
+        public void writeUTF(String obj) throws IOException {
+            hessian2Input.writeString(obj);
+        }
+
+        @Override
         public void flushBuffer() throws IOException {
             hessian2Input.flushBuffer();
         }

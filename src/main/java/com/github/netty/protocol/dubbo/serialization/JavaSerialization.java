@@ -179,6 +179,16 @@ public class JavaSerialization implements Serialization {
         }
 
         @Override
+        public void writeUTF(String obj) throws IOException {
+            if (obj == null) {
+                getObjectOutputStream().writeInt(-1);
+            } else {
+                getObjectOutputStream().writeInt(obj.length());
+                getObjectOutputStream().writeUTF(obj);
+            }
+        }
+
+        @Override
         public void flushBuffer() throws IOException {
             getObjectOutputStream().flush();
         }

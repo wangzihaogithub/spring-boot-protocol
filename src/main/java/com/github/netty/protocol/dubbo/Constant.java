@@ -4,6 +4,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Constant {
+    // header length.
+    public static final int HEADER_LENGTH = 16;
     public static final byte RESPONSE_WITH_EXCEPTION = 0;
     public static final byte RESPONSE_VALUE = 1;
     public static final byte RESPONSE_NULL_VALUE = 2;
@@ -22,11 +24,11 @@ public class Constant {
 //     * server side timeout.
 //     */
 //    public static final byte SERVER_TIMEOUT = 31;
-//    /**
-//     * channel inactive, directly return the unfinished requests.
-//     */
-//    public static final byte CHANNEL_INACTIVE = 35;
-//    /**
+    /**
+     * channel inactive, directly return the unfinished requests.
+     */
+    public static final byte CHANNEL_INACTIVE = 35;
+    //    /**
 //     * request format error.
 //     */
 //    public static final byte BAD_REQUEST = 40;
@@ -34,14 +36,14 @@ public class Constant {
 //     * response format error.
 //     */
 //    public static final byte BAD_RESPONSE = 50;
-//    /**
-//     * service not found.
-//     */
-//    public static final byte SERVICE_NOT_FOUND = 60;
-//    /**
-//     * service error.
-//     */
-//    public static final byte SERVICE_ERROR = 70;
+    /**
+     * service not found.
+     */
+    public static final byte SERVICE_NOT_FOUND = 60;
+    /**
+     * service error.
+     */
+    public static final byte SERVICE_ERROR = 70;
 //    /**
 //     * internal server error.
 //     */

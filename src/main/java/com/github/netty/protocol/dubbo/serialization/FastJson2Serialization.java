@@ -418,6 +418,11 @@ public class FastJson2Serialization implements Serialization {
             os.flush();
         }
 
+        @Override
+        public void writeUTF(String obj) throws IOException {
+            writeObject(obj);
+        }
+
         private void updateClassLoaderIfNeed() {
             ClassLoader currentClassLoader = Thread.currentThread().getContextClassLoader();
             if (currentClassLoader != classLoader) {

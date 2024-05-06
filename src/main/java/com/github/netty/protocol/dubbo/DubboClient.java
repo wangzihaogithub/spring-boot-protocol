@@ -9,6 +9,7 @@ import io.netty.channel.ChannelUtils;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.PlatformDependent;
 
+import java.net.InetSocketAddress;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
@@ -67,7 +68,9 @@ public class DubboClient extends AbstractNettyClient {
         if (socketChannel == null || !socketChannel.isActive()) {
             long timestamp = System.currentTimeMillis();
             socketChannel = waitGetConnect(connect(), connectTimeout);
-            if (!socketChannel.isActive()) {
+            if (socketChannel == null) {
+                throw new DubboConnectException("The [" + remoteAddress + "] channel no connect. maxConnectTimeout=[" + connectTimeout + "], connectTimeout=[" + (System.currentTimeMillis() - timestamp) + "]");
+            } else if (!socketChannel.isActive()) {
                 if (reconnectScheduledIntervalMs > 0) {
                     scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
                 }
@@ -162,16 +165,19 @@ public class DubboClient extends AbstractNettyClient {
         this.stateConsumer = stateConsumer;
     }
 
+    @Override
+    public Optional<ChannelFuture> connect(InetSocketAddress remoteAddress) {
+        connectTimeoutTimestamp = System.currentTimeMillis();
+        return super.connect(remoteAddress);
+    }
+
     protected SocketChannel waitGetConnect(Optional<ChannelFuture> optional, long connectTimeout) {
         if (optional.isPresent()) {
-            connectTimeoutTimestamp = System.currentTimeMillis();
             ChannelFuture future = optional.get();
             try {
                 future.await(connectTimeout, TimeUnit.MILLISECONDS);
             } catch (InterruptedException e) {
                 PlatformDependent.throwException(e);
-            } finally {
-                connectTimeoutTimestamp = 0;
             }
             return (SocketChannel) future.channel();
         } else {
@@ -190,12 +196,15 @@ public class DubboClient extends AbstractNettyClient {
                     Thread.yield();
                 }
             }
-            while (state != State.UP) {
-                yieldCount++;
-                Thread.yield();
-            }
-            if (heartLogger.isDebugEnabled()) {
-                heartLogger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+            SocketChannel channel = super.getChannel();
+            if (channel != null) {
+                while (state != State.UP) {
+                    yieldCount++;
+                    Thread.yield();
+                }
+                if (heartLogger.isDebugEnabled()) {
+                    heartLogger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+                }
             }
             return super.getChannel();
         }
@@ -212,6 +221,7 @@ public class DubboClient extends AbstractNettyClient {
                 heartLogger.debug("DubboClient connect fail... {}", future.channel(), Objects.toString(future.cause()));
             }
         }
+        connectTimeoutTimestamp = 0;
     }
 
     @Override

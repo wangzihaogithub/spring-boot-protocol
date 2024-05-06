@@ -2,6 +2,8 @@ package com.github.netty.protocol.dubbo;
 
 import io.netty.buffer.ByteBuf;
 
+import static com.github.netty.protocol.dubbo.Constant.SERIALIZATION_MASK;
+
 public class Header {
     final ByteBuf headerBytes;
     // request and serialization flag.
@@ -39,6 +41,10 @@ public class Header {
 
     public int getBodyLength() {
         return bodyLength;
+    }
+
+    public byte getSerializationProtoId() {
+        return (byte) (flag & SERIALIZATION_MASK);
     }
 
     public ByteBuf bytes() {

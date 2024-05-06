@@ -49,17 +49,17 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         if (backendServiceName == null || backendServiceName.isEmpty()) {
             backendServiceName = this.defaultServiceName;
         }
-        DubboClient backendClient = getDubboBackendClient(backendServiceName, ctx.channel());
+        DubboClient backendClient = getBackendClient(backendServiceName, ctx.channel());
         if (backendClient == null) {
             // 没有配置后端
-            onBackendNonConfig(ctx, packet);
+            onBackendNonConfig(ctx, packet, backendServiceName);
         } else {
             try {
                 // 向后端写数据
-                writeAndFlush(ctx, backendClient, packet);
+                writeAndFlush(ctx, backendClient, packet, backendServiceName);
             } catch (DubboClient.DubboConnectException connectException) {
                 // 后端连不上
-                onBackendConnectException(ctx, packet, backendClient, connectException);
+                onBackendConnectException(ctx, packet, backendClient, backendServiceName, connectException);
             }
         }
     }
@@ -67,18 +67,18 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
     /**
      * 向后端写数据
      */
-    protected void writeAndFlush(ChannelHandlerContext ctx, DubboClient backendClient, DubboPacket packet) {
-        SocketChannel clientChannel = backendClient.getChannel();
+    protected void writeAndFlush(ChannelHandlerContext ctx, DubboClient backendClient, DubboPacket packet, String backendServiceName) {
+        SocketChannel backendChannel = backendClient.getChannel();
         ChannelFutureListener closeOnFailure = new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) {
                 if (!future.isSuccess()) {
-                    onBackendWriteException(ctx, packet, backendClient, future.cause());
+                    onBackendWriteException(ctx, packet, backendClient, backendServiceName, future.cause());
                 }
             }
         };
-        clientChannel.write(packet.getHeader().bytes());
-        clientChannel.writeAndFlush(packet.getBody().bytes()).addListener(closeOnFailure);
+        backendChannel.write(packet.getHeader().bytes());
+        backendChannel.writeAndFlush(packet.getBody().bytes()).addListener(closeOnFailure);
     }
 
     /**
@@ -86,11 +86,13 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
      */
     protected void onBackendWriteException(ChannelHandlerContext ctx, DubboPacket packet,
                                            DubboClient backendClient,
+                                           String backendServiceName,
                                            Throwable cause) {
         if (logger.isWarnEnabled()) {
             logger.warn("onBackendWriteException {} , {}", ctx.channel(), backendClient, cause);
         }
         this.backendException = cause;
+        writeProxyReject(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend write exception! service(" + backendServiceName + ")");
     }
 
     /**
@@ -98,22 +100,35 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
      */
     protected void onBackendConnectException(ChannelHandlerContext ctx, DubboPacket packet,
                                              DubboClient backendClient,
+                                             String backendServiceName,
                                              DubboClient.DubboConnectException connectException) {
         if (logger.isWarnEnabled()) {
             logger.warn("onBackendConnectException {} , {}", ctx.channel(), backendClient, connectException);
         }
         this.backendException = connectException;
-        packet.release();
+        writeProxyReject(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend connect exception! service(" + backendServiceName + "/" + backendClient.getRemoteAddress() + "(DOWN))");
     }
 
     /**
      * 没配置后端地址
      */
-    protected void onBackendNonConfig(ChannelHandlerContext ctx, DubboPacket packet) {
+    protected void onBackendNonConfig(ChannelHandlerContext ctx, DubboPacket packet, String backendServiceName) {
         if (logger.isWarnEnabled()) {
             logger.warn("onBackendNonConfig {} , {}", ctx.channel(), packet);
         }
-        packet.release();
+        writeProxyReject(ctx, packet, Constant.SERVICE_NOT_FOUND, "dubbo proxy backend non config exception! service(" + backendServiceName + ")");
+    }
+
+    /**
+     * 返回代理错误信息
+     */
+    protected void writeProxyReject(ChannelHandlerContext ctx, DubboPacket packet, byte errorCode, String errorMessage) {
+        try {
+            ByteBuf rejectPacket = packet.buildErrorPacket(ctx.alloc(), errorCode, errorMessage);
+            ctx.writeAndFlush(rejectPacket);
+        } finally {
+            packet.release();
+        }
     }
 
     /**
@@ -123,7 +138,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
 
     }
 
-    public DubboClient getDubboBackendClient(String serviceName, Channel fronendChannel) {
+    public DubboClient getBackendClient(String serviceName, Channel fronendChannel) {
         if (serviceName == null || serviceName.isEmpty()) {
             return null;
         }

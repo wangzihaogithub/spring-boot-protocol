@@ -107,6 +107,11 @@ public class NativeJavaSerialization implements Serialization {
         }
 
         @Override
+        public void writeUTF(String obj) throws IOException {
+            outputStream.writeUTF(obj);
+        }
+
+        @Override
         public void flushBuffer() throws IOException {
             outputStream.flush();
         }
