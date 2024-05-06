@@ -19,7 +19,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.alibaba.fastjson2.util.TypeUtils.loadClass;
-import static com.github.netty.protocol.dubbo.serialization.SerializeCheckStatus.STRICT;
 
 /**
  * FastJson serialization implementation
@@ -156,7 +155,7 @@ public class FastJson2Serialization implements Serialization {
                 }
 
                 // 2. check if in strict mode
-                if (status == STRICT) {
+                if (status == SerializeCheckStatus.STRICT) {
                     String msg = "[Serialization Security] Serialized class " + typeName + " is not in allow list. "
                             + "Current mode is `STRICT`, will disallow to deserialize it by default. "
                             + "Please add it into security/serialize.allowlist or follow FAQ to configure it.";
