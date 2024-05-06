@@ -5,6 +5,7 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.AbortPolicyWithReport;
 import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.*;
+import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import com.github.netty.protocol.mqtt.interception.InterceptHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.listener.MysqlPacketListener;
@@ -68,6 +69,28 @@ public class NettyEmbeddedAutoConfiguration {
         tcpServerFactory.getProtocolHandlers().addAll(protocolHandlers);
         tcpServerFactory.getServerListeners().addAll(serverListeners);
         return tcpServerFactory;
+    }
+
+    /**
+     * Add the Dubbo protocol registry
+     *
+     * @return DubboProtocol
+     */
+    @Bean("dubboProtocol")
+    @ConditionalOnMissingBean(DubboProtocol.class)
+    @ConditionalOnProperty(prefix = "server.netty.dubbo", name = "enabled", matchIfMissing = false)
+    public DubboProtocol dubboProtocol() {
+        Supplier<ProxyFrontendHandler> proxySupplier = () -> {
+            NettyProperties.Dubbo dubbo = nettyProperties.getDubbo();
+            ProxyFrontendHandler proxy = new ProxyFrontendHandler();
+            proxy.setAttachmentName(dubbo.getAttachmentName());
+            proxy.setDefaultServiceName(dubbo.getDefaultServiceName());
+            for (NettyProperties.Dubbo.Service service : dubbo.getServices()) {
+                proxy.putServiceAddress(service.getServiceName(), new InetSocketAddress(service.getHost(), service.getPort()));
+            }
+            return proxy;
+        };
+        return new DubboProtocol(proxySupplier);
     }
 
     /**

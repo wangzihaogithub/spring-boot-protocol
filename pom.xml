@@ -4,7 +4,7 @@
 
     <groupId>com.github.wangzihaogithub</groupId>
     <artifactId>spring-boot-protocol</artifactId>
-    <version>2.3.15</version>
+    <version>2.3.16</version>
     <packaging>jar</packaging>
 
     <name>Spring Boot Protocol</name>
@@ -48,7 +48,7 @@
         <connection>scm:git:https://github.com/wangzihaogithub/spring-boot-protocol.git</connection>
         <developerConnection>scm:git:git@github.com:wangzihaogithub/spring-boot-protocol.git</developerConnection>
         <url>git@github.com:wangzihaogithub/spring-boot-protocol.git</url>
-        <tag>v2.3.15</tag>
+        <tag>v2.3.16</tag>
     </scm>
 
     <!-- 开发者信息 -->
@@ -66,7 +66,7 @@
             <artifactId>javax.servlet-api</artifactId>
             <version>${servlet-api.version}</version>
             <!--            <scope>provided</scope>-->
-            <!--            <optional>true</optional>-->
+            <optional>true</optional>
         </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.reactivestreams</groupId>-->
@@ -79,6 +79,7 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
             <version>${netty.version}</version>
+            <optional>true</optional>
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
@@ -205,6 +206,40 @@
             <groupId>io.reactivex.rxjava3</groupId>
             <artifactId>rxjava</artifactId>
             <version>3.0.3</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.dubbo</groupId>
+            <artifactId>dubbo</artifactId>
+            <version>3.0.0</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.alibaba</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba.fastjson2</groupId>
+            <artifactId>fastjson2</artifactId>
+            <version>2.0.48</version>
             <scope>provided</scope>
             <optional>true</optional>
         </dependency>
