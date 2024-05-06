@@ -5,8 +5,6 @@ import com.github.netty.protocol.dubbo.Body;
 import java.util.Map;
 
 public class BodyResponse extends Body {
-    public static final BodyResponse EMPTY = new BodyResponse(null, null, null);
-
     private final Object value;
     private final Object throwable;
     private final Map<String, Object> attachments;

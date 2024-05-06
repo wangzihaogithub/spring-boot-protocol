@@ -109,7 +109,7 @@ public class DubboDecoder extends ByteToMessageDecoder {
                         BodyResponse packetResponse;
                         switch (responseWith) {
                             case RESPONSE_NULL_VALUE:
-                                packetResponse = BodyResponse.EMPTY;
+                                packetResponse = new BodyResponse(null, null, null);
                                 break;
                             case RESPONSE_VALUE:
                                 packetResponse = new BodyResponse(in.readObject(), null, null);
