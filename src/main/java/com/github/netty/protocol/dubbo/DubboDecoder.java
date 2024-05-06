@@ -10,7 +10,6 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -146,9 +145,9 @@ public class DubboDecoder extends ByteToMessageDecoder {
                     String methodName = in.readUTF();
                     String parameterTypesDesc = in.readUTF();
                     int countArgs = countArgs(parameterTypesDesc);
-                    ArrayList<Object> args = new ArrayList<>(countArgs);
+                    Object[] args = new Object[countArgs];
                     for (int i = 0; i < countArgs; i++) {
-                        args.add(in.readObject());
+                        args[i] = in.readObject();
                     }
                     Map<String, Object> attachments = in.readAttachments();
                     return new BodyRequest(dubboVersion, path, version, methodName, parameterTypesDesc, attachments, args);

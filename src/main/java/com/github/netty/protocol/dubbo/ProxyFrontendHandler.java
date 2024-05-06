@@ -1,10 +1,6 @@
 package com.github.netty.protocol.dubbo;
 
 import com.github.netty.core.AbstractChannelHandler;
-import com.github.netty.protocol.dubbo.packet.BodyFail;
-import com.github.netty.protocol.dubbo.packet.BodyHeartBeat;
-import com.github.netty.protocol.dubbo.packet.BodyRequest;
-import com.github.netty.protocol.dubbo.packet.BodyResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -27,6 +23,10 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
 
     public static List<ProxyFrontendHandler> getActiveList() {
         return ACTIVE_LIST;
+    }
+
+    public String getBackendServiceName(DubboPacket packet) {
+        return packet.getAttachmentValue("remote.application");
     }
 
     @Override
@@ -172,28 +172,6 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
             }
         }
         return list;
-    }
-
-    public String getBackendServiceName(DubboPacket packet) {
-        Body body = packet.getBody();
-        String serviceName = null;
-        if (body instanceof BodyRequest) {
-            Map<String, Object> attachments = ((BodyRequest) body).getAttachments();
-            if (attachments != null) {
-                serviceName = Objects.toString(attachments.get("remote.application"), null);
-            }
-        } else if (body instanceof BodyResponse) {
-            Map<String, Object> attachments = ((BodyResponse) body).getAttachments();
-            if (attachments != null) {
-                serviceName = Objects.toString(attachments.get("remote.application"), null);
-            }
-        } else if (body instanceof BodyHeartBeat) {
-
-        } else if (body instanceof BodyFail) {
-
-        } else {
-        }
-        return serviceName;
     }
 
     public void closeBackend() {

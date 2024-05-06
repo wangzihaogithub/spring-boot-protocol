@@ -1,9 +1,9 @@
 package com.github.netty.javadubbo;
 
 import com.github.netty.StartupServer;
+import com.github.netty.protocol.DubboProtocol;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.dubbo.DubboPacket;
-import com.github.netty.protocol.DubboProtocol;
 import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import com.github.netty.protocol.servlet.ServletContext;
 
@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * dubbo proxy server
@@ -45,19 +46,19 @@ public class DubboProxyBootstrap {
     }
 
     private static DubboProtocol newDubboProtocol() {
-        return new DubboProtocol(() -> {
-            ProxyFrontendHandler handler = new ProxyFrontendHandler() {
+        Supplier<ProxyFrontendHandler> proxySupplier = () -> {
+            ProxyFrontendHandler proxy = new ProxyFrontendHandler() {
                 @Override
                 public String getBackendServiceName(DubboPacket packet) {
-                    System.out.println("getBackendServiceName = " + packet);
-                    return super.getBackendServiceName(packet);
+                    return packet.getAttachmentValue("remote.application");
                 }
             };
-            handler.putServiceAddress("pay-service", new InetSocketAddress("127.0.0.1", 20881));
-            handler.putServiceAddress("order-service", new InetSocketAddress("127.0.0.1", 20881));
-            handler.setDefaultServiceName("pay-service");
-            return handler;
-        });
+            proxy.putServiceAddress("pay-service", new InetSocketAddress("127.0.0.1", 20881));
+            proxy.putServiceAddress("order-service", new InetSocketAddress("127.0.0.1", 20881));
+            proxy.setDefaultServiceName("pay-service");
+            return proxy;
+        };
+        return new DubboProtocol(proxySupplier);
     }
 
     private static HttpServletProtocol newHttpProtocol() {

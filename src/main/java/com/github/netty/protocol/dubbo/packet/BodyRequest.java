@@ -2,7 +2,6 @@ package com.github.netty.protocol.dubbo.packet;
 
 import com.github.netty.protocol.dubbo.Body;
 
-import java.util.List;
 import java.util.Map;
 
 public class BodyRequest extends Body {
@@ -11,13 +10,13 @@ public class BodyRequest extends Body {
     private final String version;
     private final String methodName;
     private final String parameterTypesDesc;
-    private final List<Object> parameterValues;
+    private final Object[] parameterValues;
     private final Map<String, Object> attachments;
 
     public BodyRequest(String dubboVersion, String path, String version,
                        String methodName, String parameterTypesDesc,
                        Map<String, Object> attachments,
-                       List<Object> parameterValues) {
+                       Object[] parameterValues) {
         this.dubboVersion = dubboVersion;
         this.path = path;
         this.version = version;
@@ -47,7 +46,7 @@ public class BodyRequest extends Body {
         return parameterTypesDesc;
     }
 
-    public List<Object> getParameterValues() {
+    public Object[] getParameterValues() {
         return parameterValues;
     }
 

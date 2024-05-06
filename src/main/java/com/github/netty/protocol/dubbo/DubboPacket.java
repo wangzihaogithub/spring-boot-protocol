@@ -1,7 +1,14 @@
 package com.github.netty.protocol.dubbo;
 
+import com.github.netty.protocol.dubbo.packet.BodyFail;
+import com.github.netty.protocol.dubbo.packet.BodyHeartBeat;
+import com.github.netty.protocol.dubbo.packet.BodyRequest;
+import com.github.netty.protocol.dubbo.packet.BodyResponse;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+
+import java.util.Map;
+import java.util.Objects;
 
 public class DubboPacket {
     final Header header;
@@ -46,6 +53,27 @@ public class DubboPacket {
         empty.writeInt(errorBytes.length);
         empty.writeBytes(errorBytes);
         return empty;
+    }
+
+    public String getAttachmentValue(String attachmentName) {
+        String serviceName = null;
+        if (body instanceof BodyRequest) {
+            Map<String, Object> attachments = ((BodyRequest) body).getAttachments();
+            if (attachments != null) {
+                serviceName = Objects.toString(attachments.get(attachmentName), null);
+            }
+        } else if (body instanceof BodyResponse) {
+            Map<String, Object> attachments = ((BodyResponse) body).getAttachments();
+            if (attachments != null) {
+                serviceName = Objects.toString(attachments.get(attachmentName), null);
+            }
+        } else if (body instanceof BodyHeartBeat) {
+
+        } else if (body instanceof BodyFail) {
+
+        } else {
+        }
+        return serviceName;
     }
 
     @Override

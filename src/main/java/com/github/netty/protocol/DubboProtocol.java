@@ -9,10 +9,17 @@ import io.netty.channel.Channel;
 import java.util.function.Supplier;
 
 public class DubboProtocol extends AbstractProtocol {
-    private final Supplier<ProxyFrontendHandler> proxyBackendHandlerFactory;
+    private Supplier<ProxyFrontendHandler> proxySupplier;
 
-    public DubboProtocol(Supplier<ProxyFrontendHandler> proxyBackendHandlerFactory) {
-        this.proxyBackendHandlerFactory = proxyBackendHandlerFactory;
+    public DubboProtocol() {
+    }
+
+    public DubboProtocol(Supplier<ProxyFrontendHandler> proxySupplier) {
+        this.proxySupplier = proxySupplier;
+    }
+
+    public void setProxySupplier(Supplier<ProxyFrontendHandler> proxySupplier) {
+        this.proxySupplier = proxySupplier;
     }
 
     @Override
@@ -28,6 +35,6 @@ public class DubboProtocol extends AbstractProtocol {
     @Override
     public void addPipeline(Channel channel, ByteBuf clientFirstMsg) throws Exception {
         channel.pipeline().addLast(new DubboDecoder());
-        channel.pipeline().addLast(proxyBackendHandlerFactory.get());
+        channel.pipeline().addLast(proxySupplier.get());
     }
 }
