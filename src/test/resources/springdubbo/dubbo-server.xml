@@ -9,13 +9,14 @@
       http://www.springframework.org/schema/context/spring-context-3.1.xsd
        http://code.alibabatech.com/schema/dubbo
       http://code.alibabatech.com/schema/dubbo/dubbo.xsd">
-
-    <dubbo:application name="dubbo-server"  owner="hao"/>
+    <dubbo:application name="order-service"  owner="hao"/>
     <dubbo:registry address="N/A"/>
 
     <dubbo:protocol name="dubbo" port="8082"/>
 
-    <dubbo:service interface="com.github.netty.springdubbo.example.DemoAPI" ref="gphelloservice"/>
+    <dubbo:service interface="com.github.netty.springdubbo.example.DemoAPI"
+                   version="0.0.0"
+                   ref="gphelloservice"/>
 
     <bean  id="gphelloservice" class="com.github.netty.springdubbo.example.DemoAPIImpl"/>
 

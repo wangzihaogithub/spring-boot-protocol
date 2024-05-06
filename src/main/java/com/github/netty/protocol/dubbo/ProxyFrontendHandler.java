@@ -90,7 +90,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
                                            String backendServiceName,
                                            Throwable cause) {
         if (logger.isWarnEnabled()) {
-            logger.warn("onBackendWriteException {} , {}", ctx.channel(), backendClient, cause);
+            logger.warn("onBackendWriteException {} , {}, {}", backendServiceName, ctx.channel(), backendClient, cause);
         }
         this.backendException = cause;
         writeProxyError(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend write exception! service(" + backendServiceName + ")");
@@ -104,7 +104,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
                                              String backendServiceName,
                                              DubboClient.DubboConnectException connectException) {
         if (logger.isWarnEnabled()) {
-            logger.warn("onBackendConnectException {} , {}", ctx.channel(), backendClient, connectException);
+            logger.warn("onBackendConnectException {} , {}, {}", backendServiceName, ctx.channel(), backendClient, connectException);
         }
         this.backendException = connectException;
         writeProxyError(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend connect exception! service(" + backendServiceName + "/" + backendClient.getRemoteAddress() + "(DOWN))");
@@ -115,7 +115,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
      */
     protected void onBackendNonConfig(ChannelHandlerContext ctx, DubboPacket packet, String backendServiceName) {
         if (logger.isWarnEnabled()) {
-            logger.warn("onBackendNonConfig {} , {}", ctx.channel(), packet);
+            logger.warn("onBackendNonConfig {} , {}, {}", backendServiceName, ctx.channel(), packet);
         }
         writeProxyError(ctx, packet, Constant.SERVICE_NOT_FOUND, "dubbo proxy backend non config exception! service(" + backendServiceName + ")");
     }
