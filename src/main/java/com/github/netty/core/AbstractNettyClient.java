@@ -33,11 +33,12 @@ public abstract class AbstractNettyClient implements Closeable {
     protected InetSocketAddress remoteAddress;
     private Bootstrap bootstrap;
     private EventLoopGroup worker;
-    private boolean enableEpoll;
+    private final boolean enableEpoll;
     private volatile SocketChannel channel;
     private int ioThreadCount = 0;
     private int ioRatio = 100;
-    private AtomicBoolean initFlag = new AtomicBoolean(false);
+    private final AtomicBoolean initFlag = new AtomicBoolean(false);
+    private volatile ChannelFuture connectFuture;
 
     public AbstractNettyClient() {
         this("", null);
@@ -135,7 +136,7 @@ public abstract class AbstractNettyClient implements Closeable {
                 init();
             }
             this.remoteAddress = remoteAddress == null ? (InetSocketAddress) bootstrap.config().remoteAddress() : remoteAddress;
-            return Optional.of(bootstrap.connect(this.remoteAddress)
+            ChannelFuture connectFuture = bootstrap.connect(this.remoteAddress)
                     .addListener((ChannelFutureListener) future -> {
                         try {
                             if (future.isSuccess()) {
@@ -150,9 +151,10 @@ public abstract class AbstractNettyClient implements Closeable {
                             connectIngFlag.set(false);
                         }
                         connectAfter(future);
-                    }));
+                    });
+            this.connectFuture = connectFuture;
         }
-        return Optional.empty();
+        return Optional.ofNullable(this.connectFuture);
     }
 
     public SocketChannel getChannel() {

@@ -56,6 +56,9 @@ public class DubboPacket {
     }
 
     public String getAttachmentValue(String attachmentName) {
+        if (attachmentName == null || attachmentName.isEmpty()) {
+            return null;
+        }
         String serviceName = null;
         if (body instanceof BodyRequest) {
             Map<String, Object> attachments = ((BodyRequest) body).getAttachments();

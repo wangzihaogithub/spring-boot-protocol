@@ -15,6 +15,8 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -33,6 +35,11 @@ public class NettyProperties implements Serializable {
      */
     @NestedConfigurationProperty
     private final HttpServlet httpServlet = new HttpServlet();
+    /**
+     * dubbo协议
+     */
+    @NestedConfigurationProperty
+    private final Dubbo dubbo = new Dubbo();
     /**
      * NRPC协议
      */
@@ -227,6 +234,10 @@ public class NettyProperties implements Serializable {
 
     public Mysql getMysql() {
         return mysql;
+    }
+
+    public Dubbo getDubbo() {
+        return dubbo;
     }
 
     public static class HttpServlet {
@@ -517,6 +528,87 @@ public class NettyProperties implements Serializable {
         }
     }
 
+    public static class Dubbo {
+        /**
+         * 是否开启dubbo代理
+         */
+        private boolean enabled = false;
+        /**
+         * 从哪个字段取服务名称
+         */
+        private String attachmentName = "remote.application";
+        /**
+         * 代理服务地址
+         */
+        private List<Service> services = new ArrayList<>();
+        /**
+         * 默认代理服务地址
+         */
+        private String defaultServiceName;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public List<Service> getServices() {
+            return services;
+        }
+
+        public void setServices(List<Service> services) {
+            this.services = services;
+        }
+
+        public String getDefaultServiceName() {
+            return defaultServiceName;
+        }
+
+        public void setDefaultServiceName(String defaultServiceName) {
+            this.defaultServiceName = defaultServiceName;
+        }
+
+        public String getAttachmentName() {
+            return attachmentName;
+        }
+
+        public void setAttachmentName(String attachmentName) {
+            this.attachmentName = attachmentName;
+        }
+
+        public static class Service {
+            private String serviceName;
+            private String host;
+            private Integer port;
+
+            public String getServiceName() {
+                return serviceName;
+            }
+
+            public void setServiceName(String serviceName) {
+                this.serviceName = serviceName;
+            }
+
+            public String getHost() {
+                return host;
+            }
+
+            public void setHost(String host) {
+                this.host = host;
+            }
+
+            public Integer getPort() {
+                return port;
+            }
+
+            public void setPort(Integer port) {
+                this.port = port;
+            }
+        }
+    }
+
     public static class Nrpc {
         /**
          * RPC服务端 - 业务线程池配置
@@ -799,12 +891,12 @@ public class NettyProperties implements Serializable {
                 this.queues = queues;
             }
 
-            public void setAllowCoreThreadTimeOut(boolean allowCoreThreadTimeOut) {
-                this.allowCoreThreadTimeOut = allowCoreThreadTimeOut;
-            }
-
             public boolean isAllowCoreThreadTimeOut() {
                 return allowCoreThreadTimeOut;
+            }
+
+            public void setAllowCoreThreadTimeOut(boolean allowCoreThreadTimeOut) {
+                this.allowCoreThreadTimeOut = allowCoreThreadTimeOut;
             }
         }
     }

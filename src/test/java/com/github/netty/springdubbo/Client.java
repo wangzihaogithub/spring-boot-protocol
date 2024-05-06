@@ -1,6 +1,6 @@
-package com.github.netty.javadubbo;
+package com.github.netty.springdubbo;
 
-import com.github.netty.javadubbo.example.DemoAPI;
+import com.github.netty.springdubbo.example.DemoAPI;
 import org.apache.dubbo.rpc.RpcContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
@@ -9,7 +9,7 @@ import java.net.URL;
 public class Client {
 
     private static final URL CONFIG_URL = Client.class.getResource(
-            "/javadubbo/dubbo-client.xml");
+            "/springdubbo/dubbo-client.xml");
 
     public static void main(String[] args) throws Exception {
         ClassPathXmlApplicationContext classPathXmlApplicationContext = new

@@ -20,13 +20,14 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
     protected volatile Throwable backendException;
     private String defaultServiceName;
     private ChannelHandlerContext ctx;
+    private String attachmentName = "remote.application";
 
     public static List<ProxyFrontendHandler> getActiveList() {
         return ACTIVE_LIST;
     }
 
     public String getBackendServiceName(DubboPacket packet) {
-        return packet.getAttachmentValue("remote.application");
+        return packet.getAttachmentValue(attachmentName);
     }
 
     @Override
@@ -233,4 +234,11 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         return backendException;
     }
 
+    public String getAttachmentName() {
+        return attachmentName;
+    }
+
+    public void setAttachmentName(String attachmentName) {
+        this.attachmentName = attachmentName;
+    }
 }
