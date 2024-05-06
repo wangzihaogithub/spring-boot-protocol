@@ -38,11 +38,11 @@ import java.util.function.Supplier;
 public class DubboProxyBootstrap {
 
     public static void main(String[] args) {
-        StartupServer server = new StartupServer(20880);
+        StartupServer server = new StartupServer(8080);
         server.addProtocol(newDubboProtocol());
         server.addProtocol(newHttpProtocol());
         server.start();
-        System.out.println("浏览器访问Dubbo代理监控 ：  http://127.0.0.1:20880");
+        System.out.println("浏览器访问Dubbo代理监控 ：  http://127.0.0.1:8080");
     }
 
     private static DubboProtocol newDubboProtocol() {

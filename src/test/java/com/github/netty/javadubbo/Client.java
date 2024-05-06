@@ -18,13 +18,12 @@ public class Client {
         DemoAPI gphelloservice = (DemoAPI) classPathXmlApplicationContext.getBean("gphelloservice");
         while (true) {
             try {
-                RpcContext.getClientAttachment().setAttachment("remote.application", "order-service");
-                String response = gphelloservice.hello("测试",2);
+                String response = gphelloservice.hello("测试", 2);
                 System.out.println(response);
-                Thread.sleep(1000);
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            Thread.sleep(1000);
         }
     }
 }

@@ -3,7 +3,7 @@
 ### 简介
 
 - 支持在一个端口号上，添加多个TCP协议，支持加自定义TCP协议 
-- 内置实现有: HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
+- 内置实现有: Dubbo-proxy, HttpServlet, RPC, MQTT, Websocket, H2, MYSQL协议.
 - 解决Netty在EventLoop线程里写繁忙后不返回数据的BUG.
 - 解决Netty的Http遇到请求参数携带%号会报错的问题.
 - 从19年开始，一直跑在作者公司某产线的线上环境运行.
@@ -27,15 +27,35 @@
        server.start();
 
 
-- 3.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 
+- 3.支持# tcp dubbo代理, 解决内外网运维问题
+
+
+      [DubboProxy{/192.168.11.126:61184 => [pay-service//127.0.0.1:20881(UP), order-service//127.0.0.1:20881(UP)]}]
+
+      server:
+        port: 8080
+          netty:
+            dubbo:
+              enabled: true
+              default-service-name: 'pay-service'
+              services:
+                - service-name: 'order-service'
+                  host: 'localhost'
+                  port: 8082
+                - service-name: 'pay-service'
+                  host: 'localhost'
+                  port: 8082    
+
+
+- 4.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 
 
 
     示例代码：com.github.netty.http.example.HttpGroupByApiController.java
 
 
-- 4.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
+- 5.支持# h2c (注: 不建议用h2,h2c当rpc, 原因在文档最底部有说明)
 
-- 5.支持# 异步零拷贝。sendFile, mmap. 
+- 6.支持# 异步零拷贝。sendFile, mmap. 
 
         示例代码：com.github.netty.http.example.HttpZeroCopyController.java
 
@@ -44,19 +64,19 @@
 
         com.github.netty.protocol.servlet.DefaultServlet#sendFile
 
-- 6.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
+- 7.性能# HttpServlet比tomcat的NIO2高出25%/TPS。
 
         1. Netty的池化内存,减少了GC对CPU的消耗 
         2. Tomcat的NIO2, 注册OP_WRITE后,tomcat会阻塞用户线程等待, 并没有释放线程. 
         3. 与tomcat不同,支持两种IO模型,可供用户选择
 
-- 7.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换)
+- 8.性能# RPC协议略胜阿里巴巴的Dubbo(因为IO模型设计与dubbo不同，减少了线程切换)
 
-- 8.特性# 单机单端口上同时提供多个TCP协议
+- 9.特性# 单机单端口上同时提供多个TCP协议
 
-- 9.特性# 支持自定义TCP协议. 如:定长传输,分隔符传输
+- 10.特性# 支持自定义TCP协议. 如:定长传输,分隔符传输
 
-- 10.特性# 支持Mysql协议代理. 如：记录mysql日志.
+- 11.特性# 支持Mysql协议代理. 如：记录mysql日志.
 
 
     /spring-boot-protocol/netty-mysql/zihaoapi.cn_3306-127.0.0.1_57998-packet.log
