@@ -1,12 +1,15 @@
 package com.github.netty.protocol.dubbo;
 
 import com.github.netty.core.AbstractNettyClient;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelUtils;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.util.internal.PlatformDependent;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -14,17 +17,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
 public class DubboClient extends AbstractNettyClient {
+    protected final LoggerX heartLogger = LoggerFactoryX.getLogger(DubboClient.class.getName() + ".heart");
     private final String serviceName;
     private final AtomicBoolean scheduleReconnectTaskIngFlag = new AtomicBoolean(false);
-    private boolean enableRpcHeartLog = true;
+    private final ChannelHandler handler;
     private long connectTimeout = 1000;
-    private int reconnectScheduledIntervalMs = 5000;
-    private boolean enableReconnectScheduledTask = false;
+    private int reconnectScheduledIntervalMs = -1;
     /**
      * Connection status
      */
     private volatile State state = State.DOWN;
-    private ChannelHandler handler;
     /**
      * reconnectScheduleFuture
      */
@@ -34,13 +36,14 @@ public class DubboClient extends AbstractNettyClient {
      * reconnectTaskSuccessConsumer Callback method after successful reconnect
      */
     private BiConsumer<Long, DubboClient> reconnectTaskSuccessConsumer;
+    private BiConsumer<State, DubboClient> stateConsumer;
     /**
      * Connecting timeout timestamp
      */
     private volatile long connectTimeoutTimestamp;
 
     public DubboClient(String serviceName, ChannelHandler channelInitializer) {
-        super(serviceName, null);
+        super(serviceName + "-", null);
         this.serviceName = serviceName;
         this.handler = channelInitializer;
     }
@@ -54,9 +57,8 @@ public class DubboClient extends AbstractNettyClient {
         return handler;
     }
 
-    public DubboClient handler(ChannelHandler handler) {
-        this.handler = handler;
-        return this;
+    public State getState() {
+        return state;
     }
 
     @Override
@@ -66,8 +68,15 @@ public class DubboClient extends AbstractNettyClient {
             long timestamp = System.currentTimeMillis();
             socketChannel = waitGetConnect(connect(), connectTimeout);
             if (!socketChannel.isActive()) {
-                if (enableReconnectScheduledTask) {
+                if (reconnectScheduledIntervalMs > 0) {
                     scheduleReconnectTask(reconnectScheduledIntervalMs, TimeUnit.MILLISECONDS);
+                }
+                if (this.state != State.DOWN) {
+                    this.state = State.DOWN;
+                    BiConsumer<State, DubboClient> stateConsumer = this.stateConsumer;
+                    if (stateConsumer != null) {
+                        stateConsumer.accept(state, this);
+                    }
                 }
                 throw new DubboConnectException("The [" + socketChannel + "] channel no connect. maxConnectTimeout=[" + connectTimeout + "], connectTimeout=[" + (System.currentTimeMillis() - timestamp) + "]");
             }
@@ -84,8 +93,8 @@ public class DubboClient extends AbstractNettyClient {
                 yieldCount++;
             }
         }
-        if (yieldCount != 0 && enableRpcHeartLog && logger.isDebugEnabled()) {
-            logger.debug("RpcClient waitWritable... yieldCount={}", yieldCount);
+        if (yieldCount != 0 && heartLogger.isDebugEnabled()) {
+            heartLogger.debug("RpcClient waitWritable... yieldCount={}", yieldCount);
         }
         return socketChannel;
     }
@@ -94,6 +103,10 @@ public class DubboClient extends AbstractNettyClient {
     public void setChannel(SocketChannel newChannel) {
         super.setChannel(newChannel);
         state = State.UP;
+        BiConsumer<State, DubboClient> stateConsumer = this.stateConsumer;
+        if (stateConsumer != null) {
+            stateConsumer.accept(state, this);
+        }
     }
 
     public boolean scheduleReconnectTask(long reconnectIntervalMillSeconds, TimeUnit timeUnit) {
@@ -109,22 +122,6 @@ public class DubboClient extends AbstractNettyClient {
             return true;
         }
         return false;
-    }
-
-    public boolean isEnableReconnectScheduledTask() {
-        return enableReconnectScheduledTask;
-    }
-
-    public void setEnableReconnectScheduledTask(boolean enableReconnectScheduledTask) {
-        this.enableReconnectScheduledTask = enableReconnectScheduledTask;
-    }
-
-    public boolean isEnableRpcHeartLog() {
-        return enableRpcHeartLog;
-    }
-
-    public void setEnableRpcHeartLog(boolean enableRpcHeartLog) {
-        this.enableRpcHeartLog = enableRpcHeartLog;
     }
 
     public int getReconnectScheduledIntervalMs() {
@@ -161,6 +158,10 @@ public class DubboClient extends AbstractNettyClient {
         this.reconnectTaskSuccessConsumer = reconnectTaskSuccessConsumer;
     }
 
+    public void setStateConsumer(BiConsumer<State, DubboClient> stateConsumer) {
+        this.stateConsumer = stateConsumer;
+    }
+
     protected SocketChannel waitGetConnect(Optional<ChannelFuture> optional, long connectTimeout) {
         if (optional.isPresent()) {
             connectTimeoutTimestamp = System.currentTimeMillis();
@@ -193,10 +194,35 @@ public class DubboClient extends AbstractNettyClient {
                 yieldCount++;
                 Thread.yield();
             }
-            if (enableRpcHeartLog && logger.isDebugEnabled()) {
-                logger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
+            if (heartLogger.isDebugEnabled()) {
+                heartLogger.debug("RpcClient waitGetConnect... yieldCount={}", yieldCount);
             }
             return super.getChannel();
+        }
+    }
+
+    @Override
+    protected void connectAfter(ChannelFuture future) {
+        if (future.isSuccess()) {
+            if (heartLogger.isDebugEnabled()) {
+                heartLogger.debug("DubboClient connect success... {}", future.channel());
+            }
+        } else {
+            if (heartLogger.isDebugEnabled()) {
+                heartLogger.debug("DubboClient connect fail... {}", future.channel(), Objects.toString(future.cause()));
+            }
+        }
+    }
+
+    @Override
+    protected void stopAfter(ChannelFuture future) {
+        super.stopAfter(future);
+        if (this.state != State.DOWN) {
+            this.state = State.DOWN;
+            BiConsumer<State, DubboClient> stateConsumer = this.stateConsumer;
+            if (stateConsumer != null) {
+                stateConsumer.accept(state, this);
+            }
         }
     }
 

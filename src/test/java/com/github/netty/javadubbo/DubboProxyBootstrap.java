@@ -3,7 +3,7 @@ package com.github.netty.javadubbo;
 import com.github.netty.StartupServer;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.dubbo.DubboPacket;
-import com.github.netty.protocol.dubbo.DubboProtocol;
+import com.github.netty.protocol.DubboProtocol;
 import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import com.github.netty.protocol.servlet.ServletContext;
 

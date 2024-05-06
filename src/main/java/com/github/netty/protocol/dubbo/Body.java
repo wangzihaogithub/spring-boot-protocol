@@ -10,6 +10,10 @@ public abstract class Body {
     }
 
     public boolean release() {
-        return bodyBytes.release();
+        if (bodyBytes != null && bodyBytes.refCnt() > 0) {
+            return bodyBytes.release();
+        } else {
+            return false;
+        }
     }
 }

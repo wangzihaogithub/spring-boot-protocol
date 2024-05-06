@@ -46,6 +46,10 @@ public class Header {
     }
 
     public boolean release() {
-        return headerBytes.release();
+        if (headerBytes != null && headerBytes.refCnt() > 0) {
+            return headerBytes.release();
+        } else {
+            return false;
+        }
     }
 }

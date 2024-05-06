@@ -27,9 +27,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public abstract class AbstractNettyClient implements Closeable {
     protected final AtomicBoolean connectIngFlag = new AtomicBoolean(false);
+    protected final LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final String name;
     private final String namePre;
-    protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     protected InetSocketAddress remoteAddress;
     private Bootstrap bootstrap;
     private EventLoopGroup worker;
@@ -141,7 +141,10 @@ public abstract class AbstractNettyClient implements Closeable {
                             if (future.isSuccess()) {
                                 setChannel((SocketChannel) future.channel());
                             } else {
-                                future.channel().close();
+                                Channel channel1 = future.channel();
+                                if (channel1.isRegistered()) {
+                                    channel1.close();
+                                }
                             }
                         } finally {
                             connectIngFlag.set(false);

@@ -1,6 +1,8 @@
-package com.github.netty.protocol.dubbo;
+package com.github.netty.protocol;
 
 import com.github.netty.core.AbstractProtocol;
+import com.github.netty.protocol.dubbo.DubboDecoder;
+import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 

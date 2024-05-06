@@ -33,6 +33,6 @@ public class DubboPacket {
 
     @Override
     public String toString() {
-        return "[" + header.getRequestId() + "]" + body.getClass().getSimpleName();
+        return "[" + header.getRequestId() + "]" + (body == null ? "null" : body.getClass().getSimpleName());
     }
 }

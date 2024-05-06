@@ -18,6 +18,8 @@ import java.util.Map;
 import static com.github.netty.protocol.dubbo.Constant.*;
 
 public class DubboDecoder extends ByteToMessageDecoder {
+    // header length.
+    private static final int HEADER_LENGTH = 16;
     private State state = State.READ_HEADER;
     private DubboPacket packet;
 
@@ -34,7 +36,12 @@ public class DubboDecoder extends ByteToMessageDecoder {
             switch (this.state) {
                 case READ_HEADER: {
                     if (buffer.readableBytes() >= HEADER_LENGTH) {
-                        this.packet = new DubboPacket(readHeader(buffer));
+                        try {
+                            this.packet = new DubboPacket(readHeader(buffer));
+                        } catch (Exception e) {
+                            exception(ctx, buffer, e);
+                            throw e;
+                        }
                         this.state = State.READ_BODY;
                         hasNext = buffer.isReadable();
                     } else {
@@ -44,13 +51,20 @@ public class DubboDecoder extends ByteToMessageDecoder {
                 }
                 case READ_BODY: {
                     if (buffer.readableBytes() >= this.packet.header.bodyLength) {
-                        ByteBuf slice = buffer.retainedSlice(buffer.readerIndex(), this.packet.header.bodyLength);
-                        this.packet.body = readBody(buffer);
-                        this.packet.body.bodyBytes = slice;
+                        int markReaderIndex = buffer.readerIndex();
+                        try {
+                            this.packet.body = readBody(buffer);
+                        } catch (Exception e) {
+                            exception(ctx, buffer, e);
+                            this.packet.release();
+                            throw e;
+                        }
+                        buffer.readerIndex(markReaderIndex);
+                        this.packet.body.bodyBytes = buffer.readRetainedSlice(this.packet.header.bodyLength);
                         this.state = State.READ_HEADER;
                         out.add(this.packet);
-                        hasNext = buffer.isReadable();
                         this.packet = null;
+                        hasNext = buffer.isReadable();
                     } else {
                         hasNext = false;
                     }
@@ -64,7 +78,7 @@ public class DubboDecoder extends ByteToMessageDecoder {
         } while (hasNext);
     }
 
-    private Header readHeader(ByteBuf buffer) {
+    protected Header readHeader(ByteBuf buffer) {
         // request and serialization flag.
         byte flag = buffer.getByte(2);
         byte status = buffer.getByte(3);
@@ -73,33 +87,22 @@ public class DubboDecoder extends ByteToMessageDecoder {
         byte type = buffer.getByte(8);
         int bodyLength = buffer.getInt(12);
 
-        ByteBuf headerBytes = buffer.retainedSlice(buffer.readerIndex(), HEADER_LENGTH);
-        buffer.skipBytes(HEADER_LENGTH);
+        ByteBuf headerBytes = buffer.readRetainedSlice(HEADER_LENGTH);
         return new Header(headerBytes, flag, status, requestId, type, bodyLength);
     }
 
-    private Body readBody(ByteBuf buffer) throws IOException, ClassNotFoundException {
+    protected Body readBody(ByteBuf buffer) throws IOException, ClassNotFoundException {
         // request and serialization flag.
         byte flag = packet.header.flag;
         byte status = packet.header.status;
         int bodyLength = packet.header.bodyLength;
         boolean flagResponse = (flag & FLAG_REQUEST) == 0;
         byte serializationProtoId = (byte) (flag & SERIALIZATION_MASK);
-        Object data;
         if (flagResponse) {
             // decode response.
             if (status == OK) {
-                boolean flagEvent = (flag & FLAG_EVENT) != 0;
-                if (flagEvent) {
-                    byte[] payload = Serialization.getPayload(buffer, bodyLength);
-                    if (Serialization.isHeartBeat(payload, serializationProtoId)) {
-                        data = null;
-                    } else {
-                        try (Serialization.ObjectInput input = Serialization.codeOfDeserialize(serializationProtoId, new ByteArrayInputStream(payload))) {
-                            data = input.readEvent();
-                        }
-                    }
-                    return new BodyHeartBeat(data);
+                if ((flag & FLAG_EVENT) != 0) {
+                    return readHeartBeat(buffer, bodyLength, serializationProtoId);
                 } else {
                     try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
                         byte responseWith = buffer.readByte();
@@ -136,24 +139,46 @@ public class DubboDecoder extends ByteToMessageDecoder {
             }
         } else {
             // decode request.
-            try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
-                String dubboVersion = in.readUTF();
-                String path = in.readUTF();
-                String version = in.readUTF();
-                String methodName = in.readUTF();
-                String parameterTypesDesc = in.readUTF();
-                int countArgs = countArgs(parameterTypesDesc);
-                ArrayList<Object> args = new ArrayList<>(countArgs);
-                for (int i = 0; i < countArgs; i++) {
-                    args.add(in.readObject());
+            if ((flag & FLAG_EVENT) != 0) {
+                return readHeartBeat(buffer, bodyLength, serializationProtoId);
+            } else {
+                try (Serialization.ObjectInput in = Serialization.codeOfDeserialize(serializationProtoId, buffer, bodyLength)) {
+                    String dubboVersion = in.readUTF();
+                    String path = in.readUTF();
+                    String version = in.readUTF();
+                    String methodName = in.readUTF();
+                    String parameterTypesDesc = in.readUTF();
+                    int countArgs = countArgs(parameterTypesDesc);
+                    ArrayList<Object> args = new ArrayList<>(countArgs);
+                    for (int i = 0; i < countArgs; i++) {
+                        args.add(in.readObject());
+                    }
+                    Map<String, Object> attachments = in.readAttachments();
+                    return new BodyRequest(dubboVersion, path, version, methodName, parameterTypesDesc, attachments, args);
                 }
-                Map<String, Object> attachments = in.readAttachments();
-                return new BodyRequest(dubboVersion, path, version, methodName, parameterTypesDesc, attachments, args);
             }
         }
     }
 
-    enum State {
+    protected BodyHeartBeat readHeartBeat(ByteBuf buffer, int bodyLength, byte serializationProtoId) throws IOException, ClassNotFoundException {
+        Object data;
+        byte[] payload = Serialization.getPayload(buffer, bodyLength);
+        if (Serialization.isHeartBeat(payload, serializationProtoId)) {
+            data = null;
+        } else {
+            try (Serialization.ObjectInput input = Serialization.codeOfDeserialize(serializationProtoId, new ByteArrayInputStream(payload))) {
+                data = input.readEvent();
+            }
+        }
+        return new BodyHeartBeat(data);
+    }
+
+    protected <E extends Exception> void exception(ChannelHandlerContext ctx, ByteBuf buffer, E cause) throws Exception {
+        buffer.release();
+        ctx.close();
+    }
+
+    protected enum State {
         READ_HEADER, READ_BODY
     }
 }

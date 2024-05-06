@@ -68,8 +68,6 @@ public class Constant {
     protected static final byte FLAG_TWOWAY = (byte) 0x40;
     protected static final byte FLAG_EVENT = (byte) 0x20;
     protected static final int SERIALIZATION_MASK = 0x1f;
-    // header length.
-    protected static final int HEADER_LENGTH = 16;
 
     public static int countArgs(String desc) {
         int length = desc.length();

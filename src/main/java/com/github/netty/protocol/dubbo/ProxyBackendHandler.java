@@ -3,21 +3,25 @@ package com.github.netty.protocol.dubbo;
 import com.github.netty.core.AbstractChannelHandler;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
+import java.util.List;
+
+@ChannelHandler.Sharable
 public class ProxyBackendHandler extends AbstractChannelHandler<ByteBuf, ByteBuf> {
-    private final String serviceName;
+    private final List<String> serviceNames;
     private final Channel frontendChannel;
     private Channel backendChannel;
 
-    public ProxyBackendHandler(String serviceName, Channel frontendChannel) {
+    public ProxyBackendHandler(List<String> serviceNames, Channel frontendChannel) {
         super(false);
-        this.serviceName = serviceName;
+        this.serviceNames = serviceNames;
         this.frontendChannel = frontendChannel;
     }
 
-    public String getServiceName() {
-        return serviceName;
+    public List<String> getServiceNames() {
+        return serviceNames;
     }
 
     public Channel getBackendChannel() {
