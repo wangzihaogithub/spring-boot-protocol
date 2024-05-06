@@ -92,7 +92,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
             logger.warn("onBackendWriteException {} , {}", ctx.channel(), backendClient, cause);
         }
         this.backendException = cause;
-        writeProxyReject(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend write exception! service(" + backendServiceName + ")");
+        writeProxyError(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend write exception! service(" + backendServiceName + ")");
     }
 
     /**
@@ -106,7 +106,7 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
             logger.warn("onBackendConnectException {} , {}", ctx.channel(), backendClient, connectException);
         }
         this.backendException = connectException;
-        writeProxyReject(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend connect exception! service(" + backendServiceName + "/" + backendClient.getRemoteAddress() + "(DOWN))");
+        writeProxyError(ctx, packet, Constant.SERVICE_ERROR, "dubbo proxy backend connect exception! service(" + backendServiceName + "/" + backendClient.getRemoteAddress() + "(DOWN))");
     }
 
     /**
@@ -116,13 +116,13 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         if (logger.isWarnEnabled()) {
             logger.warn("onBackendNonConfig {} , {}", ctx.channel(), packet);
         }
-        writeProxyReject(ctx, packet, Constant.SERVICE_NOT_FOUND, "dubbo proxy backend non config exception! service(" + backendServiceName + ")");
+        writeProxyError(ctx, packet, Constant.SERVICE_NOT_FOUND, "dubbo proxy backend non config exception! service(" + backendServiceName + ")");
     }
 
     /**
      * 返回代理错误信息
      */
-    protected void writeProxyReject(ChannelHandlerContext ctx, DubboPacket packet, byte errorCode, String errorMessage) {
+    protected void writeProxyError(ChannelHandlerContext ctx, DubboPacket packet, byte errorCode, String errorMessage) {
         try {
             ByteBuf rejectPacket = packet.buildErrorPacket(ctx.alloc(), errorCode, errorMessage);
             ctx.writeAndFlush(rejectPacket);
