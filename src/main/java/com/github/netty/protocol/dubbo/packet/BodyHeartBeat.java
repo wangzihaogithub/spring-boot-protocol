@@ -13,4 +13,11 @@ public class BodyHeartBeat extends Body {
     public Object getEvent() {
         return event;
     }
+
+    @Override
+    public String toString() {
+        return "BodyHeartBeat{" +
+                "\n\tevent=" + event +
+                "\n}";
+    }
 }

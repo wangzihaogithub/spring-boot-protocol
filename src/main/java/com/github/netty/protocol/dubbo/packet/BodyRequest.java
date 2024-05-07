@@ -53,4 +53,13 @@ public class BodyRequest extends Body {
     public Map<String, Object> getAttachments() {
         return attachments;
     }
+
+    @Override
+    public String toString() {
+        return "BodyRequest{" +
+                "\n\tpath='" + path + '\'' +
+                ",\n\tmethodName='" + methodName + '\'' +
+                ",\n\tattachments=" + attachments +
+                "\n}";
+    }
 }

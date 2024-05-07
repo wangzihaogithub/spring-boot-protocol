@@ -5,6 +5,7 @@ import com.github.netty.core.ServerListener;
 import com.github.netty.core.util.AbortPolicyWithReport;
 import com.github.netty.core.util.NettyThreadPoolExecutor;
 import com.github.netty.protocol.*;
+import com.github.netty.protocol.dubbo.Application;
 import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import com.github.netty.protocol.mqtt.interception.InterceptHandler;
 import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
@@ -28,7 +29,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Supplier;
 
@@ -81,16 +84,28 @@ public class NettyEmbeddedAutoConfiguration {
     @ConditionalOnProperty(prefix = "server.netty.dubbo", name = "enabled", matchIfMissing = false)
     public DubboProtocol dubboProtocol() {
         Supplier<ProxyFrontendHandler> proxySupplier = () -> {
-            NettyProperties.Dubbo dubbo = nettyProperties.getDubbo();
-            ProxyFrontendHandler proxy = new ProxyFrontendHandler();
-            proxy.setAttachmentName(dubbo.getAttachmentName());
-            proxy.setDefaultServiceName(dubbo.getDefaultServiceName());
-            for (NettyProperties.Dubbo.Service service : dubbo.getServices()) {
-                proxy.putServiceAddress(service.getServiceName(), new InetSocketAddress(service.getHost(), service.getPort()));
-            }
-            return proxy;
+            List<Application> applicationList = convert(nettyProperties.getDubbo().getRoutes());
+            return new ProxyFrontendHandler(applicationList);
         };
         return new DubboProtocol(proxySupplier);
+    }
+
+    protected List<Application> convert(NettyProperties.Dubbo.ApplicationRoute[] routes) {
+        List<Application> applicationList = new ArrayList<>();
+        if (routes != null) {
+            for (NettyProperties.Dubbo.ApplicationRoute source : routes) {
+                String[] address = source.getAddress().split(":", 2);
+
+                Application target = new Application();
+                target.setName(source.getApplicationName());
+                target.setAddress(new InetSocketAddress(address[0], Integer.parseInt(address[1])));
+                target.setAttachmentApplicationName(source.getAttachmentName());
+                target.setPathPatterns(source.getPathPatterns());
+                target.setDefaultApplication(source.isDefaultApplication());
+                applicationList.add(target);
+            }
+        }
+        return applicationList;
     }
 
     /**

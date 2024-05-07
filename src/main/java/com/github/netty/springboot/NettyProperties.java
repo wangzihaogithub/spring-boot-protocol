@@ -15,8 +15,6 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
 import java.io.File;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -534,17 +532,9 @@ public class NettyProperties implements Serializable {
          */
         private boolean enabled = false;
         /**
-         * 从哪个字段取服务名称
+         * 应用的路由地址
          */
-        private String attachmentName = "remote.application";
-        /**
-         * 代理服务地址
-         */
-        private List<Service> services = new ArrayList<>();
-        /**
-         * 默认代理服务地址
-         */
-        private String defaultServiceName;
+        private ApplicationRoute[] routes;
 
         public boolean isEnabled() {
             return enabled;
@@ -554,57 +544,74 @@ public class NettyProperties implements Serializable {
             this.enabled = enabled;
         }
 
-        public List<Service> getServices() {
-            return services;
+        public ApplicationRoute[] getRoutes() {
+            return routes;
         }
 
-        public void setServices(List<Service> services) {
-            this.services = services;
+        public void setRoutes(ApplicationRoute[] routes) {
+            this.routes = routes;
         }
 
-        public String getDefaultServiceName() {
-            return defaultServiceName;
-        }
+        public static class ApplicationRoute {
+            /**
+             * dubbo应用名
+             */
+            private String applicationName;
+            /**
+             * 从dubbo哪个attachment字段取服务名称
+             */
+            private String attachmentName = "remote.application";
+            /**
+             * dubbo应用地址
+             */
+            private String address = "127.0.0.1:20000";
+            /**
+             * dubbo路径映射服务
+             */
+            private String[] pathPatterns;
+            /**
+             * 是否是默认应用
+             */
+            private boolean defaultApplication;
 
-        public void setDefaultServiceName(String defaultServiceName) {
-            this.defaultServiceName = defaultServiceName;
-        }
-
-        public String getAttachmentName() {
-            return attachmentName;
-        }
-
-        public void setAttachmentName(String attachmentName) {
-            this.attachmentName = attachmentName;
-        }
-
-        public static class Service {
-            private String serviceName;
-            private String host;
-            private Integer port;
-
-            public String getServiceName() {
-                return serviceName;
+            public String getApplicationName() {
+                return applicationName;
             }
 
-            public void setServiceName(String serviceName) {
-                this.serviceName = serviceName;
+            public void setApplicationName(String applicationName) {
+                this.applicationName = applicationName;
             }
 
-            public String getHost() {
-                return host;
+            public String getAttachmentName() {
+                return attachmentName;
             }
 
-            public void setHost(String host) {
-                this.host = host;
+            public void setAttachmentName(String attachmentName) {
+                this.attachmentName = attachmentName;
             }
 
-            public Integer getPort() {
-                return port;
+            public String getAddress() {
+                return address;
             }
 
-            public void setPort(Integer port) {
-                this.port = port;
+            public void setAddress(String address) {
+                this.address = address;
+            }
+
+            public String[] getPathPatterns() {
+                return pathPatterns;
+            }
+
+            public void setPathPatterns(String[] pathPatterns) {
+                this.pathPatterns = pathPatterns;
+            }
+
+            public boolean isDefaultApplication() {
+                return defaultApplication;
+            }
+
+            public void setDefaultApplication(boolean defaultApplication) {
+                this.defaultApplication = defaultApplication;
             }
         }
     }

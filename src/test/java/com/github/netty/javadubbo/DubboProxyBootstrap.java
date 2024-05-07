@@ -3,7 +3,7 @@ package com.github.netty.javadubbo;
 import com.github.netty.StartupServer;
 import com.github.netty.protocol.DubboProtocol;
 import com.github.netty.protocol.HttpServletProtocol;
-import com.github.netty.protocol.dubbo.DubboPacket;
+import com.github.netty.protocol.dubbo.Application;
 import com.github.netty.protocol.dubbo.ProxyFrontendHandler;
 import com.github.netty.protocol.servlet.ServletContext;
 
@@ -47,15 +47,9 @@ public class DubboProxyBootstrap {
 
     private static DubboProtocol newDubboProtocol() {
         Supplier<ProxyFrontendHandler> proxySupplier = () -> {
-            ProxyFrontendHandler proxy = new ProxyFrontendHandler() {
-                @Override
-                public String getBackendServiceName(DubboPacket packet) {
-                    return packet.getAttachmentValue("remote.application");
-                }
-            };
-            proxy.putServiceAddress("pay-service", new InetSocketAddress("127.0.0.1", 20881));
-            proxy.putServiceAddress("order-service", new InetSocketAddress("127.0.0.1", 20881));
-            proxy.setDefaultServiceName("pay-service");
+            ProxyFrontendHandler proxy = new ProxyFrontendHandler();
+            proxy.addApplication(new Application("pay-service", new InetSocketAddress("127.0.0.1", 20881)));
+            proxy.addApplication(new Application("order-service", new InetSocketAddress("127.0.0.1", 20881)));
             return proxy;
         };
         return new DubboProtocol(proxySupplier);

@@ -58,4 +58,14 @@ public class Header {
             return false;
         }
     }
+
+    @Override
+    public String toString() {
+        return "Header{" +
+                "\n\trequestId=" + requestId +
+                ",\n\tserialization=" + getSerializationProtoId() +
+                ",\n\tstatus=" + Constant.statusToString(status) +
+                ",\n\tbodyLength=" + bodyLength +
+                "\n}";
+    }
 }

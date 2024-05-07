@@ -37,14 +37,14 @@
           netty:
             dubbo:
               enabled: true
-              default-service-name: 'pay-service'
-              services:
-                - service-name: 'order-service'
-                  host: 'localhost'
-                  port: 8082
-                - service-name: 'pay-service'
-                  host: 'localhost'
-                  port: 8082    
+              routes:
+                - path-patterns: 'com.github.netty.javadubbo.example.**'
+                  address: '127.0.0.1:8002'
+                - application-name: 'order-service'
+                  address: '127.0.0.1:8002'
+                - application-name: 'pay-service'
+                  address: '127.0.0.1:8003'
+                  default-application: true
 
 
 - 4.支持# http请求聚合, 然后用 select * from id in (httpRequestList). 

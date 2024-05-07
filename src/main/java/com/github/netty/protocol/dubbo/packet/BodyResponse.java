@@ -26,4 +26,13 @@ public class BodyResponse extends Body {
     public Object getThrowable() {
         return throwable;
     }
+
+    @Override
+    public String toString() {
+        return "BodyResponse{" +
+                "\n\tvalue=" + value +
+                ",\n\tthrowable=" + throwable +
+                ",\n\tattachments=" + attachments +
+                "\n}";
+    }
 }

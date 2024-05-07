@@ -2,7 +2,7 @@ package com.github.netty.protocol.servlet.websocket;
 
 import com.github.netty.protocol.servlet.DispatcherChannelHandler;
 import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.protocol.servlet.util.AntPathMatcher;
+import com.github.netty.core.util.AntPathMatcher;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;

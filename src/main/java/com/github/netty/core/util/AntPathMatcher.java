@@ -1,4 +1,4 @@
-package com.github.netty.protocol.servlet.util;
+package com.github.netty.core.util;
 
 /*
  * Copyright 2002-2017 the original author or authors.
@@ -101,6 +101,13 @@ public class AntPathMatcher {
      */
     public AntPathMatcher(String pathSeparator) {
         Objects.requireNonNull(pathSeparator, "'pathSeparator' is required");
+        this.pathSeparator = pathSeparator;
+        this.pathSeparatorPatternCache = new PathSeparatorPatternCache(pathSeparator);
+    }
+
+    public AntPathMatcher(String pathSeparator, Boolean cachePatterns) {
+        Objects.requireNonNull(pathSeparator, "'pathSeparator' is required");
+        this.cachePatterns = cachePatterns;
         this.pathSeparator = pathSeparator;
         this.pathSeparatorPatternCache = new PathSeparatorPatternCache(pathSeparator);
     }

@@ -55,6 +55,22 @@ public class DubboPacket {
         return empty;
     }
 
+    public String getRequestPath() {
+        if (body instanceof BodyRequest) {
+            return ((BodyRequest) body).getPath();
+        } else {
+            return null;
+        }
+    }
+
+    public String getRequestMethodName() {
+        if (body instanceof BodyRequest) {
+            return ((BodyRequest) body).getMethodName();
+        } else {
+            return null;
+        }
+    }
+
     public String getAttachmentValue(String attachmentName) {
         if (attachmentName == null || attachmentName.isEmpty()) {
             return null;
@@ -81,6 +97,9 @@ public class DubboPacket {
 
     @Override
     public String toString() {
-        return "[" + header.getRequestId() + "]" + (body == null ? "null" : body.getClass().getSimpleName());
+        return "DubboPacket{" +
+                "\n" + header +
+                ",\n" + body +
+                '}';
     }
 }

@@ -12,4 +12,11 @@ public class BodyFail extends Body {
     public String getErrorMessage() {
         return errorMessage;
     }
+
+    @Override
+    public String toString() {
+        return "BodyFail{" +
+                "\n\terrorMessage='" + errorMessage + '\'' +
+                "\n}";
+    }
 }

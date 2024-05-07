@@ -6,22 +6,22 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 
-import java.util.List;
+import java.util.Collection;
 
 @ChannelHandler.Sharable
 public class ProxyBackendHandler extends AbstractChannelHandler<ByteBuf, ByteBuf> {
-    private final List<String> serviceNames;
+    private final Collection<String> applicationNames;
     private final Channel frontendChannel;
     private Channel backendChannel;
 
-    public ProxyBackendHandler(List<String> serviceNames, Channel frontendChannel) {
+    public ProxyBackendHandler(Collection<String> applicationNames, Channel frontendChannel) {
         super(false);
-        this.serviceNames = serviceNames;
+        this.applicationNames = applicationNames;
         this.frontendChannel = frontendChannel;
     }
 
-    public List<String> getServiceNames() {
-        return serviceNames;
+    public Collection<String> getApplicationNames() {
+        return applicationNames;
     }
 
     public Channel getBackendChannel() {
