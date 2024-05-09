@@ -112,14 +112,12 @@ public class Hessian2Serialization implements Serialization {
             return inputStream.skip(Math.min(inputStream.available(), n));
         }
 
+        /**
+         * todo， 目前没有切入点能改成lazy
+         */
         public static class LazyHessian2Input extends Hessian2Input {
             public LazyHessian2Input(InputStream is) {
                 super(is);
-            }
-
-            @Override
-            public int readString(char[] buffer, int offset, int length) throws IOException {
-                return super.readString(buffer, offset, length);
             }
         }
     }
