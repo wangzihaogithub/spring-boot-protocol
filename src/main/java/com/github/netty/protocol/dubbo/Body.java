@@ -4,8 +4,12 @@ import io.netty.buffer.ByteBuf;
 
 public abstract class Body {
     ByteBuf bodyBytes;
+    int markReaderIndex;
 
-    public ByteBuf bytes() {
+    public ByteBuf encode() {
+        if (bodyBytes != null) {
+            bodyBytes.readerIndex(markReaderIndex);
+        }
         return bodyBytes;
     }
 

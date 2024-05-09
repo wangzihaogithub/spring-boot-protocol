@@ -15,6 +15,7 @@
 
     <dubbo:reference id="gphelloservice"
                      version="0.0.0"
+                     filter="clientFilter"
                      interface="com.github.netty.javadubbo.example.DemoAPI"
                      url="dubbo://127.0.0.1:8080/com.github.netty.javadubbo.example.DemoAPI"/>
 

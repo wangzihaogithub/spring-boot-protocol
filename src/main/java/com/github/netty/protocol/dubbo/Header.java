@@ -47,7 +47,7 @@ public class Header {
         return (byte) (flag & SERIALIZATION_MASK);
     }
 
-    public ByteBuf bytes() {
+    public ByteBuf encode() {
         return headerBytes;
     }
 

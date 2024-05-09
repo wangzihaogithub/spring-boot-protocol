@@ -7,6 +7,7 @@ import com.github.netty.protocol.dubbo.Serialization;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Map;
 
 public class Hessian2Serialization implements Serialization {
     private static final Hessian2FactoryManager FACTORY_MANAGER = new Hessian2FactoryManager();
@@ -32,15 +33,23 @@ public class Hessian2Serialization implements Serialization {
     }
 
     public static class Hessian2ObjectInput implements Serialization.ObjectInput {
-        private final Hessian2Input hessian2Input;
+        private final LazyHessian2Input hessian2Input;
         private final InputStream inputStream;
+        private String lastRead;
 
         public Hessian2ObjectInput(InputStream inputStream) {
             this.inputStream = inputStream;
-            Hessian2Input hessian2Input = new Hessian2Input(inputStream);
+            LazyHessian2Input hessian2Input = new LazyHessian2Input(inputStream);
             hessian2Input.setSerializerFactory(FACTORY_MANAGER.getSerializerFactory(
                     Thread.currentThread().getContextClassLoader()));
             this.hessian2Input = hessian2Input;
+        }
+
+        @Override
+        public Object readArg() throws IOException, ClassNotFoundException {
+            Object o = readObject();
+            this.lastRead = "readArg";
+            return o;
         }
 
         @Override
@@ -51,6 +60,7 @@ public class Hessian2Serialization implements Serialization {
                 hessian2Input.setSerializerFactory(FACTORY_MANAGER.getSerializerFactory(
                         Thread.currentThread().getContextClassLoader()));
             }
+            this.lastRead = "readObject";
             return hessian2Input.readObject();
         }
 
@@ -62,12 +72,34 @@ public class Hessian2Serialization implements Serialization {
                 hessian2Input.setSerializerFactory(FACTORY_MANAGER.getSerializerFactory(
                         Thread.currentThread().getContextClassLoader()));
             }
+            this.lastRead = "readObject";
             return (T) hessian2Input.readObject(cls);
         }
 
         @Override
+        public Map<String, Object> readAttachments() throws IOException, ClassNotFoundException {
+            if (!hessian2Input.getSerializerFactory()
+                    .getClassLoader()
+                    .equals(Thread.currentThread().getContextClassLoader())) {
+                hessian2Input.setSerializerFactory(FACTORY_MANAGER.getSerializerFactory(
+                        Thread.currentThread().getContextClassLoader()));
+            }
+            this.lastRead = "readAttachments";
+            return (Map<String, Object>) hessian2Input.readObject(Hessian2FactoryManager.LazyMapDeserializer.LazyMap.class);
+        }
+
+        @Override
         public String readUTF() throws IOException {
+            this.lastRead = "readUTF";
             return hessian2Input.readString();
+        }
+
+        @Override
+        public void close() throws IOException {
+            if ("readAttachments".equals(lastRead)) {
+                return;
+            }
+            ObjectInput.super.close();
         }
 
         @Override
@@ -78,6 +110,17 @@ public class Hessian2Serialization implements Serialization {
         @Override
         public long skip(long n) throws IOException {
             return inputStream.skip(Math.min(inputStream.available(), n));
+        }
+
+        public static class LazyHessian2Input extends Hessian2Input {
+            public LazyHessian2Input(InputStream is) {
+                super(is);
+            }
+
+            @Override
+            public int readString(char[] buffer, int offset, int length) throws IOException {
+                return super.readString(buffer, offset, length);
+            }
         }
     }
 

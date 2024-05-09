@@ -114,6 +114,10 @@ public interface Serialization {
 
     public interface ObjectInput extends Closeable {
 
+        default Object readArg() throws IOException, ClassNotFoundException {
+            return readObject();
+        }
+
         Object readObject() throws IOException, ClassNotFoundException;
 
         <T> T readObject(Class<T> cls) throws IOException, ClassNotFoundException;

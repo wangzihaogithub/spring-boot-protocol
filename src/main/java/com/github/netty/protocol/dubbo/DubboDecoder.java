@@ -47,16 +47,17 @@ public class DubboDecoder extends ByteToMessageDecoder {
                 }
                 case READ_BODY: {
                     if (buffer.readableBytes() >= this.packet.header.bodyLength) {
-                        int markReaderIndex = buffer.readerIndex();
+                        ByteBuf body = buffer.readRetainedSlice(this.packet.header.bodyLength);
+                        int markReaderIndex = body.readerIndex();
                         try {
-                            this.packet.body = readBody(buffer);
+                            this.packet.body = readBody(body);
                         } catch (Exception e) {
                             exception(ctx, buffer, e);
                             this.packet.release();
                             throw e;
                         }
-                        buffer.readerIndex(markReaderIndex);
-                        this.packet.body.bodyBytes = buffer.readRetainedSlice(this.packet.header.bodyLength);
+                        this.packet.body.markReaderIndex = markReaderIndex;
+                        this.packet.body.bodyBytes = body;
                         this.state = State.READ_HEADER;
                         out.add(this.packet);
                         this.packet = null;
@@ -147,7 +148,7 @@ public class DubboDecoder extends ByteToMessageDecoder {
                     int countArgs = countArgs(parameterTypesDesc);
                     Object[] args = new Object[countArgs];
                     for (int i = 0; i < countArgs; i++) {
-                        args[i] = in.readObject();
+                        args[i] = in.readArg();
                     }
                     Map<String, Object> attachments = in.readAttachments();
                     return new BodyRequest(dubboVersion, path, version, methodName, parameterTypesDesc, attachments, args);

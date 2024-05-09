@@ -55,11 +55,12 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
             }
 
             // 2. attachment match
-            String attachmentValue = packet.getAttachmentValue(application.getAttachmentApplicationName());
             String applicationName = application.getName();
-            if (attachmentValue != null && !attachmentValue.isEmpty()
-                    && attachmentValue.equals(applicationName)) {
-                return application;
+            if (applicationName != null && !applicationName.isEmpty()) {
+                String attachmentValue = packet.getAttachmentValue(application.getAttachmentApplicationName());
+                if (applicationName.equals(attachmentValue)) {
+                    return application;
+                }
             }
 
             // 3. default
@@ -115,8 +116,8 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
                 }
             }
         };
-        backendChannel.write(packet.getHeader().bytes());
-        backendChannel.writeAndFlush(packet.getBody().bytes()).addListener(closeOnFailure);
+        backendChannel.write(packet.getHeader().encode());
+        backendChannel.writeAndFlush(packet.getBody().encode()).addListener(closeOnFailure);
     }
 
     /**

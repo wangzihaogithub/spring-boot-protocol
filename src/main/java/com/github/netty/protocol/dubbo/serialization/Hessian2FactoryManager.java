@@ -16,12 +16,12 @@
  */
 package com.github.netty.protocol.dubbo.serialization;
 
-import com.alibaba.com.caucho.hessian.io.Deserializer;
-import com.alibaba.com.caucho.hessian.io.JavaDeserializer;
-import com.alibaba.com.caucho.hessian.io.JavaSerializer;
-import com.alibaba.com.caucho.hessian.io.SerializerFactory;
+import com.alibaba.com.caucho.hessian.io.*;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -145,14 +145,130 @@ public class Hessian2FactoryManager {
         CL_2_SERIALIZER_FACTORY.remove(classLoader);
     }
 
-    public static class Hessian2SerializerFactory extends SerializerFactory {
+    public static class LazyMapDeserializer extends MapDeserializer {
+        private final Class type;
 
+        public LazyMapDeserializer(Class type) {
+            super(type);
+            this.type = type;
+        }
+
+        @Override
+        public Object readMap(AbstractHessianInput in, Class<?> expectKeyType, Class<?> expectValueType) throws IOException {
+            Deserializer keyDeserializer = null, valueDeserializer = null;
+            SerializerFactory factory = findSerializerFactory(in);
+            if (expectKeyType != null) {
+                keyDeserializer = factory.getDeserializer(expectKeyType.getName());
+            }
+            if (expectValueType != null) {
+                valueDeserializer = factory.getDeserializer(expectValueType.getName());
+            }
+            LazyMap map = new LazyMap(in, keyDeserializer, valueDeserializer);
+            in.addRef(map);
+            in.skipOptionalCall();
+            return map;
+        }
+
+        public static class LazyMap<K, V> extends HashMap<K, V> {
+            private final AbstractHessianInput in;
+            private final Deserializer keyDeserializer, valueDeserializer;
+
+            public LazyMap(AbstractHessianInput in, Deserializer keyDeserializer, Deserializer valueDeserializer) {
+                this.in = in;
+                this.keyDeserializer = keyDeserializer;
+                this.valueDeserializer = valueDeserializer;
+            }
+
+            public void readAll() {
+                while (true) {
+                    try {
+                        if (!next()) {
+                            break;
+                        }
+                    } catch (IOException ignored) {
+                        break;
+                    }
+                }
+            }
+
+            @Override
+            public boolean isEmpty() {
+                boolean empty = super.isEmpty();
+                if (empty) {
+                    try {
+                        next();
+                    } catch (IOException ignored) {
+
+                    }
+                }
+                return super.isEmpty();
+            }
+
+            @Override
+            public V get(Object key) {
+                while (true) {
+                    if (super.containsKey(key)) {
+                        return super.get(key);
+                    }
+                    try {
+                        if (!next()) {
+                            return null;
+                        }
+                    } catch (IOException e) {
+                        return null;
+                    }
+                }
+            }
+
+            @Override
+            public V getOrDefault(Object key, V defaultValue) {
+                while (true) {
+                    if (super.containsKey(key)) {
+                        return super.get(key);
+                    }
+                    try {
+                        if (!next()) {
+                            return defaultValue;
+                        }
+                    } catch (IOException e) {
+                        return null;
+                    }
+                }
+            }
+
+            private boolean next() throws IOException {
+                if (in == null || in.isEnd()) {
+                    return false;
+                } else {
+                    Object key = keyDeserializer != null ? keyDeserializer.readObject(in) : in.readObject();
+                    Object value = valueDeserializer != null ? valueDeserializer.readObject(in) : in.readObject();
+                    if (in.isEnd()) {
+                        in.readEnd();
+                    }
+                    put((K) key, (V) value);
+                    return true;
+                }
+            }
+        }
+    }
+
+    public static class Hessian2SerializerFactory extends SerializerFactory {
         private final DefaultSerializeClassChecker defaultSerializeClassChecker;
+        private final Map<Class, LazyMapDeserializer> mapDeserializerCache = new ConcurrentHashMap<>(3);
 
         public Hessian2SerializerFactory(
                 ClassLoader classLoader, DefaultSerializeClassChecker defaultSerializeClassChecker) {
             super(classLoader);
             this.defaultSerializeClassChecker = defaultSerializeClassChecker;
+        }
+
+        @Override
+        public Deserializer getDeserializer(Class cl) throws HessianProtocolException {
+            if (LazyMapDeserializer.LazyMap.class == cl) {
+                return mapDeserializerCache.computeIfAbsent(cl, LazyMapDeserializer::new);
+            } else {
+                return super.getDeserializer(cl);
+            }
         }
 
         @Override

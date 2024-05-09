@@ -26,17 +26,11 @@ public class DubboPacket {
         return body;
     }
 
-    public ByteBuf getHeaderBytes() {
-        return header.bytes();
-    }
-
-    public ByteBuf getBodyBytes() {
-        return body.bytes();
-    }
-
     public void release() {
         header.release();
-        body.release();
+        if (body != null) {
+            body.release();
+        }
     }
 
     public ByteBuf buildErrorPacket(ByteBufAllocator allocator, byte errorStatus, String errorMessage) {
