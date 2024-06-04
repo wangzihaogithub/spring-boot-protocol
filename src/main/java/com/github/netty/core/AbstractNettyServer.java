@@ -262,11 +262,10 @@ public abstract class AbstractNettyServer implements Runnable {
         if (cause != null) {
             PlatformDependent.throwException(cause);
         }
-        logger.info("{} start (port = {}, pid = {}, os = {}) ...",
+        logger.info("{} start (port = {}, os = {}) ...",
                 getName(),
                 getPort() + "",
-                HostUtil.getPid() + "",
-                HostUtil.getOsName());
+                System.getProperty("os.name"));
     }
 
     @Override

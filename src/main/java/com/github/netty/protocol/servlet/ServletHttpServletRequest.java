@@ -373,42 +373,36 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
          * Attribute, FileUpload, InternalAttribute
          */
         while (true) {
+            InterfaceHttpData interfaceData;
             try {
-                if (!postRequestDecoder.hasNext()) {
+                interfaceData = postRequestDecoder.next();
+                if (interfaceData == null) {
                     return;
                 }
             } catch (HttpPostRequestDecoder.EndOfDataDecoderException e) {
                 return;
             }
 
-            InterfaceHttpData interfaceData = postRequestDecoder.next();
-            switch (interfaceData.getHttpDataType()) {
-                case Attribute: {
-                    Attribute data = (Attribute) interfaceData;
-                    String name = data.getName();
-                    String value;
-                    try {
-                        value = data.getValue();
-                    } catch (IOException e) {
-                        value = "";
-                    }
-                    parameterMap.add(name, value);
+            InterfaceHttpData.HttpDataType httpDataType = interfaceData.getHttpDataType();
+            if (httpDataType == InterfaceHttpData.HttpDataType.Attribute) {
+                Attribute data = (Attribute) interfaceData;
+                String name = data.getName();
+                String value;
+                try {
+                    value = data.getValue();
+                } catch (IOException e) {
+                    value = "";
+                }
+                parameterMap.add(name, value);
 
-                    if (isMultipart) {
-                        ServletTextPart part = new ServletTextPart(data, resourceManagerSupplier);
-                        fileUploadList.add(part);
-                    }
-                    break;
-                }
-                case FileUpload: {
-                    FileUpload data = (FileUpload) interfaceData;
-                    ServletFilePart part = new ServletFilePart(data, resourceManagerSupplier);
+                if (isMultipart) {
+                    ServletTextPart part = new ServletTextPart(data, resourceManagerSupplier);
                     fileUploadList.add(part);
-                    break;
                 }
-                default: {
-                    break;
-                }
+            } else if (httpDataType == InterfaceHttpData.HttpDataType.FileUpload) {
+                FileUpload data = (FileUpload) interfaceData;
+                ServletFilePart part = new ServletFilePart(data, resourceManagerSupplier);
+                fileUploadList.add(part);
             }
         }
     }

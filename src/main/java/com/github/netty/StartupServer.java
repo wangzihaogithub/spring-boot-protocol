@@ -1,7 +1,6 @@
 package com.github.netty;
 
 import com.github.netty.core.*;
-import com.github.netty.core.util.HostUtil;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
@@ -126,13 +125,12 @@ public class StartupServer extends AbstractNettyServer {
             return;
         }
 
-        logger.info("{} start (version = {}, port = {}, pid = {}, protocol = {}, os = {}) ...",
+        logger.info("{} start (version = {}, port = {}, protocol = {}, os = {}) ...",
                 getName(),
                 Version.getServerNumber(),
                 getPort() + "",
-                HostUtil.getPid() + "",
                 protocolHandlers,
-                HostUtil.getOsName()
+                System.getProperty("os.name")
         );
     }
 

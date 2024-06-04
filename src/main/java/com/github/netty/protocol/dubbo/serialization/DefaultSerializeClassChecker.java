@@ -74,6 +74,7 @@ public class DefaultSerializeClassChecker implements AllowClassNotifyListener {
      *
      * @param className class name
      * @throws IllegalArgumentException if class is blocked
+     * @return Class
      */
     public Class<?> loadClass(ClassLoader classLoader, String className) throws ClassNotFoundException {
         Class<?> aClass = loadClass0(classLoader, className);
@@ -231,12 +232,6 @@ public class DefaultSerializeClassChecker implements AllowClassNotifyListener {
             }
         }
 
-        /**
-         * get class loader
-         *
-         * @param clazz
-         * @return class loader
-         */
         public static ClassLoader getClassLoader(Class<?> clazz) {
             ClassLoader cl = null;
             if (!clazz.getName()
@@ -283,9 +278,6 @@ public class DefaultSerializeClassChecker implements AllowClassNotifyListener {
             return getClassLoader(Hessian2FactoryManager.class);
         }
 
-        /**
-         * Same as <code>Class.forName()</code>, except that it works for primitive types.
-         */
         public static Class<?> forName(String name) throws ClassNotFoundException {
             return forName(name, getClassLoader());
         }

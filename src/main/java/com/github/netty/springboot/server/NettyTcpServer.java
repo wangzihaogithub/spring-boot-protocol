@@ -5,7 +5,6 @@ import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.ProtocolHandler;
 import com.github.netty.core.ServerListener;
 import com.github.netty.core.TcpChannel;
-import com.github.netty.core.util.HostUtil;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.springboot.NettyProperties;
@@ -99,13 +98,12 @@ public class NettyTcpServer extends AbstractNettyServer implements WebServer {
             }
         }
 
-        logger.info("{} start (version = {}, port = {}, pid = {}, protocol = {}, os = {}) ...",
+        logger.info("{} start (version = {}, port = {}, protocol = {}, os = {}) ...",
                 getName(),
                 Version.getServerNumber(),
                 getPort() + "",
-                HostUtil.getPid() + "",
                 protocolHandlers,
-                HostUtil.getOsName()
+                System.getProperty("os.name")
         );
     }
 

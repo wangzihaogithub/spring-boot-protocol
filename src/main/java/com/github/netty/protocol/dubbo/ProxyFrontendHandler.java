@@ -189,9 +189,6 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         return backendClientMap.computeIfAbsent(address, n -> newBackendClient(applicationNames, address, fronendChannel));
     }
 
-    /**
-     * 新建后端链接
-     */
     public DubboClient newBackendClient(Collection<String> applicationNames, InetSocketAddress address, Channel fronendChannel) {
         DubboClient client = new DubboClient(String.join(",", applicationNames), new ProxyBackendHandler(applicationNames, fronendChannel));
         client.connect(address);
