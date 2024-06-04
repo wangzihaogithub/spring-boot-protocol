@@ -1,6 +1,12 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.NamespaceUtil;
+import com.github.netty.core.util.Recyclable;
+import com.github.netty.core.util.RecyclableUtil;
+import com.github.netty.core.util.ResourceManager;
+import com.github.netty.core.util.Wrapper;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.handler.codec.DecoderException;
@@ -312,7 +318,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         long contentLength = this.contentLength;
         if (contentLength == -1) {
             try {
-                return onMessageEnd && this.requestDecoderSupplier.get().currentPartialHttpData() == null;
+                return this.validateMessageEnd();
             } catch (DecoderException e) {
                 this.decoderException = e;
                 return true;
@@ -327,7 +333,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (contentLength == -1) {
             if (read == -1) {
                 try {
-                    return onMessageEnd && this.requestDecoderSupplier.get().currentPartialHttpData() == null;
+                    return this.validateMessageEnd();
                 } catch (DecoderException e) {
                     this.decoderException = e;
                     return true;
@@ -338,6 +344,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         } else {
             return receivedContentLength.get() >= (read == -1 ? contentLength : Math.min(contentLength, readerIndex.get() + read)) || decoderException != null || receiveDataTimeout;
         }
+    }
+
+    private boolean validateMessageEnd() {
+        InterfaceHttpPostRequestDecoder postRequestDecoder = this.requestDecoderSupplier.get();
+        if (null == postRequestDecoder) {
+            return onMessageEnd;
+        }
+        return onMessageEnd && postRequestDecoder.currentPartialHttpData() == null;
     }
 
     /**
