@@ -104,8 +104,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         context,
                         request,
                         protocol,
-                        ssl);
-                exchange.getRequest().getInputStream0().setContentLength(contentLength);
+                        ssl,
+                        contentLength);
                 this.httpRunnable = httpRunnable;
             }
         }

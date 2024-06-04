@@ -195,7 +195,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     protected ServletHttpServletRequest() {
     }
 
-    public static ServletHttpServletRequest newInstance(ServletHttpExchange exchange, HttpRequest httpRequest) {
+    public static ServletHttpServletRequest newInstance(ServletHttpExchange exchange, HttpRequest httpRequest, long contentLength) {
         ServletHttpServletRequest instance = RECYCLER.getInstance();
         instance.httpExchange = exchange;
         instance.nettyRequest = httpRequest;
@@ -222,6 +222,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         instance.inputStream.setHttpExchange(exchange);
         instance.inputStream.setFileSizeThreshold(instance.getFileSizeThreshold());
         instance.inputStream.setFileUploadTimeoutMs(exchange.getServletContext().getUploadFileTimeoutMs());
+        instance.inputStream.setContentLength(contentLength);
         return instance;
     }
 

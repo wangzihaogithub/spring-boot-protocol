@@ -11,6 +11,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder;
 import io.netty.util.internal.PlatformDependent;
 
@@ -50,7 +51,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private static final Set<? extends OpenOption> WRITE_OPTIONS = new HashSet<>(Arrays.asList(StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING));
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicLong receivedContentLength = new AtomicLong();
-    private final AtomicLong uploadFileLength = new AtomicLong();
     private final AtomicLong readerIndex = new AtomicLong();
     private final Lock lock = new ReentrantLock();
     private final Condition condition = lock.newCondition();
@@ -69,7 +69,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private volatile DecoderException decoderException;
     private volatile long contentLength;
     private volatile boolean receiveDataTimeout;
-    private volatile boolean onMessageEnd;
+    private volatile boolean receivedLastHttpContent;
     private volatile FileInputStream uploadFileInputStream;
     private volatile SeekableByteChannel uploadFileOutputChannel;
     private volatile File uploadFile;
@@ -112,15 +112,16 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     void onMessage(HttpContent httpContent) {
-        if (closed.get()) {
-            RecyclableUtil.release(httpContent);
-            return;
-        }
-        this.onMessageEnd = false;
         try {
-            onMessage0(httpContent);
+            if (closed.get()) {
+                RecyclableUtil.release(httpContent);
+            } else {
+                onMessage0(httpContent);
+            }
         } finally {
-            this.onMessageEnd = true;
+            if (httpContent instanceof LastHttpContent) {
+                this.receivedLastHttpContent = true;
+            }
         }
     }
 
@@ -317,41 +318,22 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public boolean isReceived() {
         long contentLength = this.contentLength;
         if (contentLength == -1) {
-            try {
-                return this.validateMessageEnd();
-            } catch (DecoderException e) {
-                this.decoderException = e;
-                return true;
-            }
+            return receivedLastHttpContent;
         } else {
             return closed.get() || receivedContentLength.get() >= contentLength || decoderException != null || receiveDataTimeout;
         }
     }
 
-    public boolean isReadable(int read) {
+    public boolean isReadable(int readLength) {
         long contentLength = this.contentLength;
         if (contentLength == -1) {
-            if (read == -1) {
-                try {
-                    return this.validateMessageEnd();
-                } catch (DecoderException e) {
-                    this.decoderException = e;
-                    return true;
-                }
-            } else {
-                return true;
-            }
+            return readLength != -1 || receivedLastHttpContent;
         } else {
-            return receivedContentLength.get() >= (read == -1 ? contentLength : Math.min(contentLength, readerIndex.get() + read)) || decoderException != null || receiveDataTimeout;
+            long readableContentLength = readLength == -1 ? contentLength : Math.min(readerIndex.get() + readLength, contentLength);
+            return receivedContentLength.get() >= readableContentLength
+                    || decoderException != null
+                    || receiveDataTimeout;
         }
-    }
-
-    private boolean validateMessageEnd() {
-        InterfaceHttpPostRequestDecoder postRequestDecoder = this.requestDecoderSupplier.get();
-        if (null == postRequestDecoder) {
-            return onMessageEnd;
-        }
-        return onMessageEnd && postRequestDecoder.currentPartialHttpData() == null;
     }
 
     /**
@@ -469,8 +451,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                     }
                 });
             }
-            this.receivedContentLengthFileSizeThresholdFlag.set(false);
-            this.readerIndex.set(0L);
         }
     }
 
@@ -604,12 +584,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.closed.set(false);
         this.onAllDataReadFlag.set(false);
         this.onDataAvailableFlag.set(false);
+        this.receivedContentLengthFileSizeThresholdFlag.set(false);
         this.source = source;
-        this.contentLength = -1;
         this.readListener = null;
         this.readerIndex.set(0L);
-        this.uploadFileLength.set(0L);
         this.receivedContentLength.set(0);
+        this.receivedLastHttpContent = false;
         this.decoderException = null;
         this.needCloseClient = false;
         this.receiveDataTimeout = false;
@@ -619,7 +599,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         return fileUploadTimeoutMs;
     }
 
-    public void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
+    void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
         this.fileUploadTimeoutMs = fileUploadTimeoutMs;
     }
 

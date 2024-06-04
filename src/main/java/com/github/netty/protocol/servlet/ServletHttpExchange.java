@@ -63,7 +63,9 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     private ServletHttpExchange() {
     }
 
-    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context, HttpRequest httpRequest, Protocol protocol, boolean ssl) {
+    public static ServletHttpExchange newInstance(ServletContext servletContext, ChannelHandlerContext context,
+                                                  HttpRequest httpRequest, Protocol protocol,
+                                                  boolean ssl, long contentLength) {
         ServletHttpExchange instance = RECYCLER.getInstance();
         setHttpExchange(context, instance);
 
@@ -76,7 +78,7 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
         instance.isHttpKeepAlive = HttpHeaderUtil.isKeepAlive(httpRequest);
 
         //Create a new servlet request object
-        instance.request = ServletHttpServletRequest.newInstance(instance, httpRequest);
+        instance.request = ServletHttpServletRequest.newInstance(instance, httpRequest, contentLength);
         //Create a new servlet response object
         instance.response = ServletHttpServletResponse.newInstance(instance);
         return instance;
