@@ -26,11 +26,12 @@
         <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
         <java.version>1.8</java.version>
 
-        <spring-boot.version>2.5.12</spring-boot.version>
+        <spring-boot.version>2.7.18</spring-boot.version>
         <servlet-api.version>4.0.1</servlet-api.version>
 
         <javax-websocket-api.version>1.1</javax-websocket-api.version>
 
+        <jackson.version>2.13.5</jackson.version>
         <netty.version>4.1.86.Final</netty.version>
         <netty.boringssl.version>2.0.53.Final</netty.boringssl.version>
         <fastjson.version>1.2.83</fastjson.version>
@@ -286,6 +287,27 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
+            <scope>provided</scope>
+            <optional>true</optional>
+        </dependency>
         <!--<dependency>-->
             <!--<groupId>io.moquette</groupId>-->
             <!--<artifactId>moquette-broker</artifactId>-->

@@ -13,10 +13,11 @@ server:
   netty:
     enable-tcp-package-log: false
     max-connections: 1000000
-    channel-handler: com.github.netty.http.example.MyDynamicProtocolChannelHandler
     #内存泄露追踪。 调试用, 默认关闭
 #    resource-leak-detector-level: PARANOID
-
+    # file static 静态文件资源文件夹
+    http-servlet:
+      basedir: '/Users/edy/Desktop/webapp'
   tomcat:
     max-http-post-size: -1
 
