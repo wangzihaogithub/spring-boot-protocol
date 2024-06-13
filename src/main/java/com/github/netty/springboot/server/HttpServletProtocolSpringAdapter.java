@@ -21,10 +21,8 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.web.server.*;
-import org.springframework.boot.web.servlet.server.AbstractServletWebServerFactory;
 import org.springframework.util.ClassUtils;
 
-import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.concurrent.Executor;
@@ -41,7 +39,6 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     private final NettyProperties properties;
     private final ApplicationX application;
     private BeanFactory beanFactory;
-    private AbstractServletWebServerFactory webServerFactory;
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader,
                                             Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
@@ -72,15 +69,12 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
         if (SpringUtil.isSingletonBean(beanFactory, beanName)) {
             application.addSingletonBean(bean, beanName, false);
         }
-        if (bean instanceof AbstractServletWebServerFactory && ((AbstractServletWebServerFactory) bean).getPort() > 0) {
-            this.webServerFactory = (AbstractServletWebServerFactory) bean;
-        }
         return bean;
     }
 
     @Override
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
-        super.onServerStart(server);
+        initializerStartup();
 
         ServletContext servletContext = getServletContext();
         application.addSingletonBean(servletContext);
@@ -93,11 +87,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol implem
     }
 
 
-    @Override
-    protected void configurableServletContext() throws Exception {
-        if (webServerFactory == null) {
-            return;
-        }
+    public void configurableServletContext(NettyTcpServerFactory webServerFactory) throws Exception {
         ServletContext servletContext = getServletContext();
         ServerProperties serverProperties = application.getBean(ServerProperties.class, null, false);
         MultipartProperties multipartProperties = application.getBean(MultipartProperties.class, null, false);

@@ -39,10 +39,10 @@ import java.util.function.Supplier;
 public class NettyTcpServerFactory
         extends AbstractServletWebServerFactory
         implements ConfigurableReactiveWebServerFactory, ConfigurableServletWebServerFactory {
-    protected NettyProperties properties;
     private final Collection<ProtocolHandler> protocolHandlers = new TreeSet<>(Ordered.COMPARATOR);
     private final Collection<ServerListener> serverListeners = new TreeSet<>(Ordered.COMPARATOR);
     private final Supplier<DynamicProtocolChannelHandler> channelHandlerSupplier;
+    protected NettyProperties properties;
 
     public NettyTcpServerFactory() {
         this(new NettyProperties(), DynamicProtocolChannelHandler::new);
@@ -80,15 +80,15 @@ public class NettyTcpServerFactory
     @Override
     public WebServer getWebServer(HttpHandler httpHandler) {
         try {
+            //Server port
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
             ServletContext servletContext = getServletContext();
             if (servletContext != null) {
                 ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
                 servletRegistration.setAsyncSupported(true);
                 servletRegistration.addMapping("/");
+                servletContext.setServerAddress(serverAddress);
             }
-
-            //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
             return new NettyTcpServer(serverAddress, properties, protocolHandlers, serverListeners, channelHandlerSupplier);
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
@@ -105,6 +105,11 @@ public class NettyTcpServerFactory
     public WebServer getWebServer(ServletContextInitializer... initializers) {
         ServletContext servletContext = Objects.requireNonNull(getServletContext());
         try {
+            //Server port
+            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
+            servletContext.setServerAddress(serverAddress);
+            configurableServletContext();
+
             //The default servlet
             if (!super.isRegisterDefaultServlet()) {
                 servletContext.setDefaultServlet(null);
@@ -119,12 +124,17 @@ public class NettyTcpServerFactory
             for (ServletContextInitializer initializer : super.mergeInitializers(initializers)) {
                 initializer.onStartup(servletContext);
             }
-
-            //Server port
-            InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
             return new NettyTcpServer(serverAddress, properties, protocolHandlers, serverListeners, channelHandlerSupplier);
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
+        }
+    }
+
+    private void configurableServletContext() throws Exception {
+        for (ProtocolHandler protocolHandler : protocolHandlers) {
+            if (protocolHandler instanceof HttpServletProtocolSpringAdapter) {
+                ((HttpServletProtocolSpringAdapter) protocolHandler).configurableServletContext(this);
+            }
         }
     }
 

@@ -123,7 +123,10 @@ public class HttpServletProtocol extends AbstractProtocol {
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         servletContext.setServerAddress(server.getServerAddress());
         configurableServletContext();
+        initializerStartup();
+    }
 
+    protected void initializerStartup() throws Exception {
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if (listenerManager.hasServletContextListener()) {
             listenerManager.onServletContextInitialized(new ServletContextEvent(servletContext));
@@ -161,7 +164,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         return false;
     }
 
-    protected void configurableServletContext() throws Exception {
+    public void configurableServletContext() throws Exception {
         if (servletContext.getResourceManager() == null) {
             servletContext.setDocBase(ResourceManager.createTempDir("netty-docbase").getAbsolutePath());
         }

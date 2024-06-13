@@ -1,12 +1,6 @@
 package com.github.netty.protocol.servlet;
 
-import com.github.netty.core.util.LoggerFactoryX;
-import com.github.netty.core.util.LoggerX;
-import com.github.netty.core.util.NamespaceUtil;
-import com.github.netty.core.util.Recyclable;
-import com.github.netty.core.util.RecyclableUtil;
-import com.github.netty.core.util.ResourceManager;
-import com.github.netty.core.util.Wrapper;
+import com.github.netty.core.util.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.handler.codec.DecoderException;
@@ -59,7 +53,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private final AtomicBoolean onAllDataReadFlag = new AtomicBoolean();
     private final AtomicBoolean onDataAvailableFlag = new AtomicBoolean();
     private final AtomicBoolean receivedContentLengthFileSizeThresholdFlag = new AtomicBoolean();
-    private final String identityName = NamespaceUtil.newIdName(getClass()) + "_";
+    private final String identityName = getClass().getSimpleName() + System.identityHashCode(this) + "_";
     private ServletHttpExchange httpExchange;
     private CompositeByteBuf source;
     private long fileUploadTimeoutMs;
