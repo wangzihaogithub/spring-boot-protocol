@@ -32,7 +32,7 @@
         <javax-websocket-api.version>1.1</javax-websocket-api.version>
 
         <jackson.version>2.13.5</jackson.version>
-        <netty.version>4.1.86.Final</netty.version>
+        <netty.version>4.1.111.Final</netty.version>
         <netty.boringssl.version>2.0.53.Final</netty.boringssl.version>
         <fastjson.version>1.2.83</fastjson.version>
         <reactive-streams.version>1.0.3</reactive-streams.version>
@@ -67,7 +67,7 @@
             <artifactId>javax.servlet-api</artifactId>
             <version>${servlet-api.version}</version>
             <!--            <scope>provided</scope>-->
-            <optional>true</optional>
+<!--            <optional>true</optional>-->
         </dependency>
 <!--        <dependency>-->
 <!--            <groupId>org.reactivestreams</groupId>-->
@@ -80,7 +80,7 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
             <version>${netty.version}</version>
-            <optional>true</optional>
+<!--            <optional>true</optional>-->
             <exclusions>
                 <exclusion>
                     <groupId>io.netty</groupId>
