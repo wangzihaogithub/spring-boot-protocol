@@ -112,7 +112,11 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
     public void exceptionCaught(ChannelHandlerContext context, Throwable cause) {
         if (cause.getClass().getName().startsWith("io.netty.handler.codec.http2")) {
             // ignore
-        } else if (cause.getClass() != IOException.class) {
+        } else if (IOException.class.isAssignableFrom(cause.getClass())) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("handler IOException. case={}, channel={}", cause.toString(), context.channel(), cause);
+            }
+        } else {
             logger.warn("handler exception. case={}, channel={}", cause.toString(), context.channel(), cause);
         }
         MessageToRunnable messageToRunnable = getMessageToRunnable(context.channel());
