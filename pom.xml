@@ -4,7 +4,7 @@
 
     <groupId>com.github.wangzihaogithub</groupId>
     <artifactId>spring-boot-protocol</artifactId>
-    <version>2.3.18</version>
+    <version>2.3.19</version>
     <packaging>jar</packaging>
 
     <name>Spring Boot Protocol</name>
@@ -49,7 +49,7 @@
         <connection>scm:git:https://github.com/wangzihaogithub/spring-boot-protocol.git</connection>
         <developerConnection>scm:git:git@github.com:wangzihaogithub/spring-boot-protocol.git</developerConnection>
         <url>git@github.com:wangzihaogithub/spring-boot-protocol.git</url>
-        <tag>v2.3.18</tag>
+        <tag>v2.3.19</tag>
     </scm>
 
     <!-- 开发者信息 -->

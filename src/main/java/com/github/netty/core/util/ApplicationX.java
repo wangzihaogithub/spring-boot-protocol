@@ -418,7 +418,7 @@ public class ApplicationX {
         }
         definition.setScope(BeanDefinition.SCOPE_SINGLETON);
         addBeanDefinition(beanName, definition);
-        Object oldInstance = singletonObjects.remove(beanName, instance);
+        Object oldInstance = singletonObjects.remove(beanName);
         if (!definition.isLazyInit()) {
             getBean(beanName, null, true);
         }
