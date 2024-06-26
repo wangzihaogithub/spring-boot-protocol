@@ -4,6 +4,7 @@ import com.github.netty.core.util.IOUtil;
 import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContextBuilder;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.beans.factory.support.DefaultSingletonBeanRegistry;
 import org.springframework.boot.web.server.Ssl;
@@ -20,6 +21,14 @@ import java.security.KeyStore;
 import java.util.Arrays;
 
 public class SpringUtil {
+
+    public static <T> T getBean(BeanFactory beanFactory, Class<T> requiredType) {
+        try {
+            return beanFactory.getBean(requiredType);
+        } catch (NoSuchBeanDefinitionException e) {
+            return null;
+        }
+    }
 
     public static boolean isSingletonBean(BeanFactory beanFactory, String beanName) {
         if (beanFactory instanceof DefaultSingletonBeanRegistry

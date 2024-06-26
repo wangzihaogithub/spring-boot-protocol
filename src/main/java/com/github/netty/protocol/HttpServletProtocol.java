@@ -54,24 +54,12 @@ import java.util.function.Supplier;
  */
 public class HttpServletProtocol extends AbstractProtocol {
     private static final LoggerX LOGGER = LoggerFactoryX.getLogger(HttpServletProtocol.class);
-    private static final boolean EXIST_JAVAX_WEBSOCKET;
     private static final ByteBuf OUT_OF_MAX_CONNECTION_RESPONSE = Unpooled.copiedBuffer(
             "HTTP/1.1 503\r\n" +
                     "Retry-After: 60\r\n" +
                     "Connection: Close\r\n" +
                     "Content-Length: 0\r\n" +
                     "\r\n", Charset.forName("ISO-8859-1"));
-
-    static {
-        boolean existJavaxWebsocket;
-        try {
-            Class.forName("javax.websocket.Endpoint");
-            existJavaxWebsocket = true;
-        } catch (Throwable e) {
-            existJavaxWebsocket = false;
-        }
-        EXIST_JAVAX_WEBSOCKET = existJavaxWebsocket;
-    }
 
     private final ServletContext servletContext;
     private SslContextBuilder sslContextBuilder;
@@ -84,6 +72,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private boolean enableContentCompression = true;
     private boolean enableH2c = false;
     private boolean enableH2 = HttpConstants.EXIST_DEPENDENCY_H2;
+    private boolean enableWebsocket = HttpConstants.EXIST_JAVAX_WEBSOCKET;
 
     private int contentSizeThreshold = 8102;
     private String[] compressionMimeTypes = {"text/html", "text/xml", "text/plain",
@@ -337,13 +326,21 @@ public class HttpServletProtocol extends AbstractProtocol {
                 name = name.concat("/h2");
             }
         }
-        if (EXIST_JAVAX_WEBSOCKET) {
+        if (enableWebsocket) {
             name = name.concat("/ws");
             if (ssl) {
                 name = name.concat("/wss");
             }
         }
         return name;
+    }
+
+    public boolean isEnableWebsocket() {
+        return enableWebsocket;
+    }
+
+    public void setEnableWebsocket(boolean enableWebsocket) {
+        this.enableWebsocket = enableWebsocket;
     }
 
     public ServletContext getServletContext() {

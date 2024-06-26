@@ -14,6 +14,7 @@ import com.github.netty.protocol.mysql.listener.WriterLogFilePacketListener;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
 import com.github.netty.springboot.NettyProperties;
+import com.github.netty.springboot.SpringUtil;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,8 @@ import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.web.ServerProperties;
+import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -117,11 +120,12 @@ public class NettyEmbeddedAutoConfiguration {
      */
     @Bean("nRpcProtocol")
     @ConditionalOnMissingBean(NRpcProtocol.class)
+    @ConditionalOnProperty(prefix = "server.netty.nrpc", name = "enabled", matchIfMissing = false)
     public NRpcProtocol nRpcProtocol(ConfigurableBeanFactory factory) throws ClassNotFoundException {
         // Preheat codec
         Class.forName("com.github.netty.protocol.nrpc.codec.DataCodecUtil");
 
-        NRpcProtocolSpringAdapter protocol = new NRpcProtocolSpringAdapter(nettyProperties.getApplication());
+        NRpcProtocolSpringAdapter protocol = new NRpcProtocolSpringAdapter(factory,nettyProperties.getApplication());
         protocol.setMessageMaxLength(nettyProperties.getNrpc().getServerMessageMaxLength());
         protocol.setMethodOverwriteCheck(nettyProperties.getNrpc().isServerMethodOverwriteCheck());
         protocol.setServerDefaultVersion(nettyProperties.getNrpc().getServerDefaultVersion());
@@ -150,8 +154,8 @@ public class NettyEmbeddedAutoConfiguration {
         protocol.setMaxContentLength(http.getRequestMaxContentSize());
         protocol.setMaxBufferBytes(http.getResponseMaxBufferSize());
         protocol.setAutoFlushIdleMs(http.getAutoFlushIdleMs());
-
-        factory.addBeanPostProcessor(protocol);
+        protocol.setMultipartPropertiesSupplier(() -> SpringUtil.getBean(factory, MultipartProperties.class));
+        protocol.setServerPropertiesSupplier(() -> SpringUtil.getBean(factory, ServerProperties.class));
         return protocol;
     }
 
