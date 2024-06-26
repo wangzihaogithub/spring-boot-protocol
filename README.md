@@ -346,7 +346,8 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         开启h2c
             server:
               netty:
-                enable-h2c: true
+                http-servlet:
+                  enable-h2c: true
         
         或 HttpServletProtocol#setEnableH2c(true)
         
