@@ -380,6 +380,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
                         "/test", Unpooled.EMPTY_BUFFER);
                 http2Client.writeAndFlush(request).onSuccess(e -> {
                     System.out.println(e);
+                    e.release();
                 });
             }
     
