@@ -61,7 +61,7 @@ public class ServletPrintWriter extends PrintWriter {
 
     @Override
     public void write(int c) {
-        write(String.valueOf(c));
+        write(String.valueOf((char) c));
     }
 
     @Override

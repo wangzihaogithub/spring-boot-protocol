@@ -149,7 +149,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.3.19</version>
+  <version>2.3.20</version>
 </dependency>
 ```
 
@@ -161,7 +161,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>netty-servlet</artifactId>
-  <version>2.3.19</version>
+  <version>2.3.20</version>
 </dependency>
 ```
 
@@ -317,7 +317,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.19</version>
+          <version>2.3.20</version>
         </dependency>
 
         2.编写代码
@@ -346,7 +346,8 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         开启h2c
             server:
               netty:
-                enable-h2c: true
+                http-servlet:
+                  enable-h2c: true
         
         或 HttpServletProtocol#setEnableH2c(true)
         
@@ -379,6 +380,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
                         "/test", Unpooled.EMPTY_BUFFER);
                 http2Client.writeAndFlush(request).onSuccess(e -> {
                     System.out.println(e);
+                    e.release();
                 });
             }
     
@@ -395,7 +397,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.19</version>
+          <version>2.3.20</version>
         </dependency>
 
         2.编写代码
@@ -484,7 +486,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.3.19</version>
+              <version>2.3.20</version>
         </dependency>
         
         2.编写启动类

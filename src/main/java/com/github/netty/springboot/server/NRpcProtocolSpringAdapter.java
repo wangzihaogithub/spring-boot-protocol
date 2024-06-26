@@ -5,6 +5,10 @@ import com.github.netty.annotation.NRpcService;
 import com.github.netty.core.AbstractNettyServer;
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.NRpcProtocol;
+import com.github.netty.springboot.SpringUtil;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Method;
@@ -16,14 +20,17 @@ import java.util.function.Function;
  *
  * @author wangzihao
  */
-public class NRpcProtocolSpringAdapter extends NRpcProtocol {
+public class NRpcProtocolSpringAdapter extends NRpcProtocol implements BeanPostProcessor {
     private final ClassFileMethodToParameterNamesFunction classFileMethodToParameterNamesFunction = new ClassFileMethodToParameterNamesFunction();
     private final AnnotationMethodToParameterNamesFunction annotationMethodToParameterNamesFunction = new AnnotationMethodToParameterNamesFunction(
             NRpcParam.class, RequestParam.class, RequestBody.class, RequestHeader.class,
             PathVariable.class, CookieValue.class, RequestPart.class);
+    private final ConfigurableBeanFactory beanFactory;
 
-    public NRpcProtocolSpringAdapter(ApplicationX application) {
+    public NRpcProtocolSpringAdapter(ConfigurableBeanFactory beanFactory, ApplicationX application) {
         super(application);
+        this.beanFactory = beanFactory;
+        beanFactory.addBeanPostProcessor(this);
     }
 
     @Override
@@ -46,6 +53,14 @@ public class NRpcProtocolSpringAdapter extends NRpcProtocol {
             }
         }
         super.onServerStart(server);
+    }
+
+    @Override
+    public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
+        if (SpringUtil.isSingletonBean(beanFactory, beanName)) {
+            getApplication().addSingletonBean(bean, beanName, false);
+        }
+        return bean;
     }
 
     protected Function<Method, String[]> getMethodToParameterNamesFunction(Object serviceImpl) {

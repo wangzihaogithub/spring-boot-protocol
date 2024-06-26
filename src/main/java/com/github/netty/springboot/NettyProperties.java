@@ -8,6 +8,7 @@ import com.github.netty.protocol.mysql.client.MysqlFrontendBusinessHandler;
 import com.github.netty.protocol.mysql.server.MysqlBackendBusinessHandler;
 import com.github.netty.protocol.nrpc.codec.DataCodecUtil;
 import com.github.netty.protocol.servlet.util.HttpAbortPolicyWithReport;
+import com.github.netty.protocol.servlet.util.HttpConstants;
 import io.netty.handler.logging.LogLevel;
 import io.netty.util.ResourceLeakDetector;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -249,6 +250,15 @@ public class NettyProperties implements Serializable {
          */
         private boolean enableH2c = false;
         /**
+         * 是否开启h2  upgrade: h2
+         * 为null则会去取servlet.http.enabled
+         */
+        private Boolean enableH2 = null;
+        /**
+         * 是否开启Websocket  upgrade: ws
+         */
+        private boolean enableWebsocket = HttpConstants.EXIST_JAVAX_WEBSOCKET;
+        /**
          * 定时刷新缓冲区数据时间间隔(毫秒)
          * 当同时连接的客户端数量上千的时候开启(开启减少系统调用次数,批量写数据),否则不建议开启(因为http协议是阻塞协议,不快速返回数据会导致客户端不进行下次请求,反而降低吞吐量).
          * 开启定时发送的好处是,批量发送带来的高吞吐,但是会有延迟。 (如果大于0秒则定时发送缓冲区数据, 小于等于0秒则实时发送数据)
@@ -306,6 +316,22 @@ public class NettyProperties implements Serializable {
          * 启动失败是否停止程序.
          */
         private boolean startupFailExit = true;
+
+        public Boolean getEnableH2() {
+            return enableH2;
+        }
+
+        public void setEnableH2(Boolean enableH2) {
+            this.enableH2 = enableH2;
+        }
+
+        public boolean isEnableWebsocket() {
+            return enableWebsocket;
+        }
+
+        public void setEnableWebsocket(boolean enableWebsocket) {
+            this.enableWebsocket = enableWebsocket;
+        }
 
         public boolean isEnableH2c() {
             return enableH2c;
@@ -623,6 +649,10 @@ public class NettyProperties implements Serializable {
         @NestedConfigurationProperty
         private final ServerThreadPool threadPool = new ServerThreadPool();
         /**
+         * 是否开启rpc代理
+         */
+        private boolean enabled = false;
+        /**
          * 编码-fastjson最快，jdk需要实现序列化接口
          */
         private Codec codec = Codec.jdk;
@@ -678,6 +708,14 @@ public class NettyProperties implements Serializable {
          * RPC服务端 - 用户接口的全局默认版本，可以用主动覆盖 {@link com.github.netty.annotation.NRpcService#version() }
          */
         private String serverDefaultVersion = "";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
 
         public Codec getCodec() {
             return codec;

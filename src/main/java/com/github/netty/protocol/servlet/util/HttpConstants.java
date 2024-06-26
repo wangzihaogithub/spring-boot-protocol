@@ -22,6 +22,7 @@ public class HttpConstants {
     public static final AsciiString H2_EXT_STREAM_ID = AsciiString.cached("x-http2-stream-id");
     public static final AsciiString H2_EXT_SCHEME = AsciiString.cached("x-http2-scheme");
     public static final boolean EXIST_DEPENDENCY_H2;
+    public static final boolean EXIST_JAVAX_WEBSOCKET;
 
     static {
         boolean isExistH2;
@@ -32,6 +33,17 @@ public class HttpConstants {
             isExistH2 = false;
         }
         EXIST_DEPENDENCY_H2 = isExistH2;
+    }
+
+    static {
+        boolean existJavaxWebsocket;
+        try {
+            Class.forName("javax.websocket.Endpoint");
+            existJavaxWebsocket = true;
+        } catch (Throwable e) {
+            existJavaxWebsocket = false;
+        }
+        EXIST_JAVAX_WEBSOCKET = existJavaxWebsocket;
     }
 
 }
