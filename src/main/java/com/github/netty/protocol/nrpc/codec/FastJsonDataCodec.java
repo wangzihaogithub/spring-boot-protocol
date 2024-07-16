@@ -200,12 +200,15 @@ public class FastJsonDataCodec implements DataCodec {
             return EMPTY;
         }
 
-        try (SerializeWriter out = new SerializeWriter()) {
+        SerializeWriter out = new SerializeWriter();
+        try {
             JSONSerializer serializer = new JSONSerializer(out, serializeConfig);
             serializer.write(data);
             return out.toBytes(CHARSET_UTF8.name());
         } catch (Exception e) {
             throw new RpcEncodeException("encodeResponseData " + rpcMethod + " fastjson error " + e, e);
+        } finally {
+            close(out);
         }
     }
 
@@ -239,13 +242,15 @@ public class FastJsonDataCodec implements DataCodec {
         if (data == null) {
             return EMPTY;
         }
-
-        try (SerializeWriter out = new SerializeWriter()) {
+        SerializeWriter out = new SerializeWriter();
+        try {
             JSONSerializer serializer = new JSONSerializer(out, serializeConfig);
             serializer.write(data);
             return out.toBytes(CHARSET_UTF8.name());
         } catch (Exception e) {
             throw new RpcEncodeException("encodeChunkResponseData " + data.getClass() + " fastjson error " + e, e);
+        } finally {
+            close(out);
         }
     }
 
@@ -265,4 +270,13 @@ public class FastJsonDataCodec implements DataCodec {
         }
     }
 
+    private static void close(Object out){
+        if (out instanceof AutoCloseable) {
+            try {
+                ((AutoCloseable) out).close();
+            } catch (Exception ignored) {
+
+            }
+        }
+    }
 }
