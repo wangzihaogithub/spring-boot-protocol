@@ -115,6 +115,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         } finally {
             if (httpContent instanceof LastHttpContent) {
                 this.receivedLastHttpContent = true;
+                conditionSignalAll();
             }
         }
     }
@@ -201,12 +202,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
         }
 
-        lock.lock();
-        try {
-            condition.signalAll();
-        } finally {
-            lock.unlock();
-        }
+        conditionSignalAll();
 
         boolean received = isReceived();
         SeekableByteChannel uploadFileOutputChannel = this.uploadFileOutputChannel;
@@ -230,6 +226,15 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                     readListener.onError(e);
                 }
             }
+        }
+    }
+
+    private void conditionSignalAll() {
+        lock.lock();
+        try {
+            condition.signalAll();
+        } finally {
+            lock.unlock();
         }
     }
 
