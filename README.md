@@ -149,7 +149,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.3.21</version>
+  <version>2.3.22</version>
 </dependency>
 ```
 
@@ -161,7 +161,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>netty-servlet</artifactId>
-  <version>2.3.21</version>
+  <version>2.3.22</version>
 </dependency>
 ```
 
@@ -317,7 +317,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.21</version>
+          <version>2.3.22</version>
         </dependency>
 
         2.编写代码
@@ -397,7 +397,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.21</version>
+          <version>2.3.22</version>
         </dependency>
 
         2.编写代码
@@ -486,7 +486,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.3.21</version>
+              <version>2.3.22</version>
         </dependency>
         
         2.编写启动类

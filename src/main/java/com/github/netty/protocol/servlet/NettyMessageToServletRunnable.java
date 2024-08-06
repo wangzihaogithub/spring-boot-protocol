@@ -131,16 +131,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     public Runnable onClose(ChannelHandlerContext context) {
         ServletHttpExchange exchange = this.exchange;
         if (exchange != null) {
+            exchange.abort();
             if (exchange.isAsyncStartIng()) {
-                exchange.abort();
                 ServletAsyncContext asyncContext = exchange.getAsyncContext();
                 if (asyncContext != null && !asyncContext.isComplete()) {
                     asyncContext.complete(new ClosedChannelException());
                 }
-            } else if (exchange.closeStatus() == CLOSE_NO) {
-                exchange.abort();
+                exchange.close();
             }
-            exchange.close();
         }
         return null;
     }
