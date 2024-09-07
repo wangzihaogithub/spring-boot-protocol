@@ -14,7 +14,7 @@ import java.util.Objects;
 public class HttpTests {
     @Test
     public void test() throws IOException {
-        URL url = new URL("http://localhost:8080/test/hello?name=xiaowang");
+        URL url = new URL("http://localhost:8080/hello?name=xiaowang");
         InputStream inputStream = url.openStream();
         String responseBody = IOUtil.readInput(inputStream);
         Assert.isTrue(Objects.equals("hi! xiaowang", responseBody));

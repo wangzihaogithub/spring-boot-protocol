@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+　　　<input type="file" id="upload"/>
+<button id="button">上传</button>
+</body>
+<script>
+    /**
+     * 前端加密算法
+     * @param {ArrayBuffer} arrayBuffer
+     * @returns arrayBuffer
+     */
+    function encryptor(arrayBuffer) {
+        const dv = new DataView(arrayBuffer)
+        // for (let i = 0; i < 100; i++) {
+        //     dv.setInt8(i, i)
+        // }
+        return arrayBuffer
+    }
+
+    document.getElementById('button').onclick = function () {
+        async function encodeFile(rawFile) {
+            return new File([encryptor(await rawFile.arrayBuffer())],
+                rawFile.name, {type: rawFile.type, lastModified: rawFile.lastModified})
+        }
+
+        encodeFile(document.getElementById('upload').files[0]).then(file => {
+            const body = new FormData()
+            body.set('file', file)
+            fetch('/uploadForFile', {
+                method: 'POST',
+                body: body
+            })
+        })
+    }
+
+</script>
+</html>

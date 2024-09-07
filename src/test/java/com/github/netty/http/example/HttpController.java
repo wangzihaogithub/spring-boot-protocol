@@ -51,6 +51,18 @@ public class HttpController {
         return "hi! " + name;
     }
 
+    @RequestMapping("/uploadForFile")
+    public ResponseEntity<String> uploadForFile(@RequestParam("file") Part file) throws IOException, ServletException {
+        InputStream inputStream = file.getInputStream();
+        int available = inputStream.available();
+        inputStream.close();
+        String fileNameOrFieldName = Objects.toString(file.getSubmittedFileName(), file.getName());
+        Assert.isTrue(available != -1, fileNameOrFieldName);
+        logger.info("uploadForFile -> file = {}, length = {}", fileNameOrFieldName, available);
+
+        return new ResponseEntity<>("success", HttpStatus.OK);
+    }
+
     /**
      * Servlet原生的上传测试
      * @param request
