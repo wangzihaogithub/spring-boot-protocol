@@ -48,7 +48,7 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
      * When there is a new link Access, if the packet is confiscated in time,
      * the server will turn off the link or perform timeout processing.
      */
-    private long firstClientPacketReadTimeoutMs = 1000;
+    private long firstClientPacketReadTimeoutMs = 800;
 
     public DynamicProtocolChannelHandler() {
         super(false);
@@ -63,11 +63,13 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
         TcpChannel tcpChannel = new TcpChannel(channel, this);
         addConnection(id, tcpChannel);
 
-        ctx.executor().schedule(() -> {
-            if (tcpChannel.getProtocol() == null && tcpChannel.isActive()) {
-                onProtocolBindTimeout(ctx, tcpChannel);
-            }
-        }, firstClientPacketReadTimeoutMs, TimeUnit.MILLISECONDS);
+        if (protocolHandlers.size() > 1 && firstClientPacketReadTimeoutMs >= 0) {
+            ctx.executor().schedule(() -> {
+                if (tcpChannel.getProtocol() == null && tcpChannel.isActive()) {
+                    onProtocolBindTimeout(ctx, tcpChannel);
+                }
+            }, firstClientPacketReadTimeoutMs, TimeUnit.MILLISECONDS);
+        }
 
         channel.pipeline().addLast(removeTcpChannelHandler);
         if (bytesMetricsChannelHandler != null) {
@@ -127,6 +129,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     }
 
     public ProtocolHandler getProtocolHandler(ByteBuf clientFirstMsg) {
+        if (protocolHandlers.size() == 1) {
+            return protocolHandlers.iterator().next();
+        }
         for (ProtocolHandler protocolHandler : protocolHandlers) {
             if (protocolHandler.canSupport(clientFirstMsg)) {
                 return protocolHandler;
@@ -136,6 +141,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     }
 
     public ProtocolHandler getProtocolHandler(Channel channel) {
+        if (protocolHandlers.size() == 1) {
+            return protocolHandlers.iterator().next();
+        }
         for (ProtocolHandler protocolHandler : protocolHandlers) {
             if (protocolHandler.canSupport(channel)) {
                 return protocolHandler;
@@ -184,7 +192,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
     protected void onNoSupportProtocol(ChannelHandlerContext ctx, ByteBuf clientFirstMsg) {
         if (clientFirstMsg != null) {
-            logger.warn("Received no support protocol. message=[{}]", clientFirstMsg.toString(Charset.forName("UTF-8")));
+            if (logger.isWarnEnabled()) {
+                logger.warn("Received no support protocol. message=[{}]", clientFirstMsg.toString(Charset.forName("UTF-8")));
+            }
             if (clientFirstMsg.refCnt() > 0) {
                 clientFirstMsg.release();
             }
@@ -214,7 +224,9 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+        if (logger.isWarnEnabled()) {
+            logger.warn("Failed to initialize a channel. Closing: " + ctx.channel(), cause);
+        }
         ctx.close();
     }
 
@@ -248,8 +260,11 @@ public class DynamicProtocolChannelHandler extends AbstractChannelHandler<ByteBu
     public class RemoveTcpChannelHandler extends ChannelInboundHandlerAdapter {
         @Override
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            super.channelInactive(ctx);
-            removeConnection(ctx.channel().id());
+            try {
+                super.channelInactive(ctx);
+            } finally {
+                removeConnection(ctx.channel().id());
+            }
         }
     }
 

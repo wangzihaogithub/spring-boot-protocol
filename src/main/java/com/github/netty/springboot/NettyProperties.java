@@ -91,6 +91,26 @@ public class NettyProperties implements Serializable {
      * 是否禁用Nagle算法，true=禁用Nagle算法. 即数据包立即发送出去 (在TCP_NODELAY模式下，假设有3个小包要发送，第一个小包发出后，接下来的小包需要等待之前的小包被ack，在这期间小包会合并，直到接收到之前包的ack后才会发生)
      */
     private boolean tcpNodelay = false;
+
+    /**
+     * 用于设置写缓冲区的低水位线和高水位线。
+     * 如果写入缓冲区中排队的字节数超过高水位线,Channel#isWritable将开始返回false
+     * 如果写入缓冲区中排队的字节数超过高水位线然后下降到低水位线以下，Channel#isWritable将开始返回true
+     * 一般影响http2,请注意，消息需要由@link MessageSizeEstimator处理，以提供精确的背压。
+     */
+    private int lowWaterMark = 32 * 1024;
+
+    /**
+     * 用于设置写缓冲区的低水位线和高水位线。
+     * 如果写入缓冲区中排队的字节数超过高水位线,Channel#isWritable将开始返回false
+     * 如果写入缓冲区中排队的字节数超过高水位线然后下降到低水位线以下，Channel#isWritable将开始返回true
+     * 一般影响http2,请注意，消息需要由@link MessageSizeEstimator处理，以提供精确的背压。
+     */
+    private int highWaterMark = Integer.MAX_VALUE;
+    /**
+     * 如果true，则Netty会在Channel写入失败时会自动立即关闭。默认值为true
+     */
+    private boolean autoClose = true;
     /**
      * tcp 接收数据缓冲区大小字节 (默认-1 跟随内核设置)
      */
@@ -100,9 +120,15 @@ public class NettyProperties implements Serializable {
      */
     private int soSndbuf = -1;
     /**
-     * tcp 服务端接收新连接,等待被accept出的, 队列大小 (默认50)
+     * tcp 服务端接收新连接,等待被accept出的, 队列大小 (默认-1 跟随内核设置)
+     * 确定平台的默认somaxconn（服务器套接字积压）值。
+     * 已知默认值：-Windows NT服务器4.0+：200，Linux和MacOS:128
+     * 查看命令
+     * cat /proc/sys/net/core/somaxconn
+     * sysctl kern.ipc.somaxconn
+     * sysctl kern.ipc.soacceptqueue
      */
-    private int soBacklog = 50;
+    private int soBacklog = -1;
     /**
      * netty的内存泄漏检测级别(调试程序的时候用). 默认禁用, 不然极其耗费性能
      */
@@ -115,6 +141,22 @@ public class NettyProperties implements Serializable {
     public NettyProperties() {
     }
 
+    public int getLowWaterMark() {
+        return lowWaterMark;
+    }
+
+    public void setLowWaterMark(int lowWaterMark) {
+        this.lowWaterMark = lowWaterMark;
+    }
+
+    public int getHighWaterMark() {
+        return highWaterMark;
+    }
+
+    public void setHighWaterMark(int highWaterMark) {
+        this.highWaterMark = highWaterMark;
+    }
+
     public ApplicationX getApplication() {
         return application;
     }
@@ -125,6 +167,14 @@ public class NettyProperties implements Serializable {
 
     public void setSoBacklog(int soBacklog) {
         this.soBacklog = soBacklog;
+    }
+
+    public boolean isAutoClose() {
+        return autoClose;
+    }
+
+    public void setAutoClose(boolean autoClose) {
+        this.autoClose = autoClose;
     }
 
     public int getSoRcvbuf() {
