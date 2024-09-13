@@ -162,7 +162,7 @@ public class StartupServer extends AbstractNettyServer {
             long maxDirectMemory = -1;
             System.setProperty("io.netty.maxDirectMemory", String.valueOf(maxDirectMemory));
         }
-        bootstrap.childOption(ChannelOption.WRITE_SPIN_COUNT, Integer.MAX_VALUE);
+//        bootstrap.childOption(ChannelOption.WRITE_SPIN_COUNT, Integer.MAX_VALUE);
         bootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024, Integer.MAX_VALUE));
         bootstrap.childOption(ChannelOption.AUTO_CLOSE, true);
 
