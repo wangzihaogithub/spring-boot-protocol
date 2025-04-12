@@ -8,6 +8,7 @@ import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
 import com.github.netty.protocol.servlet.ServletContext;
 import com.github.netty.protocol.servlet.ServletRegistration;
+import com.github.netty.protocol.servlet.util.HttpLazyThreadPool;
 import com.github.netty.springboot.NettyProperties;
 import org.springframework.boot.web.reactive.server.ConfigurableReactiveWebServerFactory;
 import org.springframework.boot.web.server.WebServer;
@@ -23,7 +24,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.util.Collection;
-import java.util.Objects;
 import java.util.TreeSet;
 import java.util.function.Supplier;
 
@@ -83,12 +83,13 @@ public class NettyTcpServerFactory
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
             ServletContext servletContext = getServletContext();
-            if (servletContext != null) {
-                ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
-                servletRegistration.setAsyncSupported(true);
-                servletRegistration.addMapping("/");
-                servletContext.setServerAddress(serverAddress);
+            if (servletContext == null) {
+                servletContext = createHttpServletProtocolSpringAdapter().getServletContext();
             }
+            ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
+            servletRegistration.setAsyncSupported(true);
+            servletRegistration.addMapping("/");
+            servletContext.setServerAddress(serverAddress);
             return new NettyTcpServer(serverAddress, properties, protocolHandlers, serverListeners, channelHandlerSupplier);
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
@@ -103,7 +104,10 @@ public class NettyTcpServerFactory
      */
     @Override
     public WebServer getWebServer(ServletContextInitializer... initializers) {
-        ServletContext servletContext = Objects.requireNonNull(getServletContext());
+        ServletContext servletContext = getServletContext();
+        if (servletContext == null) {
+            servletContext = createHttpServletProtocolSpringAdapter().getServletContext();
+        }
         try {
             //Server port
             InetSocketAddress serverAddress = getServerSocketAddress(getAddress(), getPort());
@@ -160,6 +164,14 @@ public class NettyTcpServerFactory
             }
         }
         return null;
+    }
+
+    protected HttpServletProtocol createHttpServletProtocolSpringAdapter() {
+        HttpLazyThreadPool threadPool = new HttpLazyThreadPool("NettyX-http");
+        HttpServletProtocolSpringAdapter adapter = new HttpServletProtocolSpringAdapter(new NettyProperties(), null, threadPool, threadPool);
+        protocolHandlers.add(adapter);
+        serverListeners.add(adapter);
+        return adapter;
     }
 
     public Collection<ProtocolHandler> getProtocolHandlers() {
