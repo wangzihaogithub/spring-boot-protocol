@@ -10,6 +10,9 @@
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
 
+### 注意
+本项目不支持springboot3和jakarta-servlet，如果有需要自行修改
+
 ### 优势
 
 - 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
