@@ -4,7 +4,9 @@ import java.lang.ref.Reference;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.*;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * 定时过期Map 会自动过期删除
@@ -129,7 +131,9 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     private static void localVarTest() throws InterruptedException {
         ExpiryLRUMap lruMap = new ExpiryLRUMap();
         lruMap.put("data3", "1233", -1);
-        lruMap.put("data", "123", 5000);
+        lruMap.put("data", "5000", 5000);
+        lruMap.put("datwa", "15000", 15000);
+
         System.out.println("初始化 new ExpiryLRUMap() set = " + ExpiryLRUMap.INSTANCE_SET);
         while (true) {
             Object aa = lruMap.get("data");
@@ -144,15 +148,18 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     public static void main(String[] args) throws InterruptedException {
 
         System.out.println("set = " + ExpiryLRUMap.INSTANCE_SET);
-//        localVarTest();
+        localVarTest();
         System.out.println("gc 前 set = " + ExpiryLRUMap.INSTANCE_SET);
         System.gc();
         System.out.println("gc 后 set = " + ExpiryLRUMap.INSTANCE_SET);
 
         int i = 0;
+
+        Thread.sleep(10000);
         ExpiryLRUMap<String, Object> expiryLRUMap = new ExpiryLRUMap<>(1, 3333,
                 Integer.MAX_VALUE, null
         );
+        Thread.sleep(15000);
         for (int j = 0; j < 100; j++) {
             expiryLRUMap.put(j + "", j);
         }
@@ -245,11 +252,9 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         Node<K, V> old = map.get(key);
         Node<K, V> node = new Node<>(timeout, key, value, this);
         if (old != null) {
-            synchronized (old) {
-                old.covered = true;
-                map.put(key, node);
-                return old.getData();
-            }
+            old.covered = true;
+            map.put(key, node);
+            return old.getData();
         } else {
             map.put(key, node);
             return null;
@@ -287,29 +292,16 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         if (old == null) {
             return null;
         } else {
+            NO_EXPIRY_NODES.remove(old);
             notifyRemove(old);
             return old.getData();
         }
     }
 
-    public void notifyRemove(Node<K, V> node) {
+    protected void notifyRemove(Node<K, V> node) {
         Consumer<Node<K, V>> onRemoveConsumer = this.onRemoveConsumer;
         if (onRemoveConsumer != null) {
             onRemoveConsumer.accept(node);
-        }
-    }
-
-    public V atomicGet(K key, Supplier<V> supplier) {
-        /* todo atomicGet */
-        Node<K, V> old = map.get(key);
-        if (old == null) {
-            missCount.increment();
-            V value = supplier.get();
-            put(key, value);
-            return value;
-        } else {
-            hitCount.increment();
-            return old.getData();
         }
     }
 
@@ -332,7 +324,9 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
 
     @Override
     public void clear() {
+        ArrayList<Node<K, V>> nodes = new ArrayList<>(map.values());
         map.clear();
+        nodes.forEach(NO_EXPIRY_NODES::remove);
     }
 
     @Override
@@ -355,25 +349,8 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
 
     @Override
     public V getOrDefault(Object key, V defaultValue) {
-        V v;
-        return ((v = get(key)) != null) ? v : defaultValue;
-    }
-
-    @Override
-    public void forEach(BiConsumer<? super K, ? super V> action) {
-        Objects.requireNonNull(action);
-        for (Entry<K, V> entry : entrySet()) {
-            K k;
-            V v;
-            try {
-                k = entry.getKey();
-                v = entry.getValue();
-            } catch (IllegalStateException ise) {
-                // this usually means the entry is no longer in the map.
-                continue;
-            }
-            action.accept(k, v);
-        }
+        Node<K, V> node;
+        return ((node = map.get(key)) != null && node != NULL && !node.isExpiry()) ? node.getData() : defaultValue;
     }
 
     @Override
@@ -381,6 +358,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         Node<K, V> old = map.get(key);
         if (old != null && Objects.equals(old.getData(), value)) {
             map.remove(key, old);
+            NO_EXPIRY_NODES.remove(old);
             notifyRemove(old);
             return true;
         }
@@ -388,7 +366,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     }
 
     @Override
-    public V replace(K key, V newValue) {
+    public synchronized V replace(K key, V newValue) {
         Node<K, V> old = map.get(key);
         if (old != null) {
             map.put(key, new Node<>(old.expiryTime, key, newValue, this));
@@ -398,9 +376,10 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     }
 
     @Override
-    public boolean replace(K key, V oldValue, V newValue) {
+    public synchronized boolean replace(K key, V oldValue, V newValue) {
         Node<K, V> old = map.get(key);
         if (old != null && Objects.equals(old.getData(), oldValue)) {
+            old.covered = true;
             map.put(key, new Node<>(old.expiryTime, key, newValue, this));
             return true;
         }
@@ -408,119 +387,41 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
     }
 
     @Override
-    public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
+    public synchronized void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
         Objects.requireNonNull(function);
         for (Entry<K, Node<K, V>> entry : map.entrySet()) {
             Node<K, V> old = entry.getValue();
             K key = entry.getKey();
             V value = old.getData();
             V newValue = function.apply(key, value);
+            old.covered = true;
             entry.setValue(new Node<>(old.expiryTime, key, newValue, this));
         }
     }
 
     @Override
-    public V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
-        Objects.requireNonNull(mappingFunction);
-        V v, newValue;
-        return ((v = get(key)) == null &&
-                (newValue = mappingFunction.apply(key)) != null &&
-                (v = putIfAbsent(key, newValue)) == null) ? newValue : v;
+    public synchronized V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+        return super.computeIfAbsent(key, mappingFunction);
     }
 
     @Override
-    public V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        V oldValue;
-        while ((oldValue = get(key)) != null) {
-            V newValue = remappingFunction.apply(key, oldValue);
-            if (newValue != null) {
-                if (replace(key, oldValue, newValue)) {
-                    return newValue;
-                }
-            } else if (remove(key, oldValue)) {
-                return null;
-            }
-        }
-        return oldValue;
+    public synchronized V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        return super.computeIfPresent(key, remappingFunction);
     }
 
     @Override
-    public V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        V oldValue = get(key);
-        for (; ; ) {
-            V newValue = remappingFunction.apply(key, oldValue);
-            if (newValue == null) {
-                // delete mapping
-                if (oldValue != null || containsKey(key)) {
-                    // something to remove
-                    if (remove(key, oldValue)) {
-                        // removed the old value as expected
-                        return null;
-                    }
-
-                    // some other value replaced old value. try again.
-                    oldValue = get(key);
-                } else {
-                    // nothing to do. Leave things as they were.
-                    return null;
-                }
-            } else {
-                // add or replace old mapping
-                if (oldValue != null) {
-                    // replace
-                    if (replace(key, oldValue, newValue)) {
-                        // replaced as expected.
-                        return newValue;
-                    }
-
-                    // some other value replaced old value. try again.
-                    oldValue = get(key);
-                } else {
-                    // add (replace if oldValue was null)
-                    if ((oldValue = putIfAbsent(key, newValue)) == null) {
-                        // replaced
-                        return newValue;
-                    }
-
-                    // some other value replaced old value. try again.
-                }
-            }
-        }
+    public synchronized V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        return super.compute(key, remappingFunction);
     }
 
     @Override
-    public V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-        Objects.requireNonNull(remappingFunction);
-        Objects.requireNonNull(value);
-        V oldValue = get(key);
-        for (; ; ) {
-            if (oldValue != null) {
-                V newValue = remappingFunction.apply(oldValue, value);
-                if (newValue != null) {
-                    if (replace(key, oldValue, newValue)) {
-                        return newValue;
-                    }
-                } else if (remove(key, oldValue)) {
-                    return null;
-                }
-                oldValue = get(key);
-            } else {
-                if ((oldValue = putIfAbsent(key, value)) == null) {
-                    return value;
-                }
-            }
-        }
+    public synchronized V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        return super.merge(key, value, remappingFunction);
     }
 
     @Override
-    public V putIfAbsent(K key, V value) {
-        V v = get(key);
-        if (v == null) {
-            v = put(key, value);
-        }
-        return v;
+    public synchronized V putIfAbsent(K key, V value) {
+        return super.putIfAbsent(key, value);
     }
 
     public long getDefaultExpiryTime() {
@@ -718,8 +619,6 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
             NOTIFY_INSTANCE.start();
         }
 
-        private final Consumer<Node<?, ?>> removeConsumer = EXPIRY_NOTIFY_QUEUE::offer;
-
         static long getScheduleInterval() {
             String intervalMillisecond = System.getProperty("ExpiryLRUMap-ExpiresScan.interval");
             long intervalLong = 100;
@@ -740,41 +639,54 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
 
         @Override
         public void run() {
-            if (INSTANCE_SET.isEmpty()) {
-                synchronized (INSTANCE_SET) {
-                    if (INSTANCE_SET.isEmpty()) {
-                        NO_EXPIRY_NODES.clear();
-                        ScheduledFuture<?> scheduledFuture = SCHEDULED_FUTURE;
-                        scheduledFuture.cancel(false);
-                        SCHEDULED_FUTURE = null;
+            try {
+                if (INSTANCE_SET.isEmpty()) {
+                    synchronized (INSTANCE_SET) {
+                        if (INSTANCE_SET.isEmpty()) {
+                            NO_EXPIRY_NODES.clear();
+                            ScheduledFuture<?> scheduledFuture = SCHEDULED_FUTURE;
+                            scheduledFuture.cancel(false);
+                            SCHEDULED_FUTURE = null;
+                        }
                     }
+                    return;
                 }
-                return;
-            }
-            if (NO_EXPIRY_NODES.isEmpty()) {
-                return;
-            }
-            Node now = new Node<>(0, null, null, null);
-            NavigableSet<Node> expiryNodes = NO_EXPIRY_NODES.headSet(now);
-            if (expiryNodes.isEmpty()) {
-                return;
-            }
-            Iterator<Node> iterator = expiryNodes.iterator();
-            while (iterator.hasNext()) {
-                Node expiryRemoveNode = iterator.next();
-                synchronized (expiryRemoveNode) {
-                    boolean remove = expiryRemoveNode.getExpiryLRUMap().map.remove(expiryRemoveNode.getKey(), expiryRemoveNode);
-                    if (!remove && !expiryRemoveNode.covered) {
-                        continue;
+                if (NO_EXPIRY_NODES.isEmpty()) {
+                    return;
+                }
+                Node now = new Node<>(0, null, null, null);
+                NavigableSet<Node> expiryNodes = NO_EXPIRY_NODES.headSet(now);
+                if (expiryNodes.isEmpty()) {
+                    return;
+                }
+                Iterator<Node> iterator = expiryNodes.iterator();
+                List<Node> removeList = new ArrayList<>();
+                while (iterator.hasNext()) {
+                    Node expiryRemoveNode = iterator.next();
+                    synchronized (expiryRemoveNode) {
+                        boolean remove = expiryRemoveNode.getExpiryLRUMap().map.remove(expiryRemoveNode.getKey(), expiryRemoveNode);
+                        if (!remove && !expiryRemoveNode.covered) {
+                            continue;
+                        }
+                    }
+
+                    try {
+                        iterator.remove();
+                        removeList.add(expiryRemoveNode);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 }
 
                 try {
-                    iterator.remove();
-                    removeConsumer.accept(expiryRemoveNode);
+                    for (Node expiryRemoveNode : removeList) {
+                        EXPIRY_NOTIFY_QUEUE.offer(expiryRemoveNode);
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -789,7 +701,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         @Override
         public Iterator<V> iterator() {
             return new Iterator<V>() {
-                private Iterator<Node<K, V>> iterator = values.iterator();
+                private final Iterator<Node<K, V>> iterator = values.iterator();
 
                 @Override
                 public boolean hasNext() {
@@ -824,7 +736,7 @@ public class ExpiryLRUMap<K, V> extends AbstractMap<K, V> implements ConcurrentM
         @Override
         public Iterator<Entry<K, V>> iterator() {
             return new Iterator<Entry<K, V>>() {
-                private Iterator<Entry<K, Node<K, V>>> iterator = entries.iterator();
+                private final Iterator<Entry<K, Node<K, V>>> iterator = entries.iterator();
 
                 @Override
                 public boolean hasNext() {
