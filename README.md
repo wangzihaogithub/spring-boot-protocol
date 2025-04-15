@@ -10,6 +10,9 @@
 
 ![](https://user-images.githubusercontent.com/18204507/68989252-9d871a80-087e-11ea-96e1-20c12689c12a.png)
 
+### 注意
+本项目不支持springboot3和jakarta-servlet，如果有需要可联系我，看下是否需要继续支持。
+
 ### 优势
 
 - 1.针对spring项目# 可以替代tomcat或jetty. 导包后一个@EnableNettyEmbedded注解即用. 
@@ -149,7 +152,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot-protocol</artifactId>
-  <version>2.3.23</version>
+  <version>2.3.25</version>
 </dependency>
 ```
 
@@ -161,7 +164,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>netty-servlet</artifactId>
-  <version>2.3.23</version>
+  <version>2.3.25</version>
 </dependency>
 ```
 
@@ -317,7 +320,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.23</version>
+          <version>2.3.25</version>
         </dependency>
 
         2.编写代码
@@ -397,7 +400,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
         <dependency>
           <groupId>com.github.wangzihaogithub</groupId>
           <artifactId>spring-boot-protocol</artifactId>
-          <version>2.3.23</version>
+          <version>2.3.25</version>
         </dependency>
 
         2.编写代码
@@ -486,7 +489,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
          <dependency>
               <groupId>com.github.wangzihaogithub</groupId>
               <artifactId>spring-boot-protocol</artifactId>
-              <version>2.3.23</version>
+              <version>2.3.25</version>
         </dependency>
         
         2.编写启动类
