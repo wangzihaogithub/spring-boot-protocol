@@ -71,11 +71,11 @@ public class MqttProtocol extends AbstractProtocol {
         if (msg.readableBytes() < 9) {
             return false;
         }
-
-        return msg.getByte(4) == 'M'
-                && msg.getByte(5) == 'Q'
-                && msg.getByte(6) == 'T'
-                && msg.getByte(7) == 'T';
+        int readerIndex = msg.readerIndex();
+        return msg.getByte(readerIndex + 4) == 'M'
+                && msg.getByte(readerIndex + 5) == 'Q'
+                && msg.getByte(readerIndex + 6) == 'T'
+                && msg.getByte(readerIndex + 7) == 'T';
     }
 
     @Override

@@ -63,9 +63,9 @@ public enum RpcVersion {
         if (msg == null || msg.readableBytes() < 8) {
             return false;
         }
-
+        int readerIndex = msg.readerIndex();
         for (int i = 0; i < PROTOCOL_NAME.length; i++) {
-            if (PROTOCOL_NAME[i] != msg.getByte(i)) {
+            if (PROTOCOL_NAME[i] != msg.getByte(readerIndex + i)) {
                 return false;
             }
         }

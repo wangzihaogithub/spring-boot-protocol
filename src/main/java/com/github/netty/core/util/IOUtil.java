@@ -346,10 +346,12 @@ public class IOUtil {
 
     public static int indexOf(ByteBuf byteBuf, byte value) {
         int len = byteBuf.readableBytes();
+        int readerIndex = byteBuf.readerIndex();
         for (int i = 0; i < len; i++) {
-            byte b = byteBuf.getByte(i);
+            int ridx = readerIndex + i;
+            byte b = byteBuf.getByte(ridx);
             if (b == value) {
-                return i;
+                return ridx;
             }
         }
         return -1;

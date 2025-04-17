@@ -26,53 +26,54 @@ public enum Protocol {
     public static boolean isHttpPacket(ByteBuf packet) {
         int protocolEndIndex = IOUtil.indexOf(packet, HttpConstants.LF);
         if (protocolEndIndex == -1 && packet.readableBytes() > 7) {
+            int readerIndex = packet.readerIndex();
             // client multiple write packages. cause browser out of length.
-            if (packet.getByte(0) == 'G'
-                    && packet.getByte(1) == 'E'
-                    && packet.getByte(2) == 'T'
-                    && packet.getByte(3) == ' '
-                    && packet.getByte(4) == '/') {
+            if (packet.getByte(readerIndex) == 'G'
+                    && packet.getByte(readerIndex + 1) == 'E'
+                    && packet.getByte(readerIndex + 2) == 'T'
+                    && packet.getByte(readerIndex + 3) == ' '
+                    && packet.getByte(readerIndex + 4) == '/') {
                 return true;
-            } else if (packet.getByte(0) == 'P'
-                    && packet.getByte(1) == 'O'
-                    && packet.getByte(2) == 'S'
-                    && packet.getByte(3) == 'T'
-                    && packet.getByte(4) == ' '
-                    && packet.getByte(5) == '/') {
+            } else if (packet.getByte(readerIndex) == 'P'
+                    && packet.getByte(readerIndex + 1) == 'O'
+                    && packet.getByte(readerIndex + 2) == 'S'
+                    && packet.getByte(readerIndex + 3) == 'T'
+                    && packet.getByte(readerIndex + 4) == ' '
+                    && packet.getByte(readerIndex + 5) == '/') {
                 return true;
-            } else if (packet.getByte(0) == 'O'
-                    && packet.getByte(1) == 'P'
-                    && packet.getByte(2) == 'T'
-                    && packet.getByte(3) == 'I'
-                    && packet.getByte(4) == 'O'
-                    && packet.getByte(5) == 'N'
-                    && packet.getByte(6) == 'S'
-                    && packet.getByte(7) == ' '
-                    && packet.getByte(8) == '/') {
+            } else if (packet.getByte(readerIndex) == 'O'
+                    && packet.getByte(readerIndex + 1) == 'P'
+                    && packet.getByte(readerIndex + 2) == 'T'
+                    && packet.getByte(readerIndex + 3) == 'I'
+                    && packet.getByte(readerIndex + 4) == 'O'
+                    && packet.getByte(readerIndex + 5) == 'N'
+                    && packet.getByte(readerIndex + 6) == 'S'
+                    && packet.getByte(readerIndex + 7) == ' '
+                    && packet.getByte(readerIndex + 8) == '/') {
                 return true;
-            } else if (packet.getByte(0) == 'P'
-                    && packet.getByte(1) == 'U'
-                    && packet.getByte(2) == 'T'
-                    && packet.getByte(3) == ' '
-                    && packet.getByte(4) == '/') {
+            } else if (packet.getByte(readerIndex) == 'P'
+                    && packet.getByte(readerIndex + 1) == 'U'
+                    && packet.getByte(readerIndex + 2) == 'T'
+                    && packet.getByte(readerIndex + 3) == ' '
+                    && packet.getByte(readerIndex + 4) == '/') {
                 return true;
-            } else if (packet.getByte(0) == 'D'
-                    && packet.getByte(1) == 'E'
-                    && packet.getByte(2) == 'L'
-                    && packet.getByte(3) == 'E'
-                    && packet.getByte(4) == 'T'
-                    && packet.getByte(5) == 'E'
-                    && packet.getByte(6) == ' '
-                    && packet.getByte(7) == '/') {
+            } else if (packet.getByte(readerIndex) == 'D'
+                    && packet.getByte(readerIndex + 1) == 'E'
+                    && packet.getByte(readerIndex + 2) == 'L'
+                    && packet.getByte(readerIndex + 3) == 'E'
+                    && packet.getByte(readerIndex + 4) == 'T'
+                    && packet.getByte(readerIndex + 5) == 'E'
+                    && packet.getByte(readerIndex + 6) == ' '
+                    && packet.getByte(readerIndex + 7) == '/') {
                 return true;
             } else {
-                return packet.getByte(0) == 'P'
-                        && packet.getByte(1) == 'A'
-                        && packet.getByte(2) == 'T'
-                        && packet.getByte(3) == 'C'
-                        && packet.getByte(4) == 'H'
-                        && packet.getByte(5) == ' '
-                        && packet.getByte(6) == '/';
+                return packet.getByte(readerIndex) == 'P'
+                        && packet.getByte(readerIndex + 1) == 'A'
+                        && packet.getByte(readerIndex + 2) == 'T'
+                        && packet.getByte(readerIndex + 3) == 'C'
+                        && packet.getByte(readerIndex + 4) == 'H'
+                        && packet.getByte(readerIndex + 5) == ' '
+                        && packet.getByte(readerIndex + 6) == '/';
             }
         } else if (protocolEndIndex < 9) {
             return false;

@@ -20,9 +20,10 @@ public class DubboDecoder extends ByteToMessageDecoder {
     private DubboPacket packet;
 
     public static boolean isDubboProtocol(ByteBuf buffer) {
+        int readerIndex = buffer.readerIndex();
         return buffer.readableBytes() >= 2
-                && buffer.getByte(0) == MAGIC_0
-                && buffer.getByte(1) == MAGIC_1;
+                && buffer.getByte(readerIndex) == MAGIC_0
+                && buffer.getByte(readerIndex + 1) == MAGIC_1;
     }
 
     @Override
@@ -76,13 +77,15 @@ public class DubboDecoder extends ByteToMessageDecoder {
     }
 
     protected Header readHeader(ByteBuf buffer) {
-        // request and serialization flag.
-        byte flag = buffer.getByte(2);
-        byte status = buffer.getByte(3);
-        long requestId = buffer.getLong(4);
+        int readerIndex = buffer.readerIndex();
+
+        // request and serialization flag. -62 isHeartBeat
+        byte flag = buffer.getByte(readerIndex + 2);
+        byte status = buffer.getByte(readerIndex + 3);
+        long requestId = buffer.getLong(readerIndex + 4);
         // 8 - 1-request/0-response
-        byte type = buffer.getByte(8);
-        int bodyLength = buffer.getInt(12);
+        byte type = buffer.getByte(readerIndex + 8);
+        int bodyLength = buffer.getInt(readerIndex + 12);
 
         ByteBuf headerBytes = buffer.readRetainedSlice(HEADER_LENGTH);
         return new Header(headerBytes, flag, status, requestId, type, bodyLength);

@@ -34,7 +34,7 @@ import java.lang.annotation.*;
  *                  return false;
  *              }
  *              for (int i = 0; i < PROTOCOL_HEADER.length; i++) {
- *                  if (msg.getByte(i) != PROTOCOL_HEADER[i]) {
+ *                  if (msg.getByte(msg.readerIndex() + i) != PROTOCOL_HEADER[i]) {
  *                      return false;
  *                  }
  *              }
