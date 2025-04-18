@@ -4,6 +4,7 @@ import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
+import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.MediaType;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -97,14 +98,14 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      * @param value value
      * @return True = processed, false= not processed
      */
-    private boolean checkSpecialHeader(String name, String value) {
-        if (HttpHeaderConstants.CONTENT_TYPE.toString().equalsIgnoreCase(name)) {
-            setContentType(value);
+    private boolean checkSpecialHeader(CharSequence name, Object value) {
+        if (HttpHeaderUtil.contentEqualsIgnoreCase(HttpHeaderConstants.CONTENT_TYPE, name)) {
+            setContentType(value.toString());
             return true;
         }
-        if (HttpHeaderConstants.CONTENT_LENGTH.toString().equalsIgnoreCase(name)) {
+        if (HttpHeaderUtil.contentEqualsIgnoreCase(HttpHeaderConstants.CONTENT_LENGTH, name)) {
             try {
-                long cL = Long.parseLong(value);
+                long cL = Long.parseLong(value.toString());
                 setContentLengthLong(cL);
                 return true;
             } catch (NumberFormatException ex) {
@@ -123,21 +124,22 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      * @param value
      */
     private void setHeaderObject(String name, Object value) {
-        if (name == null || name.length() == 0 || value == null) {
+        if (name == null || name.isEmpty() || value == null) {
             return;
         }
         if (isCommitted()) {
             return;
         }
+        CharSequence nameCharSequence = HttpHeaderConstants.cacheAsciiString(name);
 
         //Reduce judgment time and improve efficiency
         char c = name.charAt(0);
         if ('C' == c || 'c' == c) {
-            if (checkSpecialHeader(name, value.toString())) {
+            if (checkSpecialHeader(nameCharSequence, value)) {
                 return;
             }
         }
-        getNettyHeaders().set((CharSequence) name, value);
+        getNettyHeaders().set(nameCharSequence, value);
     }
 
     /**
@@ -147,21 +149,22 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
      * @param value
      */
     private void addHeaderObject(String name, Object value) {
-        if (name == null || name.length() == 0 || value == null) {
+        if (name == null || name.isEmpty() || value == null) {
             return;
         }
         if (isCommitted()) {
             return;
         }
         //Reduce judgment time and improve efficiency
+        CharSequence nameCharSequence = HttpHeaderConstants.cacheAsciiString(name);
         char c = name.charAt(0);
         if ('C' == c || 'c' == c) {
-            if (checkSpecialHeader(name, value.toString())) {
+            if (checkSpecialHeader(nameCharSequence, value)) {
                 return;
             }
         }
 
-        getNettyHeaders().add((CharSequence) name, value);
+        getNettyHeaders().add(nameCharSequence, value);
     }
 
     private HttpHeaders getNettyHeaders() {
@@ -211,7 +214,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         resetBuffer();
         setError();
         if (contentType == null) {
-            setContentType("text/html");
+            this.contentType = "text/html";
         }
     }
 
@@ -222,7 +225,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         resetBuffer();
         setError();
         if (contentType == null) {
-            setContentType("text/html");
+            this.contentType = "text/html";
         }
     }
 

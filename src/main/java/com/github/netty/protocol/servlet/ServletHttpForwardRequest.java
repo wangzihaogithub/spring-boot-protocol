@@ -43,6 +43,9 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
     private Map<String, String[]> parameterMap = null;
     private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
+    private boolean getQueryStringFlag = false;
+    private boolean getRequestURIFlag = false;
+    private int decodePathsQueryIndex;
     private String forwardPath;
     private String forwardName;
     private DispatcherType dispatcherType;
@@ -114,18 +117,36 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
 
     @Override
     public String getQueryString() {
-        if (!decodePathsFlag) {
-            decodePaths();
+        int decodePathsQueryIndex;
+        if (decodePathsFlag) {
+            decodePathsQueryIndex = this.decodePathsQueryIndex;
+        } else {
+            decodePathsQueryIndex = decodePaths();
         }
-        return queryString;
+        if (!getQueryStringFlag) {
+            if (decodePathsQueryIndex != -1) {
+                this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
+            }
+        }
+        return this.queryString;
     }
 
     @Override
     public String getRequestURI() {
-        if (!decodePathsFlag) {
-            decodePaths();
+        int decodePathsQueryIndex;
+        if (decodePathsFlag) {
+            decodePathsQueryIndex = this.decodePathsQueryIndex;
+        } else {
+            decodePathsQueryIndex = decodePaths();
         }
-        return requestURI;
+        if (!getRequestURIFlag) {
+            if (decodePathsQueryIndex == -1) {
+                this.requestURI = forwardPath;
+            } else {
+                this.requestURI = forwardPath.substring(0, decodePathsQueryIndex);
+            }
+        }
+        return this.requestURI;
     }
 
     @Override
@@ -205,21 +226,12 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
     /**
      * Parsing path
      */
-    private void decodePaths() {
+    private int decodePaths() {
         String requestURI = forwardPath;
-        if (requestURI != null) {
-            String queryString;
-            int queryInx = requestURI.indexOf('?');
-            if (queryInx != -1) {
-                queryString = requestURI.substring(queryInx + 1);
-                requestURI = requestURI.substring(0, queryInx);
-            } else {
-                queryString = null;
-            }
-            this.requestURI = requestURI;
-            this.queryString = queryString;
-        }
+        int decodePathsQueryIndex = requestURI == null ? -1 : requestURI.indexOf('?');
+        this.decodePathsQueryIndex = decodePathsQueryIndex;
         this.decodePathsFlag = true;
+        return decodePathsQueryIndex;
     }
 
     /**

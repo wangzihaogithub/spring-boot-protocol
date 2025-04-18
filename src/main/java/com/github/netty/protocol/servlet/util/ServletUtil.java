@@ -6,6 +6,7 @@ import com.github.netty.protocol.servlet.ServletHttpServletRequest;
 import com.github.netty.protocol.servlet.ServletHttpServletResponse;
 import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.http.HttpConstants;
+import io.netty.util.AsciiString;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.RecyclableArrayList;
 
@@ -34,7 +35,7 @@ public class ServletUtil {
     private static byte[] HEX2B;
     private static long lastTimestamp = System.currentTimeMillis();
     private static final Date lastDate = new Date(lastTimestamp);
-    private static String nowRFCTime = DateFormatter.format(lastDate);
+    private static CharSequence nowRFCTime = DateFormatter.format(lastDate);
 
     private static void initHex2bIfHaveMemory() {
         if (HEX2B != null) {
@@ -74,13 +75,13 @@ public class ServletUtil {
         HEX2B[102] = 15;
     }
 
-    public static String getDateByRfcHttp() {
+    public static CharSequence getDateByRfcHttp() {
         long timestamp = System.currentTimeMillis();
         //cache 1/s
         if (timestamp - lastTimestamp > 1000L) {
             lastTimestamp = timestamp;
             lastDate.setTime(timestamp);
-            nowRFCTime = DateFormatter.format(lastDate);
+            nowRFCTime = new AsciiString(DateFormatter.format(lastDate));
         }
         return nowRFCTime;
     }
@@ -159,8 +160,7 @@ public class ServletUtil {
      * @param httpOnly    httpOnly
      * @return a single Set-Cookie header value
      */
-    public static String encodeCookie(String cookieName, String cookieValue, int maxAge, String path, String domain, boolean secure, boolean httpOnly) {
-        StringBuilder buf = RecyclableUtil.newStringBuilder();
+    public static CharSequence encodeCookie(StringBuilder buf,String cookieName, String cookieValue, int maxAge, CharSequence path, String domain, boolean secure, boolean httpOnly) {
         buf.append(cookieName);
         buf.append((char) HttpConstants.EQUALS);
         buf.append(cookieValue);
@@ -203,7 +203,7 @@ public class ServletUtil {
         if (buf.length() > 0) {
             buf.setLength(buf.length() - 2);
         }
-        return buf.toString();
+        return new AsciiString(buf);
     }
 
     /**
@@ -218,7 +218,7 @@ public class ServletUtil {
         if (headerLen == 0) {
             return EMPTY_COOKIE;
         }
-
+        StringBuilder newValueBuf = null;
         RecyclableArrayList cookies = RecyclableUtil.newRecyclableList(2);
         try {
             int i = 0;
@@ -277,7 +277,11 @@ public class ServletUtil {
                             char c = header.charAt(i);
                             if (c == '"') {
                                 // NAME="VALUE"
-                                StringBuilder newValueBuf = RecyclableUtil.newStringBuilder();
+                                if (newValueBuf == null) {
+                                    newValueBuf = RecyclableUtil.newStringBuilder();
+                                } else {
+                                    newValueBuf.setLength(0);
+                                }
 
                                 final char q = c;
                                 boolean hadBackslash = false;

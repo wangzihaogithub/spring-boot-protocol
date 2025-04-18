@@ -29,7 +29,6 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     private ByteBuffer tmpNioBuf;
     private int offset;
     private int capacity;
-    private ByteBuf parent;
 
     private ReadOnlyPooledHeapByteBuf() {
         super(0);
@@ -103,7 +102,6 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         slice.maxCapacity(length);
         slice.capacity = length;
         slice.setIndex(0, length);
-        slice.parent = this;
         slice.offset = offset + index;
         return slice;
     }
@@ -435,7 +433,6 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
         copy.maxCapacity(maxCapacity());
         copy.capacity = capacity;
         copy.setIndex(readerIndex(), writerIndex());
-        copy.parent = this;
         copy.offset = offset;
         return copy;
     }
@@ -497,7 +494,6 @@ class ReadOnlyPooledHeapByteBuf extends AbstractReferenceCountedByteBuf {
     protected void deallocate() {
         freeArray(array);
         array = EMPTY_BYTES;
-        parent = null;
         offset = 0;
         RECYCLER.recycleInstance(this);
     }

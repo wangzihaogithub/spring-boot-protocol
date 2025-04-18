@@ -1,12 +1,13 @@
 package com.github.netty.protocol.servlet.util;
 
 import io.netty.handler.codec.http.*;
+import io.netty.util.AsciiString;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -244,18 +245,36 @@ public class HttpHeaderUtil {
             if (values.isEmpty()) {
                 return;
             }
-            Iterator valuesIt = values.iterator();
-            while (valuesIt.hasNext()) {
-                String value = String.valueOf(valuesIt.next());
-                if (HttpHeaderConstants.CHUNKED.toString().equalsIgnoreCase(value)) {
-                    valuesIt.remove();
-                }
-            }
-            if (values.isEmpty()) {
+            List newValues = filterValues(values, HttpHeaderConstants.CHUNKED);
+            if (newValues.isEmpty()) {
                 headers.remove(HttpHeaderConstants.TRANSFER_ENCODING);
             } else {
-                headers.set(HttpHeaderConstants.TRANSFER_ENCODING, values);
+                headers.set(HttpHeaderConstants.TRANSFER_ENCODING, newValues);
             }
+        }
+    }
+
+    private static List filterValues(List values, CharSequence k) {
+        AsciiString kAscii = (AsciiString) (k instanceof AsciiString ? k : HttpHeaderConstants.cacheAsciiString(k.toString()));
+        List newValues = new LinkedList();
+        for (Object v : values) {
+            CharSequence vcs = v instanceof CharSequence ? (CharSequence) v : v.toString();
+            if (!kAscii.contentEqualsIgnoreCase(vcs)) {
+                newValues.add(vcs instanceof AsciiString ? vcs : HttpHeaderConstants.cacheAsciiString(vcs.toString()));
+            }
+        }
+        return newValues;
+    }
+
+    public static boolean contentEqualsIgnoreCase(CharSequence c1, CharSequence c2) {
+        if (c1 instanceof AsciiString) {
+            return ((AsciiString) c1).contentEqualsIgnoreCase(c2);
+        } else if (c2 instanceof AsciiString) {
+            return ((AsciiString) c2).contentEqualsIgnoreCase(c1);
+        } else if (c1 != null && c2 != null) {
+            return c1.toString().equalsIgnoreCase(c2.toString());
+        } else {
+            return false;
         }
     }
 

@@ -235,7 +235,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         public void run() {
             ServletHttpServletRequest request = exchange.getRequest();
             ServletHttpServletResponse response = exchange.getResponse();
-            ServletErrorPageManager errorPageManager = exchange.getServletContext().getErrorPageManager();
+            ServletContext servletContext = exchange.getServletContext();
+            ServletErrorPageManager errorPageManager = servletContext.getErrorPageManager();
             Throwable realThrowable = null;
 
             // upload cannot block event loop
@@ -249,18 +250,23 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.set(asyncContextDispatchOperList);
             ServletRequestDispatcher dispatcher = null;
             try {
-                dispatcher = request.getRequestDispatcher(request.getRequestURI());
-                if (dispatcher == null) {
-                    Servlet defaultServlet = exchange.getServletContext().getDefaultServlet();
-                    if (defaultServlet != null) {
-                        defaultServlet.service(request, response);
-                    } else {
-                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
-                    }
+                String requestURI = request.getRequestURI();
+                if (servletContext.isMapperContextRootRedirectEnabled() && requestURI.equals(servletContext.getContextPath())) {
+                    response.sendRedirect(requestURI.concat("/"));
                 } else {
-                    request.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
-                    request.setDispatcher(dispatcher);
-                    dispatcher.dispatch(request, response);
+                    dispatcher = request.getRequestDispatcher(requestURI);
+                    if (dispatcher == null) {
+                        Servlet defaultServlet = exchange.getServletContext().getDefaultServlet();
+                        if (defaultServlet != null) {
+                            defaultServlet.service(request, response);
+                        } else {
+                            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                        }
+                    } else {
+                        request.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
+                        request.setDispatcher(dispatcher);
+                        dispatcher.dispatch(request, response);
+                    }
                 }
             } catch (ServletException se) {
                 realThrowable = se.getRootCause();
@@ -268,7 +274,9 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 realThrowable = throwable;
             } finally {
                 try {
-                    handleErrorPage(errorPageManager, realThrowable, dispatcher, request, response);
+                    if (dispatcher != null) {
+                        handleErrorPage(errorPageManager, realThrowable, dispatcher, request, response);
+                    }
                 } catch (Throwable e) {
                     logger.warn("handleErrorPage error = {}", e.toString(), e);
                 } finally {

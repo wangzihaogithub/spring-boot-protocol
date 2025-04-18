@@ -152,8 +152,7 @@ public class UrlMapper<T> {
     }
 
     private boolean match(Element element, String requestPath) {
-        return element.allPatternFlag
-                || ServletUtil.matchFiltersURL(element.pattern, requestPath)
+        return ServletUtil.matchFiltersURL(element.pattern, requestPath)
                 || antPathMatcher.match(element.pattern, requestPath, "*");
     }
 
@@ -181,9 +180,17 @@ public class UrlMapper<T> {
             String rootAndOriginalPattern;
             String normOriginalPattern = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(originalPattern));
             if (rootPath != null && !rootPath.isEmpty() && !rootPath.equals("/")) {
-                rootAndOriginalPattern = rootPath.concat(normOriginalPattern);
+                if (allPatternFlag) {
+                    rootAndOriginalPattern = rootPath + "/*";
+                } else {
+                    rootAndOriginalPattern = rootPath.concat(normOriginalPattern);
+                }
             } else {
-                rootAndOriginalPattern = normOriginalPattern;
+                if (allPatternFlag) {
+                    rootAndOriginalPattern = "/*";
+                } else {
+                    rootAndOriginalPattern = normOriginalPattern;
+                }
             }
             this.pattern = rootAndOriginalPattern;
             this.rootPath = rootPath;

@@ -154,9 +154,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return resourceManager;
     };
+    private int decodePathsQueryIndex;
     private boolean decodePathsFlag = false;
     private boolean decodeCookieFlag = false;
     private boolean decodeParameterByUrlFlag = false;
+    private boolean getQueryStringFlag = false;
+    private boolean getRequestURIFlag = false;
     private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
     private boolean usingInputStreamFlag = false;
@@ -307,7 +310,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             locales = new Locale[length];
             for (int i = 0; i < length; i++) {
                 String value = values[i];
-                String[] valueSp = value.split(";",2);
+                String[] valueSp = value.split(";", 2);
                 Locale locale;
                 if (valueSp.length > 0) {
                     locale = Locale.forLanguageTag(valueSp[0]);
@@ -504,19 +507,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     /**
      * Parsing path
      */
-    private void decodePaths() {
+    private int decodePaths() {
         String requestURI = nettyRequest.uri();
-        String queryString;
-        int queryInx = requestURI.indexOf('?');
-        if (queryInx != -1) {
-            queryString = requestURI.substring(queryInx + 1);
-            requestURI = requestURI.substring(0, queryInx);
-        } else {
-            queryString = null;
-        }
-        this.requestURI = requestURI;
-        this.queryString = queryString;
+        int decodePathsQueryIndex = requestURI.indexOf('?');
+        this.decodePathsQueryIndex = decodePathsQueryIndex;
         this.decodePathsFlag = true;
+        return decodePathsQueryIndex;
     }
 
     /**
@@ -651,16 +647,54 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getQueryString() {
-        if (!decodePathsFlag) {
-            decodePaths();
+        int decodePathsQueryIndex;
+        if (decodePathsFlag) {
+            decodePathsQueryIndex = this.decodePathsQueryIndex;
+        } else {
+            decodePathsQueryIndex = decodePaths();
+        }
+        if (!getQueryStringFlag) {
+            if (decodePathsQueryIndex != -1) {
+                this.queryString = nettyRequest.uri().substring(decodePathsQueryIndex + 1);
+            }
         }
         return this.queryString;
     }
 
+    private boolean existQueryStringKeyword(String name) {
+        int decodePathsQueryIndex;
+        if (decodePathsFlag) {
+            decodePathsQueryIndex = this.decodePathsQueryIndex;
+        } else {
+            decodePathsQueryIndex = decodePaths();
+        }
+        if (decodePathsQueryIndex == -1) {
+            return false;
+        } else {
+            String uri = nettyRequest.uri();
+            return uri.indexOf(name, decodePathsQueryIndex + 1) != -1;
+        }
+    }
+
+    private boolean existCookieKeyword(String name) {
+        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
+        return value != null && value.contains(name);
+    }
+
     @Override
     public String getRequestURI() {
-        if (!decodePathsFlag) {
-            decodePaths();
+        int decodePathsQueryIndex;
+        if (decodePathsFlag) {
+            decodePathsQueryIndex = this.decodePathsQueryIndex;
+        } else {
+            decodePathsQueryIndex = decodePaths();
+        }
+        if (!getRequestURIFlag) {
+            if (decodePathsQueryIndex == -1) {
+                this.requestURI = nettyRequest.uri();
+            } else {
+                this.requestURI = nettyRequest.uri().substring(0, decodePathsQueryIndex);
+            }
         }
         return this.requestURI;
     }
@@ -843,12 +877,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
 
         //Find the value of sessionCookie first from cookie, then from url parameter
-        String sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
+        String sessionId = null;
+        if (existCookieKeyword(cookieSessionName)) {
+            sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
+        }
         if (sessionId != null && !sessionId.isEmpty()) {
             sessionIdSource = SessionTrackingMode.COOKIE;
         } else {
-            String queryString = getQueryString();
-            if (queryString != null && queryString.contains(HttpConstants.JSESSION_ID_URL)) {
+            if (existQueryStringKeyword(HttpConstants.JSESSION_ID_URL)) {
                 sessionId = getParameter(HttpConstants.JSESSION_ID_URL);
             }
             if (sessionId != null && !sessionId.isEmpty()) {
@@ -1360,7 +1396,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         if (!fileUploadList.isEmpty()) {
             Part[] parts = fileUploadList.toArray(new Part[fileUploadList.size()]);
-            ServletContext.asyncClose(()->{
+            ServletContext.asyncClose(() -> {
                 for (Part part : parts) {
                     try {
                         part.delete();
@@ -1400,6 +1436,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.scheme = null;
         this.servletPath = null;
         this.queryString = null;
+        this.getRequestURIFlag = false;
+        this.getQueryStringFlag = false;
         this.pathInfo = null;
         this.requestURI = null;
         this.characterEncoding = null;

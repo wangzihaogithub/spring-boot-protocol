@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.CLOSE;
+import static com.github.netty.protocol.servlet.util.HttpHeaderConstants.cacheAsciiString;
 
 /**
  * NettyHttpResponse
@@ -238,7 +239,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
                                        ServletSessionCookieConfig sessionCookieConfig) {
         HttpHeaderUtil.setKeepAlive(this, isKeepAlive);
         HttpHeaders headers = headers();
-
+        StringBuilder[] buf = new StringBuilder[1];
         if (protocol.isHttp2()) {
             // h2 adapter
             String streamId = servletRequest.getNettyHeaders().get(HttpConstants.H2_EXT_STREAM_ID);
@@ -273,25 +274,36 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
 
         //Content Type The content of the response header
         if (null != contentType) {
-            String value = (null == characterEncoding) ? contentType :
-                    RecyclableUtil.newStringBuilder()
-                            .append(contentType)
-                            .append(APPEND_CONTENT_TYPE)
-                            .append(characterEncoding).toString();
+            CharSequence value;
+            if (null == characterEncoding) {
+                value = HttpHeaderConstants.cacheAsciiString(contentType);
+            } else {
+                value = HttpHeaderConstants.cacheAsciiString(contentType, characterEncoding,
+                        () -> {
+                            if (buf[0] == null) {
+                                buf[0] = RecyclableUtil.newStringBuilder();
+                            } else {
+                                buf[0].setLength(0);
+                            }
+                            return cacheAsciiString(buf[0].append(contentType)
+                                    .append(APPEND_CONTENT_TYPE)
+                                    .append(characterEncoding)
+                                    .toString());
+                        });
+            }
             headers.set(HttpHeaderConstants.CONTENT_TYPE, value);
         }
 
         //Server information response header
-        String serverHeader = servletRequest.getServletContext().getServerHeader();
-        if (serverHeader != null && serverHeader.length() > 0) {
+        CharSequence serverHeader = servletRequest.getServletContext().getServerHeaderAscii();
+        if (serverHeader != null && serverHeader.length() != 0) {
             headers.set(HttpHeaderConstants.SERVER, serverHeader);
         }
 
         //language
         if (locale != null && !headers.contains(HttpHeaderConstants.CONTENT_LANGUAGE)) {
-            headers.set(HttpHeaderConstants.CONTENT_LANGUAGE, locale.toLanguageTag());
+            headers.set(HttpHeaderConstants.CONTENT_LANGUAGE, HttpHeaderConstants.cacheAsciiString(locale.toLanguageTag()));
         }
-
         // Cookies processing
         //Session is handled first. If it is a new Session and the Session id is not the same as the Session id passed by the request, it needs to be written through the Cookie
         ServletHttpSession httpSession = servletRequest.getSession(false);
@@ -300,11 +312,16 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             if (sessionCookieName == null || sessionCookieName.isEmpty()) {
                 sessionCookieName = HttpConstants.JSESSION_ID_COOKIE;
             }
-            String sessionCookiePath = sessionCookieConfig.getPath();
-            if (sessionCookiePath == null || sessionCookiePath.isEmpty()) {
+            CharSequence sessionCookiePath = sessionCookieConfig.getPath();
+            if (sessionCookiePath == null || sessionCookiePath.length() == 0) {
                 sessionCookiePath = HttpConstants.DEFAULT_SESSION_COOKIE_PATH;
             }
-            String sessionCookieText = ServletUtil.encodeCookie(sessionCookieName, httpSession.getId(), sessionCookieConfig.getMaxAge(),
+            if (buf[0] == null) {
+                buf[0] = RecyclableUtil.newStringBuilder();
+            } else {
+                buf[0].setLength(0);
+            }
+            CharSequence sessionCookieText = ServletUtil.encodeCookie(buf[0], sessionCookieName, httpSession.getId(), sessionCookieConfig.getMaxAge(),
                     sessionCookiePath, sessionCookieConfig.getDomain(), sessionCookieConfig.isSecure(), sessionCookieConfig.isHttpOnly());
             headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
         }
@@ -314,7 +331,12 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         if (cookieSize > 0) {
             for (int i = 0; i < cookieSize; i++) {
                 Cookie cookie = cookies.get(i);
-                String cookieText = ServletUtil.encodeCookie(cookie.getName(), cookie.getValue(), cookie.getMaxAge(), cookie.getPath(), cookie.getDomain(), cookie.getSecure(), cookie.isHttpOnly());
+                if (buf[0] == null) {
+                    buf[0] = RecyclableUtil.newStringBuilder();
+                } else {
+                    buf[0].setLength(0);
+                }
+                CharSequence cookieText = ServletUtil.encodeCookie(buf[0], cookie.getName(), cookie.getValue(), cookie.getMaxAge(), cookie.getPath(), cookie.getDomain(), cookie.getSecure(), cookie.isHttpOnly());
                 headers.add(HttpHeaderConstants.SET_COOKIE, cookieText);
             }
         }

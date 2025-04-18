@@ -121,14 +121,14 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                     if (autoFlush) {
                         context.write(httpContent, promise);
                     } else {
-                        context.writeAndFlush(httpContent, promise);
+                        context.write(httpContent, promise);
                     }
                 } else {
                     context.write(httpBody);
                     if (autoFlush) {
                         context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
                     } else {
-                        context.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT, promise);
+                        context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
                     }
                 }
                 lastContentPromise = promise;
