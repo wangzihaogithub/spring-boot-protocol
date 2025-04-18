@@ -16,7 +16,7 @@ public class BodyEvent extends Body {
 
     @Override
     public String toString() {
-        return "BodyHeartBeat{" +
+        return "BodyEvent{" +
                 "\n\tevent=" + event +
                 "\n}";
     }
