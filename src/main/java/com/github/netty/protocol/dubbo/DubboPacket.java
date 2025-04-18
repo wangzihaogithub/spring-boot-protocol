@@ -1,7 +1,7 @@
 package com.github.netty.protocol.dubbo;
 
+import com.github.netty.protocol.dubbo.packet.BodyEvent;
 import com.github.netty.protocol.dubbo.packet.BodyFail;
-import com.github.netty.protocol.dubbo.packet.BodyHeartBeat;
 import com.github.netty.protocol.dubbo.packet.BodyRequest;
 import com.github.netty.protocol.dubbo.packet.BodyResponse;
 import io.netty.buffer.ByteBuf;
@@ -26,6 +26,12 @@ public class DubboPacket {
         return body;
     }
 
+    public boolean isHeartBeat() {
+        return header.isEvent()
+                && body instanceof BodyEvent
+                && Objects.equals(Constant.HEARTBEAT_EVENT, ((BodyEvent) body).getEvent());
+    }
+
     public void release() {
         header.release();
         if (body != null) {
@@ -46,6 +52,33 @@ public class DubboPacket {
         empty.writeLong(header.getRequestId());
         empty.writeInt(errorBytes.length);
         empty.writeBytes(errorBytes);
+        return empty;
+    }
+
+    public static ByteBuf buildHeartbeatPacket(ByteBufAllocator allocator,
+                                               byte serializationProtoId,
+                                               long requestId,
+                                               byte status,
+                                               boolean request,
+                                               boolean twoway) {
+        byte[] nullBytes = Serialization.getNullBytesOf(serializationProtoId);
+        int maxCapacity = Constant.HEADER_LENGTH + nullBytes.length;
+
+        int flag = serializationProtoId | Constant.FLAG_EVENT;
+        if (request) {
+            flag |= Constant.FLAG_REQUEST;
+        }
+        if (twoway) {
+            flag |= Constant.FLAG_TWOWAY;
+        }
+        ByteBuf empty = allocator.ioBuffer(maxCapacity, maxCapacity);
+        empty.writeByte(Constant.MAGIC_0);
+        empty.writeByte(Constant.MAGIC_1);
+        empty.writeByte(flag);
+        empty.writeByte(status);
+        empty.writeLong(requestId);
+        empty.writeInt(nullBytes.length);
+        empty.writeBytes(nullBytes);
         return empty;
     }
 
@@ -80,7 +113,7 @@ public class DubboPacket {
             if (attachments != null) {
                 serviceName = Objects.toString(attachments.get(attachmentName), null);
             }
-        } else if (body instanceof BodyHeartBeat) {
+        } else if (body instanceof BodyEvent) {
 
         } else if (body instanceof BodyFail) {
 

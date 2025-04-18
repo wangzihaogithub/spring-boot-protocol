@@ -2,11 +2,11 @@ package com.github.netty.protocol.dubbo.packet;
 
 import com.github.netty.protocol.dubbo.Body;
 
-public class BodyHeartBeat extends Body {
+public class BodyEvent extends Body {
 
     private final Object event;
 
-    public BodyHeartBeat(Object event) {
+    public BodyEvent(Object event) {
         this.event = event;
     }
 

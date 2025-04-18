@@ -131,12 +131,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
     @Override
     public String getServletPath() {
         if (this.servletPath == null) {
-            String servletPath = getServletContext().getServletPath(getRequestURI());
-            String contextPath = getServletContext().getContextPath();
-            if (contextPath.length() > 0) {
-                servletPath = servletPath.replaceFirst(contextPath, "");
-            }
-            this.servletPath = com.github.netty.protocol.servlet.ServletContext.normPath(servletPath);
+            this.servletPath = getServletContext().getServletPath(getRequestURI());
         }
         return this.servletPath;
     }

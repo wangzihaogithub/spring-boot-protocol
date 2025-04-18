@@ -674,12 +674,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getServletPath() {
         if (this.servletPath == null) {
-            String servletPath = getServletContext().getServletPath(getRequestURI());
-            String contextPath = getServletContext().getContextPath();
-            if (!contextPath.isEmpty()) {
-                servletPath = servletPath.replaceFirst(contextPath, "");
-            }
-            this.servletPath = ServletContext.normPath(servletPath);
+            this.servletPath = getServletContext().getServletPath(getRequestURI());
         }
         return this.servletPath;
     }

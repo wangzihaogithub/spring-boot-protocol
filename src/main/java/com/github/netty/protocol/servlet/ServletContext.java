@@ -73,7 +73,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private final MimeMappingsX mimeMappings = new MimeMappingsX();
     private final ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
     private final ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
-    private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>(true);
+    private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>();
     private final FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
     private ResourceManager resourceManager;
     private Supplier<Executor> asyncExecutorSupplier;
@@ -348,9 +348,10 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public void setContextPath(String contextPath) {
-        this.contextPath = normPath(contextPath);
-        this.filterUrlMapper.setRootPath(contextPath);
-        this.servletUrlMapper.setRootPath(contextPath);
+        String normed = normPath(contextPath);
+        this.contextPath = normed;
+        this.filterUrlMapper.setRootPath(normed);
+        this.servletUrlMapper.setRootPath(normed);
     }
 
     @Override

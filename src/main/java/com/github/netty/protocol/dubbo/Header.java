@@ -2,7 +2,7 @@ package com.github.netty.protocol.dubbo;
 
 import io.netty.buffer.ByteBuf;
 
-import static com.github.netty.protocol.dubbo.Constant.SERIALIZATION_MASK;
+import static com.github.netty.protocol.dubbo.Constant.*;
 
 public class Header {
     final ByteBuf headerBytes;
@@ -21,6 +21,18 @@ public class Header {
         this.requestId = requestId;
         this.type = type;
         this.bodyLength = bodyLength;
+    }
+
+    public boolean isEvent() {
+        return (flag & FLAG_EVENT) != 0;
+    }
+
+    public boolean isTwoway() {
+        return (flag & FLAG_TWOWAY) != 0;
+    }
+
+    public boolean isRequest() {
+        return (flag & FLAG_REQUEST) != 0;
     }
 
     public byte getFlag() {
@@ -57,6 +69,21 @@ public class Header {
         } else {
             return false;
         }
+    }
+
+    public static Header readHeader(ByteBuf buffer) {
+        int readerIndex = buffer.readerIndex();
+
+        // request and serialization flag. -62 isHeartBeat
+        byte flag = buffer.getByte(readerIndex + 2);
+        byte status = buffer.getByte(readerIndex + 3);
+        long requestId = buffer.getLong(readerIndex + 4);
+        // 8 - 1-request/0-response
+        byte type = buffer.getByte(readerIndex + 8);
+        int bodyLength = buffer.getInt(readerIndex + 12);
+
+        ByteBuf headerBytes = buffer.readRetainedSlice(HEADER_LENGTH);
+        return new Header(headerBytes, flag, status, requestId, type, bodyLength);
     }
 
     @Override

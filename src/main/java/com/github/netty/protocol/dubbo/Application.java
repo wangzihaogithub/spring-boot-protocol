@@ -26,6 +26,10 @@ public class Application {
      * 是否是默认应用
      */
     private boolean defaultApplication;
+    /**
+     * 后端心跳间隔毫秒
+     */
+    private int heartbeatIntervalMs = Constant.DEFAULT_HEARTBEAT;
 
     public Application() {
     }
@@ -56,6 +60,14 @@ public class Application {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public int getHeartbeatIntervalMs() {
+        return heartbeatIntervalMs;
+    }
+
+    public void setHeartbeatIntervalMs(int heartbeatIntervalMs) {
+        this.heartbeatIntervalMs = heartbeatIntervalMs;
     }
 
     public String getAttachmentApplicationName() {

@@ -39,38 +39,6 @@ public class FilterMapper<T> {
         this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
-    public static String normPath(String path) {
-        if (path == null || path.isEmpty()) {
-            return path;
-        }
-        while (path.startsWith("//")) {
-            path = path.substring(1);
-        }
-        if (path.length() > 1) {
-            if (!path.startsWith("/")) {
-                path = "/" + path;
-            }
-        }
-        return path;
-    }
-
-    public static void main(String[] args) {
-        FilterMapper<Object> urlMapper = new FilterMapper<>();
-        urlMapper.addMapping("/t/", "", "default", false, null);
-        urlMapper.addMapping("/t/", "", "1", false, null);
-        urlMapper.addMapping("/t/", "", "2", false, null);
-        urlMapper.addMapping("/*", "", "3", false, null);
-        urlMapper.addMapping("/*.do", "", "4", false, null);
-
-//        urlMapper.setRootPath("test");
-
-        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
-        assert Objects.equals("1", e1.objectName);
-
-        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
-        assert Objects.equals("3", e2.objectName);
-    }
-
     public void clear() {
         synchronized (lock) {
             array = new Element[0];
@@ -141,10 +109,6 @@ public class FilterMapper<T> {
     }
 
     public void setRootPath(String rootPath) {
-        while (rootPath.startsWith("/")) {
-            rootPath = rootPath.substring(1);
-        }
-        rootPath = "/" + rootPath;
         synchronized (lock) {
             Element<T>[] newElements = new Element[array.length];
             for (int i = 0; i < this.array.length; i++) {
@@ -170,47 +134,19 @@ public class FilterMapper<T> {
      */
     public void addMapping(String urlPattern, T object, String objectName, boolean isMatchAfter, EnumSet<DispatcherType> dispatcherTypes) throws IllegalArgumentException {
         Objects.requireNonNull(urlPattern);
-        if (!urlPattern.startsWith("/")) {
-            urlPattern = "/" + urlPattern;
-        }
         Element<T> element = new Element<>(rootPath, urlPattern, object, objectName, dispatcherTypes);
+        synchronized (lock) {
+            for (Element<T> tElement : array) {
+                if (Objects.equals(tElement.objectName, objectName)) {
+                    return;
+                }
+            }
+        }
         if (isMatchAfter) {
             add(element);
         } else {
             addBefore(element);
         }
-    }
-
-    /**
-     * Gets a servlet path
-     *
-     * @param absoluteUri An absolute path
-     * @return servlet path
-     */
-    public String getServletPath(String absoluteUri) {
-        String path = normPath(absoluteUri);
-        for (Element<T> element : array) {
-            if (antPathMatcher.match(element.pattern, path, "*")) {
-                return element.servletPath;
-            }
-        }
-        return absoluteUri;
-    }
-
-    /**
-     * Gets a mapping object
-     *
-     * @param absoluteUri An absolute path
-     * @return T object
-     */
-    public Element<T> getMappingObjectByUri(String absoluteUri) {
-        String path = normPath(absoluteUri);
-        for (Element<T> element : this.array) {
-            if (antPathMatcher.match(element.pattern, path, "*")) {
-                return element;
-            }
-        }
-        return null;
     }
 
     /**
@@ -221,15 +157,21 @@ public class FilterMapper<T> {
      * @param absoluteUri    An absolute path
      */
     public void addMappingObjectsByUri(String absoluteUri, DispatcherType dispatcherType, List<Element<T>> list) {
-        String path = normPath(absoluteUri);
+        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(absoluteUri));
         for (Element<T> element : this.array) {
             if (element.dispatcherTypes != null && !element.dispatcherTypes.contains(dispatcherType)) {
                 continue;
             }
-            if (antPathMatcher.match(element.pattern, path, "*")) {
+            if (match(element, path)) {
                 list.add(element);
             }
         }
+    }
+
+    private boolean match(Element element, String requestPath) {
+        return element.allPatternFlag
+                || ServletUtil.matchFiltersURL(element.pattern, requestPath)
+                || antPathMatcher.match(element.pattern, requestPath, "*");
     }
 
     public static class Element<T> {
@@ -237,11 +179,8 @@ public class FilterMapper<T> {
         String originalPattern;
         T object;
         String objectName;
-        String servletPath;
         String rootPath;
-        boolean wildcardPatternFlag;
         boolean allPatternFlag;
-        boolean defaultFlag;
         EnumSet<DispatcherType> dispatcherTypes;
 
         public Element(String objectName, T object) {
@@ -251,41 +190,22 @@ public class FilterMapper<T> {
 
         public Element(String rootPath, String originalPattern, T object, String objectName, EnumSet<DispatcherType> dispatcherTypes) {
             this.dispatcherTypes = dispatcherTypes;
-            this.allPatternFlag = "/".equals(originalPattern)
+            this.allPatternFlag = originalPattern.isEmpty()
                     || "/*".equals(originalPattern)
                     || "*".equals(originalPattern)
                     || "/**".equals(originalPattern);
-            if (rootPath != null) {
-                this.pattern = rootPath.concat(originalPattern);
+            String rootAndOriginalPattern;
+            String normOriginalPattern = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(originalPattern));
+            if (rootPath != null && !rootPath.isEmpty() && !rootPath.equals("/")) {
+                rootAndOriginalPattern = rootPath.concat(normOriginalPattern);
             } else {
-                this.pattern = originalPattern;
+                rootAndOriginalPattern = normOriginalPattern;
             }
-            if (pattern.endsWith("/")) {
-                do {
-                    pattern = pattern.substring(0, pattern.length() - 1);
-                } while (pattern.endsWith("/"));
-                pattern = pattern + "/*";
-            }
-
-            this.pattern = normPath(this.pattern);
+            this.pattern = rootAndOriginalPattern;
             this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
             this.objectName = objectName;
-            StringJoiner joiner = new StringJoiner("/");
-            String[] pattens = pattern.split("/");
-            for (int i = 0; i < pattens.length; i++) {
-                String path = pattens[i];
-                if (path.contains("*")) {
-                    wildcardPatternFlag = true;
-                    if (i == pattens.length - 1) {
-                        continue;
-                    }
-                }
-                joiner.add(path);
-            }
-            this.defaultFlag = "default".equals(this.objectName);
-            this.servletPath = joiner.toString();
         }
 
         public EnumSet<DispatcherType> getDispatcherTypes() {
@@ -304,10 +224,6 @@ public class FilterMapper<T> {
             return pattern;
         }
 
-        public String getServletPath() {
-            return servletPath;
-        }
-
         @Override
         public boolean equals(Object obj) {
             return this == obj;
@@ -321,7 +237,7 @@ public class FilterMapper<T> {
         @Override
         public String toString() {
             return "Element{" +
-                    "pattern='" + pattern + '\'' +
+                    "pattern='" + originalPattern + '\'' +
                     ", objectName='" + objectName + '\'' +
                     '}';
         }

@@ -3,17 +3,16 @@ package com.github.netty.protocol.dubbo;
 import com.github.netty.core.AbstractChannelHandler;
 import com.github.netty.core.util.AntPathMatcher;
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.timeout.IdleStateHandler;
 
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 
 public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, ByteBuf> {
     private static final List<ProxyFrontendHandler> ACTIVE_LIST = Collections.synchronizedList(new ArrayList<>(100));
@@ -87,8 +86,23 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
 
     @Override
     protected void onMessageReceived(ChannelHandlerContext ctx, DubboPacket packet) throws Exception {
+        Header header = packet.getHeader();
+        // 客户端发过来的心跳包
+        if (header.isRequest() && packet.isHeartBeat()) {
+            // 如果是双向心跳
+            if (header.isTwoway()) {
+                // 返回代理心跳
+                writeHeartbeatResponse(ctx, packet);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("ProxyFrontendHandler writeHeartbeatResponse {}. {}", toString(), ctx.channel());
+                }
+            }
+            return;
+        }
+
+        // 代理透传
         Application backendApplication = selectBackendApplication(packet);
-        DubboClient backendClient = getBackendClient(backendApplication, ctx.channel());
+        DubboClient backendClient = getBackendClient(backendApplication, ctx.channel(), packet);
         if (backendClient == null) {
             // 没有配置后端
             onBackendNonConfig(ctx, packet, backendApplication);
@@ -171,13 +185,28 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
     }
 
     /**
+     * 返回代理心跳
+     */
+    protected void writeHeartbeatResponse(ChannelHandlerContext ctx, DubboPacket packet) {
+        try {
+            byte serializationProtoId = packet.getHeader().getSerializationProtoId();
+            long requestId = packet.getHeader().getRequestId();
+            ByteBuf heartbeatPacket = DubboPacket.buildHeartbeatPacket(ctx.alloc(),
+                    serializationProtoId, requestId, Constant.OK, false, false);
+            ctx.writeAndFlush(heartbeatPacket);
+        } finally {
+            packet.release();
+        }
+    }
+
+    /**
      * 后端状态发生变化
      */
     protected void onChangeClientState(DubboClient.State state, DubboClient client) {
 
     }
 
-    public DubboClient getBackendClient(Application application, Channel fronendChannel) {
+    protected DubboClient getBackendClient(Application application, Channel fronendChannel, DubboPacket packet) {
         if (application == null) {
             return null;
         }
@@ -185,12 +214,25 @@ public class ProxyFrontendHandler extends AbstractChannelHandler<DubboPacket, By
         if (address == null) {
             return null;
         }
+        int heartbeatIntervalMs = application.getHeartbeatIntervalMs();
+        byte serializationProtoId = packet.getHeader().getSerializationProtoId();
+        long requestId = packet.getHeader().getRequestId();
         Collection<String> applicationNames = getApplicationNames(address);
-        return backendClientMap.computeIfAbsent(address, n -> newBackendClient(applicationNames, address, fronendChannel));
+        return backendClientMap.computeIfAbsent(address, n -> newBackendClient(applicationNames, address, fronendChannel, heartbeatIntervalMs, serializationProtoId, requestId));
     }
 
-    public DubboClient newBackendClient(Collection<String> applicationNames, InetSocketAddress address, Channel fronendChannel) {
-        DubboClient client = new DubboClient(String.join(",", applicationNames), new ProxyBackendHandler(applicationNames, fronendChannel));
+    protected DubboClient newBackendClient(Collection<String> applicationNames, InetSocketAddress address, Channel fronendChannel,
+                                           int heartbeatIntervalMs,
+                                           byte serializationProtoId,
+                                           long requestId) {
+        DubboClient client = new DubboClient(String.join(",", applicationNames), new ChannelInitializer<Channel>() {
+            @Override
+            protected void initChannel(Channel channel) {
+                ChannelPipeline pipeline = channel.pipeline();
+                pipeline.addLast(new IdleStateHandler(heartbeatIntervalMs, heartbeatIntervalMs, 0L, TimeUnit.MILLISECONDS));
+                pipeline.addLast(new ProxyBackendHandler(applicationNames, fronendChannel, serializationProtoId, requestId));
+            }
+        });
         client.connect(address);
         client.setStateConsumer(this::onChangeClientState);
         return client;

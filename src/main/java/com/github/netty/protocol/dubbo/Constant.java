@@ -13,6 +13,10 @@ public class Constant {
     public static final byte RESPONSE_VALUE_WITH_ATTACHMENTS = 4;
     public static final byte RESPONSE_NULL_VALUE_WITH_ATTACHMENTS = 5;
     /**
+     * na.
+     */
+    public static final byte STATUS_NA = 0;
+    /**
      * ok.
      */
     public static final byte OK = 20;
@@ -67,13 +71,18 @@ public class Constant {
     protected static final byte MAGIC_1 = (byte) MAGIC;
     // message flag.
     protected static final byte FLAG_REQUEST = (byte) 0x80;
-    //    protected static final byte FLAG_TWOWAY = (byte) 0x40;
+    protected static final byte FLAG_TWOWAY = (byte) 0x40;
     protected static final byte FLAG_EVENT = (byte) 0x20;
     protected static final int SERIALIZATION_MASK = 0x1f;
+    protected static final int DEFAULT_HEARTBEAT = 60 * 1000;
+
+    protected static final String HEARTBEAT_EVENT = null;
+    protected static final String MOCK_HEARTBEAT_EVENT = "H";
+    protected static final String READONLY_EVENT = "R";
 
     public static String statusToString(byte status) {
         switch (status) {
-            case 0:
+            case STATUS_NA:
                 return "NA";
             case OK:
                 return "OK";
