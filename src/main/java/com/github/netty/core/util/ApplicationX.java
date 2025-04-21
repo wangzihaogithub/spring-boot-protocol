@@ -16,6 +16,7 @@ import java.net.URLDecoder;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.*;
 import java.util.jar.JarEntry;
@@ -63,7 +64,7 @@ public class ApplicationX {
     private final Collection<Class<? extends Annotation>> factoryMethodAnnotations = new LinkedHashSet<>(
             Arrays.asList(Bean.class));
     //BeanPostProcessor接口是为了将每个bean的处理阶段的处理, 抽象成接口, 让用户可以根据不同需求不同处理. 比如自动注入,AOP,定时任务,异步注解,servlet注入,错误页注册
-    private final Collection<BeanPostProcessor> beanPostProcessors = new TreeSet<>(new OrderComparator(orderedAnnotations));
+    private final Collection<BeanPostProcessor> beanPostProcessors = new CopyOnWriteArrayList<>();
     //需要跳过生命周期管理的bean名称集合
     private final Collection<String> beanSkipLifecycles = new LinkedHashSet<>(8);
     //存放Class与bean名称对应关系
@@ -107,9 +108,22 @@ public class ApplicationX {
         addClasses(orderedAnnotations,
                 "org.springframework.core.annotation.Order");
         addSingletonBean(this);
-        addBeanPostProcessor(new RegisteredBeanPostProcessor(this));
-        addBeanPostProcessor(new AutowiredConstructorPostProcessor(this));
+        registerAnnotationConfigProcessors(this);
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdownHook, "app.shutdownHook-" + SHUTDOWN_HOOK_ID_INCR.getAndIncrement()));
+    }
+
+    public static Set<BeanDefinition> registerAnnotationConfigProcessors(
+            ApplicationX registry) {
+        Set<BeanDefinition> beanDefs = new LinkedHashSet<>(8);
+
+        String AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME = "internalAutowiredAnnotationProcessor";
+        if (!registry.containsBeanDefinition(AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME)) {
+            BeanDefinition def = new BeanDefinition();
+            def.setBeanClass(AutowiredConstructorPostProcessor.class);
+            registry.addBeanDefinition(AUTOWIRED_ANNOTATION_PROCESSOR_BEAN_NAME, def);
+            beanDefs.add(def);
+        }
+        return beanDefs;
     }
 
     public static void main(String[] args) throws Exception {
@@ -374,6 +388,87 @@ public class ApplicationX {
             }
         }
         return null;
+    }
+
+    private static void registerBeanPostProcessors(ApplicationX beanFactory) {
+        // WARNING: Although it may appear that the body of this method can be easily
+        // refactored to avoid the use of multiple loops and multiple lists, the use
+        // of multiple lists and multiple passes over the names of processors is
+        // intentional. We must ensure that we honor the contracts for PriorityOrdered
+        // and Ordered processors. Specifically, we must NOT cause processors to be
+        // instantiated (via getBean() invocations) or registered in the ApplicationContext
+        // in the wrong order.
+        //
+        // Before submitting a pull request (PR) to change this method, please review the
+        // list of all declined PRs involving changes to PostProcessorRegistrationDelegate
+        // to ensure that your proposal does not result in a breaking change:
+        // https://github.com/spring-projects/spring-framework/issues?q=PostProcessorRegistrationDelegate+is%3Aclosed+label%3A%22status%3A+declined%22
+
+        String[] postProcessorNames = beanFactory.getBeanNamesForType(BeanPostProcessor.class);
+
+        // Separate between BeanPostProcessors that implement PriorityOrdered,
+        // Ordered, and the rest.
+        List<BeanPostProcessor> priorityOrderedPostProcessors = new ArrayList<>();
+        List<BeanPostProcessor> internalPostProcessors = new ArrayList<>();
+        List<String> orderedPostProcessorNames = new ArrayList<>();
+        List<String> nonOrderedPostProcessorNames = new ArrayList<>();
+        for (String ppName : postProcessorNames) {
+            if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
+                BeanPostProcessor pp = beanFactory.getBean(ppName);
+                priorityOrderedPostProcessors.add(pp);
+                if (pp instanceof MergedBeanDefinitionPostProcessor) {
+                    internalPostProcessors.add(pp);
+                }
+            } else if (beanFactory.isTypeMatch(ppName, Ordered.class)) {
+                orderedPostProcessorNames.add(ppName);
+            } else {
+                nonOrderedPostProcessorNames.add(ppName);
+            }
+        }
+
+        // First, register the BeanPostProcessors that implement PriorityOrdered.
+        priorityOrderedPostProcessors.sort(COMPARATOR);
+        for (BeanPostProcessor processor : priorityOrderedPostProcessors) {
+            beanFactory.addBeanPostProcessor(processor);
+        }
+
+        // Next, register the BeanPostProcessors that implement Ordered.
+        List<BeanPostProcessor> orderedPostProcessors = new ArrayList<>(orderedPostProcessorNames.size());
+        for (String ppName : orderedPostProcessorNames) {
+            BeanPostProcessor pp = beanFactory.getBean(ppName);
+            orderedPostProcessors.add(pp);
+            if (pp instanceof MergedBeanDefinitionPostProcessor) {
+                internalPostProcessors.add(pp);
+            }
+        }
+        orderedPostProcessors.sort(COMPARATOR);
+        for (BeanPostProcessor processor : orderedPostProcessors) {
+            beanFactory.addBeanPostProcessor(processor);
+        }
+
+        // Now, register all regular BeanPostProcessors.
+        List<BeanPostProcessor> nonOrderedPostProcessors = new ArrayList<>(nonOrderedPostProcessorNames.size());
+        for (String ppName : nonOrderedPostProcessorNames) {
+            BeanPostProcessor pp = beanFactory.getBean(ppName);
+            nonOrderedPostProcessors.add(pp);
+            if (pp instanceof MergedBeanDefinitionPostProcessor) {
+                internalPostProcessors.add(pp);
+            }
+        }
+        for (BeanPostProcessor processor : nonOrderedPostProcessors) {
+            beanFactory.addBeanPostProcessor(processor);
+        }
+
+        // Finally, re-register all internal BeanPostProcessors.
+        internalPostProcessors.sort(COMPARATOR);
+        for (BeanPostProcessor processor : internalPostProcessors) {
+            beanFactory.addBeanPostProcessor(processor);
+        }
+    }
+
+    public boolean isTypeMatch(String name, Class<?> typeToMatch) {
+        BeanDefinition definition = beanDefinitionMap.get(Objects.requireNonNull(name, "isTypeMatch.requireNonNull(name)"));
+        return definition != null && typeToMatch.isAssignableFrom(definition.getBeanClassIfResolve(resourceLoader));
     }
 
     public long getTimestamp() {
@@ -692,7 +787,13 @@ public class ApplicationX {
     }
 
     public ApplicationX addBeanPostProcessor(BeanPostProcessor beanPostProcessor) {
-        beanPostProcessors.add(beanPostProcessor);
+        Objects.requireNonNull(beanPostProcessor, "BeanPostProcessor must not be null");
+        synchronized (this.beanPostProcessors) {
+            // Remove from old position, if any
+            this.beanPostProcessors.remove(beanPostProcessor);
+            // Add to end of list
+            this.beanPostProcessors.add(beanPostProcessor);
+        }
         return this;
     }
 
@@ -718,10 +819,9 @@ public class ApplicationX {
 
     public String[] getBeanNamesForType(Class clazz) {
         Collection<String> result = new ArrayList<>();
-        for (Map.Entry<String, BeanDefinition> entry : beanDefinitionMap.entrySet()) {
-            BeanDefinition definition = entry.getValue();
-            if (clazz.isAssignableFrom(definition.getBeanClassIfResolve(resourceLoader))) {
-                String beanName = entry.getKey();
+        for (String beanName : beanDefinitionMap.keySet()) {
+            // isAlias isFactoryBean
+            if (isTypeMatch(beanName, clazz)) {
                 result.add(beanName);
             }
         }
@@ -846,6 +946,10 @@ public class ApplicationX {
         return singletonObjects.containsKey(beanName) || beanDefinitionMap.containsKey(beanName);
     }
 
+    public boolean containsBeanDefinition(String beanName) {
+        return beanDefinitionMap.containsKey(beanName);
+    }
+
     public boolean containsInstance(String name) {
         String beanName = getBeanName(name);
         return singletonObjects.containsKey(beanName);
@@ -947,6 +1051,9 @@ public class ApplicationX {
             }
             if (bean instanceof ApplicationAware) {
                 ((ApplicationAware) bean).setApplication(this);
+            }
+            if (bean instanceof BeanFactoryAware) {
+                ((BeanFactoryAware) bean).setBeanFactory(this);
             }
         }
     }
@@ -1141,6 +1248,10 @@ public class ApplicationX {
         void setBeanName(String name);
     }
 
+    public interface BeanFactoryAware extends Aware {
+        void setBeanFactory(ApplicationX applicationX);
+    }
+
     public interface ApplicationAware extends Aware {
         void setApplication(ApplicationX applicationX);
     }
@@ -1324,10 +1435,37 @@ public class ApplicationX {
          *
          * @return 排序
          */
-        int value() default Integer.MAX_VALUE;
+        int value() default Ordered.LOWEST_PRECEDENCE;
+    }
+
+    /**
+     * Extension of the {@link Ordered} interface, expressing a <em>priority</em>
+     * ordering: {@code PriorityOrdered} objects are always applied before
+     * <em>plain</em> {@link Ordered} objects regardless of their order values.
+     * <p>Note: {@code PriorityOrdered} post-processor beans are initialized in
+     * a special phase, ahead of other post-processor beans. This subtly
+     * affects their autowiring behavior: they will only be autowired against
+     * beans which do not require eager initialization for type matching.
+     */
+    public interface PriorityOrdered extends Ordered {
+
     }
 
     public interface Ordered {
+        /**
+         * Useful constant for the highest precedence value.
+         *
+         * @see java.lang.Integer#MIN_VALUE
+         */
+        int HIGHEST_PRECEDENCE = Integer.MIN_VALUE;
+
+        /**
+         * Useful constant for the lowest precedence value.
+         *
+         * @see java.lang.Integer#MAX_VALUE
+         */
+        int LOWEST_PRECEDENCE = Integer.MAX_VALUE;
+
         /**
          * 从小到大排列
          *
@@ -1828,8 +1966,8 @@ public class ApplicationX {
                 Object instance = constructor.newInstance(args);
                 return instance;
             } catch (IllegalAccessException | InstantiationException |
-                    InvocationTargetException | IllegalArgumentException |
-                    ExceptionInInitializerError e) {
+                     InvocationTargetException | IllegalArgumentException |
+                     ExceptionInInitializerError e) {
                 throw new IllegalStateException("inject error=" + e + ". method=" + this.member, e);
             } finally {
                 constructor.setAccessible(accessible);
@@ -2161,45 +2299,24 @@ public class ApplicationX {
         }
     }
 
-    @Order(Integer.MIN_VALUE + 10)
-    public static class RegisteredBeanPostProcessor implements BeanPostProcessor {
-        private final ApplicationX applicationX;
-
-        public RegisteredBeanPostProcessor(ApplicationX applicationX) {
-            this.applicationX = Objects.requireNonNull(applicationX);
-        }
-
-        @Override
-        public Object postProcessAfterInitialization(Object bean, String beanName) throws RuntimeException {
-            if (bean instanceof BeanPostProcessor) {
-                applicationX.addBeanPostProcessor((BeanPostProcessor) bean);
-            }
-            return bean;
-        }
-    }
-
     /**
      * 参考 org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor
      */
-    @Order(Integer.MIN_VALUE + 20)
-    public static class AutowiredConstructorPostProcessor implements SmartInstantiationAwareBeanPostProcessor, MergedBeanDefinitionPostProcessor {
+    public static class AutowiredConstructorPostProcessor implements SmartInstantiationAwareBeanPostProcessor, MergedBeanDefinitionPostProcessor, PriorityOrdered, BeanFactoryAware {
         private static final Constructor[] EMPTY = {};
-        private final ApplicationX applicationX;
+        private int order = Ordered.LOWEST_PRECEDENCE - 2;
+        private ApplicationX beanFactory;
         //如果字段参数注入缺少参数, 是否抛出异常
         private boolean defaultInjectRequiredField = true;
         //如果方法参数注入缺少参数, 是否抛出异常
         private boolean defaultInjectRequiredMethod = true;
-
-        public AutowiredConstructorPostProcessor(ApplicationX applicationX) {
-            this.applicationX = Objects.requireNonNull(applicationX);
-        }
 
         @Override
         public void postProcessMergedBeanDefinition(BeanDefinition definition, Class<?> beanType, String beanName) {
             eachClass(beanType, clazz -> {
                 for (Method method : getDeclaredMethods(clazz)) {
                     //寻找工厂bean, 例: 打着@Bean注解的. 也就是spring中的合成bean
-                    Annotation factoryMethodAnnotation = findDeclaredAnnotation(method, applicationX.factoryMethodAnnotations, FACTORY_METHOD_ANNOTATION_CACHE_MAP);
+                    Annotation factoryMethodAnnotation = findDeclaredAnnotation(method, beanFactory.factoryMethodAnnotations, FACTORY_METHOD_ANNOTATION_CACHE_MAP);
                     if (factoryMethodAnnotation != null) {
                         addBeanDefinition(method, factoryMethodAnnotation, beanName, beanType);
                     }
@@ -2235,9 +2352,9 @@ public class ApplicationX {
 
         @Override
         public boolean postProcessAfterInstantiation(Object bean, String beanName) throws RuntimeException {
-            BeanDefinition definition = applicationX.getBeanDefinition(beanName);
+            BeanDefinition definition = beanFactory.getBeanDefinition(beanName);
             //获取用户定义的类型
-            Class beanClass = definition.getBeanClassIfResolve(applicationX.getResourceLoader());
+            Class beanClass = definition.getBeanClassIfResolve(beanFactory.getResourceLoader());
             if (isAbstract(beanClass)) {
                 beanClass = bean.getClass();
             }
@@ -2254,9 +2371,9 @@ public class ApplicationX {
          */
         private void inject(Object bean, Class beanClass) {
             //获取需要注入的字段, 比如打过注解(@Autowired)的字段
-            List<InjectElement<Field>> declaredFields = InjectElement.getInjectFields(beanClass, applicationX);
+            List<InjectElement<Field>> declaredFields = InjectElement.getInjectFields(beanClass, beanFactory);
             //获取需要注入的方法. 比如打过注解(@Autowired)的setter方法.
-            List<InjectElement<Method>> declaredMethods = InjectElement.getInjectMethods(beanClass, applicationX);
+            List<InjectElement<Method>> declaredMethods = InjectElement.getInjectMethods(beanClass, beanFactory);
             for (InjectElement<Field> element : declaredFields) {
                 if (element.required == null) {
                     element.required = defaultInjectRequiredField;
@@ -2277,16 +2394,30 @@ public class ApplicationX {
                     Arrays.asList(method.getName()) : Arrays.asList(beanNames));
             String beanName = beanNameList.pollFirst();
 
-            BeanDefinition definition = applicationX.newBeanDefinition(method.getReturnType(), method);
-            InjectElement<Method> element = new InjectElement<>(method, applicationX);
+            BeanDefinition definition = beanFactory.newBeanDefinition(method.getReturnType(), method);
+            InjectElement<Method> element = new InjectElement<>(method, beanFactory);
             definition.setBeanSupplier(() -> {
                 Object bean = element.applicationX.getBean(factoryBeanName);
                 return element.inject(bean, factoryBeanClass);
             });
-            applicationX.addBeanDefinition(beanName, definition);
+            beanFactory.addBeanDefinition(beanName, definition);
             for (String alias : beanNameList) {
-                applicationX.registerAlias(beanName, alias);
+                beanFactory.registerAlias(beanName, alias);
             }
+        }
+
+        public void setOrder(int order) {
+            this.order = order;
+        }
+
+        @Override
+        public int getOrder() {
+            return order;
+        }
+
+        @Override
+        public void setBeanFactory(ApplicationX beanFactory) {
+            this.beanFactory = beanFactory;
         }
     }
 
@@ -2533,6 +2664,7 @@ public class ApplicationX {
                         }
                     }
                 }
+                registerBeanPostProcessors(ApplicationX.this);
                 if (!lazy) {
                     for (String beanName : beanNameList) {
                         getBean(beanName, null, true);
@@ -2569,7 +2701,7 @@ public class ApplicationX {
         }
 
         protected Object doCreateBean(String beanName, BeanDefinition definition, Object[] args) {
-            //参考 org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory
+            //参考 AbstractAutowireCapableBeanFactory
             //创建实例, 等同于newInstance(); 这时只是一个空的实例.
             BeanWrapper beanInstanceWrapper = createBeanInstance(beanName, definition, args);
             //最终暴露给用户的实例
@@ -2745,7 +2877,7 @@ public class ApplicationX {
             };
             //注册用户特殊的参数处理逻辑, 比如将原始数据是字符串'A,B,C',你可以注册一个字符串转数组的逻辑[A,B,C]
 //            registerCustomEditors(bw);
-            //实现需参照 org.springframework.beans.factory.support.AbstractBeanFactory.registerCustomEditors
+            //实现需参照 AbstractBeanFactory.registerCustomEditors
         }
 
         protected void populateBean(String beanName, BeanDefinition definition, BeanWrapper bw) {
