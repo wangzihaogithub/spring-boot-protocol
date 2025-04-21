@@ -109,6 +109,7 @@ public class ApplicationX {
                 "org.springframework.core.annotation.Order");
         addSingletonBean(this);
         registerAnnotationConfigProcessors(this);
+        registerBeanPostProcessors(this);
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdownHook, "app.shutdownHook-" + SHUTDOWN_HOOK_ID_INCR.getAndIncrement()));
     }
 
