@@ -181,7 +181,7 @@ public abstract class AbstractNettyClient implements Closeable {
         if (worker instanceof NioEventLoopGroup) {
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
         } else if (worker instanceof EpollEventLoopGroup) {
-//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
         }
         this.ioRatio = ioRatio;
     }

@@ -21,6 +21,19 @@ import io.netty.util.internal.UnstableApi;
 @UnstableApi
 public final class HttpToHttp2FrameCodecConnectionHandlerBuilder extends
         AbstractHttp2ConnectionHandlerBuilder<Http2ConnectionHandler, HttpToHttp2FrameCodecConnectionHandlerBuilder> {
+    private static final boolean SUPPORT_DECOUPLECLOSEANDGOAWAY;
+
+    static {
+        boolean supportDecouplecloseandgoaway;
+        try {
+            Class<?> clazz = Class.forName("io.netty.handler.codec.http2.AbstractHttp2ConnectionHandlerBuilder");
+            clazz.getDeclaredMethod("decoupleCloseAndGoAway");
+            supportDecouplecloseandgoaway = true;
+        } catch (Throwable e) {
+            supportDecouplecloseandgoaway = false;
+        }
+        SUPPORT_DECOUPLECLOSEANDGOAWAY = supportDecouplecloseandgoaway;
+    }
 
     private boolean compressor = true;
 
@@ -55,10 +68,10 @@ public final class HttpToHttp2FrameCodecConnectionHandlerBuilder extends
         if (compressor) {
             encoder = new CompressorHttp2ConnectionEncoder(encoder);
         }
-        try {
+        if (SUPPORT_DECOUPLECLOSEANDGOAWAY) {
             return new HttpToHttp2ConnectionHandler(decoder, encoder, initialSettings,
                     decoupleCloseAndGoAway(), isValidateHeaders());
-        } catch (Throwable e) {
+        } else {
             // 兼容netty老版本
             return new HttpToHttp2ConnectionHandler(decoder, encoder, initialSettings, isValidateHeaders());
         }

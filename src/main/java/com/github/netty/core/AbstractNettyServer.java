@@ -1,6 +1,9 @@
 package com.github.netty.core;
 
-import com.github.netty.core.util.*;
+import com.github.netty.core.util.LoggerFactoryX;
+import com.github.netty.core.util.LoggerX;
+import com.github.netty.core.util.NamespaceUtil;
+import com.github.netty.core.util.ThreadFactoryX;
 import io.netty.bootstrap.ChannelFactory;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBufAllocator;
@@ -8,6 +11,9 @@ import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
+import io.netty.channel.kqueue.KQueue;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.kqueue.KQueueServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.ServerSocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -25,7 +31,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author wangzihao
  */
 public abstract class AbstractNettyServer implements Runnable {
+    private static final boolean SUPPORT_KQUEUE;
+
+    static {
+        boolean kqueue;
+        try {
+            ClassLoader classLoader = AbstractNettyServer.class.getClassLoader();
+            if (classLoader == null) {
+                classLoader = ClassLoader.getSystemClassLoader();
+            }
+            Class.forName("io.netty.channel.kqueue.KQueue", false, classLoader);
+            kqueue = true;
+        } catch (Throwable e) {
+            kqueue = false;
+        }
+        SUPPORT_KQUEUE = kqueue;
+    }
+
     private final boolean enableEpoll;
+    private final boolean enableKQueue;
     protected LoggerX logger = LoggerFactoryX.getLogger(getClass());
     private final String name;
     private ServerSocketChannel serverChannel;
@@ -50,11 +74,21 @@ public abstract class AbstractNettyServer implements Runnable {
 
     public AbstractNettyServer(String preName, InetSocketAddress address) {
         super();
-        this.enableEpoll = Epoll.isAvailable();
+        boolean enableEpoll = false;
+        boolean enableKQueue = false;
+        if (Epoll.isAvailable()) {
+            enableEpoll = true;
+        } else if (SUPPORT_KQUEUE && KQueue.isAvailable()) {
+            enableKQueue = true;
+        }
+        this.enableEpoll = enableEpoll;
+        this.enableKQueue = enableKQueue;
         this.serverAddress = address;
         this.name = NamespaceUtil.newIdName(preName, getClass());
         if (enableEpoll) {
             logger.info("enable epoll server = {}", this);
+        } else if (enableKQueue) {
+            logger.info("enable kqueue server = {}", this);
         }
     }
 
@@ -66,7 +100,9 @@ public abstract class AbstractNettyServer implements Runnable {
         if (worker instanceof NioEventLoopGroup) {
             ((NioEventLoopGroup) worker).setIoRatio(ioRatio);
         } else if (worker instanceof EpollEventLoopGroup) {
-//            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+            ((EpollEventLoopGroup) worker).setIoRatio(ioRatio);
+        } else if (worker instanceof KQueueEventLoopGroup) {
+            ((KQueueEventLoopGroup) worker).setIoRatio(ioRatio);
         }
         this.ioRatio = ioRatio;
     }
@@ -92,7 +128,13 @@ public abstract class AbstractNettyServer implements Runnable {
     protected EventLoopGroup newWorkerEventLoopGroup() {
         EventLoopGroup worker;
         if (enableEpoll) {
-            worker = new EpollEventLoopGroup(ioThreadCount, new ThreadFactoryX("Epoll", "Server-Worker", false));
+            EpollEventLoopGroup epollWorker = new EpollEventLoopGroup(ioThreadCount, new ThreadFactoryX("Epoll", "Server-Worker", false));
+            epollWorker.setIoRatio(ioRatio);
+            worker = epollWorker;
+        } else if (enableKQueue) {
+            KQueueEventLoopGroup kqueueWorker = new KQueueEventLoopGroup(ioThreadCount, new ThreadFactoryX("Kqueue", "Server-Worker", false));
+            kqueueWorker.setIoRatio(ioRatio);
+            worker = kqueueWorker;
         } else {
             NioEventLoopGroup jdkWorker = new NioEventLoopGroup(ioThreadCount, new ThreadFactoryX("NIO", "Server-Worker", false));
             jdkWorker.setIoRatio(ioRatio);
@@ -104,13 +146,11 @@ public abstract class AbstractNettyServer implements Runnable {
     protected EventLoopGroup newBossEventLoopGroup() {
         EventLoopGroup boss;
         if (enableEpoll) {
-            EpollEventLoopGroup epollBoss = new EpollEventLoopGroup(1, new ThreadFactoryX("Epoll", "Server-Boss", false));
-//            epollBoss.setIoRatio(ioRatio);
-            boss = epollBoss;
+            boss = new EpollEventLoopGroup(1, new ThreadFactoryX("Epoll", "Server-Boss", false));
+        } else if (enableKQueue) {
+            boss = new KQueueEventLoopGroup(1, new ThreadFactoryX("Kqueue", "Server-Boss", false));
         } else {
-            NioEventLoopGroup jdkBoss = new NioEventLoopGroup(1, new ThreadFactoryX("NIO", "Server-Boss", false));
-            jdkBoss.setIoRatio(ioRatio);
-            boss = jdkBoss;
+            boss = new NioEventLoopGroup(1, new ThreadFactoryX("NIO", "Server-Boss", false));
         }
         return boss;
     }
@@ -127,6 +167,8 @@ public abstract class AbstractNettyServer implements Runnable {
         ChannelFactory<? extends ServerChannel> channelFactory;
         if (enableEpoll) {
             channelFactory = EpollServerSocketChannel::new;
+        } else if (enableKQueue) {
+            channelFactory = KQueueServerSocketChannel::new;
         } else {
             channelFactory = NioServerSocketChannel::new;
         }

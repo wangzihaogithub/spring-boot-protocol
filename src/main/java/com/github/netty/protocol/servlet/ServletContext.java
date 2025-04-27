@@ -41,6 +41,20 @@ import java.util.function.Supplier;
  * 2018/7/14/014
  */
 public class ServletContext implements javax.servlet.ServletContext {
+
+    private static final boolean SUPPORT_SET_BASE_DIR;
+
+    static {
+        boolean supportSetBaseDir;
+        try {
+            DefaultHttpDataFactory.class.getDeclaredMethod("setBaseDir", String.class);
+            supportSetBaseDir = true;
+        } catch (Throwable e) {
+            supportSetBaseDir = false;
+        }
+        SUPPORT_SET_BASE_DIR = supportSetBaseDir;
+    }
+
     public static final int MIN_FILE_SIZE_THRESHOLD = 16384;
     public static final String DEFAULT_UPLOAD_DIR = "/upload";
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
@@ -277,8 +291,10 @@ public class ServletContext implements javax.servlet.ServletContext {
         Map<Charset, DefaultHttpDataFactory> httpDataFactoryMap = httpDataFactoryThreadLocal.get();
         return httpDataFactoryMap.computeIfAbsent(charset, c -> {
             DefaultHttpDataFactory factory = new DefaultHttpDataFactory(fileSizeThreshold, c);
-            factory.setDeleteOnExit(true);
-            factory.setBaseDir(resourceManager.mkdirs(DEFAULT_UPLOAD_DIR).toString());
+            if (SUPPORT_SET_BASE_DIR) {
+                factory.setDeleteOnExit(true);
+                factory.setBaseDir(resourceManager.mkdirs(DEFAULT_UPLOAD_DIR).toString());
+            }
             return factory;
         });
     }
@@ -419,7 +435,7 @@ public class ServletContext implements javax.servlet.ServletContext {
             return null;
         }
         String extension = file.substring(period + 1);
-        if (extension.length() < 1) {
+        if (extension.isEmpty()) {
             return null;
         }
         return mimeMappings.get(extension);
