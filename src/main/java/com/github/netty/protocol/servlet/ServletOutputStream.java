@@ -115,21 +115,12 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
             long contentLength = servletHttpExchange.getResponse().getContentLength();
             // response finish
             if (contentLength >= 0 && writeBytes.get() >= contentLength) {
-                boolean autoFlush = servletHttpExchange.getServletContext().isAutoFlush();
                 if (httpBody instanceof ByteBuf) {
-                    DefaultLastHttpContent httpContent = new DefaultLastHttpContent((ByteBuf) httpBody, false);
-                    if (autoFlush) {
-                        context.write(httpContent, promise);
-                    } else {
-                        context.write(httpContent, promise);
-                    }
+                    DefaultLastHttpContent httpContent = new DefaultLastHttpContent((ByteBuf) httpBody);
+                    context.write(httpContent, promise);
                 } else {
                     context.write(httpBody);
-                    if (autoFlush) {
-                        context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
-                    } else {
-                        context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
-                    }
+                    context.write(LastHttpContent.EMPTY_LAST_CONTENT, promise);
                 }
                 lastContentPromise = promise;
             } else {
@@ -236,7 +227,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
         if (!exchange.getChannelHandlerContext().executor().inEventLoop()) {
             // limiting control
             // pendingWriteBytes < exchange.getResponse().getBufferSize() * 2
-            ready = pendingWriteBytes < exchange.getResponse().getBufferSize() << 1;
+            ready = pendingWriteBytes < (long) exchange.getResponse().getBufferSize() << 1;
         }
         return ready;
     }
@@ -311,6 +302,10 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
                 }
             } else {
                 closeFuture.addListener(closeListenerWrapper);
+                if (!servletHttpExchange.getServletContext().isAutoFlush()) {
+                    ChannelHandlerContext context = getServletHttpExchange().getChannelHandlerContext();
+                    context.flush();
+                }
             }
         }
     }

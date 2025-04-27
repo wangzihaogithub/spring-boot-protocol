@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     private static final LoggerX logger = LoggerFactoryX.getLogger(ServletHttpSession.class);
+    private static Object sessionContext = null;
     private final List<HttpSessionBindingListener> httpSessionBindingListenerList = new ArrayList<>(2);
     private final ServletContext servletContext;
     private String id;
@@ -80,7 +81,20 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 
     @Override
     public HttpSessionContext getSessionContext() {
-        return null;
+        if (sessionContext == null) {
+            sessionContext = new HttpSessionContext() {
+                @Override
+                public HttpSession getSession(String sessionId) {
+                    return null;
+                }
+
+                @Override
+                public Enumeration<String> getIds() {
+                    return Collections.emptyEnumeration();
+                }
+            };
+        }
+        return (HttpSessionContext) servletContext;
     }
 
     @Override

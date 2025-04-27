@@ -42,6 +42,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private static final FullHttpResponse NOT_ACCEPTABLE_CLOSE = new DefaultFullHttpResponse(
             HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_ACCEPTABLE, Unpooled.EMPTY_BUFFER);
     private static final Set<HttpMethod> HTTP_METHOD_SET = new HashSet<>(9);
+    private static final FastThreadLocal<List<Runnable>> ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL = new FastThreadLocal<>();
 
     static {
         EXPECTATION_FAILED.headers().set(CONTENT_LENGTH, 0);
@@ -66,7 +67,12 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
     private ServletHttpExchange exchange;
     private /*volatile */ HttpRunnable httpRunnable;
 
-    private static final FastThreadLocal<List<Runnable>> ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL = new FastThreadLocal<>();
+    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
+        this.servletContext = servletContext;
+        this.maxContentLength = maxContentLength;
+        this.protocol = protocol;
+        this.ssl = ssl;
+    }
 
     static boolean isCurrentRunAtRequesting() {
         return ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.get() != null;
@@ -77,13 +83,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         if (list != null) {
             list.add(runnable);
         }
-    }
-
-    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
-        this.servletContext = servletContext;
-        this.maxContentLength = maxContentLength;
-        this.protocol = protocol;
-        this.ssl = ssl;
     }
 
     @Override
@@ -252,7 +251,13 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             try {
                 String requestURI = request.getRequestURI();
                 if (servletContext.isMapperContextRootRedirectEnabled() && requestURI.equals(servletContext.getContextPath())) {
-                    response.sendRedirect(requestURI.concat("/"));
+                    StringBuilder redirectPath = RecyclableUtil.newStringBuilder();
+                    redirectPath.append(requestURI).append('/');
+                    String query = request.getQueryString();
+                    if (query != null) {
+                        redirectPath.append("?").append(query);
+                    }
+                    response.sendRedirect(redirectPath.toString());
                 } else {
                     dispatcher = request.getRequestDispatcher(requestURI);
                     if (dispatcher == null) {

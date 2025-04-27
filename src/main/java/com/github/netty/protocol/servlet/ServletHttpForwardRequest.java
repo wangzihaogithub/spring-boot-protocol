@@ -127,6 +127,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
             if (decodePathsQueryIndex != -1) {
                 this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
             }
+            getQueryStringFlag = true;
         }
         return this.queryString;
     }
@@ -145,6 +146,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
             } else {
                 this.requestURI = forwardPath.substring(0, decodePathsQueryIndex);
             }
+            getRequestURIFlag = true;
         }
         return this.requestURI;
     }

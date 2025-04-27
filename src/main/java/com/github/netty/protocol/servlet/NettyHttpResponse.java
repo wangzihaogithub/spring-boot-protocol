@@ -36,7 +36,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     private boolean writeSendFile = false;
 
     public NettyHttpResponse() {
-        this.headers = new DefaultHttpHeaders(false);
+        this.headers = new DefaultHttpHeaders();
         this.version = HttpVersion.HTTP_1_1;
         this.status = DEFAULT_STATUS;
         this.decoderResult = DecoderResult.SUCCESS;

@@ -357,7 +357,18 @@ public class NettyProperties implements Serializable {
          * 是否开启DNS地址查询. true=开启 {@link javax.servlet.ServletRequest#getRemoteHost}
          */
         private boolean enableNsLookup = false;
-
+        /**
+         * tomcat的参数：原文如下
+         * If enabled, requests for a web application context root will be
+         * redirected (adding a trailing slash) by the Mapper. This is more
+         * efficient but has the side effect of confirming that the context path is
+         * valid.
+         */
+        private boolean mapperContextRootRedirectEnabled = true;
+        /**
+         * 当设置为true时，如果前端请求是HTTP/1.1，并且useRelativeRedirects为true，则发送相对路径的重定向，这样浏览器在执行重定向时会跟随当前协议进行跳转‌
+         */
+        private boolean useRelativeRedirects = true;
         /**
          * 错误页是否展示详细异常信息.
          */
@@ -366,6 +377,22 @@ public class NettyProperties implements Serializable {
          * 启动失败是否停止程序.
          */
         private boolean startupFailExit = true;
+
+        public boolean isMapperContextRootRedirectEnabled() {
+            return mapperContextRootRedirectEnabled;
+        }
+
+        public void setMapperContextRootRedirectEnabled(boolean mapperContextRootRedirectEnabled) {
+            this.mapperContextRootRedirectEnabled = mapperContextRootRedirectEnabled;
+        }
+
+        public boolean isUseRelativeRedirects() {
+            return useRelativeRedirects;
+        }
+
+        public void setUseRelativeRedirects(boolean useRelativeRedirects) {
+            this.useRelativeRedirects = useRelativeRedirects;
+        }
 
         public Boolean getEnableH2() {
             return enableH2;

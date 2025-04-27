@@ -10,7 +10,7 @@ import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ResourceManager;
 import com.github.netty.protocol.servlet.*;
 import com.github.netty.protocol.servlet.http2.H2Util;
-import com.github.netty.protocol.servlet.ssl.SslContextBuilders;
+import com.github.netty.protocol.servlet.SslContextBuilders;
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.*;
 import com.github.netty.protocol.servlet.websocket.WebSocketHandler;

@@ -87,6 +87,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private Servlet defaultServlet = new DefaultServlet();
     private boolean enableLookupFlag = false;
     private boolean mapperContextRootRedirectEnabled = true;
+    private boolean useRelativeRedirects = true;
     private boolean autoFlush;
     private String serverHeader;
     private CharSequence serverHeaderAscii;
@@ -195,6 +196,14 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public void setUploadFileTimeoutMs(long uploadFileTimeoutMs) {
         this.uploadFileTimeoutMs = uploadFileTimeoutMs;
+    }
+
+    public boolean isUseRelativeRedirects() {
+        return useRelativeRedirects;
+    }
+
+    public void setUseRelativeRedirects(boolean useRelativeRedirects) {
+        this.useRelativeRedirects = useRelativeRedirects;
     }
 
     public boolean isMapperContextRootRedirectEnabled() {
@@ -701,6 +710,20 @@ public class ServletContext implements javax.servlet.ServletContext {
         return sessionCookieConfig;
     }
 
+    public String getSessionCookieParamName() {
+        String userSettingCookieName = sessionCookieConfig.getName();
+        return userSettingCookieName != null && !userSettingCookieName.isEmpty() ?
+                userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
+    }
+
+    public String getSessionUriParamName() {
+        String userSettingCookieName = sessionCookieConfig.getName();
+        if (userSettingCookieName == null || userSettingCookieName.isEmpty()) {
+            userSettingCookieName = HttpConstants.JSESSION_ID_URL;
+        }
+        return userSettingCookieName;
+    }
+
     @Override
     public void setSessionTrackingModes(Set<SessionTrackingMode> sessionTrackingModes) {
         sessionTrackingModeSet = sessionTrackingModes;
@@ -714,7 +737,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Set<SessionTrackingMode> getEffectiveSessionTrackingModes() {
         if (sessionTrackingModeSet == null) {
-            return getDefaultSessionTrackingModes();
+            return defaultSessionTrackingModeSet;
         }
         return sessionTrackingModeSet;
     }

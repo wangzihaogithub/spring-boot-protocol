@@ -2,11 +2,13 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.*;
 import com.github.netty.protocol.servlet.util.*;
+import io.netty.channel.ChannelId;
 import io.netty.handler.codec.CodecException;
 import io.netty.handler.codec.DateFormatter;
 import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.multipart.*;
 import io.netty.util.internal.PlatformDependent;
 
@@ -113,6 +115,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private final List<Part> fileUploadList = new ArrayList<>();
     private ServletHttpExchange httpExchange;
     private ServletHttpSession httpSession;
+    private Session session;
     private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
     private String serverName;
@@ -160,6 +163,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private boolean decodeParameterByUrlFlag = false;
     private boolean getQueryStringFlag = false;
     private boolean getRequestURIFlag = false;
+    private boolean getRequestedSessionId0 = false;
     private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
     private boolean usingInputStreamFlag = false;
@@ -657,6 +661,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             if (decodePathsQueryIndex != -1) {
                 this.queryString = nettyRequest.uri().substring(decodePathsQueryIndex + 1);
             }
+            getQueryStringFlag = true;
         }
         return this.queryString;
     }
@@ -695,6 +700,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             } else {
                 this.requestURI = nettyRequest.uri().substring(0, decodePathsQueryIndex);
             }
+            getRequestURIFlag = true;
         }
         return this.requestURI;
     }
@@ -795,7 +801,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         // 4. Scope in store. The session has already been created.
-        Session session = existSessionId ? servletContext.getSessionService().getSession(sessionId) : null;
+        Session session = this.session != null ? this.session : existSessionId ? servletContext.getSessionService().getSession(sessionId) : null;
         if (session == null) {
             if (create) {
                 // 5. Create a new internal session.  It doesn't exist
@@ -866,34 +872,51 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return sessionIdSource == SessionTrackingMode.URL;
     }
 
-    private String getRequestedSessionId0() {
-        if (sessionId != null) {
+    String getRequestedSessionId0() {
+        if (getRequestedSessionId0) {
             return sessionId;
         }
 
         //If the user sets the sessionCookie name, the user set the sessionCookie name
-        String userSettingCookieName = getServletContext().getSessionCookieConfig().getName();
-        String cookieSessionName = userSettingCookieName != null && !userSettingCookieName.isEmpty() ?
-                userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
-
-        //Find the value of sessionCookie first from cookie, then from url parameter
+        ServletContext servletContext = getServletContext();
+        Set<SessionTrackingMode> sessionTrackingModes = servletContext.getEffectiveSessionTrackingModes();
         String sessionId = null;
-        if (existCookieKeyword(cookieSessionName)) {
-            sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
+        SessionTrackingMode sessionIdSource = null;
+        if (sessionTrackingModes.contains(SessionTrackingMode.COOKIE)) {
+            String cookieSessionName = servletContext.getSessionCookieParamName();
+            //Find the value of sessionCookie first from cookie, then from url parameter
+            if (existCookieKeyword(cookieSessionName)) {
+                sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
+                if (sessionId != null && !sessionId.isEmpty()) {
+                    Session session = servletContext.getSessionService().getSession(sessionId);
+                    if (session != null) {
+                        this.session = session;
+                        sessionIdSource = SessionTrackingMode.COOKIE;
+                    } else {
+                        sessionId = null;
+                    }
+                }
+            }
         }
-        if (sessionId != null && !sessionId.isEmpty()) {
-            sessionIdSource = SessionTrackingMode.COOKIE;
-        } else {
-            if (existQueryStringKeyword(HttpConstants.JSESSION_ID_URL)) {
-                sessionId = getParameter(HttpConstants.JSESSION_ID_URL);
+        if (sessionIdSource == null && sessionTrackingModes.contains(SessionTrackingMode.URL)) {
+            String sessionUriParamName = servletContext.getSessionUriParamName();
+            if (existQueryStringKeyword(sessionUriParamName)) {
+                sessionId = getParameter(sessionUriParamName);
             }
             if (sessionId != null && !sessionId.isEmpty()) {
                 sessionIdSource = SessionTrackingMode.URL;
-            } else {
-                sessionIdSource = null;
             }
         }
-        return this.sessionId = sessionId;
+        // ssl only
+        if (sessionIdSource == null && sessionTrackingModes.size() == 1 && sessionTrackingModes.contains(SessionTrackingMode.SSL)) {
+            ChannelId id = httpExchange.getChannelHandlerContext().channel().id();
+            sessionId = id.asLongText();
+            sessionIdSource = SessionTrackingMode.SSL;
+        }
+        this.sessionIdSource = sessionIdSource;
+        this.sessionId = sessionId;
+        this.getRequestedSessionId0 = true;
+        return sessionId;
     }
 
     @Override
@@ -1012,6 +1035,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         } else {
             return nettyRequest.protocolVersion().toString();
         }
+    }
+
+    boolean isSupportsRelativeRedirects() {
+        return nettyRequest.protocolVersion() != HttpVersion.HTTP_1_0;
     }
 
     @Override
@@ -1438,6 +1465,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.queryString = null;
         this.getRequestURIFlag = false;
         this.getQueryStringFlag = false;
+        this.getRequestedSessionId0 = false;
+        this.session = null;
         this.pathInfo = null;
         this.requestURI = null;
         this.characterEncoding = null;

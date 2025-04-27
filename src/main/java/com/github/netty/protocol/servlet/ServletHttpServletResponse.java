@@ -2,19 +2,26 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.core.util.Recyclable;
 import com.github.netty.core.util.Recycler;
-import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.HttpHeaderUtil;
 import com.github.netty.protocol.servlet.util.MediaType;
+import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
+import javax.servlet.SessionTrackingMode;
 import javax.servlet.http.Cookie;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.Charset;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -57,6 +64,100 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         //------------------------
         instance.nettyResponse.setExchange(servletHttpExchange);
         return instance;
+    }
+
+    private static boolean hasPath(String uri) {
+        int pos = uri.indexOf("://");
+        if (pos < 0) {
+            return false;
+        }
+        pos = uri.indexOf('/', pos + 3);
+        if (pos < 0) {
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean isEncodeable(final String location, ServletHttpServletRequest hreq) {
+
+        if (location == null) {
+            return false;
+        }
+
+        // Is this an intra-document reference?
+        if (location.startsWith("#")) {
+            return false;
+        }
+
+        // Are we in a valid session that is not using cookies?
+        final ServletHttpSession session = hreq.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        if (hreq.isRequestedSessionIdFromCookie()) {
+            return false;
+        }
+        ServletContext servletContext = hreq.getServletContext();
+
+        // Is URL encoding permitted
+        if (!servletContext.getEffectiveSessionTrackingModes().contains(SessionTrackingMode.URL)) {
+            return false;
+        }
+        return doIsEncodeable(servletContext, hreq, location);
+    }
+
+    private static boolean doIsEncodeable(ServletContext context, ServletHttpServletRequest hreq, String location) {
+        // Is this a valid absolute URL?
+        URL url = null;
+        try {
+            URI uri = new URI(location);
+            url = uri.toURL();
+        } catch (MalformedURLException | URISyntaxException | IllegalArgumentException e) {
+            return false;
+        }
+
+        // Does this URL match down to (and including) the context path?
+        if (!hreq.getScheme().equalsIgnoreCase(url.getProtocol())) {
+            return false;
+        }
+        if (!hreq.getServerName().equalsIgnoreCase(url.getHost())) {
+            return false;
+        }
+        int serverPort = hreq.getServerPort();
+        if (serverPort == -1) {
+            if ("https".equals(hreq.getScheme())) {
+                serverPort = 443;
+            } else {
+                serverPort = 80;
+            }
+        }
+        int urlPort = url.getPort();
+        if (urlPort == -1) {
+            if ("https".equals(url.getProtocol())) {
+                urlPort = 443;
+            } else {
+                urlPort = 80;
+            }
+        }
+        if (serverPort != urlPort) {
+            return false;
+        }
+
+        String contextPath = context.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty()) {
+            String file = url.getFile();
+            if (!file.startsWith(contextPath)) {
+                return false;
+            }
+            String tok = ";" + context.getSessionUriParamName() + "=" + hreq.getRequestedSessionId();
+            if (file.indexOf(tok, contextPath.length()) >= 0) {
+                return false;
+            }
+        }
+
+        // This URL belongs to our web application, so it is encodeable
+        return true;
+
     }
 
     public List<Cookie> getCookies() {
@@ -183,11 +284,56 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public String encodeURL(String url) {
-        if (!servletHttpExchange.getRequest().isRequestedSessionIdFromCookie()) {
-            //If the Session ID comes from a Cookie, then the client definitely supports cookies and does not need to rewrite the URL
+        String absolute;
+        try {
+            absolute = toAbsolute(url);
+        } catch (IllegalArgumentException iae) {
+            // Relative URL
             return url;
         }
-        return url + ";" + HttpConstants.JSESSION_ID_URL + "=" + servletHttpExchange.getRequest().getRequestedSessionId();
+        ServletHttpServletRequest request = servletHttpExchange.getRequest();
+        if (isEncodeable(absolute, request)) {
+            // W3c spec clearly said
+            if (url.equalsIgnoreCase("")) {
+                url = absolute;
+            } else if (url.equals(absolute) && !hasPath(url)) {
+                url += '/';
+            }
+            return toEncoded(url, request.getRequestedSessionId0());
+        } else {
+            return url;
+        }
+    }
+
+    private String toEncoded(String url, String sessionId) {
+        if (url == null || sessionId == null) {
+            return url;
+        }
+
+        String path = url;
+        String query = "";
+        String anchor = "";
+        int question = url.indexOf('?');
+        if (question >= 0) {
+            path = url.substring(0, question);
+            query = url.substring(question);
+        }
+        int pound = path.indexOf('#');
+        if (pound >= 0) {
+            anchor = path.substring(pound);
+            path = path.substring(0, pound);
+        }
+        StringBuilder sb = new StringBuilder(path);
+        if (sb.length() > 0) { // jsessionid can't be first.
+            sb.append(';');
+            String sessionUriParamName = servletHttpExchange.getServletContext().getSessionUriParamName();
+            sb.append(sessionUriParamName);
+            sb.append('=');
+            sb.append(sessionId);
+        }
+        sb.append(anchor);
+        sb.append(query);
+        return sb.toString();
     }
 
     @Override
@@ -230,11 +376,71 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     @Override
-    public void sendRedirect(String location) throws IOException {
+    public void sendRedirect(String location) {
         checkCommitted();
         nettyResponse.setStatus(HttpResponseStatus.FOUND);
-        getNettyHeaders().set(HttpHeaderConstants.LOCATION, location);
+        String locationUri;
+        // Relative redirects require HTTP/1.1 or later
+        ServletContext servletContext = servletHttpExchange.getServletContext();
+        if (servletHttpExchange.getRequest().isSupportsRelativeRedirects() && servletContext.isUseRelativeRedirects()) {
+            locationUri = location;
+        } else {
+            locationUri = toAbsolute(location);
+        }
+        getNettyHeaders().set(HttpHeaderConstants.LOCATION, locationUri);
         commitFlag = true;
+    }
+
+    private String toAbsolute(String location) {
+        if (location == null) {
+            return null;
+        }
+
+        boolean leadingSlash = location.startsWith("/");
+        if (location.startsWith("//")) {
+            ServletHttpServletRequest request = servletHttpExchange.getRequest();
+            // Scheme relative
+            StringBuilder redirectURLCC = new StringBuilder();
+            // Add the scheme
+            String scheme = request.getScheme();
+            redirectURLCC.append(scheme, 0, scheme.length());
+            redirectURLCC.append(':');
+            redirectURLCC.append(location, 0, location.length());
+            return redirectURLCC.toString();
+        } else if (leadingSlash || !ServletUtil.hasScheme(location)) {
+            StringBuilder redirectURLCC = new StringBuilder();
+            ServletHttpServletRequest request = servletHttpExchange.getRequest();
+
+            String scheme = request.getScheme();
+            String name = request.getServerName();
+            int port = request.getServerPort();
+
+            try {
+                redirectURLCC.append(scheme, 0, scheme.length());
+                redirectURLCC.append("://", 0, 3);
+                redirectURLCC.append(name, 0, name.length());
+                if ((scheme.equals("http") && port != 80) || (scheme.equals("https") && port != 443)) {
+                    redirectURLCC.append(':');
+                    String portS = port + "";
+                    redirectURLCC.append(portS, 0, portS.length());
+                }
+                if (!leadingSlash) {
+                    String relativePath = request.getRequestURI();
+                    int pos = relativePath.lastIndexOf('/');
+                    if (pos != -1) {
+                        redirectURLCC.append(relativePath, 0, pos);
+                    }
+                    redirectURLCC.append('/');
+                }
+                redirectURLCC.append(location, 0, location.length());
+//                return normalize(redirectURLCC);
+            } catch (Exception e) {
+                throw new IllegalArgumentException(location, e);
+            }
+            return redirectURLCC.toString();
+        } else {
+            return location;
+        }
     }
 
     @Override

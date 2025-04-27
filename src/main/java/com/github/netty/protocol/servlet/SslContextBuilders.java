@@ -1,4 +1,4 @@
-package com.github.netty.protocol.servlet.ssl;
+package com.github.netty.protocol.servlet;
 
 import io.netty.handler.ssl.*;
 

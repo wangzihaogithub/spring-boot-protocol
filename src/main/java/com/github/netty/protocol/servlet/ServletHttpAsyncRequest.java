@@ -130,6 +130,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
             if (decodePathsQueryIndex != -1) {
                 this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
             }
+            getQueryStringFlag = true;
         }
         return this.queryString;
     }
@@ -148,6 +149,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
             } else {
                 this.requestURI = dispatchPath.substring(0, decodePathsQueryIndex);
             }
+            getRequestURIFlag = true;
         }
         return this.requestURI;
     }
@@ -200,11 +202,6 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
             decodeParameter();
         }
         return parameterMap;
-    }
-
-    public void setParameterMap(Map<String, String[]> parameterMap) {
-        this.parameterMap = parameterMap;
-        this.decodeParameterFlag = true;
     }
 
     @Override
