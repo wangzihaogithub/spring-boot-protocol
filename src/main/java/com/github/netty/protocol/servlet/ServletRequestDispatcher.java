@@ -48,7 +48,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         if (path == null) {
             return null;
         }
-        if (mapper.isAllPatternFlag() || !mapper.getPattern().endsWith("*")) {
+        if (mapper.isAllPatternFlag() || !mapper.getRootAndPattern().endsWith("*")) {
             return null;
         }
         int firstWildcardIndex = mapper.getFirstWildcardIndex();

@@ -157,6 +157,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return resourceManager;
     };
+    private String cookieStringValue;
     private int decodePathsQueryIndex;
     private boolean decodePathsFlag = false;
     private boolean decodeCookieFlag = false;
@@ -428,9 +429,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * Parsing the cookie
      */
     private void decodeCookie() {
-        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
-        if (value != null && !value.isEmpty()) {
-            this.cookies = ServletUtil.decodeCookie(value);
+        if (cookieStringValue == null) {
+            cookieStringValue = getNettyHeaders().get(HttpHeaderConstants.COOKIE);
+        }
+        if (cookieStringValue != null && !cookieStringValue.isEmpty()) {
+            this.cookies = ServletUtil.decodeCookie(cookieStringValue);
         }
         this.decodeCookieFlag = true;
     }
@@ -682,8 +685,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     }
 
     private boolean existCookieKeyword(String name) {
-        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
-        return value != null && value.contains(name);
+        if (cookieStringValue == null) {
+            cookieStringValue = getNettyHeaders().get(HttpHeaderConstants.COOKIE);
+        }
+        return cookieStringValue != null && cookieStringValue.contains(name);
     }
 
     @Override
@@ -773,6 +778,20 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return getServletContext().getContextPath();
     }
 
+    private boolean isValidSessionId(String sessionId) {
+        ServletHttpSession httpSession = httpExchange != null ? httpExchange.getHttpSession() : null;
+        if (httpSession != null && sessionId.equals(httpSession.getId())) {
+            return httpSession.isValid();
+        } else {
+            ServletContext servletContext = getServletContext();
+            if (servletContext == null) {
+                return false;
+            }
+            Session session = servletContext.getSessionService().getSession(sessionId);
+            return session != null && session.isValid();
+        }
+    }
+
     @Override
     public ServletHttpSession getSession(boolean create) {
         // Scope in request cache. This can reduce multiple acquisitions.
@@ -850,9 +869,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public boolean isRequestedSessionIdValid() {
-        getRequestedSessionId0();
-        return sessionIdSource == SessionTrackingMode.COOKIE ||
-                sessionIdSource == SessionTrackingMode.URL;
+        String requestedSessionId = getRequestedSessionId0();
+        if (requestedSessionId == null || requestedSessionId.isEmpty()) {
+            return false;
+        }
+        return isValidSessionId(requestedSessionId);
     }
 
     @Override
@@ -882,22 +903,43 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         Set<SessionTrackingMode> sessionTrackingModes = servletContext.getEffectiveSessionTrackingModes();
         String sessionId = null;
         SessionTrackingMode sessionIdSource = null;
+        // cookie
         if (sessionTrackingModes.contains(SessionTrackingMode.COOKIE)) {
             String cookieSessionName = servletContext.getSessionCookieParamName();
             //Find the value of sessionCookie first from cookie, then from url parameter
             if (existCookieKeyword(cookieSessionName)) {
-                sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
-                if (sessionId != null && !sessionId.isEmpty()) {
-                    Session session = servletContext.getSessionService().getSession(sessionId);
-                    if (session != null) {
-                        this.session = session;
+                Cookie[] cookies = getCookies();
+                if (cookies != null) {
+                    String lastCookieValue = null;
+                    for (Cookie cookie : cookies) {
+                        String cookieName = cookie.getName();
+                        if (!cookieSessionName.equals(cookieName)) {
+                            continue;
+                        }
+                        String cookieValue = cookie.getValue();
+                        if (cookieValue == null || cookieValue.isEmpty()) {
+                            continue;
+                        }
+                        Session session = servletContext.getSessionService().getSession(cookieValue);
+                        if (session != null && session.isValid()) {
+                            sessionId = cookieValue;
+                            sessionIdSource = SessionTrackingMode.COOKIE;
+                            lastCookieValue = null;
+                            this.session = session;
+                            break;
+                        } else {
+                            // 替换会话id，直到有效为止
+                            lastCookieValue = cookieValue;
+                        }
+                    }
+                    if (lastCookieValue != null) {
+                        sessionId = lastCookieValue;
                         sessionIdSource = SessionTrackingMode.COOKIE;
-                    } else {
-                        sessionId = null;
                     }
                 }
             }
         }
+        // url
         if (sessionIdSource == null && sessionTrackingModes.contains(SessionTrackingMode.URL)) {
             String sessionUriParamName = servletContext.getSessionUriParamName();
             if (existQueryStringKeyword(sessionUriParamName)) {
@@ -909,8 +951,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         // ssl only
         if (sessionIdSource == null && sessionTrackingModes.size() == 1 && sessionTrackingModes.contains(SessionTrackingMode.SSL)) {
-            ChannelId id = httpExchange.getChannelHandlerContext().channel().id();
-            sessionId = id.asLongText();
+            ServletHttpSession httpSession = httpExchange.getHttpSession();
+            if (httpSession != null) {
+                sessionId = httpSession.getId();
+                this.httpSession = httpSession;
+            } else {
+                ChannelId id = httpExchange.getChannelHandlerContext().channel().id();
+                sessionId = id.asLongText();
+            }
             sessionIdSource = SessionTrackingMode.SSL;
         }
         this.sessionIdSource = sessionIdSource;
@@ -1447,6 +1495,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (httpExchange.isAbort()) {
             return;
         }
+        this.cookieStringValue = null;
         this.httpSession = null;
         this.nettyRequest = null;
         this.decodeBodyFlag.set(false);

@@ -259,7 +259,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                     }
                     response.sendRedirect(redirectPath.toString());
                 } else {
-                    dispatcher = request.getRequestDispatcher(requestURI);
+                    dispatcher = servletContext.getRequestDispatcher(requestURI, request.getDispatcherType());
                     if (dispatcher == null) {
                         Servlet defaultServlet = exchange.getServletContext().getDefaultServlet();
                         if (defaultServlet != null) {

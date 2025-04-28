@@ -16,10 +16,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * ServletUtil
@@ -28,10 +25,7 @@ import java.util.Map;
  * 2018/7/15/015
  */
 public class ServletUtil {
-    private static final String EMPTY_STRING = "";
     private static final String CHARSET_APPEND = HttpHeaderConstants.CHARSET + "=";
-    private static final char SPACE = ' ';
-    private static final Cookie[] EMPTY_COOKIE = {};
     private static byte[] HEX2B;
     private static long lastTimestamp = System.currentTimeMillis();
     private static final Date lastDate = new Date(lastTimestamp);
@@ -84,23 +78,6 @@ public class ServletUtil {
             nowRFCTime = new AsciiString(DateFormatter.format(lastDate));
         }
         return nowRFCTime;
-    }
-
-    public static String getCookieValue(Cookie[] cookies, String cookieName) {
-        if (cookies == null || cookieName == null) {
-            return null;
-        }
-        for (Cookie cookie : cookies) {
-            if (cookie == null) {
-                continue;
-            }
-
-            String name = cookie.getName();
-            if (cookieName.equals(name)) {
-                return cookie.getValue();
-            }
-        }
-        return null;
     }
 
     public static void decodeByUrl(LinkedMultiValueMap<String, String> parameterMap, String uri, Charset charset) {
@@ -215,9 +192,6 @@ public class ServletUtil {
     public static Cookie[] decodeCookie(String header) {
         final int headerLen = header.length();
 
-        if (headerLen == 0) {
-            return EMPTY_COOKIE;
-        }
         StringBuilder newValueBuf = null;
         RecyclableArrayList cookies = RecyclableUtil.newRecyclableList(2);
         try {
@@ -351,7 +325,7 @@ public class ServletUtil {
 //                    }
                 }
             }
-            return cookies.toArray(EMPTY_COOKIE);
+            return cookies.toArray(new Cookie[cookies.size()]);
         } finally {
             cookies.recycle();
         }
@@ -452,7 +426,7 @@ public class ServletUtil {
     public static String decodeComponent(String s, int from, int toExcluded, Charset charset) {
         int len = toExcluded - from;
         if (len <= 0) {
-            return EMPTY_STRING;
+            return "";
         }
         int firstEscaped = -1;
         for (int i = from; i < toExcluded; i++) {
@@ -484,7 +458,7 @@ public class ServletUtil {
         for (int i = firstEscaped; i < toExcluded; i++) {
             char c = s.charAt(i);
             if (c != '%') {
-                strBuf.append(c != '+' ? c : SPACE);
+                strBuf.append(c != '+' ? c : ' ');
                 continue;
             }
 

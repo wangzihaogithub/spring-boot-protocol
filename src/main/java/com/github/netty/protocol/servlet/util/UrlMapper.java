@@ -51,7 +51,7 @@ import java.util.TreeSet;
 public class UrlMapper<T> {
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
     private int sort = 0;
-    private String rootPath;
+    private String rootPath = "";
     private Collection<Element<T>> elementList = new TreeSet<>();
 
     public UrlMapper() {
@@ -116,48 +116,84 @@ public class UrlMapper<T> {
 
     /**
      * Gets a servlet path
+     * 根据绝对路径获取
      *
-     * @param absoluteUri An absolute path
+     * @param absoluteUri  exist servletContextPath absoluteUri
      * @return servlet path
      */
-    public String getServletPath(String absoluteUri) {
+    public String getServletPath(String absoluteUri, String servletContextPath) {
         String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(absoluteUri));
+        String noContextPathUrl = servletContextPath.isEmpty() ? absoluteUri : path.substring(servletContextPath.length());
         Collection<Element<T>> elementList = this.elementList;
         for (Element<T> element : elementList) {
             if (element.allPatternFlag) {
                 continue;
             }
-            if (match(element, path)) {
+            if (match(element, noContextPathUrl)) {
                 return element.servletPath;
             }
         }
-        return absoluteUri;
+        return noContextPathUrl;
     }
 
     /**
-     * Gets a mapping object
+     * getMappingObjectByRelativeUri
      *
-     * @param absoluteUri An absolute path
+     * @param relativeUri        no servletContextPath relativeUri
+     * @param servletContextPath servletContextPath
      * @return T object
      */
-    public Element<T> getMappingObjectByUri(String absoluteUri) {
-        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(absoluteUri));
+    public Element<T> getMappingObjectByRelativeUri(String relativeUri, String servletContextPath) {
+        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(relativeUri));
         Collection<Element<T>> elementList = this.elementList;
         for (Element<T> element : elementList) {
-            if (match(element, path)) {
+            if (matchServletContextPath(element, path)) {
+                return element;
+            }
+        }
+        return null;
+    }
+    /**
+     * getMappingObjectByRelativeUri
+     *
+     * @param relativeUri        no servletContextPath relativeUri
+     * @param servletContextPath servletContextPath
+     * @return T object
+     */
+    public Element<T> getMappingObjectByRequestURI(String relativeUri, String servletContextPath) {
+        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(relativeUri));
+        Collection<Element<T>> elementList = this.elementList;
+        for (Element<T> element : elementList) {
+            if (matchServletContextPath(element, path)) {
                 return element;
             }
         }
         return null;
     }
 
-    private boolean match(Element element, String requestPath) {
-        return ServletUtil.matchFiltersURL(element.pattern, requestPath)
-                || antPathMatcher.match(element.pattern, requestPath, "*");
+
+    private boolean match(Element element, String relativeUri) {
+        return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
+                || antPathMatcher.match(element.normOriginalPattern, relativeUri, "*");
+    }
+
+    private boolean matchServletContextPath(Element element, String relativeUri) {
+        if(absoluteUri){
+            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
+                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
+        }
+        if(servletContextPath.isEmpty()){
+            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
+                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
+        }else if(servletContextPath.equals()){
+            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
+                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
+        }
     }
 
     public static class Element<T> implements Comparable<Element<T>> {
-        String pattern;
+        String rootAndPattern;
+        String normOriginalPattern;
         String originalPattern;
         T object;
         String objectName;
@@ -192,7 +228,8 @@ public class UrlMapper<T> {
                     rootAndOriginalPattern = normOriginalPattern;
                 }
             }
-            this.pattern = rootAndOriginalPattern;
+            this.normOriginalPattern = allPatternFlag ? "/*" : normOriginalPattern;
+            this.rootAndPattern = rootAndOriginalPattern;
             this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
@@ -259,8 +296,8 @@ public class UrlMapper<T> {
             return objectName;
         }
 
-        public String getPattern() {
-            return pattern;
+        public String getRootAndPattern() {
+            return rootAndPattern;
         }
 
         public String getServletPath() {

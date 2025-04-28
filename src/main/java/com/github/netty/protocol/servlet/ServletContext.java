@@ -300,7 +300,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     public String getServletPath(String absoluteUri) {
-        return servletUrlMapper.getServletPath(absoluteUri);
+        return servletUrlMapper.getServletPath(absoluteUri, contextPath);
     }
 
     public long getFileSizeThreshold() {
@@ -465,9 +465,26 @@ public class ServletContext implements javax.servlet.ServletContext {
     public ServletRequestDispatcher getRequestDispatcher(String path) {
         return getRequestDispatcher(path, DispatcherType.REQUEST);
     }
+    public ServletRequestDispatcher getRequestDispatcherByRequestURI(String requestURI, DispatcherType dispatcherType) {
+        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByRequestURI(requestURI, contextPath);
+        if (element == null) {
+            return null;
+        }
+        ServletRegistration servletRegistration = element.getObject();
+        if (servletRegistration == null) {
+            return null;
+        }
 
+        ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
+        filterUrlMapper.addMappingObjectsByUri(path, dispatcherType, filterChain.getFilterRegistrationList());
+
+        ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
+        dispatcher.setMapperElement(element);
+        dispatcher.setPath(path);
+        return dispatcher;
+    }
     public ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
-        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByUri(path);
+        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByRelativeUri(path, contextPath);
         if (element == null) {
             return null;
         }

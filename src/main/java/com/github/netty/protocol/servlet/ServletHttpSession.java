@@ -244,7 +244,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
      * @return True is valid, false is not
      */
     public boolean isValid() {
-        return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));
+        return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000L));
     }
 
     public void access() {

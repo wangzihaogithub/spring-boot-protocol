@@ -1,9 +1,9 @@
 package com.github.netty.protocol.servlet.websocket;
 
+import com.github.netty.core.util.AntPathMatcher;
 import com.github.netty.protocol.servlet.DispatcherChannelHandler;
 import com.github.netty.protocol.servlet.ServletContext;
-import com.github.netty.core.util.AntPathMatcher;
-import com.github.netty.protocol.servlet.util.HttpConstants;
+import com.github.netty.protocol.servlet.Session;
 import com.github.netty.protocol.servlet.util.HttpHeaderConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.channel.*;
@@ -58,7 +58,7 @@ public class WebsocketServletUpgrader {
         handshakelFuture.addListener((ChannelFutureListener) future -> {
             WebSocketServerContainer webSocketContainer = (WebSocketServerContainer) servletContext.getAttribute(ServletContext.SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE);
             String queryString = getQueryString(request.uri());
-            String httpSessionId = getRequestedSessionId(servletContext, request.headers().get("Cookie"), requestParameterMap);
+            String httpSessionId = getRequestedSessionId(servletContext, request.headers().get(HttpHeaderConstants.COOKIE), requestParameterMap);
             List<Extension> extensions = new ArrayList<>(webSocketContainer.getInstalledExtensions());
             if (future.isSuccess()) {
                 Channel channel = future.channel();
@@ -82,27 +82,47 @@ public class WebsocketServletUpgrader {
     }
 
     private String getWebSocketURL(HttpRequest request, boolean secure) {
-        String host = request.headers().get(HttpHeaderConstants.HOST.toString());
+        String host = request.headers().get(HttpHeaderConstants.HOST);
         return (secure ? "wss://" : "ws://") + host + request.uri();
     }
 
     private String getRequestedSessionId(ServletContext servletContext, String headerCookie, Map<String, List<String>> requestParameterMap) {
         //If the user sets the sessionCookie name, the user set the sessionCookie name
-        String userSettingCookieName = servletContext.getSessionCookieConfig().getName();
-        String cookieSessionName = userSettingCookieName != null && userSettingCookieName.length() > 0 ?
-                userSettingCookieName : HttpConstants.JSESSION_ID_COOKIE;
         String sessionId = null;
-        if (headerCookie != null && !headerCookie.isEmpty()) {
+        String cookieSessionName = servletContext.getSessionCookieParamName();
+        //Find the value of sessionCookie first from cookie, then from url parameter
+        if (headerCookie != null && headerCookie.contains(cookieSessionName)) {
             Cookie[] cookies = ServletUtil.decodeCookie(headerCookie);
-            sessionId = ServletUtil.getCookieValue(cookies, cookieSessionName);
+            String lastCookieValue = null;
+            for (Cookie cookie : cookies) {
+                String cookieName = cookie.getName();
+                if (!cookieSessionName.equals(cookieName)) {
+                    continue;
+                }
+                String cookieValue = cookie.getValue();
+                if (cookieValue == null || cookieValue.isEmpty()) {
+                    continue;
+                }
+                Session session = servletContext.getSessionService().getSession(cookieValue);
+                if (session != null && session.isValid()) {
+                    sessionId = cookieValue;
+                    lastCookieValue = null;
+                    break;
+                } else {
+                    // 替换会话id，直到有效为止
+                    lastCookieValue = cookieValue;
+                }
+            }
+            if (lastCookieValue != null) {
+                sessionId = lastCookieValue;
+            }
         }
-
-        if (sessionId != null && sessionId.length() > 0) {
-            return sessionId;
-        }
-        List<String> sessionIds = requestParameterMap.get(HttpConstants.JSESSION_ID_URL);
-        if (sessionIds != null && !sessionIds.isEmpty()) {
-            sessionId = sessionIds.get(0);
+        if (sessionId == null) {
+            String sessionUriParamName = servletContext.getSessionUriParamName();
+            List<String> sessionIds = requestParameterMap.get(sessionUriParamName);
+            if (sessionIds != null && !sessionIds.isEmpty()) {
+                sessionId = sessionIds.get(0);
+            }
         }
         return sessionId;
     }
