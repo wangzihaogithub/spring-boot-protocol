@@ -58,7 +58,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private CompositeByteBuf source;
     private long fileUploadTimeoutMs;
     private int fileSizeThreshold;
-    private boolean needCloseClient;
+    boolean needCloseClient;
     private volatile ReadListener readListener;
     private volatile DecoderException decoderException;
     private volatile long contentLength;
@@ -243,7 +243,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             if (readerIndex.addAndGet(readableBytes) >= contentLength && onAllDataReadFlag.compareAndSet(false, true)) {
                 final ReadListener readListener = this.readListener;
                 if (readListener != null) {
-                    Executor executor = httpExchange.getServletContext().getExecutor();
+                    Executor executor = httpExchange.servletContext.getExecutor();
                     executor.execute(() -> {
                         try {
                             readListener.onAllDataRead();

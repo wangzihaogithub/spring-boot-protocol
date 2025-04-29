@@ -75,7 +75,7 @@ public class ServletHttpAsyncResponse extends HttpServletResponseWrapper {
             if (MediaType.isHtmlType(getContentType())) {
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
             } else {
-                characterEncoding = servletHttpExchange.getServletContext().getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.servletContext.getResponseCharacterEncoding();
             }
             setCharacterEncoding(characterEncoding);
         }

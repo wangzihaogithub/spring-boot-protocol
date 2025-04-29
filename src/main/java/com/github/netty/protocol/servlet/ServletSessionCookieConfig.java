@@ -9,14 +9,14 @@ import javax.servlet.SessionCookieConfig;
  * 2018/7/14/014
  */
 public class ServletSessionCookieConfig implements SessionCookieConfig {
-    private boolean httpOnly;
-    private boolean secure;
+    boolean httpOnly;
+    boolean secure;
     /**
      * Unit seconds
      */
     private int maxAge = -1;
     private String comment;
-    private String domain;
+    String domain;
     private String name;
     private String path;
 

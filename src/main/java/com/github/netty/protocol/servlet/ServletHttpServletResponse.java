@@ -20,8 +20,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.security.AccessController;
-import java.security.PrivilegedActionException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -35,16 +33,16 @@ import java.util.function.Consumer;
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse, Recyclable {
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
     private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
-    private final NettyHttpResponse nettyResponse = new NettyHttpResponse();
-    private final List<Cookie> cookies = new ArrayList<>();
+    final NettyHttpResponse nettyResponse = new NettyHttpResponse();
+    final List<Cookie> cookies = new ArrayList<>();
     private final AtomicInteger errorState = new AtomicInteger(0);
     private ServletHttpExchange servletHttpExchange;
     private PrintWriter writer;
-    private String contentType;
-    private String characterEncoding;
-    private Locale locale;
+    String contentType;
+    String characterEncoding;
+    Locale locale;
     private boolean commitFlag = false;
-    private long contentLength = -1;
+    long contentLength = -1;
     private int bufferSize = -1;
 
     protected ServletHttpServletResponse() {
@@ -79,7 +77,6 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     }
 
     private static boolean isEncodeable(final String location, ServletHttpServletRequest hreq) {
-
         if (location == null) {
             return false;
         }
@@ -97,7 +94,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         if (hreq.isRequestedSessionIdFromCookie()) {
             return false;
         }
-        ServletContext servletContext = hreq.getServletContext();
+        ServletContext servletContext = hreq.httpExchange.servletContext;
 
         // Is URL encoding permitted
         if (!servletContext.getEffectiveSessionTrackingModes().contains(SessionTrackingMode.URL)) {
@@ -286,20 +283,23 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     public String encodeURL(String url) {
         String absolute;
         try {
-            absolute = toAbsolute(url);
-        } catch (IllegalArgumentException iae) {
-            // Relative URL
+            absolute = toAbsolute(url).toString();
+        } catch (Exception e) {
             return url;
         }
+
         ServletHttpServletRequest request = servletHttpExchange.getRequest();
         if (isEncodeable(absolute, request)) {
+            String encodeURL;
             // W3c spec clearly said
-            if (url.equalsIgnoreCase("")) {
-                url = absolute;
+            if ("".equalsIgnoreCase(url)) {
+                encodeURL = absolute;
             } else if (url.equals(absolute) && !hasPath(url)) {
-                url += '/';
+                encodeURL = url.concat("/");
+            } else {
+                encodeURL = url;
             }
-            return toEncoded(url, request.getRequestedSessionId0());
+            return toEncoded(encodeURL, request.getRequestedSessionId0());
         } else {
             return url;
         }
@@ -323,10 +323,11 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             anchor = path.substring(pound);
             path = path.substring(0, pound);
         }
-        StringBuilder sb = new StringBuilder(path);
+        StringBuilder sb = new StringBuilder(path.length() + query.length() + anchor.length());
+        sb.append(path);
         if (sb.length() > 0) { // jsessionid can't be first.
             sb.append(';');
-            String sessionUriParamName = servletHttpExchange.getServletContext().getSessionUriParamName();
+            String sessionUriParamName = servletHttpExchange.servletContext.getSessionUriParamName();
             sb.append(sessionUriParamName);
             sb.append('=');
             sb.append(sessionId);
@@ -378,25 +379,25 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public void sendRedirect(String location) {
         checkCommitted();
+        sendRedirect0(location);
+    }
+
+    public void sendRedirect0(CharSequence location) {
         nettyResponse.setStatus(HttpResponseStatus.FOUND);
-        String locationUri;
+        CharSequence locationUri;
         // Relative redirects require HTTP/1.1 or later
-        ServletContext servletContext = servletHttpExchange.getServletContext();
+        ServletContext servletContext = servletHttpExchange.servletContext;
         if (servletHttpExchange.getRequest().isSupportsRelativeRedirects() && servletContext.isUseRelativeRedirects()) {
             locationUri = location;
         } else {
-            locationUri = toAbsolute(location);
+            locationUri = location == null ? null : toAbsolute(location.toString());
         }
         getNettyHeaders().set(HttpHeaderConstants.LOCATION, locationUri);
         commitFlag = true;
     }
 
-    private String toAbsolute(String location) {
-        if (location == null) {
-            return null;
-        }
-
-        boolean leadingSlash = location.startsWith("/");
+    private CharSequence toAbsolute(String location) {
+        boolean leadingSlash;
         if (location.startsWith("//")) {
             ServletHttpServletRequest request = servletHttpExchange.getRequest();
             // Scheme relative
@@ -406,38 +407,33 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             redirectURLCC.append(scheme, 0, scheme.length());
             redirectURLCC.append(':');
             redirectURLCC.append(location, 0, location.length());
-            return redirectURLCC.toString();
-        } else if (leadingSlash || !ServletUtil.hasScheme(location)) {
-            StringBuilder redirectURLCC = new StringBuilder();
+            return redirectURLCC;
+        } else if ((leadingSlash = location.startsWith("/")) || !ServletUtil.hasScheme(location)) {
+            StringBuilder redirectURLCC = new StringBuilder(location.length() + 16);
             ServletHttpServletRequest request = servletHttpExchange.getRequest();
 
             String scheme = request.getScheme();
             String name = request.getServerName();
             int port = request.getServerPort();
 
-            try {
-                redirectURLCC.append(scheme, 0, scheme.length());
-                redirectURLCC.append("://", 0, 3);
-                redirectURLCC.append(name, 0, name.length());
-                if ((scheme.equals("http") && port != 80) || (scheme.equals("https") && port != 443)) {
-                    redirectURLCC.append(':');
-                    String portS = port + "";
-                    redirectURLCC.append(portS, 0, portS.length());
-                }
-                if (!leadingSlash) {
-                    String relativePath = request.getRequestURI();
-                    int pos = relativePath.lastIndexOf('/');
-                    if (pos != -1) {
-                        redirectURLCC.append(relativePath, 0, pos);
-                    }
-                    redirectURLCC.append('/');
-                }
-                redirectURLCC.append(location, 0, location.length());
-//                return normalize(redirectURLCC);
-            } catch (Exception e) {
-                throw new IllegalArgumentException(location, e);
+            redirectURLCC.append(scheme, 0, scheme.length());
+            redirectURLCC.append("://", 0, 3);
+            redirectURLCC.append(name, 0, name.length());
+            if (("http".equals(scheme) && port != 80) || ("https".equals(scheme) && port != 443)) {
+                redirectURLCC.append(':');
+                String portS = port + "";
+                redirectURLCC.append(portS, 0, portS.length());
             }
-            return redirectURLCC.toString();
+            if (!leadingSlash) {
+                String relativePath = request.getRequestURI();
+                int pos = relativePath.lastIndexOf('/');
+                if (pos != -1) {
+                    redirectURLCC.append(relativePath, 0, pos);
+                }
+                redirectURLCC.append('/');
+            }
+            redirectURLCC.append(location);
+            return ServletUtil.uriNormalize(redirectURLCC);
         } else {
             return location;
         }
@@ -568,7 +564,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             if (MediaType.isHtmlType(getContentType())) {
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
             } else {
-                characterEncoding = servletHttpExchange.getServletContext().getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.servletContext.getResponseCharacterEncoding();
             }
             setCharacterEncoding(characterEncoding);
         }
@@ -585,7 +581,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     @Override
     public int getBufferSize() {
         if (bufferSize == -1) {
-            bufferSize = getServletHttpExchange().getServletContext().getMaxBufferBytes();
+            bufferSize = servletHttpExchange.servletContext.getMaxBufferBytes();
         }
         return bufferSize;
     }

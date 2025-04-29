@@ -25,8 +25,8 @@ public class ServletFilterChain implements FilterChain, Recyclable {
      * Consider that each request is handled by only one thread, and that the ServletContext will create a new SimpleFilterChain object on each request
      * therefore, the FilterChain's Iterator is used as a private variable of the FilterChain, without thread safety problems
      */
-    private final List<FilterMapper.Element<ServletFilterRegistration>> filterRegistrationList = new ArrayList<>(16);
-    private ServletRegistration servletRegistration;
+    final List<FilterMapper.Element<ServletFilterRegistration>> filterRegistrationList = new ArrayList<>(16);
+    ServletRegistration servletRegistration;
     private ServletContext servletContext;
 
 //    public static final Set<Filter> FILTER_SET = new HashSet<>();

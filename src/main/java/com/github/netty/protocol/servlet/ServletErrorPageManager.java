@@ -32,25 +32,13 @@ public class ServletErrorPageManager {
         }
         if (requestDispatcher == null) {
             logger.warn("a unknown error! ", throwable);
-        } else if (requestDispatcher.getFilterChain().isFilterEnd()) {
+        } else if (requestDispatcher.filterChain.isFilterEnd()) {
             logger.warn("Servlet.service() for servlet [{}] threw exception",
                     requestDispatcher.getName(), throwable);
         } else {
             logger.warn("Filter.doFilter() for filter [{}] threw exception",
-                    requestDispatcher.getFilterChain().getFilterRegistration().getName(), throwable);
+                    requestDispatcher.filterChain.getFilterRegistration().getName(), throwable);
         }
-    }
-
-    public static String getErrorPagePath(HttpServletRequest request, ServletErrorPage errorPage) {
-        String path = errorPage.getPath();
-        if (path == null || path.isEmpty()) {
-            return null;
-        }
-        if (!path.startsWith("/")) {
-            path = "/".concat(path);
-        }
-        String contextPath = request.getContextPath();
-        return contextPath == null || contextPath.isEmpty() ? path : contextPath.concat(path);
     }
 
     public void add(ServletErrorPage errorPage) {
@@ -139,12 +127,12 @@ public class ServletErrorPageManager {
 
         ServletHttpServletRequest request = ServletUtil.unWrapper(httpServletRequest);
         ServletHttpServletResponse response = ServletUtil.unWrapper(httpServletResponse);
-        if (!request.getHttpExchange().getChannelHandlerContext().channel().isActive()) {
+        if (!request.httpExchange.channelHandlerContext.channel().isActive()) {
             return;
         }
 
-        String errorPagePath = getErrorPagePath(request, errorPage);
-        if (errorPagePath == null) {
+        String errorPagePath = errorPage.getPath();
+        if (errorPagePath == null || errorPagePath.isEmpty()) {
             return;
         }
         ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath, DispatcherType.ERROR);

@@ -155,29 +155,24 @@ public class FilterMapper<T> {
     /**
      * Add multiple mapping objects
      *
-     * @param list           add in list
-     * @param dispatcherType current dispatcherType
-     * @param absoluteUri    An absolute path
+     * @param list                      add in list
+     * @param dispatcherType            current dispatcherType
+     * @param relativePathNoQueryString relativePathNoQueryString
      */
-    public void addMappingObjectsByUri(String absoluteUri, DispatcherType dispatcherType, List<Element<T>> list) {
-        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(absoluteUri));
+    public void addMappingObjects(String relativePathNoQueryString, DispatcherType dispatcherType, List<Element<T>> list) {
         for (Element<T> element : this.array) {
             if (element.dispatcherTypes != null && !element.dispatcherTypes.contains(dispatcherType)) {
                 continue;
             }
-            if (match(element, path)) {
+            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, relativePathNoQueryString)
+                    || antPathMatcher.match(element.normOriginalPattern, relativePathNoQueryString, "*")) {
                 list.add(element);
             }
         }
     }
 
-    private boolean match(Element element, String requestPath) {
-        return ServletUtil.matchFiltersURL(element.pattern, requestPath)
-                || antPathMatcher.match(element.pattern, requestPath, "*");
-    }
-
     public static class Element<T> {
-        String pattern;
+        String normOriginalPattern;
         String originalPattern;
         T object;
         String objectName;
@@ -196,22 +191,8 @@ public class FilterMapper<T> {
                     || "/*".equals(originalPattern)
                     || "*".equals(originalPattern)
                     || "/**".equals(originalPattern);
-            String rootAndOriginalPattern;
             String normOriginalPattern = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(originalPattern));
-            if (rootPath != null && !rootPath.isEmpty() && !rootPath.equals("/")) {
-                if (allPatternFlag) {
-                    rootAndOriginalPattern = rootPath + "/*";
-                } else {
-                    rootAndOriginalPattern = rootPath.concat(normOriginalPattern);
-                }
-            } else {
-                if (allPatternFlag) {
-                    rootAndOriginalPattern = "/*";
-                } else {
-                    rootAndOriginalPattern = normOriginalPattern;
-                }
-            }
-            this.pattern = rootAndOriginalPattern;
+            this.normOriginalPattern = allPatternFlag ? "/*" : normOriginalPattern;
             this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
@@ -228,10 +209,6 @@ public class FilterMapper<T> {
 
         public String getObjectName() {
             return objectName;
-        }
-
-        public String getPattern() {
-            return pattern;
         }
 
         @Override

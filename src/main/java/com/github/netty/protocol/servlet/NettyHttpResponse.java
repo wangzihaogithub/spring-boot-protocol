@@ -82,7 +82,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     }
 
     void setExchange(ServletHttpExchange exchange) {
-        this.version = exchange.getRequest().getNettyRequest().protocolVersion();
+        this.version = exchange.request.nettyRequest.protocolVersion();
         this.exchange = exchange;
     }
 
@@ -162,7 +162,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     public int hashCode() {
         int result = decoderResult != null ? decoderResult.hashCode() : 0;
         result = 31 * result + (version != null ? version.hashCode() : 0);
-        result = 31 * result + (headers != null ? headers.hashCode() : 0);
+        result = 31 * result + headers.hashCode();
         result = 31 * result + (status != null ? status.hashCode() : 0);
         return result;
     }
@@ -203,20 +203,20 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
     public void flush() {
         if (isSettingResponse.compareAndSet(false, true)) {
             //Configure the response header
-            ServletHttpServletRequest servletRequest = exchange.getRequest();
-            ServletHttpServletResponse servletResponse = exchange.getResponse();
-            ServletSessionCookieConfig sessionCookieConfig = exchange.getServletContext().getSessionCookieConfig();
+            ServletHttpServletRequest servletRequest = exchange.request;
+            ServletHttpServletResponse servletResponse = exchange.response;
+            ServletSessionCookieConfig sessionCookieConfig = exchange.servletContext.sessionCookieConfig;
 
-            settingResponseHeader(isKeepAlive(), exchange.getProtocol(), exchange.isSsl(), servletRequest,
-                    servletResponse.getContentType(), servletResponse.getCharacterEncoding(),
-                    servletResponse.getContentLength(), servletResponse.getLocaleUse(),
-                    servletResponse.getCookies(), sessionCookieConfig);
+            settingResponseHeader(isKeepAlive(), exchange.protocol, exchange.ssl, servletRequest,
+                    servletResponse.contentType, servletResponse.characterEncoding,
+                    servletResponse.contentLength, servletResponse.locale,
+                    servletResponse.cookies, sessionCookieConfig);
         }
     }
 
     public boolean isKeepAlive() {
-        return exchange.isHttpKeepAlive()
-                && !statusDropsConnection(exchange.getResponse().getStatus());
+        return exchange.isHttpKeepAlive
+                && !statusDropsConnection(exchange.response.getStatus());
     }
 
     /**
@@ -238,11 +238,10 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
                                        String contentType, String characterEncoding, long contentLength, Locale locale, List<Cookie> cookies,
                                        ServletSessionCookieConfig sessionCookieConfig) {
         HttpHeaderUtil.setKeepAlive(this, isKeepAlive);
-        HttpHeaders headers = headers();
         StringBuilder[] buf = new StringBuilder[1];
         if (protocol.isHttp2()) {
             // h2 adapter
-            String streamId = servletRequest.getNettyHeaders().get(HttpConstants.H2_EXT_STREAM_ID);
+            String streamId = servletRequest.nettyRequest.headers().get(HttpConstants.H2_EXT_STREAM_ID);
             if (streamId != null) {
                 headers.set(HttpConstants.H2_EXT_STREAM_ID, streamId);
             }
@@ -263,7 +262,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         }
 
         //if need close client
-        if (servletRequest.getInputStream0().isNeedCloseClient()) {
+        if (servletRequest.inputStream.needCloseClient) {
             headers.set(HttpHeaderConstants.CONNECTION, CLOSE);
         }
 
@@ -295,7 +294,7 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
         }
 
         //Server information response header
-        CharSequence serverHeader = servletRequest.getServletContext().getServerHeaderAscii();
+        CharSequence serverHeader = servletRequest.httpExchange.servletContext.serverHeaderAscii;
         if (serverHeader != null && serverHeader.length() != 0) {
             headers.set(HttpHeaderConstants.SERVER, serverHeader);
         }
@@ -321,8 +320,8 @@ public class NettyHttpResponse implements HttpResponse, Recyclable, Flushable {
             } else {
                 buf[0].setLength(0);
             }
-            CharSequence sessionCookieText = ServletUtil.encodeCookie(buf[0], sessionCookieName, httpSession.getId(), sessionCookieConfig.getMaxAge(),
-                    sessionCookiePath, sessionCookieConfig.getDomain(), sessionCookieConfig.isSecure(), sessionCookieConfig.isHttpOnly());
+            CharSequence sessionCookieText = ServletUtil.encodeCookie(buf[0], sessionCookieName, httpSession.id, sessionCookieConfig.getMaxAge(),
+                    sessionCookiePath, sessionCookieConfig.domain, sessionCookieConfig.secure, sessionCookieConfig.httpOnly);
             headers.add(HttpHeaderConstants.SET_COOKIE, sessionCookieText);
         }
 

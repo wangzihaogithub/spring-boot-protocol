@@ -39,7 +39,7 @@ public class Session implements Serializable {
      * @return True is valid, false is not
      */
     public boolean isValid() {
-        return System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));
+        return System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000L));
     }
 
     public String getId() {

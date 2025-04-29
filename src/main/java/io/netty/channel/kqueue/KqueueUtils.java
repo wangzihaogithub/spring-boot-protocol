@@ -5,7 +5,7 @@ import io.netty.channel.Channel;
 public class KqueueUtils {
 
     public static boolean forceFlush(Channel.Unsafe unsafe) {
-        if (unsafe instanceof AbstractKQueueChannel) {
+        if (unsafe instanceof AbstractKQueueChannel.AbstractKQueueUnsafe) {
             AbstractKQueueChannel.AbstractKQueueUnsafe epollUnsafe = (AbstractKQueueChannel.AbstractKQueueUnsafe) unsafe;
             epollUnsafe.writeReady();
             return true;

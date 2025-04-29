@@ -113,16 +113,17 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     };
 
     private final List<Part> fileUploadList = new ArrayList<>();
-    private ServletHttpExchange httpExchange;
+    ServletAsyncContext asyncContext;
+    boolean isMultipart;
+    HttpRequest nettyRequest;
+    ServletHttpExchange httpExchange;
     private ServletHttpSession httpSession;
     private Session session;
-    private ServletAsyncContext asyncContext;
     private DispatcherType dispatcherType = null;
     private String serverName;
     private int serverPort;
     private String remoteHost;
     private String scheme;
-    private String servletPath;
     private String queryString;
     private String pathInfo;
     private String requestURI;
@@ -149,7 +150,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                             RESOURCE_MANAGER_MAP.put(location, resourceManager);
                         }
                     } else {
-                        resourceManager = getServletContext().getResourceManager();
+                        resourceManager = httpExchange.servletContext.resourceManager;
                     }
                     this.resourceManager = resourceManager;
                 }
@@ -157,19 +158,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return resourceManager;
     };
+    private String cookieStringValue;
     private int decodePathsQueryIndex;
-    private boolean decodePathsFlag = false;
     private boolean decodeCookieFlag = false;
     private boolean decodeParameterByUrlFlag = false;
-    private boolean getQueryStringFlag = false;
-    private boolean getRequestURIFlag = false;
     private boolean getRequestedSessionId0 = false;
     private volatile InterfaceHttpPostRequestDecoder postRequestDecoder = null;
     private boolean remoteSchemeFlag = false;
     private boolean usingInputStreamFlag = false;
     private BufferedReader reader;
-    private HttpRequest nettyRequest;
-    private boolean isMultipart;
     private boolean isFormUrlEncoder;
     private final Supplier<InterfaceHttpPostRequestDecoder> postRequestDecoderSupplier = () -> {
         if (!isMultipart && !isFormUrlEncoder) {
@@ -194,7 +191,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         return this.postRequestDecoder;
     };
-    private final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier, resourceManagerSupplier);
+    final ServletInputStreamWrapper inputStream = new ServletInputStreamWrapper(postRequestDecoderSupplier, resourceManagerSupplier);
     private Cookie[] cookies;
     private Locale[] locales;
     private Boolean asyncSupportedFlag;
@@ -225,10 +222,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             instance.postRequestDecoder = null;
         }
 
-        instance.inputStream.wrap(exchange.getChannelHandlerContext().alloc().compositeBuffer(Integer.MAX_VALUE));
+        instance.inputStream.wrap(exchange.channelHandlerContext.alloc().compositeBuffer(Integer.MAX_VALUE));
         instance.inputStream.setHttpExchange(exchange);
         instance.inputStream.setFileSizeThreshold(instance.getFileSizeThreshold());
-        instance.inputStream.setFileUploadTimeoutMs(exchange.getServletContext().getUploadFileTimeoutMs());
+        instance.inputStream.setFileUploadTimeoutMs(exchange.servletContext.getUploadFileTimeoutMs());
         instance.inputStream.setContentLength(contentLength);
         return instance;
     }
@@ -243,6 +240,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     void setDispatcher(ServletRequestDispatcher dispatcher) {
         this.dispatcher = dispatcher;
+        this.asyncSupportedFlag = dispatcher.filterChain.servletRegistration.asyncSupported;
+        int queryIndex = dispatcher.queryIndex;
+        if (queryIndex != -1) {
+            queryIndex += dispatcher.contextPath.length();
+        }
+        this.decodePathsQueryIndex = queryIndex;
     }
 
     public int getFileSizeThreshold() {
@@ -261,10 +264,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     public boolean isAsync() {
         return asyncContext != null;
-    }
-
-    void setAsyncSupportedFlag(Boolean asyncSupportedFlag) {
-        this.asyncSupportedFlag = asyncSupportedFlag;
     }
 
     public ServletHttpExchange getHttpExchange() {
@@ -287,16 +286,28 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * Parse request scheme
      */
     private void decodeScheme() {
-        String proto = getHeader(HttpHeaderConstants.X_FORWARDED_PROTO.toString());
-        if (HttpConstants.HTTPS.equalsIgnoreCase(proto)) {
-            this.scheme = HttpConstants.HTTPS;
-            this.remoteSchemeFlag = true;
-        } else if (HttpConstants.HTTP.equalsIgnoreCase(proto)) {
-            this.scheme = HttpConstants.HTTP;
-            this.remoteSchemeFlag = true;
-        } else {
-            this.scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
+        Object headerValue = nettyRequest.headers().get(HttpHeaderConstants.X_FORWARDED_PROTO);
+        if (headerValue == null) {
+            HttpVersion httpVersion = nettyRequest.protocolVersion();
+            if (httpVersion == HttpVersion.HTTP_1_1 || httpVersion == HttpVersion.HTTP_1_0) {
+                // fast
+                this.scheme = "http";
+            } else {
+                this.scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
+            }
             this.remoteSchemeFlag = false;
+        } else {
+            String proto = headerValue.toString();
+            if (HttpConstants.HTTPS.equalsIgnoreCase(proto)) {
+                this.scheme = HttpConstants.HTTPS;
+                this.remoteSchemeFlag = true;
+            } else if (HttpConstants.HTTP.equalsIgnoreCase(proto)) {
+                this.scheme = HttpConstants.HTTP;
+                this.remoteSchemeFlag = true;
+            } else {
+                this.scheme = String.valueOf(nettyRequest.protocolVersion().protocolName()).toLowerCase();
+                this.remoteSchemeFlag = false;
+            }
         }
     }
 
@@ -305,11 +316,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     private void decodeLocale() {
         Locale[] locales;
-        String headerValue = getHeader(HttpHeaderConstants.ACCEPT_LANGUAGE.toString());
+        Object headerValue = nettyRequest.headers().get(HttpHeaderConstants.ACCEPT_LANGUAGE);
         if (headerValue == null) {
             locales = DEFAULT_LOCALS;
         } else {
-            String[] values = headerValue.split(",");
+            String[] values = headerValue.toString().split(",");
             int length = values.length;
             locales = new Locale[length];
             for (int i = 0; i < length; i++) {
@@ -419,8 +430,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * Parsing URL parameters
      */
     private void decodeUrlParameter() {
-        Charset charset = Charset.forName(getCharacterEncoding());
-        ServletUtil.decodeByUrl(parameterMap, nettyRequest.uri(), charset);
+        if (decodePathsQueryIndex != -1) {
+            Charset charset = Charset.forName(getCharacterEncoding());
+            ServletUtil.decodeByUrl(parameterMap, nettyRequest.uri(), charset);
+        }
         this.decodeParameterByUrlFlag = true;
     }
 
@@ -428,9 +441,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * Parsing the cookie
      */
     private void decodeCookie() {
-        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
-        if (value != null && !value.isEmpty()) {
-            this.cookies = ServletUtil.decodeCookie(value);
+        if (cookieStringValue == null) {
+            cookieStringValue = nettyRequest.headers().get(HttpHeaderConstants.COOKIE);
+        }
+        if (cookieStringValue != null && !cookieStringValue.isEmpty()) {
+            this.cookies = ServletUtil.decodeCookie(cookieStringValue);
         }
         this.decodeCookieFlag = true;
     }
@@ -509,17 +524,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     }
 
     /**
-     * Parsing path
-     */
-    private int decodePaths() {
-        String requestURI = nettyRequest.uri();
-        int decodePathsQueryIndex = requestURI.indexOf('?');
-        this.decodePathsQueryIndex = decodePathsQueryIndex;
-        this.decodePathsFlag = true;
-        return decodePathsQueryIndex;
-    }
-
-    /**
      * New session ID
      *
      * @return session ID
@@ -583,13 +587,13 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     @Override
     public String getHeader(String name) {
-        Object value = getNettyHeaders().get((CharSequence) name);
+        Object value = nettyRequest.headers().get((CharSequence) name);
         return value == null ? null : value.toString();
     }
 
     @Override
     public Enumeration<String> getHeaderNames() {
-        Set nameSet = getNettyHeaders().names();
+        Set nameSet = nettyRequest.headers().names();
         return new Enumeration<String>() {
             private final Iterator iterator = nameSet.iterator();
 
@@ -639,40 +643,23 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     @Override
     public String getPathInfo() {
-        if (this.pathInfo == null && dispatcher != null) {
-            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
+        if (this.pathInfo == null && dispatcher != null && dispatcher.path != null) {
+            this.pathInfo = dispatcher.mapperElement.getPathInfo(dispatcher.path, decodePathsQueryIndex);
         }
         return this.pathInfo;
     }
 
-    // now set PathInfo to null and ServletPath to ur-contextpath
-    // satisfies the requirements of SpringBoot, but not the semantics of ServletPath and PathInfo
-    // need to be set when RequestUrlPatternMapper matches, pass MapperData when new NettyRequestDispatcher
-
     @Override
     public String getQueryString() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
-        if (!getQueryStringFlag) {
+        if (queryString == null) {
             if (decodePathsQueryIndex != -1) {
-                this.queryString = nettyRequest.uri().substring(decodePathsQueryIndex + 1);
+                queryString = nettyRequest.uri().substring(decodePathsQueryIndex + 1);
             }
-            getQueryStringFlag = true;
         }
-        return this.queryString;
+        return queryString;
     }
 
     private boolean existQueryStringKeyword(String name) {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
         if (decodePathsQueryIndex == -1) {
             return false;
         } else {
@@ -682,25 +669,20 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     }
 
     private boolean existCookieKeyword(String name) {
-        String value = getHeader(HttpHeaderConstants.COOKIE.toString());
-        return value != null && value.contains(name);
+        if (cookieStringValue == null) {
+            cookieStringValue = nettyRequest.headers().get(HttpHeaderConstants.COOKIE);
+        }
+        return cookieStringValue != null && cookieStringValue.contains(name);
     }
 
     @Override
     public String getRequestURI() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
-        if (!getRequestURIFlag) {
-            if (decodePathsQueryIndex == -1) {
-                this.requestURI = nettyRequest.uri();
-            } else {
-                this.requestURI = nettyRequest.uri().substring(0, decodePathsQueryIndex);
+        if (requestURI == null) {
+            String uri = nettyRequest.uri();
+            if (decodePathsQueryIndex != -1) {
+                uri = uri.substring(0, decodePathsQueryIndex);
             }
-            getRequestURIFlag = true;
+            this.requestURI = uri;
         }
         return this.requestURI;
     }
@@ -713,15 +695,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     @Override
     public String getServletPath() {
-        if (this.servletPath == null) {
-            this.servletPath = getServletContext().getServletPath(getRequestURI());
-        }
-        return this.servletPath;
+        return dispatcher.mapperElement.getServletPath(dispatcher.relativePathNoQueryString);
     }
 
     @Override
     public Enumeration<String> getHeaders(String name) {
-        Collection collection = getNettyHeaders().getAll((CharSequence) name);
+        Collection collection = nettyRequest.headers().getAll((CharSequence) name);
         return new Enumeration<String>() {
             private final Iterator iterator = collection.iterator();
 
@@ -770,7 +749,24 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      */
     @Override
     public String getContextPath() {
-        return getServletContext().getContextPath();
+        return httpExchange.servletContext.contextPath;
+    }
+
+    private boolean isValidSessionId(String sessionId) {
+        if (httpExchange == null) {
+            return false;
+        }
+        ServletHttpSession httpSession = httpExchange.getHttpSession();
+        if (httpSession != null && sessionId.equals(httpSession.getId())) {
+            return httpSession.isValid();
+        } else {
+            ServletContext servletContext = httpExchange.servletContext;
+            if (servletContext == null) {
+                return false;
+            }
+            Session session = servletContext.getSessionService().getSession(sessionId);
+            return session != null && session.isValid();
+        }
     }
 
     @Override
@@ -797,7 +793,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             httpSession.access();
             return httpSession;
         } else {
-            servletContext = getServletContext();
+            servletContext = httpExchange.servletContext;
         }
 
         // 4. Scope in store. The session has already been created.
@@ -808,7 +804,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 if (!existSessionId) {
                     this.sessionId = newSessionId();
                 }
-                session = new Session(this.sessionId, servletContext.getSessionTimeout());
+                session = new Session(this.sessionId, servletContext.sessionTimeout);
             } else {
                 return null;
             }
@@ -834,14 +830,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         ServletHttpSession httpSession = getSession(true);
         String oldSessionId = httpSession.getId();
         String newSessionId = newSessionId();
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
 
         servletContext.getSessionService().changeSessionId(oldSessionId, newSessionId);
 
         sessionId = newSessionId;
         httpSession.setId(sessionId);
 
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasHttpSessionIdListener()) {
             listenerManager.onHttpSessionIdChanged(new HttpSessionEvent(httpSession), oldSessionId);
         }
@@ -850,9 +846,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public boolean isRequestedSessionIdValid() {
-        getRequestedSessionId0();
-        return sessionIdSource == SessionTrackingMode.COOKIE ||
-                sessionIdSource == SessionTrackingMode.URL;
+        String requestedSessionId = getRequestedSessionId0();
+        if (requestedSessionId == null || requestedSessionId.isEmpty()) {
+            return false;
+        }
+        return isValidSessionId(requestedSessionId);
     }
 
     @Override
@@ -878,26 +876,47 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         //If the user sets the sessionCookie name, the user set the sessionCookie name
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
         Set<SessionTrackingMode> sessionTrackingModes = servletContext.getEffectiveSessionTrackingModes();
         String sessionId = null;
         SessionTrackingMode sessionIdSource = null;
+        // cookie
         if (sessionTrackingModes.contains(SessionTrackingMode.COOKIE)) {
             String cookieSessionName = servletContext.getSessionCookieParamName();
             //Find the value of sessionCookie first from cookie, then from url parameter
             if (existCookieKeyword(cookieSessionName)) {
-                sessionId = ServletUtil.getCookieValue(getCookies(), cookieSessionName);
-                if (sessionId != null && !sessionId.isEmpty()) {
-                    Session session = servletContext.getSessionService().getSession(sessionId);
-                    if (session != null) {
-                        this.session = session;
+                Cookie[] cookies = getCookies();
+                if (cookies != null) {
+                    String lastCookieValue = null;
+                    for (Cookie cookie : cookies) {
+                        String cookieName = cookie.getName();
+                        if (!cookieSessionName.equals(cookieName)) {
+                            continue;
+                        }
+                        String cookieValue = cookie.getValue();
+                        if (cookieValue == null || cookieValue.isEmpty()) {
+                            continue;
+                        }
+                        Session session = servletContext.getSessionService().getSession(cookieValue);
+                        if (session != null && session.isValid()) {
+                            sessionId = cookieValue;
+                            sessionIdSource = SessionTrackingMode.COOKIE;
+                            lastCookieValue = null;
+                            this.session = session;
+                            break;
+                        } else {
+                            // 替换会话id，直到有效为止
+                            lastCookieValue = cookieValue;
+                        }
+                    }
+                    if (lastCookieValue != null) {
+                        sessionId = lastCookieValue;
                         sessionIdSource = SessionTrackingMode.COOKIE;
-                    } else {
-                        sessionId = null;
                     }
                 }
             }
         }
+        // url
         if (sessionIdSource == null && sessionTrackingModes.contains(SessionTrackingMode.URL)) {
             String sessionUriParamName = servletContext.getSessionUriParamName();
             if (existQueryStringKeyword(sessionUriParamName)) {
@@ -909,8 +928,14 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
         // ssl only
         if (sessionIdSource == null && sessionTrackingModes.size() == 1 && sessionTrackingModes.contains(SessionTrackingMode.SSL)) {
-            ChannelId id = httpExchange.getChannelHandlerContext().channel().id();
-            sessionId = id.asLongText();
+            ServletHttpSession httpSession = httpExchange.getHttpSession();
+            if (httpSession != null) {
+                sessionId = httpSession.getId();
+                this.httpSession = httpSession;
+            } else {
+                ChannelId id = httpExchange.channelHandlerContext.channel().id();
+                sessionId = id.asLongText();
+            }
             sessionIdSource = SessionTrackingMode.SSL;
         }
         this.sessionIdSource = sessionIdSource;
@@ -931,12 +956,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Object getAttribute(String name) {
-        return getAttributeMap().get(name);
+        return attributeMap.get(name);
     }
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return Collections.enumeration(getAttributeMap().keySet());
+        return Collections.enumeration(attributeMap.keySet());
     }
 
     @Override
@@ -964,7 +989,8 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getContentType() {
-        return getHeader(HttpHeaderConstants.CONTENT_TYPE.toString());
+        Object value = nettyRequest.headers().get(HttpHeaderConstants.CONTENT_TYPE);
+        return value == null ? null : value.toString();
     }
 
     @Override
@@ -976,14 +1002,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         return inputStream;
     }
 
-    ServletInputStreamWrapper getInputStream0() {
-        return inputStream;
-    }
-
     @Override
     public String getParameter(String name) {
         String[] values;
-        if (getServletContext().getNotExistBodyParameters().contains(name)) {
+        if (httpExchange.servletContext.notExistBodyParameters.contains(name)) {
             if (!decodeParameterByUrlFlag) {
                 decodeUrlParameter();
             }
@@ -1075,7 +1097,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 if (reader == null) {
                     String charset = getCharacterEncoding();
                     if (charset == null) {
-                        charset = getServletContext().getRequestCharacterEncoding();
+                        charset = httpExchange.servletContext.getRequestCharacterEncoding();
                     }
                     reader = new BufferedReader(new InputStreamReader(inputStream, charset));
                 }
@@ -1123,9 +1145,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             return;
         }
 
-        Object oldObject = getAttributeMap().put(name, object);
+        Object oldObject = attributeMap.put(name, object);
 
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if (listenerManager.hasServletRequestAttributeListener()) {
             listenerManager.onServletRequestAttributeAdded(new ServletRequestAttributeEvent(servletContext, this, name, object));
@@ -1137,9 +1159,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public void removeAttribute(String name) {
-        Object oldObject = getAttributeMap().remove(name);
+        Object oldObject = attributeMap.remove(name);
 
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
         ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
         if (listenerManager.hasServletRequestAttributeListener()) {
             listenerManager.onServletRequestAttributeRemoved(new ServletRequestAttributeEvent(servletContext, this, name, oldObject));
@@ -1188,37 +1210,37 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return getServletContext().getRequestDispatcher(path, getDispatcherType());
+        return httpExchange.servletContext.getRequestDispatcher(path, getDispatcherType());
     }
 
     @Override
     public String getRealPath(String path) {
-        return getServletContext().getRealPath(path);
+        return httpExchange.servletContext.getRealPath(path);
     }
 
     @Override
     public String getLocalName() {
-        return getServletContext().getServerAddress().getHostName();
+        return httpExchange.servletContext.serverAddress.getHostName();
     }
 
     @Override
     public String getLocalAddr() {
-        return getServletContext().getServerAddress().getAddress().getHostAddress();
+        return httpExchange.servletContext.serverAddress.getAddress().getHostAddress();
     }
 
     @Override
     public int getLocalPort() {
-        return getServletContext().getServerAddress().getPort();
+        return httpExchange.servletContext.serverAddress.getPort();
     }
 
     @Override
     public ServletContext getServletContext() {
-        return httpExchange.getServletContext();
+        return httpExchange.servletContext;
     }
 
     @Override
     public ServletAsyncContext startAsync() throws IllegalStateException {
-        return startAsync(this, httpExchange.getResponse());
+        return startAsync(this, httpExchange.response);
     }
 
     @Override
@@ -1227,7 +1249,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             throw new IllegalStateException("Asynchronous is not supported");
         }
 
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
         if (asyncContext == null) {
             asyncContext = new ServletAsyncContext(httpExchange, servletContext, servletContext.getExecutor());
             asyncContext.setTimeout(servletContext.getAsyncTimeout());
@@ -1270,7 +1292,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public String getPathTranslated() {
-        ServletContext servletContext = getServletContext();
+        ServletContext servletContext = httpExchange.servletContext;
         String contextPath = servletContext.getContextPath();
         if (contextPath == null || contextPath.isEmpty()) {
             return null;
@@ -1447,13 +1469,13 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (httpExchange.isAbort()) {
             return;
         }
+        this.cookieStringValue = null;
         this.httpSession = null;
         this.nettyRequest = null;
         this.decodeBodyFlag.set(false);
         this.decodeParameterByUrlFlag = false;
         this.remoteSchemeFlag = false;
         this.decodeCookieFlag = false;
-        this.decodePathsFlag = false;
         this.usingInputStreamFlag = false;
         this.reader = null;
         this.sessionIdSource = null;
@@ -1461,10 +1483,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         this.serverName = null;
         this.serverPort = 0;
         this.scheme = null;
-        this.servletPath = null;
         this.queryString = null;
-        this.getRequestURIFlag = false;
-        this.getQueryStringFlag = false;
         this.getRequestedSessionId0 = false;
         this.session = null;
         this.pathInfo = null;

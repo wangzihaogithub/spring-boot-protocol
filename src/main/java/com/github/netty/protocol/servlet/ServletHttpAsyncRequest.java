@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.util.UrlMapper;
 
 import javax.servlet.AsyncContext;
 import javax.servlet.DispatcherType;
@@ -36,27 +37,43 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
      * Special attributes.
      */
     private final Object[] specialAttributes = new Object[specials.length];
+    private final ServletAsyncContext servletAsyncContext;
     private String pathInfo = null;
     private String queryString = null;
     private String requestURI = null;
+    private String relativePathNoQueryString = null;
     private String servletPath = null;
-    private ServletRequestDispatcher dispatcher;
+    private UrlMapper.Element<ServletRegistration> mapperElement;
     private Map<String, String[]> parameterMap = null;
-    private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
-    private boolean getQueryStringFlag = false;
-    private boolean getRequestURIFlag = false;
-    private int decodePathsQueryIndex;
+    private int decodePathsQueryIndex = -1;
     private String dispatchPath;
-    private final ServletAsyncContext servletAsyncContext;
+    private String contextPath;
 
-    public ServletHttpAsyncRequest(HttpServletRequest source, ServletAsyncContext servletAsyncContext) {
+    private ServletHttpAsyncRequest(HttpServletRequest source, ServletAsyncContext servletAsyncContext) {
         super(source);
         this.servletAsyncContext = servletAsyncContext;
     }
 
-    public void setDispatchPath(String dispatchPath) {
-        this.dispatchPath = dispatchPath;
+    public static ServletHttpAsyncRequest newInstanceAsyncPath(HttpServletRequest source, ServletAsyncContext servletAsyncContext,
+                                                               String dispatchPath, String relativePathNoQueryString, String contextPath,
+                                                               int queryIndex, UrlMapper.Element<ServletRegistration> mapperElement) {
+        ServletHttpAsyncRequest request = new ServletHttpAsyncRequest(source, servletAsyncContext);
+        request.dispatchPath = dispatchPath;
+        request.relativePathNoQueryString = relativePathNoQueryString;
+        request.contextPath = contextPath;
+        request.servletPath = mapperElement.getServletPath(relativePathNoQueryString);
+        request.decodePathsQueryIndex = queryIndex;
+        request.mapperElement = mapperElement;
+        request.requestURI = contextPath + relativePathNoQueryString;
+        if (source.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
+            request.specialAttributes[0] = source.getRequestURI();
+            request.specialAttributes[1] = source.getContextPath();
+            request.specialAttributes[2] = source.getServletPath();
+            request.specialAttributes[3] = source.getPathInfo();
+            request.specialAttributes[4] = source.getQueryString();
+        }
+        return request;
     }
 
     @Override
@@ -66,7 +83,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
 
     @Override
     public com.github.netty.protocol.servlet.ServletContext getServletContext() {
-        return servletAsyncContext.getServletContext();
+        return servletAsyncContext.servletContext;
     }
 
     @Override
@@ -74,14 +91,9 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
         throw new UnsupportedOperationException("Unsupported Method On Async setRequest ");
     }
 
-    public void setDispatcher(ServletRequestDispatcher dispatcher) {
-        this.dispatcher = dispatcher;
-    }
-
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
-        return servletContext.getRequestDispatcher(path, getDispatcherType());
+        return servletAsyncContext.servletContext.getRequestDispatcher(path, getDispatcherType());
     }
 
     @Override
@@ -91,7 +103,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
 
     @Override
     public String getContextPath() {
-        return super.getContextPath();
+        return contextPath;
     }
 
     @Override
@@ -112,62 +124,28 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
 
     @Override
     public String getPathInfo() {
-        if (this.pathInfo == null && dispatcher != null) {
-            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
+        if (this.pathInfo == null && dispatchPath != null && mapperElement != null) {
+            this.pathInfo = mapperElement.getPathInfo(dispatchPath, decodePathsQueryIndex);
         }
         return pathInfo;
     }
 
     @Override
     public String getQueryString() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
+        if (decodePathsQueryIndex != -1) {
+            this.queryString = dispatchPath.substring(decodePathsQueryIndex + 1);
         }
-        if (!getQueryStringFlag) {
-            if (decodePathsQueryIndex != -1) {
-                this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
-            }
-            getQueryStringFlag = true;
-        }
-        return this.queryString;
+        return queryString;
     }
 
     @Override
     public String getRequestURI() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
-        if (!getRequestURIFlag) {
-            if (decodePathsQueryIndex == -1) {
-                this.requestURI = dispatchPath;
-            } else {
-                this.requestURI = dispatchPath.substring(0, decodePathsQueryIndex);
-            }
-            getRequestURIFlag = true;
-        }
         return this.requestURI;
     }
 
     @Override
     public String getServletPath() {
-        if (this.servletPath == null) {
-            this.servletPath = getServletContext().getServletPath(getRequestURI());
-        }
-        return this.servletPath;
-    }
-
-    public void setPaths(String pathInfo, String queryString, String requestURI, String servletPath) {
-        this.pathInfo = pathInfo;
-        this.queryString = queryString;
-        this.requestURI = requestURI;
-        this.servletPath = servletPath;
-        this.decodePathsFlag = true;
+        return servletPath;
     }
 
     @Override
@@ -219,25 +197,15 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
     }
 
     /**
-     * Parsing path
-     */
-    private int decodePaths() {
-        String requestURI = dispatchPath;
-        int decodePathsQueryIndex = requestURI == null ? -1 : requestURI.indexOf('?');
-        this.decodePathsQueryIndex = decodePathsQueryIndex;
-        this.decodePathsFlag = true;
-        return decodePathsQueryIndex;
-    }
-
-    /**
      * Parse forward parameter
      */
     private void decodeParameter() {
         Map<String, String[]> sourceParameterMap = super.getParameterMap();
         Map<String, String[]> parameterMap = new LinkedHashMap<>(sourceParameterMap);
-        Charset charset = Charset.forName(getCharacterEncoding());
-        ServletUtil.decodeByUrl(parameterMap, dispatchPath, charset);
-
+        if (decodePathsQueryIndex != -1) {
+            Charset charset = Charset.forName(getCharacterEncoding());
+            ServletUtil.decodeByUrl(parameterMap, dispatchPath, charset);
+        }
         this.parameterMap = Collections.unmodifiableMap(parameterMap);
         this.decodeParameterFlag = true;
     }

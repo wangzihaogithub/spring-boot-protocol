@@ -19,7 +19,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     private static Object sessionContext = null;
     private final List<HttpSessionBindingListener> httpSessionBindingListenerList = new ArrayList<>(2);
     private final ServletContext servletContext;
-    private String id;
+    String id;
     private Map<String, Object> attributeMap;
     private long creationTime;
     private long currAccessedTime;
@@ -244,7 +244,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
      * @return True is valid, false is not
      */
     public boolean isValid() {
-        return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000));
+        return id != null && System.currentTimeMillis() < (creationTime + (maxInactiveInterval * 1000L));
     }
 
     public void access() {
