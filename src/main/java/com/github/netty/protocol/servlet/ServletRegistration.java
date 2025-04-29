@@ -23,7 +23,7 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private MultipartConfigElement multipartConfigElement;
     private ServletSecurityElement servletSecurityElement;
     private String roleName;
-    private boolean asyncSupported = true;
+    boolean asyncSupported = true;
     private int loadOnStartup = -1;
     private Map<String, String> initParameterMap = new LinkedHashMap<>();
     private final Set<String> mappingSet = new LinkedHashSet<String>() {

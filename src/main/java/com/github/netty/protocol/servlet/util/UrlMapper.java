@@ -71,12 +71,12 @@ public class UrlMapper<T> {
         urlMapper.addMapping("/*", "", "3");
         urlMapper.addMapping("/*.do", "", "4");
 
-//        urlMapper.setRootPath("test");
+        urlMapper.setRootPath("test");
 
-        Element<Object> e1 = urlMapper.getMappingObjectByUri("/t/a/d");
+        Element<Object> e1 = urlMapper.getMappingObjectByServletPath("/t/a/d");
         assert Objects.equals("1", e1.objectName);
-
-        Element<Object> e2 = urlMapper.getMappingObjectByUri("/a");
+//
+        Element<Object> e2 = urlMapper.getMappingObjectByServletPath("/a");
         assert Objects.equals("3", e2.objectName);
     }
 
@@ -115,90 +115,32 @@ public class UrlMapper<T> {
     }
 
     /**
-     * Gets a servlet path
-     * 根据绝对路径获取
-     *
-     * @param absoluteUri  exist servletContextPath absoluteUri
-     * @return servlet path
-     */
-    public String getServletPath(String absoluteUri, String servletContextPath) {
-        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(absoluteUri));
-        String noContextPathUrl = servletContextPath.isEmpty() ? absoluteUri : path.substring(servletContextPath.length());
-        Collection<Element<T>> elementList = this.elementList;
-        for (Element<T> element : elementList) {
-            if (element.allPatternFlag) {
-                continue;
-            }
-            if (match(element, noContextPathUrl)) {
-                return element.servletPath;
-            }
-        }
-        return noContextPathUrl;
-    }
-
-    /**
      * getMappingObjectByRelativeUri
      *
-     * @param relativeUri        no servletContextPath relativeUri
-     * @param servletContextPath servletContextPath
+     * @param contextRelativeRequestPath contextRelativeRequestPath
      * @return T object
      */
-    public Element<T> getMappingObjectByRelativeUri(String relativeUri, String servletContextPath) {
-        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(relativeUri));
+    public Element<T> getMappingObjectByServletPath(String contextRelativeRequestPath) {
         Collection<Element<T>> elementList = this.elementList;
         for (Element<T> element : elementList) {
-            if (matchServletContextPath(element, path)) {
+            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, contextRelativeRequestPath)) {
+                return element;
+            }
+            if (antPathMatcher.match(element.normOriginalPattern, contextRelativeRequestPath, "*")) {
                 return element;
             }
         }
         return null;
-    }
-    /**
-     * getMappingObjectByRelativeUri
-     *
-     * @param relativeUri        no servletContextPath relativeUri
-     * @param servletContextPath servletContextPath
-     * @return T object
-     */
-    public Element<T> getMappingObjectByRequestURI(String relativeUri, String servletContextPath) {
-        String path = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(relativeUri));
-        Collection<Element<T>> elementList = this.elementList;
-        for (Element<T> element : elementList) {
-            if (matchServletContextPath(element, path)) {
-                return element;
-            }
-        }
-        return null;
-    }
-
-
-    private boolean match(Element element, String relativeUri) {
-        return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
-                || antPathMatcher.match(element.normOriginalPattern, relativeUri, "*");
-    }
-
-    private boolean matchServletContextPath(Element element, String relativeUri) {
-        if(absoluteUri){
-            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
-                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
-        }
-        if(servletContextPath.isEmpty()){
-            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
-                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
-        }else if(servletContextPath.equals()){
-            return ServletUtil.matchFiltersURL(element.normOriginalPattern, relativeUri)
-                    || antPathMatcher.match(element.rootAndPattern, requestPath, "*");
-        }
     }
 
     public static class Element<T> implements Comparable<Element<T>> {
-        String rootAndPattern;
         String normOriginalPattern;
         String originalPattern;
         T object;
         String objectName;
         String servletPath;
         String rootPath;
+        boolean startPatternFlag;
         boolean wildcardPatternFlag;
         boolean allPatternFlag;
         boolean defaultFlag;
@@ -213,23 +155,9 @@ public class UrlMapper<T> {
                     || "/*".equals(originalPattern)
                     || "*".equals(originalPattern)
                     || "/**".equals(originalPattern);
-            String rootAndOriginalPattern;
             String normOriginalPattern = ServletUtil.normPrefixPath(ServletUtil.normSuffixPath(originalPattern));
-            if (rootPath != null && !rootPath.isEmpty() && !rootPath.equals("/")) {
-                if (allPatternFlag) {
-                    rootAndOriginalPattern = rootPath + "/*";
-                } else {
-                    rootAndOriginalPattern = rootPath.concat(normOriginalPattern);
-                }
-            } else {
-                if (allPatternFlag) {
-                    rootAndOriginalPattern = "/*";
-                } else {
-                    rootAndOriginalPattern = normOriginalPattern;
-                }
-            }
+            this.startPatternFlag = normOriginalPattern.startsWith("*");
             this.normOriginalPattern = allPatternFlag ? "/*" : normOriginalPattern;
-            this.rootAndPattern = rootAndOriginalPattern;
             this.rootPath = rootPath;
             this.originalPattern = originalPattern;
             this.object = object;
@@ -253,18 +181,18 @@ public class UrlMapper<T> {
                 joiner.add(path);
             }
             this.defaultFlag = "default".equals(this.objectName);
-            this.servletPath = joiner.toString();
+            this.servletPath = startPatternFlag ? "" : joiner.toString();
             if (this.defaultFlag) {
                 this.sort = 500000 + addSort;
             } else if (this.allPatternFlag) {
                 this.sort = 400000 + addSort;
-            } else if (originalPattern.contains("*")) {
+            } else if (wildcardPatternFlag) {
                 this.sort = 300000 + addSort;
             } else {
                 this.sort = 200000 - Math.min(tokens * 100, 200000) + addSort;
             }
-            for (int i = 0, find = 0; i < originalPattern.length(); i++) {
-                char c = originalPattern.charAt(i);
+            for (int i = 0, find = 0; i < normOriginalPattern.length(); i++) {
+                char c = normOriginalPattern.charAt(i);
                 if (c == '/') {
                     continue;
                 }
@@ -273,6 +201,39 @@ public class UrlMapper<T> {
                     this.firstWildcardIndex = find;
                     break;
                 }
+            }
+        }
+
+        public boolean isStartPatternFlag() {
+            return startPatternFlag;
+        }
+
+        public String getPathInfo(String relativePath, int decodePathsQueryIndex) {
+            // case /  , !/api/*  , *.do
+            if (allPatternFlag || !wildcardPatternFlag || startPatternFlag) {
+                return null;
+            }
+            int firstWildcardIndex = this.firstWildcardIndex;
+            if (decodePathsQueryIndex == -1) {
+                return relativePath.substring(firstWildcardIndex);
+            } else {
+                return relativePath.substring(firstWildcardIndex, decodePathsQueryIndex);
+            }
+        }
+
+        public String getServletPath(String relativePathNoQueryString) {
+            if (startPatternFlag) {
+                // case： *.do
+                return "";
+            } else if (allPatternFlag) {
+                // case： /
+                return relativePathNoQueryString;
+            } else if (wildcardPatternFlag) {
+                // case： /api/*
+                return servletPath;
+            } else {
+                // case： /api
+                return servletPath;
             }
         }
 
@@ -294,10 +255,6 @@ public class UrlMapper<T> {
 
         public String getObjectName() {
             return objectName;
-        }
-
-        public String getRootAndPattern() {
-            return rootAndPattern;
         }
 
         public String getServletPath() {

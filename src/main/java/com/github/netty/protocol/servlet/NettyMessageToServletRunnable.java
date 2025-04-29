@@ -11,10 +11,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
 import io.netty.util.concurrent.FastThreadLocal;
 
+import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -112,8 +114,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         // body
         if (msg instanceof HttpContent && exchange.closeStatus() == CLOSE_NO) {
             needDiscard = false;
-            exchange.getRequest().getInputStream0().onMessage((HttpContent) msg);
-            if (exchange.getRequest().isMultipart() || msg instanceof LastHttpContent) {
+            exchange.request.inputStream.onMessage((HttpContent) msg);
+            if (exchange.request.isMultipart || msg instanceof LastHttpContent) {
                 result = this.httpRunnable;
                 this.httpRunnable = null;
             }
@@ -226,49 +228,46 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             return exchange;
         }
 
-        public void setExchange(ServletHttpExchange exchange) {
-            this.exchange = exchange;
-        }
-
         @Override
         public void run() {
-            ServletHttpServletRequest request = exchange.getRequest();
-            ServletHttpServletResponse response = exchange.getResponse();
-            ServletContext servletContext = exchange.getServletContext();
-            ServletErrorPageManager errorPageManager = servletContext.getErrorPageManager();
-            Throwable realThrowable = null;
-
+            ServletHttpServletRequest request = exchange.request;
+            ServletContext servletContext = exchange.servletContext;
             // upload cannot block event loop
-            if (request.isMultipart()
-                    && exchange.getChannelHandlerContext().executor().inEventLoop()) {
-                exchange.getServletContext().getDefaultExecutorSupplier().get().execute(this);
+            if (request.isMultipart
+                    && exchange.channelHandlerContext.executor().inEventLoop()) {
+                servletContext.defaultExecutorSupplier.get().execute(this);
                 return;
             }
 
+            ServletHttpServletResponse response = exchange.response;
+            ServletErrorPageManager errorPageManager = servletContext.servletErrorPageManager;
+            Throwable realThrowable = null;
             LinkedList<Runnable> asyncContextDispatchOperList = new LinkedList<>();
             ASYNC_CONTEXT_DISPATCH_THREAD_LOCAL.set(asyncContextDispatchOperList);
             ServletRequestDispatcher dispatcher = null;
             try {
-                String requestURI = request.getRequestURI();
-                if (servletContext.isMapperContextRootRedirectEnabled() && requestURI.equals(servletContext.getContextPath())) {
-                    StringBuilder redirectPath = RecyclableUtil.newStringBuilder();
-                    redirectPath.append(requestURI).append('/');
-                    String query = request.getQueryString();
-                    if (query != null) {
-                        redirectPath.append("?").append(query);
-                    }
-                    response.sendRedirect(redirectPath.toString());
-                } else {
-                    dispatcher = servletContext.getRequestDispatcher(requestURI, request.getDispatcherType());
-                    if (dispatcher == null) {
-                        Servlet defaultServlet = exchange.getServletContext().getDefaultServlet();
-                        if (defaultServlet != null) {
-                            defaultServlet.service(request, response);
-                        } else {
-                            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                String contextPath = servletContext.contextPath;
+                String uri = request.nettyRequest.uri();
+                String relativeUri;
+                if (!contextPath.isEmpty() && !uri.startsWith(contextPath)) {
+                    handleNotFound(servletContext, request, response);
+                } else if ((relativeUri = uri.substring(contextPath.length())).isEmpty() || relativeUri.charAt(0) == '?') {
+                    if (servletContext.isMapperContextRootRedirectEnabled()) {
+                        StringBuilder redirectPath = new StringBuilder(contextPath.length() + 1 + relativeUri.length());
+                        if (!contextPath.isEmpty()) {
+                            redirectPath.append(contextPath);
                         }
+                        redirectPath.append('/');
+                        redirectPath.append(relativeUri);
+                        response.sendRedirect0(redirectPath);
                     } else {
-                        request.setAsyncSupportedFlag(dispatcher.getFilterChain().getServletRegistration().isAsyncSupported());
+                        handleNotFound(servletContext, request, response);
+                    }
+                } else {
+                    dispatcher = servletContext.getRequestDispatcher(relativeUri, DispatcherType.REQUEST);
+                    if (dispatcher == null) {
+                        handleNotFound(servletContext, request, response);
+                    } else {
                         request.setDispatcher(dispatcher);
                         dispatcher.dispatch(request, response);
                     }
@@ -296,14 +295,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                      * before the startAsync of the relevant request is invoked, the developer must be aware that the response object reference remains outside the scope described above
                      * circumference may lead to uncertain behavior
                      */
-                    if (request.isAsync()) {
-                        ServletAsyncContext asyncContext = request.getAsyncContext();
+                    ServletAsyncContext asyncContext = request.asyncContext;
+                    if (asyncContext != null) {
                         //If the asynchronous execution completes, recycle
                         if (asyncContext.isComplete()) {
                             asyncContext.recycle();
                         } else {
                             //Marks the end of execution for the main thread
-                            request.getAsyncContext().markIoThreadOverFlag();
+                            asyncContext.markIoThreadOverFlag();
                             if (asyncContext.isComplete()) {
                                 asyncContext.recycle();
                             }
@@ -329,7 +328,19 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             }
         }
 
-        protected void handleErrorPage(ServletErrorPageManager errorPageManager, Throwable realThrowable, ServletRequestDispatcher requestDispatcher, ServletHttpServletRequest request, ServletHttpServletResponse response) {
+        protected void handleNotFound(ServletContext servletContext,
+                                      ServletHttpServletRequest request,
+                                      ServletHttpServletResponse response) throws ServletException, IOException {
+            Servlet defaultServlet = servletContext.getDefaultServlet();
+            if (defaultServlet != null) {
+                defaultServlet.service(request, response);
+            } else {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            }
+        }
+
+        protected void handleErrorPage(ServletErrorPageManager errorPageManager, Throwable realThrowable,
+                                       ServletRequestDispatcher requestDispatcher, ServletHttpServletRequest request, ServletHttpServletResponse response) {
             /*
              * Error pages are obtained according to two types: 1. By exception type; 2. By status code
              */
@@ -367,8 +378,8 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         @Override
         public String toString() {
             return Optional.ofNullable(exchange)
-                    .map(ServletHttpExchange::getRequest)
-                    .map(ServletHttpServletRequest::getNettyRequest)
+                    .map(e -> e.request)
+                    .map(e -> e.nettyRequest)
                     .map(String::valueOf)
                     .orElse("recycle");
         }

@@ -16,7 +16,10 @@ import javax.servlet.ServletResponse;
 import javax.servlet.ServletResponseWrapper;
 import javax.servlet.http.Cookie;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 /**
  * ServletUtil
@@ -137,7 +140,7 @@ public class ServletUtil {
      * @param httpOnly    httpOnly
      * @return a single Set-Cookie header value
      */
-    public static CharSequence encodeCookie(StringBuilder buf,String cookieName, String cookieValue, int maxAge, CharSequence path, String domain, boolean secure, boolean httpOnly) {
+    public static CharSequence encodeCookie(StringBuilder buf, String cookieName, String cookieValue, int maxAge, CharSequence path, String domain, boolean secure, boolean httpOnly) {
         buf.append(cookieName);
         buf.append((char) HttpConstants.EQUALS);
         buf.append(cookieValue);
@@ -512,28 +515,24 @@ public class ServletUtil {
      * Return <code>true</code> if the context-relative request path matches the requirements of the specified filter
      * mapping; otherwise, return <code>false</code>.
      *
-     * @param testPath    URL mapping being checked
-     * @param requestPath Context-relative request path of this request
+     * @param testPath                   URL mapping being checked
+     * @param contextRelativeRequestPath Context-relative request path of this request
      */
-    public static boolean matchFiltersURL(String testPath, String requestPath) {
-        if (testPath == null) {
-            return false;
-        }
-
+    public static boolean matchFiltersURL(String testPath, String contextRelativeRequestPath) {
         // Case 1 - Exact Match
-        if (testPath.equals(requestPath)) {
+        if (testPath.equals(contextRelativeRequestPath)) {
             return true;
         }
 
         // Case 2 - Path Match ("/.../*")
-        if (testPath.equals("/*")) {
+        if ("/*".equals(testPath)) {
             return true;
         }
         if (testPath.endsWith("/*")) {
-            if (testPath.regionMatches(0, requestPath, 0, testPath.length() - 2)) {
-                if (requestPath.length() == (testPath.length() - 2)) {
+            if (testPath.regionMatches(0, contextRelativeRequestPath, 0, testPath.length() - 2)) {
+                if (contextRelativeRequestPath.length() == (testPath.length() - 2)) {
                     return true;
-                } else if ('/' == requestPath.charAt(testPath.length() - 2)) {
+                } else if ('/' == contextRelativeRequestPath.charAt(testPath.length() - 2)) {
                     return true;
                 }
             }
@@ -542,11 +541,11 @@ public class ServletUtil {
 
         // Case 3 - Extension Match
         if (testPath.startsWith("*.")) {
-            int slash = requestPath.lastIndexOf('/');
-            int period = requestPath.lastIndexOf('.');
-            if ((slash >= 0) && (period > slash) && (period != requestPath.length() - 1) &&
-                    ((requestPath.length() - period) == (testPath.length() - 1))) {
-                return testPath.regionMatches(2, requestPath, period + 1, testPath.length() - 2);
+            int slash = contextRelativeRequestPath.lastIndexOf('/');
+            int period = contextRelativeRequestPath.lastIndexOf('.');
+            if ((slash >= 0) && (period > slash) && (period != contextRelativeRequestPath.length() - 1) &&
+                    ((contextRelativeRequestPath.length() - period) == (testPath.length() - 1))) {
+                return testPath.regionMatches(2, contextRelativeRequestPath, period + 1, testPath.length() - 2);
             }
         }
 
@@ -561,7 +560,7 @@ public class ServletUtil {
         while (path.startsWith("//")) {
             path = path.substring(1);
         }
-        if (path.length() > 1 && !path.startsWith("/")) {
+        if (path.length() > 1 && !path.startsWith("/") && !path.startsWith("*")) {
             path = "/" + path;
         }
         return path;
@@ -579,9 +578,8 @@ public class ServletUtil {
      * Determine if the character is allowed in the scheme of a URI. See RFC 2396, Section 3.1
      *
      * @param c The character to test
-     *
      * @return {@code true} if a the character is allowed, otherwise {@code
-     *         false}
+     * false}
      */
     private static boolean isSchemeChar(char c) {
         return Character.isLetterOrDigit(c) || c == '+' || c == '-' || c == '.';
@@ -592,7 +590,6 @@ public class ServletUtil {
      * Determine if a URI string has a <code>scheme</code> component.
      *
      * @param uri The URI to test
-     *
      * @return {@code true} if a scheme is present, otherwise {code @false}
      */
     public static boolean hasScheme(CharSequence uri) {
@@ -607,4 +604,353 @@ public class ServletUtil {
         }
         return false;
     }
+
+    public static CharSequence uriNormalize(CharSequence ps) {
+        // Does this path need normalization?
+        int pathLen = ps.length();
+        int ns = needsNormalization(ps, pathLen);        // Number of segments
+        if (ns < 0)
+            // Nope -- just return it
+            return ps;
+
+        char[] path = new char[pathLen];         // Path in char-array form
+        if (ps instanceof String) {
+            ((String) ps).getChars(0, pathLen, path, 0);
+        } else if (ps instanceof StringBuilder) {
+            ((StringBuilder) ps).getChars(0, pathLen, path, 0);
+        } else if (ps instanceof StringBuffer) {
+            ((StringBuffer) ps).getChars(0, pathLen, path, 0);
+        } else {
+            ps.toString().getChars(0, pathLen, path, 0);
+        }
+
+        // Split path into segments
+        int[] segs = new int[ns];               // Segment-index array
+        split(path, segs);
+
+        // Remove dots
+        removeDots(path, segs);
+
+        // Prevent scheme-name confusion
+        maybeAddLeadingDot(path, segs);
+
+        // Join the remaining segments and return the result
+        String s = new String(path, 0, join(path, segs));
+        if (s.contentEquals(ps)) {
+            // string was already normalized
+            return ps;
+        }
+        return s;
+    }
+
+    // Join the segments in the given path according to the given segment-index
+    // array, ignoring those segments whose index entries have been set to -1,
+    // and inserting slashes as needed.  Return the length of the resulting
+    // path.
+    //
+    // Preconditions:
+    //   segs[i] == -1 implies segment i is to be ignored
+    //   path computed by split, as above, with '\0' having replaced '/'
+    //
+    // Postconditions:
+    //   path[0] .. path[return value] == Resulting path
+    //
+    private static int join(char[] path, int[] segs) {
+        int ns = segs.length;           // Number of segments
+        int end = path.length - 1;      // Index of last char in path
+        int p = 0;                      // Index of next path char to write
+
+        if (path[p] == '\0') {
+            // Restore initial slash for absolute paths
+            path[p++] = '/';
+        }
+
+        for (int i = 0; i < ns; i++) {
+            int q = segs[i];            // Current segment
+            if (q == -1)
+                // Ignore this segment
+                continue;
+
+            if (p == q) {
+                // We're already at this segment, so just skip to its end
+                while ((p <= end) && (path[p] != '\0'))
+                    p++;
+                if (p <= end) {
+                    // Preserve trailing slash
+                    path[p++] = '/';
+                }
+            } else if (p < q) {
+                // Copy q down to p
+                while ((q <= end) && (path[q] != '\0'))
+                    path[p++] = path[q++];
+                if (q <= end) {
+                    // Preserve trailing slash
+                    path[p++] = '/';
+                }
+            }
+        }
+
+        return p;
+    }
+
+    // DEVIATION: If the normalized path is relative, and if the first
+    // segment could be parsed as a scheme name, then prepend a "." segment
+    //
+    private static void maybeAddLeadingDot(char[] path, int[] segs) {
+
+        if (path[0] == '\0')
+            // The path is absolute
+            return;
+
+        int ns = segs.length;
+        int f = 0;                      // Index of first segment
+        while (f < ns) {
+            if (segs[f] >= 0)
+                break;
+            f++;
+        }
+        if ((f >= ns) || (f == 0))
+            // The path is empty, or else the original first segment survived,
+            // in which case we already know that no leading "." is needed
+            return;
+
+        int p = segs[f];
+        while ((p < path.length) && (path[p] != ':') && (path[p] != '\0')) p++;
+        if (p >= path.length || path[p] == '\0')
+            // No colon in first segment, so no "." needed
+            return;
+
+        // At this point we know that the first segment is unused,
+        // hence we can insert a "." segment at that position
+        path[0] = '.';
+        path[1] = '\0';
+        segs[0] = 0;
+    }
+
+
+    // Remove "." segments from the given path, and remove segment pairs
+    // consisting of a non-".." segment followed by a ".." segment.
+    //
+    private static void removeDots(char[] path, int[] segs) {
+        int ns = segs.length;
+        int end = path.length - 1;
+
+        for (int i = 0; i < ns; i++) {
+            int dots = 0;               // Number of dots found (0, 1, or 2)
+
+            // Find next occurrence of "." or ".."
+            do {
+                int p = segs[i];
+                if (path[p] == '.') {
+                    if (p == end) {
+                        dots = 1;
+                        break;
+                    } else if (path[p + 1] == '\0') {
+                        dots = 1;
+                        break;
+                    } else if ((path[p + 1] == '.')
+                            && ((p + 1 == end)
+                            || (path[p + 2] == '\0'))) {
+                        dots = 2;
+                        break;
+                    }
+                }
+                i++;
+            } while (i < ns);
+            if ((i > ns) || (dots == 0))
+                break;
+
+            if (dots == 1) {
+                // Remove this occurrence of "."
+                segs[i] = -1;
+            } else {
+                // If there is a preceding non-".." segment, remove both that
+                // segment and this occurrence of ".."; otherwise, leave this
+                // ".." segment as-is.
+                int j;
+                for (j = i - 1; j >= 0; j--) {
+                    if (segs[j] != -1) break;
+                }
+                if (j >= 0) {
+                    int q = segs[j];
+                    if (!((path[q] == '.')
+                            && (path[q + 1] == '.')
+                            && (path[q + 2] == '\0'))) {
+                        segs[i] = -1;
+                        segs[j] = -1;
+                    }
+                }
+            }
+        }
+    }
+
+    // Split the given path into segments, replacing slashes with nulls and
+    // filling in the given segment-index array.
+    //
+    // Preconditions:
+    //   segs.length == Number of segments in path
+    //
+    // Postconditions:
+    //   All slashes in path replaced by '\0'
+    //   segs[i] == Index of first char in segment i (0 <= i < segs.length)
+    //
+    private static void split(char[] path, int[] segs) {
+        int end = path.length - 1;      // Index of last char in path
+        int p = 0;                      // Index of next char in path
+        int i = 0;                      // Index of current segment
+
+        // Skip initial slashes
+        while (p <= end) {
+            if (path[p] != '/') break;
+            path[p] = '\0';
+            p++;
+        }
+
+        while (p <= end) {
+
+            // Note start of segment
+            segs[i++] = p++;
+
+            // Find beginning of next segment
+            while (p <= end) {
+                if (path[p++] != '/')
+                    continue;
+                path[p - 1] = '\0';
+
+                // Skip redundant slashes
+                while (p <= end) {
+                    if (path[p] != '/') break;
+                    path[p++] = '\0';
+                }
+                break;
+            }
+        }
+    }
+
+    // Check the given path to see if it might need normalization.  A path
+    // might need normalization if it contains duplicate slashes, a "."
+    // segment, or a ".." segment.  Return -1 if no further normalization is
+    // possible, otherwise return the number of segments found.
+    //
+    // This method takes a string argument rather than a char array so that
+    // this test can be performed without invoking path.toCharArray().
+    //
+    private static int needsNormalization(CharSequence path, int pathLen) {
+        boolean normal = true;
+        int ns = 0;                     // Number of segments
+        int end = pathLen - 1;    // Index of last char in path
+        int p = 0;                      // Index of next char in path
+
+        // Skip initial slashes
+        while (p <= end) {
+            if (path.charAt(p) != '/') break;
+            p++;
+        }
+        if (p > 1) normal = false;
+
+        // Scan segments
+        while (p <= end) {
+
+            // Looking at "." or ".." ?
+            if ((path.charAt(p) == '.')
+                    && ((p == end)
+                    || ((path.charAt(p + 1) == '/')
+                    || ((path.charAt(p + 1) == '.')
+                    && ((p + 1 == end)
+                    || (path.charAt(p + 2) == '/')))))) {
+                normal = false;
+            }
+            ns++;
+
+            // Find beginning of next segment
+            while (p <= end) {
+                if (path.charAt(p++) != '/')
+                    continue;
+
+                // Skip redundant slashes
+                while (p <= end) {
+                    if (path.charAt(p) != '/') break;
+                    normal = false;
+                    p++;
+                }
+
+                break;
+            }
+        }
+
+        return normal ? -1 : ns;
+    }
+
+    /**
+     * Normalize a relative URI path that may have relative values ("/./", "/../", and so on ) it it.
+     * <strong>WARNING</strong> - This method is useful only for normalizing application-generated paths. It does not
+     * try to perform security checks for malicious input.
+     *
+     * @param path             Relative path to be normalized
+     * @param replaceBackSlash Should '\\' be replaced with '/'
+     * @return The normalized path or <code>null</code> if the path cannot be normalized
+     */
+    public static String pathNormalize(String path, boolean replaceBackSlash) {
+        if (path == null) {
+            return null;
+        }
+        // Create a place for the normalized path
+        String normalized = path;
+
+        if (replaceBackSlash && normalized.indexOf('\\') >= 0) {
+            normalized = normalized.replace('\\', '/');
+        }
+
+        // Add a leading "/" if necessary
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+
+        boolean addedTrailingSlash = false;
+        if (normalized.endsWith("/.") || normalized.endsWith("/..")) {
+            normalized = normalized + "/";
+            addedTrailingSlash = true;
+        }
+
+        // Resolve occurrences of "//" in the normalized path
+        while (true) {
+            int index = normalized.indexOf("//");
+            if (index < 0) {
+                break;
+            }
+            normalized = normalized.substring(0, index) + normalized.substring(index + 1);
+        }
+
+        // Resolve occurrences of "/./" in the normalized path
+        while (true) {
+            int index = normalized.indexOf("/./");
+            if (index < 0) {
+                break;
+            }
+            normalized = normalized.substring(0, index) + normalized.substring(index + 2);
+        }
+
+        // Resolve occurrences of "/../" in the normalized path
+        while (true) {
+            int index = normalized.indexOf("/../");
+            if (index < 0) {
+                break;
+            }
+            if (index == 0) {
+                return null; // Trying to go outside our context
+            }
+            int index2 = normalized.lastIndexOf('/', index - 1);
+            normalized = normalized.substring(0, index2) + normalized.substring(index + 3);
+        }
+
+        if (normalized.length() > 1 && addedTrailingSlash) {
+            // Remove the trailing '/' we added to that input and output are
+            // consistent w.r.t. to the presence of the trailing '/'.
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+
+        // Return the normalized path that we have completed
+        return normalized;
+    }
+
 }

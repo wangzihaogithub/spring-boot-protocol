@@ -40,6 +40,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         });
     }
 
+    final ServletContext servletContext;
     private final Executor executor;
     private final AtomicBoolean timeoutFlag = new AtomicBoolean();
     /**
@@ -54,13 +55,12 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
      * 0=init, 1=start, 2=complete
      */
     private final AtomicInteger status = new AtomicInteger(STATUS_INIT);
+    private final ServletHttpExchange servletHttpExchange;
     /**
      * Timeout time -> ms
      */
     private long timeout;
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
-    private final ServletContext servletContext;
-    private final ServletHttpExchange servletHttpExchange;
     private final Runnable timeoutTask = () -> {
         //Notice the timeout
         List<ServletAsyncListenerWrapper> asyncListenerWrapperList = this.asyncListenerWrapperList;
@@ -115,7 +115,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
 
     @Override
     public boolean hasOriginalRequestAndResponse() {
-        return servletHttpExchange.getRequest() == servletRequest && servletHttpExchange.getResponse() == servletResponse;
+        return servletHttpExchange.request == servletRequest && servletHttpExchange.response == servletResponse;
     }
 
     public void setServletResponse(ServletResponse servletResponse) {
@@ -129,17 +129,11 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     @Override
     public void dispatch() {
         String path;
-        String contextPath;
         ServletRequest servletRequest = this.servletRequest;
         if (servletRequest instanceof HttpServletRequest) {
-            path = ((HttpServletRequest) servletRequest).getRequestURI();
-            contextPath = ((HttpServletRequest) servletRequest).getContextPath();
+            path = ((HttpServletRequest) servletRequest).getServletPath();
         } else {
-            path = servletHttpExchange.getRequest().getRequestURI();
-            contextPath = servletHttpExchange.getRequest().getContextPath();
-        }
-        if (contextPath.length() > 1) {
-            path = path.substring(contextPath.length());
+            path = servletHttpExchange.request.getServletPath();
         }
         dispatch(servletContext, path);
     }
@@ -159,42 +153,38 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
             throw new IllegalStateException("Asynchronous dispatch operation has already been called. Additional asynchronous dispatch operation within the same asynchronous cycle is not allowed.");
         }
         status.set(STATUS_DISPATCH);
-        String contextPath = context.getContextPath();
-        String dispatcherPath = contextPath == null || contextPath.isEmpty() ? path : contextPath + path;
+        ServletContext ctx = context instanceof ServletContext ? (ServletContext) context : servletContext;
         HttpServletRequest httpServletRequest;
         HttpServletResponse httpServletResponse;
         if (servletRequest instanceof HttpServletRequest) {
             httpServletRequest = (HttpServletRequest) servletRequest;
         } else {
-            httpServletRequest = servletHttpExchange.getRequest();
+            httpServletRequest = servletHttpExchange.request;
         }
         if (servletResponse instanceof HttpServletResponse) {
             httpServletResponse = (HttpServletResponse) servletResponse;
         } else {
-            httpServletResponse = servletHttpExchange.getResponse();
+            httpServletResponse = servletHttpExchange.response;
         }
 
-        ServletRequestDispatcher dispatcher = servletContext.getRequestDispatcher(dispatcherPath, DispatcherType.ASYNC);
+        ServletRequestDispatcher dispatcher = ctx.getRequestDispatcher(path, DispatcherType.ASYNC);
+        if (dispatcher == null) {
+            throw new UnsupportedOperationException("The dispatcher returned from the ServletContext does not support asynchronous dispatching");
+        }
         if (NettyMessageToServletRunnable.isCurrentRunAtRequesting()) {
-            NettyMessageToServletRunnable.addAsyncContextDispatch(() -> dispatchAsync(dispatcher, httpServletRequest, httpServletResponse, path));
+            NettyMessageToServletRunnable.addAsyncContextDispatch(() -> dispatchAsync(dispatcher, httpServletRequest, httpServletResponse));
         } else {
-            dispatchAsync(dispatcher, httpServletRequest, httpServletResponse, path);
+            dispatchAsync(dispatcher, httpServletRequest, httpServletResponse);
         }
     }
 
     private void dispatchAsync(ServletRequestDispatcher dispatcher,
                                HttpServletRequest httpServletRequest,
-                               HttpServletResponse httpServletResponse,
-                               String path) {
+                               HttpServletResponse httpServletResponse) {
         Throwable throwable = null;
         try {
             try {
-                if (dispatcher == null) {
-                    logger.warn("not found dispatcher. path={}", path);
-                    httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
-                } else {
-                    dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
-                }
+                dispatcher.dispatchAsync(httpServletRequest, httpServletResponse, this);
             } catch (Throwable e) {
                 throwable = e;
                 onError(e);

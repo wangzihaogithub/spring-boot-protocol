@@ -30,13 +30,13 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     private static final AttributeKey<ServletHttpSession> CHANNEL_ATTR_KEY_SESSION = AttributeKey.valueOf(ServletHttpSession.class + "#ServletHttpSession");
     private static final AttributeKey<ServletHttpExchange> CHANNEL_ATTR_KEY_EXCHANGE = AttributeKey.valueOf(ServletHttpExchange.class + "#ServletHttpExchange");
     private final AtomicInteger close = new AtomicInteger(CLOSE_NO);
-    private Protocol protocol;
-    private boolean ssl;
-    private ServletHttpServletRequest request;
-    private ServletHttpServletResponse response;
-    private ChannelHandlerContext channelHandlerContext;
-    private ServletContext servletContext;
-    private boolean isHttpKeepAlive;
+    Protocol protocol;
+    boolean ssl;
+    ServletHttpServletRequest request;
+    ServletHttpServletResponse response;
+    ChannelHandlerContext channelHandlerContext;
+    ServletContext servletContext;
+    boolean isHttpKeepAlive;
     private boolean websocket;
     /**
      * on start async after. client abort
@@ -172,7 +172,7 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
 
     public void touch(Object hit) {
         if (request != null) {
-            ByteBuf byteBuf = request.getInputStream0().unwrap();
+            ByteBuf byteBuf = request.inputStream.unwrap();
             if (byteBuf != null) {
                 byteBuf.touch(hit);
             }

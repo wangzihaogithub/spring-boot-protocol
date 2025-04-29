@@ -5,10 +5,7 @@ import com.github.netty.core.util.LoggerFactoryX;
 import com.github.netty.core.util.LoggerX;
 import com.github.netty.core.util.ResourceManager;
 import com.github.netty.core.util.SystemPropertyUtil;
-import com.github.netty.protocol.servlet.util.FilterMapper;
-import com.github.netty.protocol.servlet.util.HttpConstants;
-import com.github.netty.protocol.servlet.util.MimeMappingsX;
-import com.github.netty.protocol.servlet.util.UrlMapper;
+import com.github.netty.protocol.servlet.util.*;
 import com.github.netty.protocol.servlet.websocket.WebSocketServerContainer;
 import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
 import io.netty.handler.codec.http.multipart.DiskAttribute;
@@ -42,7 +39,11 @@ import java.util.function.Supplier;
  */
 public class ServletContext implements javax.servlet.ServletContext {
 
+    public static final int MIN_FILE_SIZE_THRESHOLD = 16384;
+    public static final String DEFAULT_UPLOAD_DIR = "/upload";
+    public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     private static final boolean SUPPORT_SET_BASE_DIR;
+    private static final List<ServletContext> INSTANCE_LIST = Collections.synchronizedList(new ArrayList<>(2));
 
     static {
         boolean supportSetBaseDir;
@@ -55,28 +56,14 @@ public class ServletContext implements javax.servlet.ServletContext {
         SUPPORT_SET_BASE_DIR = supportSetBaseDir;
     }
 
-    public static final int MIN_FILE_SIZE_THRESHOLD = 16384;
-    public static final String DEFAULT_UPLOAD_DIR = "/upload";
-    public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
-    private static final List<ServletContext> INSTANCE_LIST = Collections.synchronizedList(new ArrayList<>(2));
     //    private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
-    private final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
+    final ServletErrorPageManager servletErrorPageManager = new ServletErrorPageManager();
     /**
      * Will not appear in the field in http body. multipart/form-data, application/x-www-form-urlencoded. （In order to avoid the client, you have been waiting for the client.）
      */
-    private final Collection<String> notExistBodyParameters = new HashSet<>(Arrays.asList("_method", "JSESSIONID"));
-    /**
-     * Default: 20 minutes,
-     */
-    private int sessionTimeout = 1200;
-    /**
-     * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
-     */
-    private long fileSizeThreshold = 4096 * 16;
-    /**
-     * Upload file timeout millisecond , -1 is not control timeout.
-     */
-    private long uploadFileTimeoutMs = -1;
+    final Collection<String> notExistBodyParameters = new HashSet<>(Arrays.asList("_method", HttpConstants.JSESSION_ID_COOKIE));
+    final ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
+    final ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
     private final Map<String, Object> attributeMap = new LinkedHashMap<>(16);
     private final Map<String, String> initParamMap = new LinkedHashMap<>(16);
     private final Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
@@ -89,28 +76,38 @@ public class ServletContext implements javax.servlet.ServletContext {
     };
     private final Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE, SessionTrackingMode.URL));
     private final MimeMappingsX mimeMappings = new MimeMappingsX();
-    private final ServletEventListenerManager servletEventListenerManager = new ServletEventListenerManager();
-    private final ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
     private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>();
     private final FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
-    private ResourceManager resourceManager;
+    private final ClassLoader classLoader;
+    Supplier<Executor> defaultExecutorSupplier;
+    String contextPath = "";
+    /**
+     * Default: 20 minutes,
+     */
+    int sessionTimeout = 1200;
+    ResourceManager resourceManager;
+    boolean autoFlush;
+    CharSequence serverHeaderAscii;
+    InetSocketAddress serverAddress;
+    /**
+     * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
+     */
+    private long fileSizeThreshold = 4096 * 16;
+    /**
+     * Upload file timeout millisecond , -1 is not control timeout.
+     */
+    private long uploadFileTimeoutMs = -1;
     private Supplier<Executor> asyncExecutorSupplier;
-    private Supplier<Executor> defaultExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
     private Servlet defaultServlet = new DefaultServlet();
     private boolean enableLookupFlag = false;
     private boolean mapperContextRootRedirectEnabled = true;
     private boolean useRelativeRedirects = true;
-    private boolean autoFlush;
     private String serverHeader;
-    private CharSequence serverHeaderAscii;
-    private String contextPath = "";
     private String requestCharacterEncoding;
     private String responseCharacterEncoding;
     private String servletContextName;
-    private InetSocketAddress serverAddress;
-    private final ClassLoader classLoader;
     /**
      * output stream maxBufferBytes
      * Each buffer accumulate the maximum number of bytes (default 1M)
@@ -299,10 +296,6 @@ public class ServletContext implements javax.servlet.ServletContext {
         });
     }
 
-    public String getServletPath(String absoluteUri) {
-        return servletUrlMapper.getServletPath(absoluteUri, contextPath);
-    }
-
     public long getFileSizeThreshold() {
         return fileSizeThreshold;
     }
@@ -325,10 +318,6 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public String getServerHeader() {
         return serverHeader;
-    }
-
-    public CharSequence getServerHeaderAscii() {
-        return serverHeaderAscii;
     }
 
     public void setServerHeader(String serverHeader) {
@@ -402,7 +391,10 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletContext getContext(String uripath) {
-        return this;
+        if ("/".equals(uripath)) {
+            return this;
+        }
+        return null;
     }
 
     @Override
@@ -465,8 +457,13 @@ public class ServletContext implements javax.servlet.ServletContext {
     public ServletRequestDispatcher getRequestDispatcher(String path) {
         return getRequestDispatcher(path, DispatcherType.REQUEST);
     }
-    public ServletRequestDispatcher getRequestDispatcherByRequestURI(String requestURI, DispatcherType dispatcherType) {
-        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByRequestURI(requestURI, contextPath);
+
+    ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
+        String pathNormalize = ServletUtil.pathNormalize(path, true);
+        if (pathNormalize == null) {
+            return null;
+        }
+        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByServletPath(pathNormalize);
         if (element == null) {
             return null;
         }
@@ -474,32 +471,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (servletRegistration == null) {
             return null;
         }
-
+        int queryIndex = pathNormalize.indexOf('?');
+        String relativePathNoQueryString = queryIndex != -1 ? pathNormalize.substring(0, queryIndex) : pathNormalize;
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
-        filterUrlMapper.addMappingObjectsByUri(path, dispatcherType, filterChain.getFilterRegistrationList());
+        filterUrlMapper.addMappingObjects(relativePathNoQueryString, dispatcherType, filterChain.filterRegistrationList);
 
-        ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
-        dispatcher.setMapperElement(element);
-        dispatcher.setPath(path);
-        return dispatcher;
-    }
-    public ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
-        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByRelativeUri(path, contextPath);
-        if (element == null) {
-            return null;
-        }
-        ServletRegistration servletRegistration = element.getObject();
-        if (servletRegistration == null) {
-            return null;
-        }
-
-        ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
-        filterUrlMapper.addMappingObjectsByUri(path, dispatcherType, filterChain.getFilterRegistrationList());
-
-        ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
-        dispatcher.setMapperElement(element);
-        dispatcher.setPath(path);
-        return dispatcher;
+        return ServletRequestDispatcher.newInstancePath(filterChain, pathNormalize, contextPath, relativePathNoQueryString, element, queryIndex);
     }
 
     @Override
@@ -510,18 +487,15 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
-        List<FilterMapper.Element<ServletFilterRegistration>> filterList = filterChain.getFilterRegistrationList();
+        List<FilterMapper.Element<ServletFilterRegistration>> filterList = filterChain.filterRegistrationList;
         for (ServletFilterRegistration registration : filterRegistrationMap.values()) {
-            for (String servletName : registration.getServletNameMappings()) {
+            for (String servletName : registration.servletNameMappingSet) {
                 if (servletName.equals(name)) {
                     filterList.add(new FilterMapper.Element<>(name, registration));
                 }
             }
         }
-
-        ServletRequestDispatcher dispatcher = ServletRequestDispatcher.newInstance(filterChain);
-        dispatcher.setName(name);
-        return dispatcher;
+        return ServletRequestDispatcher.newInstanceName(filterChain, name, contextPath);
     }
 
     @Override

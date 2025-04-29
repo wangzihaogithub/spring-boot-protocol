@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.util.UrlMapper;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
@@ -39,36 +40,62 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
     private String queryString = null;
     private String requestURI = null;
     private String servletPath = null;
-    private ServletRequestDispatcher dispatcher;
+    private UrlMapper.Element<ServletRegistration> mapperElement;
     private Map<String, String[]> parameterMap = null;
-    private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
-    private boolean getQueryStringFlag = false;
-    private boolean getRequestURIFlag = false;
-    private int decodePathsQueryIndex;
+    private int decodePathsQueryIndex = -1;
     private String includePath;
     private String includeName;
+    private String contextPath;
     private DispatcherType dispatcherType;
 
-    public ServletHttpIncludeRequest(HttpServletRequest source) {
+    private ServletHttpIncludeRequest(HttpServletRequest source) {
         super(source);
     }
 
-    public void setIncludePath(String includePath) {
-        this.includePath = includePath;
+    public static ServletHttpIncludeRequest newInstanceIncludePath(HttpServletRequest source,
+                                                                   String includePath, String relativePathNoQueryString, String contextPath,
+                                                                   int queryIndex, UrlMapper.Element<ServletRegistration> mapperElement,
+                                                                   DispatcherType dispatcherType) {
+        ServletHttpIncludeRequest request = new ServletHttpIncludeRequest(source);
+        request.includePath = includePath;
+        request.servletPath = mapperElement.getServletPath(relativePathNoQueryString);
+        request.contextPath = contextPath;
+        request.decodePathsQueryIndex = queryIndex;
+        request.requestURI = contextPath + relativePathNoQueryString;
+        request.mapperElement = mapperElement;
+        request.dispatcherType = dispatcherType;
+
+        if (source.getAttribute(RequestDispatcher.INCLUDE_REQUEST_URI) == null) {
+            request.specialAttributes[0] = request.getRequestURI();
+            request.specialAttributes[1] = request.getContextPath();
+            request.specialAttributes[2] = request.getServletPath();
+            request.specialAttributes[3] = request.getPathInfo();
+            request.specialAttributes[4] = request.getQueryString();
+        }
+        return request;
     }
 
-    public void setIncludeName(String includeName) {
-        this.includeName = includeName;
+    public static ServletHttpIncludeRequest newInstanceIncludeName(HttpServletRequest source,
+                                                                   String includeName,
+                                                                   String contextPath,
+                                                                   DispatcherType dispatcherType) {
+        ServletHttpIncludeRequest request = new ServletHttpIncludeRequest(source);
+        request.includeName = includeName;
+        request.pathInfo = source.getPathInfo();
+        request.queryString = source.getQueryString();
+        request.servletPath = source.getServletPath();
+        request.contextPath = contextPath;
+        request.requestURI = source.getRequestURI();
+        request.dispatcherType = dispatcherType;
+        request.parameterMap = source.getParameterMap();
+        request.decodeParameterFlag = true;
+        return request;
     }
 
     @Override
     public void setRequest(ServletRequest servletRequest) {
         throw new UnsupportedOperationException("Unsupported Method On Include setRequest ");
-    }
-
-    public void setDispatcher(ServletRequestDispatcher dispatcher) {
-        this.dispatcher = dispatcher;
     }
 
     @Override
@@ -82,13 +109,9 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
         return dispatcherType;
     }
 
-    public void setDispatcherType(DispatcherType dispatcherType) {
-        this.dispatcherType = dispatcherType;
-    }
-
     @Override
     public String getContextPath() {
-        return super.getContextPath();
+        return contextPath;
     }
 
     @Override
@@ -109,67 +132,33 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
 
     @Override
     public String getPathInfo() {
-        if (this.pathInfo == null && dispatcher != null) {
-            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
+        if (this.pathInfo == null && mapperElement != null && includePath != null) {
+            this.pathInfo = mapperElement.getPathInfo(includePath, decodePathsQueryIndex);
         }
         return pathInfo;
     }
 
     @Override
     public String getQueryString() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
+        if (queryString == null && includePath != null && decodePathsQueryIndex != -1) {
+            this.queryString = includePath.substring(decodePathsQueryIndex + 1);
         }
-        if (!getQueryStringFlag) {
-            if (decodePathsQueryIndex != -1) {
-                this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
-            }
-            getQueryStringFlag = true;
-        }
-        return this.queryString;
+        return queryString;
     }
 
     @Override
     public String getRequestURI() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
-        if (!getRequestURIFlag) {
-            if (decodePathsQueryIndex == -1) {
-                this.requestURI = includePath;
-            } else {
-                this.requestURI = includePath.substring(0, decodePathsQueryIndex);
-            }
-            getRequestURIFlag = true;
-        }
         return this.requestURI;
     }
 
     @Override
     public String getServletPath() {
-        if (this.servletPath == null) {
-            this.servletPath = getServletContext().getServletPath(getRequestURI());
-        }
-        return this.servletPath;
+        return servletPath;
     }
 
     @Override
     public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return (com.github.netty.protocol.servlet.ServletContext) super.getServletContext();
-    }
-
-    public void setPaths(String pathInfo, String queryString, String requestURI, String servletPath) {
-        this.pathInfo = pathInfo;
-        this.queryString = queryString;
-        this.requestURI = requestURI;
-        this.servletPath = servletPath;
-        this.decodePathsFlag = true;
     }
 
     @Override
@@ -206,11 +195,6 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
         return parameterMap;
     }
 
-    public void setParameterMap(Map<String, String[]> parameterMap) {
-        this.parameterMap = parameterMap;
-        this.decodeParameterFlag = true;
-    }
-
     @Override
     public String getParameter(String name) {
         String[] values = getParameterMap().get(name);
@@ -226,25 +210,15 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
     }
 
     /**
-     * Parsing path
-     */
-    private int decodePaths() {
-        String requestURI = includePath;
-        int decodePathsQueryIndex = requestURI == null ? -1 : requestURI.indexOf('?');
-        this.decodePathsQueryIndex = decodePathsQueryIndex;
-        this.decodePathsFlag = true;
-        return decodePathsQueryIndex;
-    }
-
-    /**
      * Parse forward parameter
      */
     private void decodeParameter() {
         Map<String, String[]> sourceParameterMap = super.getParameterMap();
         Map<String, String[]> parameterMap = new LinkedHashMap<>(sourceParameterMap);
-        Charset charset = Charset.forName(getCharacterEncoding());
-        ServletUtil.decodeByUrl(parameterMap, includePath, charset);
-
+        if (decodePathsQueryIndex != -1) {
+            Charset charset = Charset.forName(getCharacterEncoding());
+            ServletUtil.decodeByUrl(parameterMap, includePath, charset);
+        }
         this.parameterMap = Collections.unmodifiableMap(parameterMap);
         this.decodeParameterFlag = true;
     }

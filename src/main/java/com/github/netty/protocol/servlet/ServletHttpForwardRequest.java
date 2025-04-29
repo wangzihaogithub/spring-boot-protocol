@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet;
 
 import com.github.netty.protocol.servlet.util.HttpConstants;
 import com.github.netty.protocol.servlet.util.ServletUtil;
+import com.github.netty.protocol.servlet.util.UrlMapper;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.RequestDispatcher;
@@ -39,36 +40,61 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
     private String queryString = null;
     private String requestURI = null;
     private String servletPath = null;
-    private ServletRequestDispatcher dispatcher;
+    private UrlMapper.Element<ServletRegistration> mapperElement;
     private Map<String, String[]> parameterMap = null;
-    private boolean decodePathsFlag = false;
     private boolean decodeParameterFlag = false;
-    private boolean getQueryStringFlag = false;
-    private boolean getRequestURIFlag = false;
-    private int decodePathsQueryIndex;
+    private int decodePathsQueryIndex = -1;
     private String forwardPath;
     private String forwardName;
+    private String contextPath;
     private DispatcherType dispatcherType;
 
-    public ServletHttpForwardRequest(HttpServletRequest source) {
+    private ServletHttpForwardRequest(HttpServletRequest source) {
         super(source);
     }
 
-    public void setForwardPath(String forwardPath) {
-        this.forwardPath = forwardPath;
+    public static ServletHttpForwardRequest newInstanceForwardPath(HttpServletRequest source, String forwardPath,
+                                                                   String relativePathNoQueryString, String contextPath, int queryIndex,
+                                                                   UrlMapper.Element<ServletRegistration> mapperElement,
+                                                                   DispatcherType dispatcherType) {
+        ServletHttpForwardRequest request = new ServletHttpForwardRequest(source);
+        request.forwardPath = forwardPath;
+        request.servletPath = mapperElement.getServletPath(relativePathNoQueryString);
+        request.contextPath = contextPath;
+        request.decodePathsQueryIndex = queryIndex;
+        request.dispatcherType = dispatcherType;
+        request.mapperElement = mapperElement;
+        request.requestURI = contextPath + relativePathNoQueryString;
+
+        //According to the path
+        if (source.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI) == null) {
+            request.specialAttributes[0] = source.getRequestURI();
+            request.specialAttributes[1] = source.getContextPath();
+            request.specialAttributes[2] = source.getServletPath();
+            request.specialAttributes[3] = source.getPathInfo();
+            request.specialAttributes[4] = source.getQueryString();
+        }
+        return request;
     }
 
-    public void setForwardName(String forwardName) {
-        this.forwardName = forwardName;
+    public static ServletHttpForwardRequest newInstanceForwardName(HttpServletRequest httpRequest, String forwardName,
+                                                                   String contextPath,
+                                                                   DispatcherType dispatcherType) {
+        ServletHttpForwardRequest request = new ServletHttpForwardRequest(httpRequest);
+        request.forwardName = forwardName;
+        request.pathInfo = httpRequest.getPathInfo();
+        request.queryString = httpRequest.getQueryString();
+        request.requestURI = httpRequest.getRequestURI();
+        request.servletPath = httpRequest.getServletPath();
+        request.parameterMap = httpRequest.getParameterMap();
+        request.dispatcherType = dispatcherType;
+        request.contextPath = contextPath;
+        return request;
     }
 
     @Override
     public void setRequest(ServletRequest servletRequest) {
         throw new UnsupportedOperationException("Unsupported Method On Forward setRequest ");
-    }
-
-    public void setDispatcher(ServletRequestDispatcher dispatcher) {
-        this.dispatcher = dispatcher;
     }
 
     @Override
@@ -82,13 +108,9 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
         return dispatcherType;
     }
 
-    public void setDispatcherType(DispatcherType dispatcherType) {
-        this.dispatcherType = dispatcherType;
-    }
-
     @Override
     public String getContextPath() {
-        return super.getContextPath();
+        return contextPath;
     }
 
     @Override
@@ -109,67 +131,33 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
 
     @Override
     public String getPathInfo() {
-        if (this.pathInfo == null && dispatcher != null) {
-            this.pathInfo = ServletRequestDispatcher.getPathInfo(dispatcher.getPath(), dispatcher.getMapperElement());
+        if (this.pathInfo == null && forwardPath != null && mapperElement != null) {
+            this.pathInfo = mapperElement.getPathInfo(forwardPath, decodePathsQueryIndex);
         }
         return this.pathInfo;
     }
 
     @Override
     public String getQueryString() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
+        if (queryString == null && forwardPath != null && decodePathsQueryIndex != -1) {
+            this.queryString = forwardPath.substring(decodePathsQueryIndex + 1);
         }
-        if (!getQueryStringFlag) {
-            if (decodePathsQueryIndex != -1) {
-                this.queryString = requestURI.substring(decodePathsQueryIndex + 1);
-            }
-            getQueryStringFlag = true;
-        }
-        return this.queryString;
+        return queryString;
     }
 
     @Override
     public String getRequestURI() {
-        int decodePathsQueryIndex;
-        if (decodePathsFlag) {
-            decodePathsQueryIndex = this.decodePathsQueryIndex;
-        } else {
-            decodePathsQueryIndex = decodePaths();
-        }
-        if (!getRequestURIFlag) {
-            if (decodePathsQueryIndex == -1) {
-                this.requestURI = forwardPath;
-            } else {
-                this.requestURI = forwardPath.substring(0, decodePathsQueryIndex);
-            }
-            getRequestURIFlag = true;
-        }
         return this.requestURI;
     }
 
     @Override
     public String getServletPath() {
-        if (this.servletPath == null) {
-            this.servletPath = getServletContext().getServletPath(getRequestURI());
-        }
-        return this.servletPath;
+        return servletPath;
     }
 
     @Override
     public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return (com.github.netty.protocol.servlet.ServletContext) super.getServletContext();
-    }
-
-    public void setPaths(String pathInfo, String queryString, String requestURI, String servletPath) {
-        this.pathInfo = pathInfo;
-        this.queryString = queryString;
-        this.requestURI = requestURI;
-        this.servletPath = servletPath;
-        this.decodePathsFlag = true;
     }
 
     @Override
@@ -223,17 +211,6 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
     @Override
     public Enumeration<String> getParameterNames() {
         return Collections.enumeration(getParameterMap().keySet());
-    }
-
-    /**
-     * Parsing path
-     */
-    private int decodePaths() {
-        String requestURI = forwardPath;
-        int decodePathsQueryIndex = requestURI == null ? -1 : requestURI.indexOf('?');
-        this.decodePathsQueryIndex = decodePathsQueryIndex;
-        this.decodePathsFlag = true;
-        return decodePathsQueryIndex;
     }
 
     /**

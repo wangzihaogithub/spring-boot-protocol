@@ -18,73 +18,60 @@ import java.io.IOException;
  */
 public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
     private static final Recycler<ServletRequestDispatcher> RECYCLER = new Recycler<>(ServletRequestDispatcher::new);
-    /**
-     * Scheduling path (mutually exclusive with name field)
-     */
-    private String path;
-    /**
-     * Scheduling servlet name (mutually exclusive with path field)
-     */
-    private String name;
+    int queryIndex;
     /**
      * Match mapping
      */
-    private UrlMapper.Element<ServletRegistration> mapperElement;
+    UrlMapper.Element<ServletRegistration> mapperElement;
     /**
      * The filter chain
      */
-    private ServletFilterChain filterChain;
+    ServletFilterChain filterChain;
+    /**
+     * url
+     * 1. no contextPath
+     * 2. exist querystring
+     */
+    String path;
+    /**
+     * url
+     * 1. no contextPath
+     * 2. no exist querystring
+     */
+    String relativePathNoQueryString;
+    String contextPath;
+    /**
+     * Scheduling servlet name (mutually exclusive with path field)
+     */
+    String name;
 
     private ServletRequestDispatcher() {
     }
 
-    public static ServletRequestDispatcher newInstance(ServletFilterChain filterChain) {
+    public static ServletRequestDispatcher newInstancePath(ServletFilterChain filterChain,
+                                                           String path,
+                                                           String contextPath,
+                                                           String relativePathNoQueryString,
+                                                           UrlMapper.Element<ServletRegistration> element,
+                                                           int queryIndex) {
         ServletRequestDispatcher instance = RECYCLER.getInstance();
         instance.filterChain = filterChain;
+        instance.mapperElement = element;
+        instance.path = path;
+        instance.relativePathNoQueryString = relativePathNoQueryString;
+        instance.contextPath = contextPath;
+        instance.queryIndex = queryIndex;
         return instance;
     }
 
-    public static String getPathInfo(String path, UrlMapper.Element<ServletRegistration> mapper) {
-        if (path == null) {
-            return null;
-        }
-        if (mapper.isAllPatternFlag() || !mapper.getRootAndPattern().endsWith("*")) {
-            return null;
-        }
-        int firstWildcardIndex = mapper.getFirstWildcardIndex();
-        if (firstWildcardIndex != -1) {
-            int begin = -1;
-            for (int i = 0; i < path.length(); i++) {
-                switch (path.charAt(i)) {
-                    case '/': {
-                        break;
-                    }
-                    case '?': {
-                        if (begin == -1) {
-                            return null;
-                        } else if (begin > i) {
-                            return null;
-                        } else {
-                            return ServletContext.normPath(path.substring(begin, i));
-                        }
-                    }
-                    default: {
-                        if (begin == -1) {
-                            begin = i + firstWildcardIndex;
-                        }
-                        break;
-                    }
-                }
-            }
-            if (begin != -1) {
-                if (begin == path.length()) {
-                    return "";
-                } else if (begin < path.length()) {
-                    return ServletContext.normPath(path.substring(begin));
-                }
-            }
-        }
-        return null;
+    public static ServletRequestDispatcher newInstanceName(ServletFilterChain filterChain,
+                                                           String name,
+                                                           String contextPath) {
+        ServletRequestDispatcher instance = RECYCLER.getInstance();
+        instance.filterChain = filterChain;
+        instance.name = name;
+        instance.contextPath = contextPath;
+        return instance;
     }
 
     /**
@@ -118,28 +105,16 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         //Pause the current response
         outWrapper.setSuspendFlag(true);
         //To the next servlet
-        ServletHttpForwardResponse forwardResponse = new ServletHttpForwardResponse(httpResponse, outWrapper.unwrap());
         // ServletHttpForwardRequest. The class will be passed on new data
-        ServletHttpForwardRequest forwardRequest = new ServletHttpForwardRequest(httpRequest);
+        ServletHttpForwardRequest forwardRequest;
 
         //According to the name
-        if (path == null) {
-            forwardRequest.setForwardName(name);
-            forwardRequest.setPaths(httpRequest.getPathInfo(), httpRequest.getQueryString(), httpRequest.getRequestURI(), httpRequest.getServletPath());
-            forwardRequest.setParameterMap(httpRequest.getParameterMap());
+        if (path != null) {
+            forwardRequest = ServletHttpForwardRequest.newInstanceForwardPath(httpRequest, path, relativePathNoQueryString, contextPath, queryIndex, mapperElement, dispatcherType);
         } else {
-            forwardRequest.setForwardPath(path);
-            //According to the path
-            if (forwardRequest.getAttribute(FORWARD_REQUEST_URI) == null) {
-                forwardRequest.setAttribute(FORWARD_REQUEST_URI, httpRequest.getRequestURI());
-                forwardRequest.setAttribute(FORWARD_CONTEXT_PATH, httpRequest.getContextPath());
-                forwardRequest.setAttribute(FORWARD_PATH_INFO, httpRequest.getPathInfo());
-                forwardRequest.setAttribute(FORWARD_QUERY_STRING, httpRequest.getQueryString());
-                forwardRequest.setAttribute(FORWARD_SERVLET_PATH, httpRequest.getServletPath());
-            }
+            forwardRequest = ServletHttpForwardRequest.newInstanceForwardName(httpRequest, name, contextPath, dispatcherType);
         }
-        forwardRequest.setDispatcherType(dispatcherType);
-        forwardRequest.setDispatcher(this);
+        ServletHttpForwardResponse forwardResponse = new ServletHttpForwardResponse(httpResponse, outWrapper.unwrap());
         try {
             dispatch(forwardRequest, forwardResponse);
         } finally {
@@ -171,29 +146,16 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
             throw new UnsupportedOperationException("Not found Original Request");
         }
 
+        // ServletHttpIncludeRequest. The class will be passed on new data
+        ServletHttpIncludeRequest includeRequest;
+        if (path != null) {
+            includeRequest = ServletHttpIncludeRequest.newInstanceIncludePath(httpRequest, path, relativePathNoQueryString, contextPath, queryIndex, mapperElement, dispatcherType);
+        } else {
+            includeRequest = ServletHttpIncludeRequest.newInstanceIncludeName(httpRequest, name, contextPath, dispatcherType);
+        }
+
         // ServletHttpIncludeResponse. The class will prohibit operation data
         ServletHttpIncludeResponse includeResponse = new ServletHttpIncludeResponse(httpResponse);
-        // ServletHttpIncludeRequest. The class will be passed on new data
-        ServletHttpIncludeRequest includeRequest = new ServletHttpIncludeRequest(httpRequest);
-
-        //According to the name
-        if (path == null) {
-            includeRequest.setIncludeName(name);
-            includeRequest.setPaths(httpRequest.getPathInfo(), httpRequest.getQueryString(), httpRequest.getRequestURI(), httpRequest.getServletPath());
-            includeRequest.setParameterMap(httpRequest.getParameterMap());
-        } else {
-            includeRequest.setIncludePath(path);
-            //According to the path
-            if (includeRequest.getAttribute(INCLUDE_REQUEST_URI) == null) {
-                includeRequest.setAttribute(INCLUDE_REQUEST_URI, includeRequest.getRequestURI());
-                includeRequest.setAttribute(INCLUDE_CONTEXT_PATH, includeRequest.getContextPath());
-                includeRequest.setAttribute(INCLUDE_PATH_INFO, includeRequest.getPathInfo());
-                includeRequest.setAttribute(INCLUDE_QUERY_STRING, includeRequest.getQueryString());
-                includeRequest.setAttribute(INCLUDE_SERVLET_PATH, includeRequest.getServletPath());
-            }
-        }
-        includeRequest.setDispatcherType(dispatcherType);
-        includeRequest.setDispatcher(this);
         try {
             dispatch(includeRequest, includeResponse);
         } finally {
@@ -201,27 +163,10 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
     }
 
-    /**
-     * dispatch
-     *
-     * @param request  request
-     * @param response response
-     * @throws ServletException ServletException
-     * @throws IOException      IOException
-     */
     public void dispatch(ServletRequest request, ServletResponse response) throws ServletException, IOException {
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * dispatch (asynchronous)
-     *
-     * @param request      request
-     * @param response     response
-     * @param asyncContext asyncContext
-     * @throws ServletException ServletException
-     * @throws IOException      IOException
-     */
     public void dispatchAsync(HttpServletRequest request, HttpServletResponse response, ServletAsyncContext asyncContext) throws ServletException, IOException {
         if (path == null) {
             return;
@@ -249,31 +194,13 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         //Pause the current response
         outWrapper.setSuspendFlag(true);
         //To the next servlet
+        ServletHttpAsyncRequest asyncRequest = ServletHttpAsyncRequest.newInstanceAsyncPath(httpRequest, asyncContext, path, relativePathNoQueryString, contextPath, queryIndex, mapperElement);
         ServletHttpAsyncResponse asyncResponse = new ServletHttpAsyncResponse(httpResponse, outWrapper.unwrap());
-        ServletHttpAsyncRequest asyncRequest = new ServletHttpAsyncRequest(request, asyncContext);
-        asyncRequest.setDispatchPath(path);
-        if (request.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
-            asyncRequest.setAttribute(AsyncContext.ASYNC_CONTEXT_PATH, asyncRequest.getContextPath());
-            asyncRequest.setAttribute(AsyncContext.ASYNC_PATH_INFO, asyncRequest.getPathInfo());
-            asyncRequest.setAttribute(AsyncContext.ASYNC_QUERY_STRING, asyncRequest.getQueryString());
-            asyncRequest.setAttribute(AsyncContext.ASYNC_REQUEST_URI, asyncRequest.getRequestURI());
-            asyncRequest.setAttribute(AsyncContext.ASYNC_SERVLET_PATH, asyncRequest.getServletPath());
-        }
-        asyncRequest.setDispatcher(this);
-        //Return to the task
         try {
             dispatch(asyncRequest, asyncResponse);
         } finally {
             recycle();
         }
-    }
-
-    public String getPath() {
-        return path;
-    }
-
-    public void setPath(String path) {
-        this.path = path;
     }
 
     public String getName() {
@@ -283,8 +210,8 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         return filterChain.getServletRegistration().getName();
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public String getContextPath() {
+        return contextPath;
     }
 
     public ServletFilterChain getFilterChain() {
@@ -295,16 +222,15 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         return mapperElement;
     }
 
-    void setMapperElement(UrlMapper.Element<ServletRegistration> mapperElement) {
-        this.mapperElement = mapperElement;
-    }
-
     @Override
     public void recycle() {
         if (filterChain == null) {
             return;
         }
         filterChain.recycle();
+        queryIndex = -1;
+        contextPath = null;
+        relativePathNoQueryString = null;
         path = null;
         name = null;
         mapperElement = null;
