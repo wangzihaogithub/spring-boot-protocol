@@ -101,7 +101,7 @@ public class ServletHttpIncludeRequest extends HttpServletRequestWrapper {
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
         com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
-        return servletContext.getRequestDispatcher(path, getDispatcherType());
+        return servletContext.getRequestDispatcher(path, getDispatcherType(), true);
     }
 
     @Override

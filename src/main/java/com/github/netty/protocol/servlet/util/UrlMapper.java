@@ -2,10 +2,7 @@ package com.github.netty.protocol.servlet.util;
 
 import com.github.netty.core.util.AntPathMatcher;
 
-import java.util.Collection;
-import java.util.Objects;
-import java.util.StringJoiner;
-import java.util.TreeSet;
+import java.util.*;
 
 /**
  * Url mapping
@@ -49,13 +46,12 @@ import java.util.TreeSet;
  * Created on 2017-08-25 11:32.
  */
 public class UrlMapper<T> {
-    private final AntPathMatcher antPathMatcher = new AntPathMatcher();
+    private AntPathMatcher antPathMatcher;
     private int sort = 0;
     private String rootPath = "";
-    private Collection<Element<T>> elementList = new TreeSet<>();
+    private final Collection<Element<T>> elementList = new TreeSet<>();
 
     public UrlMapper() {
-        this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
     public static void main(String[] args) {
@@ -84,13 +80,26 @@ public class UrlMapper<T> {
         elementList.clear();
     }
 
+    public void setEnableAntPathMatcher(boolean enableAntPathMatcher) {
+        if (enableAntPathMatcher) {
+            antPathMatcher = new AntPathMatcher();
+            antPathMatcher.setCachePatterns(Boolean.TRUE);
+        } else {
+            antPathMatcher = null;
+        }
+    }
+
+    public boolean isEnableAntPathMatcher() {
+        return antPathMatcher != null;
+    }
+
     public void setRootPath(String rootPath) {
         this.rootPath = rootPath;
-        Collection<Element<T>> elementList = new TreeSet<>();
-        for (Element<T> element : this.elementList) {
+        ArrayList<Element<T>> elements = new ArrayList<>(this.elementList);
+        elementList.clear();
+        for (Element<T> element : elements) {
             elementList.add(new Element<>(rootPath, element.originalPattern, element.object, element.objectName, sort++));
         }
-        this.elementList = elementList;
     }
 
     /**
@@ -105,7 +114,6 @@ public class UrlMapper<T> {
         Objects.requireNonNull(urlPattern);
         Objects.requireNonNull(object);
         Objects.requireNonNull(objectName);
-        Collection<Element<T>> elementList = this.elementList;
         for (Element element : elementList) {
             if (element.objectName.equals(objectName)) {
                 throw new IllegalArgumentException("The [" + objectName + "] mapping exist!");
@@ -117,16 +125,16 @@ public class UrlMapper<T> {
     /**
      * getMappingObjectByRelativeUri
      *
-     * @param contextRelativeRequestPath contextRelativeRequestPath
+     * @param relativePathNoQueryString contextRelativeRequestPath
      * @return T object
      */
-    public Element<T> getMappingObjectByServletPath(String contextRelativeRequestPath) {
+    public Element<T> getMappingObjectByServletPath(String relativePathNoQueryString) {
         Collection<Element<T>> elementList = this.elementList;
+        AntPathMatcher antPathMatcher = this.antPathMatcher;
         for (Element<T> element : elementList) {
-            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, contextRelativeRequestPath)) {
+            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, relativePathNoQueryString)) {
                 return element;
-            }
-            if (antPathMatcher.match(element.normOriginalPattern, contextRelativeRequestPath, "*")) {
+            } else if (antPathMatcher != null && antPathMatcher.match(element.normOriginalPattern, relativePathNoQueryString, "*")) {
                 return element;
             }
         }

@@ -135,7 +135,7 @@ public class ServletErrorPageManager {
         if (errorPagePath == null || errorPagePath.isEmpty()) {
             return;
         }
-        ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath, DispatcherType.ERROR);
+        ServletRequestDispatcher dispatcher = request.getServletContext().getRequestDispatcher(errorPagePath, DispatcherType.ERROR, true);
         try {
             response.resetBuffer();
         } catch (IllegalStateException e) {
@@ -165,7 +165,7 @@ public class ServletErrorPageManager {
                     httpServletRequest.setAttribute(RequestDispatcher.ERROR_MESSAGE, localizedMessage);
                 }
             }
-            httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME, dispatcher.getName());
+            httpServletRequest.setAttribute(RequestDispatcher.ERROR_SERVLET_NAME, request.dispatcher.getName());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_REQUEST_URI, request.getRequestURI());
             httpServletRequest.setAttribute(RequestDispatcher.ERROR_STATUS_CODE, response.getStatus());
             request.setDispatcherType(DispatcherType.ERROR);
@@ -177,7 +177,7 @@ public class ServletErrorPageManager {
                 response.resetBuffer(true);
                 dispatcher.forward(request, httpServletResponse, DispatcherType.ERROR);
 
-                response.getOutputStream().setSuspendFlag(false);
+                response.outputStream.setSuspendFlag(false);
             }
         } catch (Throwable e) {
             logger.warn("on handleErrorPage error. url=" + request.getRequestURL() + ", case=" + e.getMessage(), e);

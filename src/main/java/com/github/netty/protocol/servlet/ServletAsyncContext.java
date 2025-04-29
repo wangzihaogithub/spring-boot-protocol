@@ -59,7 +59,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     /**
      * Timeout time -> ms
      */
-    private long timeout;
+    long timeout;
     private List<ServletAsyncListenerWrapper> asyncListenerWrapperList;
     private final Runnable timeoutTask = () -> {
         //Notice the timeout
@@ -84,15 +84,16 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
             }
         }
     };
-    private ServletRequest servletRequest;
-    private ServletResponse servletResponse;
+    ServletRequest servletRequest;
+    ServletResponse servletResponse;
     private /*volatile*/ Integer timeoutTaskId;
     private /*volatile*/ long startTimestamp;
 
-    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor) {
+    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor, long timeout) {
         this.servletHttpExchange = Objects.requireNonNull(servletHttpExchange);
         this.servletContext = Objects.requireNonNull(servletContext);
         this.executor = Objects.requireNonNull(executor);
+        this.timeout = timeout;
     }
 
     public ServletContext getServletContext() {
@@ -116,14 +117,6 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     @Override
     public boolean hasOriginalRequestAndResponse() {
         return servletHttpExchange.request == servletRequest && servletHttpExchange.response == servletResponse;
-    }
-
-    public void setServletResponse(ServletResponse servletResponse) {
-        this.servletResponse = servletResponse;
-    }
-
-    public void setServletRequest(ServletRequest servletRequest) {
-        this.servletRequest = servletRequest;
     }
 
     @Override
@@ -167,7 +160,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
             httpServletResponse = servletHttpExchange.response;
         }
 
-        ServletRequestDispatcher dispatcher = ctx.getRequestDispatcher(path, DispatcherType.ASYNC);
+        ServletRequestDispatcher dispatcher = ctx.getRequestDispatcher(path, DispatcherType.ASYNC, true);
         if (dispatcher == null) {
             throw new UnsupportedOperationException("The dispatcher returned from the ServletContext does not support asynchronous dispatching");
         }

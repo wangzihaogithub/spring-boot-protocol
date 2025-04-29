@@ -89,6 +89,8 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
         InetSocketAddress address = NettyTcpServerFactory.getServerSocketAddress(webServerFactory.getAddress(), webServerFactory.getPort());
         //Server port
         servletContext.setServerAddress(address);
+        servletContext.setEnableUrlServletAntPathMatcher(httpServlet.isEnableUrlServletAntPathMatcher());
+        servletContext.setEnableUrlFilterAntPathMatcher(httpServlet.isEnableUrlFilterAntPathMatcher());
         servletContext.setMapperContextRootRedirectEnabled(httpServlet.isMapperContextRootRedirectEnabled());
         servletContext.setUseRelativeRedirects(httpServlet.isUseRelativeRedirects());
         servletContext.setEnableLookupFlag(httpServlet.isEnableNsLookup());

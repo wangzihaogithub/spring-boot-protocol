@@ -192,7 +192,7 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     }
 
     public InetSocketAddress getServerAddress() {
-        return servletContext.getServerAddress();
+        return servletContext.serverAddress;
     }
 
     public InetSocketAddress getLocalAddress() {
@@ -253,18 +253,14 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     public boolean isAsyncStartIng() {
         ServletHttpServletRequest request = this.request;
         if (request != null) {
-            ServletAsyncContext asyncContext = request.getAsyncContext();
+            ServletAsyncContext asyncContext = request.asyncContext;
             return asyncContext != null && asyncContext.isStarted() && !asyncContext.isComplete();
         }
         return false;
     }
 
     public ServletAsyncContext getAsyncContext() {
-        ServletHttpServletRequest request = getRequest();
-        if (request != null) {
-            return request.getAsyncContext();
-        }
-        return null;
+        return request != null ? request.asyncContext : null;
     }
 
     public void abort() {

@@ -1,6 +1,5 @@
 package com.github.netty.protocol.servlet;
 
-import javax.servlet.ServletResponse;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
@@ -234,11 +233,6 @@ public class ServletHttpIncludeResponse extends HttpServletResponseWrapper {
     @Override
     public void setStatus(int sc, String msg) {
 
-    }
-
-    @Override
-    public void setResponse(ServletResponse response) {
-        super.setResponse(response);
     }
 
 }

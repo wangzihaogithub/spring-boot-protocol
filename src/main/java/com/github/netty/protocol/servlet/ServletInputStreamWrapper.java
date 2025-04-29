@@ -54,14 +54,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private final AtomicBoolean onDataAvailableFlag = new AtomicBoolean();
     private final AtomicBoolean receivedContentLengthFileSizeThresholdFlag = new AtomicBoolean();
     private final String identityName = getClass().getSimpleName() + System.identityHashCode(this) + "_";
-    private ServletHttpExchange httpExchange;
+    ServletHttpExchange httpExchange;
     private CompositeByteBuf source;
-    private long fileUploadTimeoutMs;
-    private int fileSizeThreshold;
+    long fileUploadTimeoutMs;
+    int fileSizeThreshold;
     boolean needCloseClient;
     private volatile ReadListener readListener;
     private volatile DecoderException decoderException;
-    private volatile long contentLength;
+    volatile long contentLength;
     private volatile boolean receiveDataTimeout;
     private volatile boolean receivedLastHttpContent;
     private volatile FileInputStream uploadFileInputStream;
@@ -93,16 +93,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.uploadDir = uploadDir;
     }
 
-    void setFileSizeThreshold(int fileSizeThreshold) {
-        this.fileSizeThreshold = fileSizeThreshold;
-    }
-
     public long getContentLength() {
         return contentLength;
-    }
-
-    void setContentLength(long contentLength) {
-        this.contentLength = contentLength;
     }
 
     void onMessage(HttpContent httpContent) {
@@ -538,14 +530,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
-    boolean isNeedCloseClient() {
-        return needCloseClient;
-    }
-
-    void setHttpExchange(ServletHttpExchange httpExchange) {
-        this.httpExchange = httpExchange;
-    }
-
     private void checkClosed() throws IOException {
         if (closed.get()) {
             throw new IOException("Stream closed");
@@ -597,10 +581,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     public long getFileUploadTimeoutMs() {
         return fileUploadTimeoutMs;
-    }
-
-    void setFileUploadTimeoutMs(long fileUploadTimeoutMs) {
-        this.fileUploadTimeoutMs = fileUploadTimeoutMs;
     }
 
     public int getUploadFileCount() {

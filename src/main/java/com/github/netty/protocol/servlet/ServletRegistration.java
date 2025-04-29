@@ -20,8 +20,8 @@ public class ServletRegistration implements javax.servlet.ServletRegistration, j
     private final ServletConfig servletConfig;
     private final ServletContext servletContext;
     private final UrlMapper<ServletRegistration> urlMapper;
-    private MultipartConfigElement multipartConfigElement;
-    private ServletSecurityElement servletSecurityElement;
+    MultipartConfigElement multipartConfigElement;
+    ServletSecurityElement servletSecurityElement;
     private String roleName;
     boolean asyncSupported = true;
     private int loadOnStartup = -1;

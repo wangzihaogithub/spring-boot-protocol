@@ -313,7 +313,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * @throws ClosedChannelException
      */
     protected void checkClosed() throws IOException {
-        if (isClosed()) {
+        if (isClosed.get()) {
             throw new IOException("Stream closed");
         }
         ServletHttpExchange exchange = this.servletHttpExchange;
@@ -326,7 +326,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
      * Reset buffer
      */
     protected void resetBuffer() {
-        if (isClosed()) {
+        if (isClosed.get()) {
             return;
         }
         ServletHttpExchange exchange = getServletHttpExchange();
@@ -371,7 +371,7 @@ public class ServletOutputStream extends javax.servlet.ServletOutputStream imple
 
     @Override
     public <T> void recycle(Consumer<T> consumer) {
-        if (isClosed()) {
+        if (isClosed.get()) {
             return;
         }
         this.closeListenerWrapper.addRecycleConsumer(consumer);

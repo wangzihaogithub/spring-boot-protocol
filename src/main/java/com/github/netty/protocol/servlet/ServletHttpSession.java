@@ -99,8 +99,11 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 
     @Override
     public Object getAttribute(String name) {
-        Object value = getAttributeMap().get(name);
-        return value;
+        Map<String, Object> attributeMap = this.attributeMap;
+        if (attributeMap == null) {
+            return null;
+        }
+        return attributeMap.get(name);
     }
 
     @Override
@@ -110,18 +113,27 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 
     @Override
     public Enumeration<String> getAttributeNames() {
-        return Collections.enumeration(getAttributeMap().keySet());
+        Map<String, Object> attributeMap = this.attributeMap;
+        if (attributeMap == null) {
+            return Collections.emptyEnumeration();
+        }
+        return Collections.enumeration(attributeMap.keySet());
     }
 
     @Override
     public String[] getValueNames() {
-        return getAttributeMap().keySet().toArray(new String[getAttributeMap().size()]);
+        Map<String, Object> attributeMap = this.attributeMap;
+        if (attributeMap == null) {
+            return new String[0];
+        }
+        return attributeMap.keySet().toArray(new String[getAttributeMap().size()]);
     }
 
     @Override
     public void setAttribute(String name, Object value) {
-        Objects.requireNonNull(name);
-
+        if (name == null) {
+            throw new IllegalArgumentException("setAttribute: name parameter cannot be null");
+        }
         if (value == null) {
             removeValue(name);
             return;
@@ -133,7 +145,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
             httpSessionBindingListenerList.add((HttpSessionBindingListener) value);
         }
 
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasHttpSessionAttributeListener()) {
             listenerManager.onHttpSessionAttributeAdded(new HttpSessionBindingEvent(this, name, value));
             if (oldValue != null) {
@@ -169,6 +181,9 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
 
     @Override
     public void removeAttribute(String name) {
+        if (name == null) {
+            return;
+        }
         Object oldValue = getAttributeMap().remove(name);
 
         if (oldValue instanceof HttpSessionBindingListener) {
@@ -178,7 +193,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     }
 
     private void onRemoveAttribute(String name, Object oldValue) {
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasHttpSessionAttributeListener()) {
             listenerManager.onHttpSessionAttributeRemoved(new HttpSessionBindingEvent(this, name, oldValue));
         }
@@ -203,11 +218,11 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
     }
 
     public void invalidate0() {
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasHttpSessionListener()) {
             listenerManager.onHttpSessionDestroyed(new HttpSessionEvent(this));
         }
-
+        Map<String, Object> attributeMap = this.attributeMap;
         if (attributeMap != null) {
             for (String key : attributeMap.keySet()) {
                 Object oldValue = attributeMap.remove(key);
@@ -217,7 +232,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
             }
             httpSessionBindingListenerList.clear();
             attributeMap.clear();
-            attributeMap = null;
+            this.attributeMap = null;
         }
         maxInactiveInterval = -1;
     }
@@ -226,7 +241,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         if (!httpSessionBindingListenerList.isEmpty()) {
             return true;
         }
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasHttpSessionListener()) {
             return true;
         }
@@ -253,7 +268,7 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         if (isNew()) {
             currAccessedTime = System.currentTimeMillis();
             lastAccessedTime = currAccessedTime;
-            ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+            ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
             if (listenerManager.hasHttpSessionListener()) {
                 listenerManager.onHttpSessionCreated(new HttpSessionEvent(this));
             }
@@ -269,7 +284,8 @@ public class ServletHttpSession implements HttpSession, Wrapper<Session> {
         this.source = source;
 
         this.id = source.getId();
-        this.attributeMap = source.getAttributeMap();
+        Map<String, Object> attributeMap = source.getAttributeMap();
+        this.attributeMap = attributeMap;
         this.creationTime = source.getCreationTime();
         this.lastAccessedTime = source.getLastAccessedTime();
         //Unit seconds

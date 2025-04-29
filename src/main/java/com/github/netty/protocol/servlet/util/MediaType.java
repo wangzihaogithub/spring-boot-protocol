@@ -2,6 +2,7 @@ package com.github.netty.protocol.servlet.util;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -20,6 +21,7 @@ public class MediaType {
      * Default document encoding
      */
     public static final String DEFAULT_DOCUMENT_CHARACTER_ENCODING = "ISO-8859-1";
+    public static final Charset DEFAULT_DOCUMENT_CHARACTER_ENCODING_CHARSET = Charset.forName("ISO-8859-1");
     private static final String CHARSET = "charset";
     private static MediaTypeCache MEDIA_TYPE_CACHE;
     private final String type;
@@ -35,7 +37,7 @@ public class MediaType {
         this.parameters = parameters;
 
         String cs = parameters.get(CHARSET);
-        if (cs != null && cs.length() > 0 && cs.charAt(0) == '"') {
+        if (cs != null && !cs.isEmpty() && cs.charAt(0) == '"') {
             cs = HttpParser.unquote(cs);
         }
         this.charset = cs;

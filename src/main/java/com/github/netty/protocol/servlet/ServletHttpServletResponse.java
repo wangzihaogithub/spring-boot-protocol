@@ -8,7 +8,6 @@ import com.github.netty.protocol.servlet.util.MediaType;
 import com.github.netty.protocol.servlet.util.ServletUtil;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpResponseStatus;
 
 import javax.servlet.SessionTrackingMode;
@@ -32,11 +31,11 @@ import java.util.function.Consumer;
  */
 public class ServletHttpServletResponse implements javax.servlet.http.HttpServletResponse, Recyclable {
     private static final Recycler<ServletHttpServletResponse> RECYCLER = new Recycler<>(ServletHttpServletResponse::new);
-    private final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
+    final ServletOutputStreamWrapper outputStream = new ServletOutputStreamWrapper(new CloseListener());
     final NettyHttpResponse nettyResponse = new NettyHttpResponse();
     final List<Cookie> cookies = new ArrayList<>();
     private final AtomicInteger errorState = new AtomicInteger(0);
-    private ServletHttpExchange servletHttpExchange;
+    ServletHttpExchange servletHttpExchange;
     private PrintWriter writer;
     String contentType;
     String characterEncoding;
@@ -140,7 +139,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return false;
         }
 
-        String contextPath = context.getContextPath();
+        String contextPath = context.contextPath;
         if (contextPath != null && !contextPath.isEmpty()) {
             String file = url.getFile();
             if (!file.startsWith(contextPath)) {
@@ -181,7 +180,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     /**
      * Servlet response
      *
-     * @throws IllegalStateException
+     * @throws IllegalStateException IllegalStateException
      */
     private void checkCommitted() throws IllegalStateException {
         if (isCommitted()) {
@@ -218,8 +217,8 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
     /**
      * Add header fields (only one field and one value is supported)
      *
-     * @param name
-     * @param value
+     * @param name name
+     * @param value value
      */
     private void setHeaderObject(String name, Object value) {
         if (name == null || name.isEmpty() || value == null) {
@@ -237,14 +236,14 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
                 return;
             }
         }
-        getNettyHeaders().set(nameCharSequence, value);
+        nettyResponse.headers().set(nameCharSequence, value);
     }
 
     /**
      * Add header fields (support multiple values for one field)
      *
-     * @param name
-     * @param value
+     * @param name name
+     * @param value value
      */
     private void addHeaderObject(String name, Object value) {
         if (name == null || name.isEmpty() || value == null) {
@@ -262,11 +261,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             }
         }
 
-        getNettyHeaders().add(nameCharSequence, value);
-    }
-
-    private HttpHeaders getNettyHeaders() {
-        return nettyResponse.headers();
+        nettyResponse.headers().add(nameCharSequence, value);
     }
 
     @Override
@@ -288,7 +283,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return url;
         }
 
-        ServletHttpServletRequest request = servletHttpExchange.getRequest();
+        ServletHttpServletRequest request = servletHttpExchange.request;
         if (isEncodeable(absolute, request)) {
             String encodeURL;
             // W3c spec clearly said
@@ -387,23 +382,23 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
         CharSequence locationUri;
         // Relative redirects require HTTP/1.1 or later
         ServletContext servletContext = servletHttpExchange.servletContext;
-        if (servletHttpExchange.getRequest().isSupportsRelativeRedirects() && servletContext.isUseRelativeRedirects()) {
+        if (servletHttpExchange.request.isSupportsRelativeRedirects() && servletContext.useRelativeRedirects) {
             locationUri = location;
         } else {
             locationUri = location == null ? null : toAbsolute(location.toString());
         }
-        getNettyHeaders().set(HttpHeaderConstants.LOCATION, locationUri);
+        nettyResponse.headers().set(HttpHeaderConstants.LOCATION, locationUri);
         commitFlag = true;
     }
 
     private CharSequence toAbsolute(String location) {
         boolean leadingSlash;
         if (location.startsWith("//")) {
-            ServletHttpServletRequest request = servletHttpExchange.getRequest();
-            // Scheme relative
-            StringBuilder redirectURLCC = new StringBuilder();
+            ServletHttpServletRequest request = servletHttpExchange.request;
             // Add the scheme
             String scheme = request.getScheme();
+            // Scheme relative
+            StringBuilder redirectURLCC = new StringBuilder(scheme.length() + 1 + location.length());
             redirectURLCC.append(scheme, 0, scheme.length());
             redirectURLCC.append(':');
             redirectURLCC.append(location, 0, location.length());
@@ -559,17 +554,21 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
             return writer;
         }
 
-        String characterEncoding = getCharacterEncoding();
+        Charset charset;
         if (characterEncoding == null || characterEncoding.isEmpty()) {
-            if (MediaType.isHtmlType(getContentType())) {
+            if (MediaType.isHtmlType(contentType)) {
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
+                charset = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING_CHARSET;
             } else {
-                characterEncoding = servletHttpExchange.servletContext.getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.servletContext.responseCharacterEncoding;
+                charset = servletHttpExchange.servletContext.responseCharacterEncodingCharset;
             }
             setCharacterEncoding(characterEncoding);
+        } else {
+            charset = Charset.forName(characterEncoding);
         }
 
-        writer = new ServletPrintWriter(getOutputStream(), Charset.forName(characterEncoding));
+        writer = new ServletPrintWriter(outputStream, charset);
         return writer;
     }
 
@@ -593,7 +592,7 @@ public class ServletHttpServletResponse implements javax.servlet.http.HttpServle
 
     @Override
     public void flushBuffer() throws IOException {
-        getOutputStream().flush();
+        outputStream.flush();
     }
 
     @Override

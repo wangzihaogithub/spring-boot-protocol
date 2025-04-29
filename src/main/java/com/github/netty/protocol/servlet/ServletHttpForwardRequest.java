@@ -68,11 +68,11 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
 
         //According to the path
         if (source.getAttribute(RequestDispatcher.FORWARD_REQUEST_URI) == null) {
-            request.specialAttributes[0] = source.getRequestURI();
-            request.specialAttributes[1] = source.getContextPath();
-            request.specialAttributes[2] = source.getServletPath();
-            request.specialAttributes[3] = source.getPathInfo();
-            request.specialAttributes[4] = source.getQueryString();
+            request.specialAttributes[0] = request.getRequestURI();
+            request.specialAttributes[1] = request.getContextPath();
+            request.specialAttributes[2] = request.getServletPath();
+            request.specialAttributes[3] = request.getPathInfo();
+            request.specialAttributes[4] = request.getQueryString();
         }
         return request;
     }
@@ -100,7 +100,7 @@ public class ServletHttpForwardRequest extends HttpServletRequestWrapper {
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
         com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
-        return servletContext.getRequestDispatcher(path, getDispatcherType());
+        return servletContext.getRequestDispatcher(path, getDispatcherType(), true);
     }
 
     @Override

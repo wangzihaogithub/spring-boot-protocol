@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.Charset;
 import java.security.Principal;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
@@ -33,6 +34,7 @@ import java.util.function.Supplier;
  * 2018/7/15/015
  */
 public class ServletHttpServletRequest implements HttpServletRequest, Recyclable {
+    private static final Map<String, Locale> LOCALE_CACHE_MAP = new ConcurrentHashMap<>(6);
     private static final Recycler<ServletHttpServletRequest> RECYCLER = new Recycler<>(ServletHttpServletRequest::new);
     private static final Locale[] DEFAULT_LOCALS = {Locale.getDefault()};
     private static final Map<String, ResourceManager> RESOURCE_MANAGER_MAP = new HashMap<>(2);
@@ -130,9 +132,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     private String characterEncoding;
     private String sessionId;
     private SessionTrackingMode sessionIdSource;
-    private MultipartConfigElement multipartConfigElement;
-    private ServletSecurityElement servletSecurityElement;
-    private ServletRequestDispatcher dispatcher;
+    MultipartConfigElement multipartConfigElement;
+    ServletSecurityElement servletSecurityElement;
+    ServletRequestDispatcher dispatcher;
     private volatile ResourceManager resourceManager;
     private final Supplier<ResourceManager> resourceManagerSupplier = () -> {
         if (resourceManager == null) {
@@ -223,19 +225,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         instance.inputStream.wrap(exchange.channelHandlerContext.alloc().compositeBuffer(Integer.MAX_VALUE));
-        instance.inputStream.setHttpExchange(exchange);
-        instance.inputStream.setFileSizeThreshold(instance.getFileSizeThreshold());
-        instance.inputStream.setFileUploadTimeoutMs(exchange.servletContext.getUploadFileTimeoutMs());
-        instance.inputStream.setContentLength(contentLength);
+        instance.inputStream.httpExchange = exchange;
+        instance.inputStream.fileSizeThreshold = instance.getFileSizeThreshold();
+        instance.inputStream.fileUploadTimeoutMs = exchange.servletContext.uploadFileTimeoutMs;
+        instance.inputStream.contentLength = contentLength;
         return instance;
-    }
-
-    void setMultipartConfigElement(MultipartConfigElement multipartConfigElement) {
-        this.multipartConfigElement = multipartConfigElement;
-    }
-
-    void setServletSecurityElement(ServletSecurityElement servletSecurityElement) {
-        this.servletSecurityElement = servletSecurityElement;
     }
 
     void setDispatcher(ServletRequestDispatcher dispatcher) {
@@ -253,7 +247,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (multipartConfigElement != null) {
             fileSizeThreshold = Math.max(multipartConfigElement.getFileSizeThreshold(), ServletContext.MIN_FILE_SIZE_THRESHOLD);
         } else {
-            fileSizeThreshold = Math.max((int) getServletContext().getFileSizeThreshold(), ServletContext.MIN_FILE_SIZE_THRESHOLD);
+            fileSizeThreshold = httpExchange.servletContext.fileSizeThreshold;
         }
         return fileSizeThreshold;
     }
@@ -326,31 +320,22 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
             for (int i = 0; i < length; i++) {
                 String value = values[i];
                 String[] valueSp = value.split(";", 2);
+                String localeKey;
                 Locale locale;
                 if (valueSp.length > 0) {
-                    locale = Locale.forLanguageTag(valueSp[0]);
+                    localeKey = valueSp[0];
                 } else {
-                    locale = Locale.forLanguageTag(value);
+                    localeKey = value;
                 }
+                locale = LOCALE_CACHE_MAP.computeIfAbsent(localeKey, Locale::forLanguageTag);
                 locales[i] = locale;
             }
         }
         this.locales = locales;
     }
 
-    /**
-     * Parsing coding
-     */
-    private void decodeCharacterEncoding() {
-        String characterEncoding = ServletUtil.decodeCharacterEncoding(getContentType());
-        if (characterEncoding == null) {
-            characterEncoding = getServletContext().getRequestCharacterEncoding();
-        }
-        this.characterEncoding = characterEncoding;
-    }
-
     private HttpDataFactory getHttpDataFactory(Charset charset) {
-        HttpDataFactory factory = getServletContext().getHttpDataFactory(charset);
+        HttpDataFactory factory = httpExchange.servletContext.getHttpDataFactory(charset);
         if (multipartConfigElement != null) {
             factory.setMaxLimit(multipartConfigElement.getMaxFileSize());
         }
@@ -460,7 +445,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
      * qualified name of the client
      */
     private void decodeRemoteHost() {
-        if (getServletContext().isEnableLookupFlag()) {
+        if (httpExchange.servletContext.enableLookupFlag) {
             InetSocketAddress inetSocketAddress = httpExchange.getRemoteAddress();
             if (inetSocketAddress == null) {
                 throw new IllegalStateException("request invalid");
@@ -967,7 +952,11 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getCharacterEncoding() {
         if (characterEncoding == null) {
-            decodeCharacterEncoding();
+            String characterEncoding = ServletUtil.decodeCharacterEncoding(getContentType());
+            if (characterEncoding == null) {
+                characterEncoding = httpExchange.servletContext.requestCharacterEncoding;
+            }
+            this.characterEncoding = characterEncoding;
         }
         return characterEncoding;
     }
@@ -979,12 +968,12 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public int getContentLength() {
-        return (int) getContentLengthLong();
+        return (int) inputStream.contentLength;
     }
 
     @Override
     public long getContentLengthLong() {
-        return inputStream.getContentLength();
+        return inputStream.contentLength;
     }
 
     @Override
@@ -1148,7 +1137,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         Object oldObject = attributeMap.put(name, object);
 
         ServletContext servletContext = httpExchange.servletContext;
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasServletRequestAttributeListener()) {
             listenerManager.onServletRequestAttributeAdded(new ServletRequestAttributeEvent(servletContext, this, name, object));
             if (oldObject != null) {
@@ -1162,7 +1151,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         Object oldObject = attributeMap.remove(name);
 
         ServletContext servletContext = httpExchange.servletContext;
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
         if (listenerManager.hasServletRequestAttributeListener()) {
             listenerManager.onServletRequestAttributeRemoved(new ServletRequestAttributeEvent(servletContext, this, name, oldObject));
         }
@@ -1210,7 +1199,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return httpExchange.servletContext.getRequestDispatcher(path, getDispatcherType());
+        return httpExchange.servletContext.getRequestDispatcher(path, getDispatcherType(), true);
     }
 
     @Override
@@ -1251,11 +1240,10 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
         ServletContext servletContext = httpExchange.servletContext;
         if (asyncContext == null) {
-            asyncContext = new ServletAsyncContext(httpExchange, servletContext, servletContext.getExecutor());
-            asyncContext.setTimeout(servletContext.getAsyncTimeout());
+            asyncContext = new ServletAsyncContext(httpExchange, servletContext, servletContext.getExecutor(), servletContext.getAsyncTimeout());
         }
-        asyncContext.setServletRequest(servletRequest);
-        asyncContext.setServletResponse(servletResponse);
+        asyncContext.servletRequest = servletRequest;
+        asyncContext.servletResponse = servletResponse;
         asyncContext.setStart();
         return asyncContext;
     }
@@ -1293,7 +1281,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
     @Override
     public String getPathTranslated() {
         ServletContext servletContext = httpExchange.servletContext;
-        String contextPath = servletContext.getContextPath();
+        String contextPath = servletContext.contextPath;
         if (contextPath == null || contextPath.isEmpty()) {
             return null;
         }
@@ -1359,18 +1347,16 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                 decodeBody();
             } catch (CodecException e) {
                 Throwable cause = getCause(e);
+                setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
                 if (cause instanceof IOException) {
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
                     setAttribute(RequestDispatcher.ERROR_EXCEPTION, cause);
                     throw (IOException) cause;
                 } else if (cause instanceof IllegalStateException) {
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
                     setAttribute(RequestDispatcher.ERROR_EXCEPTION, cause);
                     throw (IllegalStateException) cause;
                 } else if (cause instanceof IllegalArgumentException) {
                     IllegalStateException illegalStateException = new IllegalStateException("HttpServletRequest.getParts() -> decodeFile() fail : " + cause.getMessage(), cause);
                     illegalStateException.setStackTrace(cause.getStackTrace());
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
                     setAttribute(RequestDispatcher.ERROR_EXCEPTION, illegalStateException);
                     throw illegalStateException;
                 } else {
@@ -1382,7 +1368,6 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
                         servletException = new ServletException("HttpServletRequest.getParts() -> decodeFile() fail : " + e.getMessage(), e);
                         servletException.setStackTrace(e.getStackTrace());
                     }
-                    setAttribute(RequestDispatcher.ERROR_STATUS_CODE, HttpServletResponse.SC_BAD_REQUEST);
                     setAttribute(RequestDispatcher.ERROR_EXCEPTION, servletException);
                     throw servletException;
                 }

@@ -16,7 +16,7 @@ import java.util.Objects;
  * Created on 2017-08-25 11:32.
  */
 public class FilterMapper<T> {
-    private final AntPathMatcher antPathMatcher = new AntPathMatcher();
+    private AntPathMatcher antPathMatcher;
     private final Object lock = new Object();
     private String rootPath;
     /**
@@ -39,13 +39,25 @@ public class FilterMapper<T> {
     private int insertPoint = 0;
 
     public FilterMapper() {
-        this.antPathMatcher.setCachePatterns(Boolean.TRUE);
     }
 
     public void clear() {
         synchronized (lock) {
             array = new Element[0];
         }
+    }
+
+    public void setEnableAntPathMatcher(boolean enableAntPathMatcher) {
+        if (enableAntPathMatcher) {
+            antPathMatcher = new AntPathMatcher();
+            antPathMatcher.setCachePatterns(Boolean.TRUE);
+        } else {
+            antPathMatcher = null;
+        }
+    }
+
+    public boolean isEnableAntPathMatcher() {
+        return antPathMatcher != null;
     }
 
     /**
@@ -160,15 +172,18 @@ public class FilterMapper<T> {
      * @param relativePathNoQueryString relativePathNoQueryString
      */
     public void addMappingObjects(String relativePathNoQueryString, DispatcherType dispatcherType, List<Element<T>> list) {
+        AntPathMatcher antPathMatcher = this.antPathMatcher;
         for (Element<T> element : this.array) {
             if (element.dispatcherTypes != null && !element.dispatcherTypes.contains(dispatcherType)) {
                 continue;
             }
-            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, relativePathNoQueryString)
-                    || antPathMatcher.match(element.normOriginalPattern, relativePathNoQueryString, "*")) {
+            if (ServletUtil.matchFiltersURL(element.normOriginalPattern, relativePathNoQueryString)) {
+                list.add(element);
+            } else if (antPathMatcher != null && antPathMatcher.match(element.normOriginalPattern, relativePathNoQueryString, "*")) {
                 list.add(element);
             }
         }
+
     }
 
     public static class Element<T> {

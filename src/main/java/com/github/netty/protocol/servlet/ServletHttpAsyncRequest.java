@@ -67,11 +67,11 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
         request.mapperElement = mapperElement;
         request.requestURI = contextPath + relativePathNoQueryString;
         if (source.getAttribute(AsyncContext.ASYNC_REQUEST_URI) == null) {
-            request.specialAttributes[0] = source.getRequestURI();
-            request.specialAttributes[1] = source.getContextPath();
-            request.specialAttributes[2] = source.getServletPath();
-            request.specialAttributes[3] = source.getPathInfo();
-            request.specialAttributes[4] = source.getQueryString();
+            request.specialAttributes[0] = request.getRequestURI();
+            request.specialAttributes[1] = request.getContextPath();
+            request.specialAttributes[2] = request.getServletPath();
+            request.specialAttributes[3] = request.getPathInfo();
+            request.specialAttributes[4] = request.getQueryString();
         }
         return request;
     }
@@ -93,7 +93,7 @@ public class ServletHttpAsyncRequest extends HttpServletRequestWrapper {
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return servletAsyncContext.servletContext.getRequestDispatcher(path, getDispatcherType());
+        return servletAsyncContext.servletContext.getRequestDispatcher(path, getDispatcherType(), true);
     }
 
     @Override

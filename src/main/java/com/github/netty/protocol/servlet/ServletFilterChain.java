@@ -29,7 +29,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
     ServletRegistration servletRegistration;
     private ServletContext servletContext;
 
-//    public static final Set<Filter> FILTER_SET = new HashSet<>();
+    //    public static final Set<Filter> FILTER_SET = new HashSet<>();
 //    public static final AtomicLong SERVLET_TIME = new AtomicLong();
 //    public static final AtomicLong FILTER_TIME = new AtomicLong();
 //    private long beginTime;
@@ -53,14 +53,14 @@ public class ServletFilterChain implements FilterChain, Recyclable {
      */
     @Override
     public void doFilter(ServletRequest request, ServletResponse response) throws IOException, ServletException {
-        ServletEventListenerManager listenerManager = servletContext.getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = servletContext.servletEventListenerManager;
 
         //Initialization request
         if (pos == 0) {
             ServletHttpServletRequest httpServletRequest = ServletUtil.unWrapper(request);
             if (httpServletRequest != null) {
-                httpServletRequest.setMultipartConfigElement(servletRegistration.getMultipartConfigElement());
-                httpServletRequest.setServletSecurityElement(servletRegistration.getServletSecurityElement());
+                httpServletRequest.multipartConfigElement = servletRegistration.multipartConfigElement;
+                httpServletRequest.servletSecurityElement = servletRegistration.servletSecurityElement;
             }
         }
 

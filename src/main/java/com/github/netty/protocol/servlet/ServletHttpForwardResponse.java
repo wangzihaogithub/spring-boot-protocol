@@ -21,7 +21,7 @@ public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
 
     public ServletHttpForwardResponse(ServletHttpServletResponse response, ServletOutputStream outputStream) {
         super(response);
-        this.servletHttpExchange = response.getServletHttpExchange();
+        this.servletHttpExchange = response.servletHttpExchange;
         this.outWrapper.wrap(outputStream);
     }
 
@@ -61,7 +61,7 @@ public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
 
     @Override
     public void flushBuffer() throws IOException {
-        getOutputStream().flush();
+        outWrapper.flush();
     }
 
     @Override
@@ -71,16 +71,21 @@ public class ServletHttpForwardResponse extends HttpServletResponseWrapper {
         }
 
         String characterEncoding = getCharacterEncoding();
+        Charset charset;
         if (characterEncoding == null || characterEncoding.isEmpty()) {
             if (MediaType.isHtmlType(getContentType())) {
                 characterEncoding = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING;
+                charset = MediaType.DEFAULT_DOCUMENT_CHARACTER_ENCODING_CHARSET;
             } else {
-                characterEncoding = servletHttpExchange.servletContext.getResponseCharacterEncoding();
+                characterEncoding = servletHttpExchange.servletContext.responseCharacterEncoding;
+                charset = servletHttpExchange.servletContext.responseCharacterEncodingCharset;
             }
             setCharacterEncoding(characterEncoding);
+        } else {
+            charset = Charset.forName(characterEncoding);
         }
 
-        writer = new ServletPrintWriter(getOutputStream(), Charset.forName(characterEncoding));
+        writer = new ServletPrintWriter(outWrapper, charset);
         return writer;
     }
 

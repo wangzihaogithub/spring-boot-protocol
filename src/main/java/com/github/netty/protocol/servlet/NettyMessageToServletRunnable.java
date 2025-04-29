@@ -264,7 +264,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                         handleNotFound(servletContext, request, response);
                     }
                 } else {
-                    dispatcher = servletContext.getRequestDispatcher(relativeUri, DispatcherType.REQUEST);
+                    dispatcher = servletContext.getRequestDispatcher(relativeUri, DispatcherType.REQUEST, false);
                     if (dispatcher == null) {
                         handleNotFound(servletContext, request, response);
                     } else {

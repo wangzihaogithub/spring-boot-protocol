@@ -101,7 +101,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
 
         //Hand over control of the output stream
-        ServletOutputStreamWrapper outWrapper = httpResponse.getOutputStream();
+        ServletOutputStreamWrapper outWrapper = httpResponse.outputStream;
         //Pause the current response
         outWrapper.setSuspendFlag(true);
         //To the next servlet
@@ -189,7 +189,7 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
         }
 
         //Hand over control of the output stream
-        ServletOutputStreamWrapper outWrapper = httpResponse.getOutputStream();
+        ServletOutputStreamWrapper outWrapper = httpResponse.outputStream;
 
         //Pause the current response
         outWrapper.setSuspendFlag(true);
@@ -204,10 +204,10 @@ public class ServletRequestDispatcher implements RequestDispatcher, Recyclable {
     }
 
     public String getName() {
-        if (filterChain == null) {
+        if (name != null) {
             return name;
         }
-        return filterChain.getServletRegistration().getName();
+        return filterChain.servletRegistration.getName();
     }
 
     public String getContextPath() {

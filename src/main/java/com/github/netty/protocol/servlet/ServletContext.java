@@ -79,6 +79,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>();
     private final FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
     private final ClassLoader classLoader;
+    private LoggerX logger = LoggerFactoryX.getLogger(getLogName(""));
     Supplier<Executor> defaultExecutorSupplier;
     String contextPath = "";
     /**
@@ -92,21 +93,23 @@ public class ServletContext implements javax.servlet.ServletContext {
     /**
      * Minimum upload file length, in bytes (becomes temporary file storage if larger than uploadMinSize)
      */
-    private long fileSizeThreshold = 4096 * 16;
+    int fileSizeThreshold = 4096 * 16;
     /**
      * Upload file timeout millisecond , -1 is not control timeout.
      */
-    private long uploadFileTimeoutMs = -1;
+    long uploadFileTimeoutMs = -1;
     private Supplier<Executor> asyncExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
     private Servlet defaultServlet = new DefaultServlet();
-    private boolean enableLookupFlag = false;
+    boolean enableLookupFlag = false;
     private boolean mapperContextRootRedirectEnabled = true;
-    private boolean useRelativeRedirects = true;
+    boolean useRelativeRedirects = true;
     private String serverHeader;
-    private String requestCharacterEncoding;
-    private String responseCharacterEncoding;
+    String requestCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
+    Charset requestCharacterEncodingCharset = HttpConstants.DEFAULT_CHARSET;
+    String responseCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
+    Charset responseCharacterEncodingCharset = HttpConstants.DEFAULT_CHARSET;
     private String servletContextName;
     /**
      * output stream maxBufferBytes
@@ -151,6 +154,15 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
     }
 
+    private static String getLogName(String name) {
+        if ((name == null) || (name.isEmpty())) {
+            name = "/";
+        } else if (name.startsWith("##")) {
+            name = "/" + name;
+        }
+        return "[" + name + "]";
+    }
+
     public static String normPath(String path) {
         if (path.isEmpty()) {
             return path;
@@ -167,6 +179,28 @@ public class ServletContext implements javax.servlet.ServletContext {
             }
         }
         return path;
+    }
+
+    /**
+     * 是否开启UrlServlet的AntPathMatcher路径匹配,默认false不开启
+     */
+    public void setEnableUrlServletAntPathMatcher(boolean enableAntPathMatcher) {
+        servletUrlMapper.setEnableAntPathMatcher(enableAntPathMatcher);
+    }
+
+    /**
+     * 是否开启UrlFilter的AntPathMatcher路径匹配,默认false不开启
+     */
+    public void setEnableUrlFilterAntPathMatcher(boolean enableAntPathMatcher) {
+        filterUrlMapper.setEnableAntPathMatcher(enableAntPathMatcher);
+    }
+
+    public boolean isEnableUrlServletAntPathMatcher() {
+        return servletUrlMapper.isEnableAntPathMatcher();
+    }
+
+    public boolean isEnableUrlFilterAntPathMatcher() {
+        return filterUrlMapper.isEnableAntPathMatcher();
     }
 
     public DefaultServlet getDefaultServletCast() {
@@ -241,16 +275,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         ResourceManager old = this.resourceManager;
         this.resourceManager = new ResourceManager(docBase, workspace, classLoader);
         if (old != null) {
-            getLog().warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
+            logger.warn("ServletContext docBase override. old = {}, new = {}", old, this.resourceManager);
         }
         DiskFileUpload.deleteOnExitTemporaryFile = true;
         DiskAttribute.deleteOnExitTemporaryFile = true;
         DiskFileUpload.baseDirectory = resourceManager.getRealPath(DEFAULT_UPLOAD_DIR);
         DiskAttribute.baseDirectory = resourceManager.getRealPath(DEFAULT_UPLOAD_DIR);
-    }
-
-    private LoggerX getLog() {
-        return LoggerFactoryX.getLogger(contextPath);
     }
 
     public Executor getExecutor() {
@@ -296,12 +326,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         });
     }
 
-    public long getFileSizeThreshold() {
+    public int getFileSizeThreshold() {
         return fileSizeThreshold;
     }
 
     public void setFileSizeThreshold(long fileSizeThreshold) {
-        this.fileSizeThreshold = Math.max(fileSizeThreshold, MIN_FILE_SIZE_THRESHOLD);
+        this.fileSizeThreshold = (int) Math.max(fileSizeThreshold, MIN_FILE_SIZE_THRESHOLD);
     }
 
     public MimeMappingsX getMimeMappings() {
@@ -387,6 +417,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.contextPath = normed;
         this.filterUrlMapper.setRootPath(normed);
         this.servletUrlMapper.setRootPath(normed);
+        this.logger = LoggerFactoryX.getLogger(getLogName(normed));
     }
 
     @Override
@@ -455,11 +486,11 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletRequestDispatcher getRequestDispatcher(String path) {
-        return getRequestDispatcher(path, DispatcherType.REQUEST);
+        return getRequestDispatcher(path, DispatcherType.REQUEST, true);
     }
 
-    ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType) {
-        String pathNormalize = ServletUtil.pathNormalize(path, true);
+    ServletRequestDispatcher getRequestDispatcher(String path, DispatcherType dispatcherType, boolean normalize) {
+        String pathNormalize = normalize ? ServletUtil.pathNormalize(path, true) : path;
         if (pathNormalize == null) {
             return null;
         }
@@ -527,17 +558,23 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public void log(String msg) {
-        getLog().debug(msg);
+        if (logger.isInfoEnabled()) {
+            logger.info(msg);
+        }
     }
 
     @Override
     public void log(Exception exception, String msg) {
-        getLog().debug(msg, exception);
+        if (logger.isErrorEnabled()) {
+            logger.error(msg, exception);
+        }
     }
 
     @Override
     public void log(String message, Throwable throwable) {
-        getLog().debug(message, throwable);
+        if (logger.isErrorEnabled()) {
+            logger.error(message, throwable);
+        }
     }
 
     @Override
@@ -592,7 +629,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
 
         Object oldObject = attributeMap.put(name, object);
-        ServletEventListenerManager listenerManager = getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = this.servletEventListenerManager;
         if (listenerManager.hasServletContextAttributeListener()) {
             listenerManager.onServletContextAttributeAdded(new ServletContextAttributeEvent(this, name, object));
             if (oldObject != null) {
@@ -604,7 +641,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public void removeAttribute(String name) {
         Object oldObject = attributeMap.remove(name);
-        ServletEventListenerManager listenerManager = getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = this.servletEventListenerManager;
         if (listenerManager.hasServletContextAttributeListener()) {
             listenerManager.onServletContextAttributeRemoved(new ServletContextAttributeEvent(this, name, oldObject));
         }
@@ -763,7 +800,7 @@ public class ServletContext implements javax.servlet.ServletContext {
         Objects.requireNonNull(listener);
 
         boolean addFlag = false;
-        ServletEventListenerManager listenerManager = getServletEventListenerManager();
+        ServletEventListenerManager listenerManager = this.servletEventListenerManager;
         if (listener instanceof ServletContextAttributeListener) {
             listenerManager.addServletContextAttributeListener((ServletContextAttributeListener) listener);
             addFlag = true;
@@ -843,28 +880,30 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public String getRequestCharacterEncoding() {
-        if (requestCharacterEncoding == null) {
-            return HttpConstants.DEFAULT_CHARSET.name();
-        }
         return requestCharacterEncoding;
     }
 
     @Override
     public void setRequestCharacterEncoding(String requestCharacterEncoding) {
+        if (requestCharacterEncoding == null) {
+            requestCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
+        }
         this.requestCharacterEncoding = requestCharacterEncoding;
+        this.requestCharacterEncodingCharset = Charset.forName(requestCharacterEncoding);
     }
 
     @Override
     public String getResponseCharacterEncoding() {
-        if (responseCharacterEncoding == null) {
-            return HttpConstants.DEFAULT_CHARSET.name();
-        }
         return responseCharacterEncoding;
     }
 
     @Override
     public void setResponseCharacterEncoding(String responseCharacterEncoding) {
+        if (responseCharacterEncoding == null) {
+            responseCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
+        }
         this.responseCharacterEncoding = responseCharacterEncoding;
+        this.responseCharacterEncodingCharset = Charset.forName(responseCharacterEncoding);
     }
 
     @Override

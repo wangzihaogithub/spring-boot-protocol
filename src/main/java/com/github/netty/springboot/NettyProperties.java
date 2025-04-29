@@ -352,6 +352,14 @@ public class NettyProperties implements Serializable {
          * servlet文件存储的根目录。(servlet文件上传下载) 如果未指定，则使用临时目录。
          */
         private File basedir;
+        /**
+         * 是否开启UrlServlet的AntPathMatcher路径匹配,默认false不开启
+         */
+        private boolean enableUrlServletAntPathMatcher = false;
+        /**
+         * 是否开启UrlFilter的AntPathMatcher路径匹配,默认false不开启
+         */
+        private boolean enableUrlFilterAntPathMatcher = false;
 
         /**
          * 是否开启DNS地址查询. true=开启 {@link javax.servlet.ServletRequest#getRemoteHost}
@@ -377,6 +385,22 @@ public class NettyProperties implements Serializable {
          * 启动失败是否停止程序.
          */
         private boolean startupFailExit = true;
+
+        public boolean isEnableUrlServletAntPathMatcher() {
+            return enableUrlServletAntPathMatcher;
+        }
+
+        public void setEnableUrlServletAntPathMatcher(boolean enableUrlServletAntPathMatcher) {
+            this.enableUrlServletAntPathMatcher = enableUrlServletAntPathMatcher;
+        }
+
+        public boolean isEnableUrlFilterAntPathMatcher() {
+            return enableUrlFilterAntPathMatcher;
+        }
+
+        public void setEnableUrlFilterAntPathMatcher(boolean enableUrlFilterAntPathMatcher) {
+            this.enableUrlFilterAntPathMatcher = enableUrlFilterAntPathMatcher;
+        }
 
         public boolean isMapperContextRootRedirectEnabled() {
             return mapperContextRootRedirectEnabled;
