@@ -46,7 +46,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final AtomicLong receivedContentLength = new AtomicLong();
     private final AtomicLong readerIndex = new AtomicLong();
-    private final Lock lock = new ReentrantLock();
+    private final ReentrantLock lock = new ReentrantLock();
     private final Condition condition = lock.newCondition();
     private final Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier;
     private final Supplier<ResourceManager> resourceManagerSupplier;
@@ -67,6 +67,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private volatile FileInputStream uploadFileInputStream;
     private volatile SeekableByteChannel uploadFileOutputChannel;
     private volatile File uploadFile;
+    private volatile IOException abortException;
+    private volatile boolean abort;
     private String uploadDir = ServletContext.DEFAULT_UPLOAD_DIR;
     private int uploadFileCount = 0;
     private Exception createFileException;
@@ -317,6 +319,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     public boolean isReadable(int readLength) {
+        // isReadable里所有依赖的volatile字段发生变化后，都需要唤醒condition.await重新检查
         long contentLength = this.contentLength;
         if (contentLength == -1) {
             return readLength != -1 || receivedLastHttpContent;
@@ -400,9 +403,23 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         }
     }
 
+    /**
+     * 在客户端提前中断请求时，需要释放等待读body的线程
+     */
+    void abort() {
+        // 标记终止
+        this.abort = true;
+        // 如果数据没收完，记录终止线程的堆栈抛给前端
+        this.abortException = isReceived() ? null : new IOException("Unexpected EOF read on the socket");
+        close();
+        // 释放等待读body的线程
+        conditionSignalAll();
+    }
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
+            conditionSignalAll();
             ByteBuf source = this.source;
             if (source != null) {
                 RecyclableUtil.release(source);
@@ -504,7 +521,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     void awaitDataIfNeed(int read) throws DecoderException, IOException {
-        while (!closed.get() && !isReadable(read)) {
+        while (!closed.get() && !isReadable(read) && !abort) {
             lock.lock();
             try {
                 if (fileUploadTimeoutMs > 0) {
@@ -523,11 +540,20 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
                 lock.unlock();
             }
         }
+        if (abort) {
+            IOException abortException = this.abortException;
+            if (abortException != null) {
+                throw new ServletClientAbortException("Unexpected end of stream while reading request body", abortException);
+            } else {
+                throw new ServletClientAbortException("Unexpected end of stream while reading request body");
+            }
+        }
         DecoderException decoderException = this.decoderException;
         if (decoderException != null) {
             this.needCloseClient = true;
             throw decoderException;
         }
+        checkClosed();
     }
 
     private void checkClosed() throws IOException {
@@ -577,6 +603,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.decoderException = null;
         this.needCloseClient = false;
         this.receiveDataTimeout = false;
+        this.abort = false;
+        this.abortException = null;
     }
 
     public long getFileUploadTimeoutMs() {

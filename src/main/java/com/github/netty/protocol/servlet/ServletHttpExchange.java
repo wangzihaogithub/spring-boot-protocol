@@ -42,7 +42,7 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
      * on start async after. client abort
      */
     private boolean abortFlag;
-    private final Consumer<Object> recycleCallback = e -> {
+    private final Consumer<Object> afterCloseRequestAndExchangeAndInputStream = e -> {
         request.recycle();
         if (channelHandlerContext instanceof Recyclable) {
             ((Recyclable) channelHandlerContext).recycle();
@@ -263,8 +263,12 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
         return request != null ? request.asyncContext : null;
     }
 
+    /**
+     * 在客户端提前中断请求时，需要释放等待读body的线程
+     */
     public void abort() {
         this.abortFlag = true;
+        this.request.inputStream.abort();
     }
 
     public boolean isAbort() {
@@ -277,7 +281,8 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     @Override
     public void recycle() {
         if (close.compareAndSet(CLOSE_NO, CLOSE_ING)) {
-            response.recycle(recycleCallback);
+            // 先将response回收，再将request回收
+            response.recycle(afterCloseRequestAndExchangeAndInputStream);
         }
     }
 
