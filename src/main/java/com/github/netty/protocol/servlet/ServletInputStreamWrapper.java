@@ -410,7 +410,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         // 标记终止
         this.abort = true;
         // 如果数据没收完，记录终止线程的堆栈抛给前端
-        this.abortException = isReceived() ? null : new IOException("Unexpected EOF read on the socket");
+        if (!isReceived()) {
+            this.abortException = new IOException("Unexpected EOF read on the socket");
+        }
         close();
         // 释放等待读body的线程
         conditionSignalAll();
