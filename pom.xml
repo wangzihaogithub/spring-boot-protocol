@@ -31,7 +31,7 @@
 
         <javax-websocket-api.version>1.1</javax-websocket-api.version>
 
-        <jackson.version>2.13.5</jackson.version>
+        <jackson.version>2.15.0</jackson.version>
         <netty.version>4.1.111.Final</netty.version>
         <netty.boringssl.version>2.0.53.Final</netty.boringssl.version>
         <fastjson.version>1.2.83</fastjson.version>
@@ -284,7 +284,7 @@
         <dependency>
             <groupId>commons-fileupload</groupId>
             <artifactId>commons-fileupload</artifactId>
-            <version>1.5</version>
+            <version>1.6.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -484,30 +484,19 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
         </plugins>
         <!--        </pluginManagement>-->
     </build>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-        <!--        <repository>-->
-        <!--            <id>lechun-releases</id>-->
-        <!--            <name>releases repository</name>-->
-        <!--            <url>http://101.201.223.148:9099/nexus/content/repositories/releases</url>-->
-        <!--        </repository>-->
-        <!--        <snapshotRepository>-->
-        <!--            <id>lechun-snapshots</id>-->
-        <!--            <name>snapshots repository</name>-->
-        <!--            <url>http://101.201.223.148:9099/nexus/content/repositories/snapshots</url>-->
-        <!--        </snapshotRepository>-->
-    </distributionManagement>
 
     <profiles>
         <profile>
@@ -588,19 +577,19 @@
                                 </execution>
                             </executions>
                         </plugin>
+                        <plugin>
+                            <groupId>org.sonatype.central</groupId>
+                            <artifactId>central-publishing-maven-plugin</artifactId>
+                            <version>0.8.0</version>
+                            <extensions>true</extensions>
+                            <configuration>
+                                <publishingServerId>central</publishingServerId>
+                                <autoPublish>false</autoPublish>
+                            </configuration>
+                        </plugin>
                     </plugins>
                 </pluginManagement>
             </build>
-            <distributionManagement>
-                <snapshotRepository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-                </snapshotRepository>
-                <repository>
-                    <id>ossrh</id>
-                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-                </repository>
-            </distributionManagement>
         </profile>
     </profiles>
 
