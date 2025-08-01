@@ -7,6 +7,8 @@ import io.netty.handler.codec.DecoderException;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.LastHttpContent;
 import io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder;
+import io.netty.util.concurrent.GlobalEventExecutor;
+import io.netty.util.concurrent.ScheduledFuture;
 import io.netty.util.internal.PlatformDependent;
 
 import javax.servlet.ReadListener;
@@ -25,11 +27,12 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
@@ -67,12 +70,13 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     private volatile FileInputStream uploadFileInputStream;
     private volatile SeekableByteChannel uploadFileOutputChannel;
     private volatile File uploadFile;
-    private volatile IOException abortException;
     private volatile boolean abort;
     private String uploadDir = ServletContext.DEFAULT_UPLOAD_DIR;
     private int uploadFileCount = 0;
     private Exception createFileException;
     private long mark = -1;
+    private volatile ScheduledFuture<?> checkMessageChangeFuture;
+    private final AtomicInteger version = new AtomicInteger();
 
     public ServletInputStreamWrapper(Supplier<InterfaceHttpPostRequestDecoder> requestDecoderSupplier, Supplier<ResourceManager> resourceManagerSupplier) {
         this.requestDecoderSupplier = requestDecoderSupplier;
@@ -404,18 +408,49 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     /**
-     * 在客户端提前中断请求时，需要释放等待读body的线程
+     * 触发客户端断开有两种情况
+     * 情况1. 客户端提前断开，确实没将body传完
+     * 情况2. 客户端没提前断开，将body传完了，只是服务端IO忙不过来了。
+     * 因为服务端IO忙不过来时，服务端无法区分出情况1还是情况2，所以靠定期检查，如果规定时间内还没收到新body，则真正触发abort。
      */
     void abort() {
-        // 标记终止
-        this.abort = true;
-        // 如果数据没收完，记录终止线程的堆栈抛给前端
-        if (!isReceived()) {
-            this.abortException = new IOException("Unexpected EOF read on the socket");
+        if (isReceived()) {
+            return;
         }
-        close();
-        // 释放等待读body的线程
-        conditionSignalAll();
+        this.checkMessageChangeFuture = scheduleCheckAbortAfterMessageTimeout();
+    }
+
+    /**
+     * 客户端断开后，如果超过abortAfterMessageTimeoutMs后，还没有收到完整的body，则抛出abort异常
+     *
+     * @return 任务Future
+     */
+    private ScheduledFuture<?> scheduleCheckAbortAfterMessageTimeout() {
+        // 记录下执行前收到的数据大小
+        long snapshotLength = this.receivedContentLength.get();
+        int snapshotVersion = this.version.get();
+
+        // 使用GlobalEventExecutor去schedule。
+        // 这时不能使用EventLoop线程去schedule，因为造成超时的原因是EventLoop处理IO事件忙不过来了，不能再给它加任务了。
+        return GlobalEventExecutor.INSTANCE.schedule(() -> {
+                    if (snapshotVersion != this.version.get() || this.closed.get() || isReceived()) {
+                        return;
+                    }
+                    // timeout后仍然没有收到新的长度
+                    if (snapshotLength == this.receivedContentLength.get()) {
+                        // 标记终止, 抛给前端
+                        this.abort = true;
+                        this.checkMessageChangeFuture = null;
+                        close();
+                        // 释放等待读body的线程
+                        conditionSignalAll();
+                    } else {
+                        // 可以收到新的body bytes，只是比较慢，应该是在压测中。
+                        // 继续开始下次超时检测
+                        this.checkMessageChangeFuture = scheduleCheckAbortAfterMessageTimeout();
+                    }
+                },
+                httpExchange.servletContext.abortAfterMessageTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -430,6 +465,12 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             this.readListener = null;
             this.decoderException = null;
             this.createFileException = null;
+            this.checkMessageChangeFuture = null;
+            ScheduledFuture<?> checkMessageChangeFuture = this.checkMessageChangeFuture;
+            this.checkMessageChangeFuture = null;
+            if (checkMessageChangeFuture != null) {
+                checkMessageChangeFuture.cancel(false);
+            }
 
             FileInputStream uploadFileInputStream = this.uploadFileInputStream;
             this.uploadFileInputStream = null;
@@ -543,12 +584,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
             }
         }
         if (abort) {
-            IOException abortException = this.abortException;
-            if (abortException != null) {
-                throw new ServletClientAbortException("Unexpected end of stream while reading request body", abortException);
-            } else {
-                throw new ServletClientAbortException("Unexpected end of stream while reading request body");
-            }
+            throw new ServletClientAbortException("Unexpected end of stream while reading request body");
         }
         DecoderException decoderException = this.decoderException;
         if (decoderException != null) {
@@ -593,6 +629,7 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
 
     @Override
     public void wrap(CompositeByteBuf source) {
+        this.version.incrementAndGet();
         this.closed.set(false);
         this.onAllDataReadFlag.set(false);
         this.onDataAvailableFlag.set(false);
@@ -606,7 +643,6 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         this.needCloseClient = false;
         this.receiveDataTimeout = false;
         this.abort = false;
-        this.abortException = null;
     }
 
     public long getFileUploadTimeoutMs() {

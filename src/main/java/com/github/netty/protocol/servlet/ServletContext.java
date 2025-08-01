@@ -98,6 +98,10 @@ public class ServletContext implements javax.servlet.ServletContext {
      * Upload file timeout millisecond , -1 is not control timeout.
      */
     long uploadFileTimeoutMs = -1;
+    /**
+     * 客户端断开后，如果超过abortAfterMessageTimeoutMs后，还没有收到完整的body，则抛出abort异常
+     */
+    long abortAfterMessageTimeoutMs = 500;
     private Supplier<Executor> asyncExecutorSupplier;
     private SessionService sessionService;
     private Set<SessionTrackingMode> sessionTrackingModeSet;
@@ -241,6 +245,14 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public void setUploadFileTimeoutMs(long uploadFileTimeoutMs) {
         this.uploadFileTimeoutMs = uploadFileTimeoutMs;
+    }
+
+    public void setAbortAfterMessageTimeoutMs(long abortAfterMessageTimeoutMs) {
+        this.abortAfterMessageTimeoutMs = abortAfterMessageTimeoutMs;
+    }
+
+    public long getAbortAfterMessageTimeoutMs() {
+        return abortAfterMessageTimeoutMs;
     }
 
     public boolean isUseRelativeRedirects() {

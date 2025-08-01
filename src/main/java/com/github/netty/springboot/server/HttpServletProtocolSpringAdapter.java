@@ -96,6 +96,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
         servletContext.setEnableLookupFlag(httpServlet.isEnableNsLookup());
         servletContext.setAutoFlush(httpServlet.getAutoFlushIdleMs() > 0);
         servletContext.setUploadFileTimeoutMs(httpServlet.getUploadFileTimeoutMs());
+        servletContext.setAbortAfterMessageTimeoutMs(httpServlet.getAbortAfterMessageTimeoutMs());
         servletContext.setContextPath(webServerFactory.getContextPath());
         servletContext.setServerHeader(webServerFactory.getServerHeader());
         servletContext.setServletContextName(webServerFactory.getDisplayName());
