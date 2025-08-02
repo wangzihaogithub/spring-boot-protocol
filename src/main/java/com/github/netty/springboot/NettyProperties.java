@@ -335,6 +335,10 @@ public class NettyProperties implements Serializable {
          */
         private long uploadFileTimeoutMs = -1;
         /**
+         * 客户端断开后，如果超过abortAfterMessageTimeoutMs后，还没有收到完整的body，则抛出abort异常
+         */
+        private long abortAfterMessageTimeoutMs = 500;
+        /**
          * 不会出现在body中的字段. 仅限于 multipart/form-data, application/x-www-form-urlencoded. （为了避免因为要获取某个字段，一直在等客户端发完数据。）
          */
         private String[] notExistBodyParameter = {"_method", "JSESSIONID"};
@@ -385,6 +389,14 @@ public class NettyProperties implements Serializable {
          * 启动失败是否停止程序.
          */
         private boolean startupFailExit = true;
+
+        public long getAbortAfterMessageTimeoutMs() {
+            return abortAfterMessageTimeoutMs;
+        }
+
+        public void setAbortAfterMessageTimeoutMs(long abortAfterMessageTimeoutMs) {
+            this.abortAfterMessageTimeoutMs = abortAfterMessageTimeoutMs;
+        }
 
         public boolean isEnableUrlServletAntPathMatcher() {
             return enableUrlServletAntPathMatcher;
