@@ -506,7 +506,9 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (pathNormalize == null) {
             return null;
         }
-        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByServletPath(pathNormalize);
+        int queryIndex = pathNormalize.indexOf('?');
+        String relativePathNoQueryString = queryIndex != -1 ? pathNormalize.substring(0, queryIndex) : pathNormalize;
+        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByServletPath(relativePathNoQueryString);
         if (element == null) {
             return null;
         }
@@ -514,11 +516,8 @@ public class ServletContext implements javax.servlet.ServletContext {
         if (servletRegistration == null) {
             return null;
         }
-        int queryIndex = pathNormalize.indexOf('?');
-        String relativePathNoQueryString = queryIndex != -1 ? pathNormalize.substring(0, queryIndex) : pathNormalize;
         ServletFilterChain filterChain = ServletFilterChain.newInstance(this, servletRegistration);
         filterUrlMapper.addMappingObjects(relativePathNoQueryString, dispatcherType, filterChain.filterRegistrationList);
-
         return ServletRequestDispatcher.newInstancePath(filterChain, pathNormalize, contextPath, relativePathNoQueryString, element, queryIndex);
     }
 
