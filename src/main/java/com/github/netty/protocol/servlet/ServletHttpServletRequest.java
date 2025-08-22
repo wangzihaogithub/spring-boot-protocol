@@ -225,6 +225,7 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         }
 
         instance.inputStream.wrap(exchange.channelHandlerContext.alloc().compositeBuffer(Integer.MAX_VALUE));
+        instance.inputStream.transferEncoding = httpRequest.headers().contains(HttpHeaderConstants.TRANSFER_ENCODING);
         instance.inputStream.httpExchange = exchange;
         instance.inputStream.fileSizeThreshold = instance.getFileSizeThreshold();
         instance.inputStream.fileUploadTimeoutMs = exchange.servletContext.uploadFileTimeoutMs;
@@ -1023,16 +1024,15 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
         if (!decodeParameterByUrlFlag) {
             decodeUrlParameter();
         }
-
-        if (decodeBodyFlag.compareAndSet(false, true)) {
-            if (inputStream.getContentLength() > 0) {
+        if (inputStream.existBody()) {
+            if (decodeBodyFlag.compareAndSet(false, true)) {
                 decodeBody();
-            }
-        } else {
-            try {
-                inputStream.awaitDataIfNeed(-1);
-            } catch (IOException e) {
-                PlatformDependent.throwException(e);
+            } else {
+                try {
+                    inputStream.awaitDataIfNeed(-1);
+                } catch (IOException e) {
+                    PlatformDependent.throwException(e);
+                }
             }
         }
         return unmodifiableParameterMap;
@@ -1342,6 +1342,9 @@ public class ServletHttpServletRequest implements HttpServletRequest, Recyclable
 
     @Override
     public Collection<Part> getParts() throws IOException, ServletException {
+        if (!inputStream.existBody()) {
+            return fileUploadList;
+        }
         if (decodeBodyFlag.compareAndSet(false, true)) {
             try {
                 decodeBody();

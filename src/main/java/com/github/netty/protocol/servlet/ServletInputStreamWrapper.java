@@ -64,7 +64,8 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     boolean needCloseClient;
     private volatile ReadListener readListener;
     private volatile DecoderException decoderException;
-    volatile long contentLength;
+    boolean transferEncoding;
+    long contentLength;
     private volatile boolean receiveDataTimeout;
     private volatile boolean receivedLastHttpContent;
     private volatile FileInputStream uploadFileInputStream;
@@ -421,6 +422,14 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     }
 
     /**
+     * 是否有body数据
+     * @return true=有数据
+     */
+    boolean existBody() {
+        return contentLength > 0 || transferEncoding;
+    }
+
+    /**
      * 客户端断开后，如果超过abortAfterMessageTimeoutMs后，还没有收到完整的body，则抛出abort异常
      *
      * @return 任务Future
@@ -523,7 +532,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
         if (0 == len) {
             return 0;
         }
-
+        if (!existBody()) {
+            return -1;
+        }
         awaitDataIfNeed(1);
 
         int readableBytes;
@@ -548,6 +559,9 @@ public class ServletInputStreamWrapper extends javax.servlet.ServletInputStream 
     public int read() throws IOException {
         checkClosed();
 
+        if (!existBody()) {
+            return -1;
+        }
         awaitDataIfNeed(1);
         FileInputStream uploadFileInputStream = this.uploadFileInputStream;
         if (uploadFileInputStream != null) {

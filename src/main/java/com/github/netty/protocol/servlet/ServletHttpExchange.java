@@ -260,6 +260,7 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
     }
 
     public ServletAsyncContext getAsyncContext() {
+        ServletHttpServletRequest request = this.request;
         return request != null ? request.asyncContext : null;
     }
 
@@ -268,7 +269,10 @@ public class ServletHttpExchange implements Recyclable, AutoCloseable {
      */
     public void abort() {
         this.abortFlag = true;
-        this.request.inputStream.abort();
+        ServletHttpServletRequest request = this.request;
+        if (request != null) {
+            request.inputStream.abort();
+        }
     }
 
     public boolean isAbort() {
