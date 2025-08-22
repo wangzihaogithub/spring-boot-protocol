@@ -144,7 +144,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 
 ### 使用方法 - 添加依赖
 
-#### 如果需要集成spring就用这个 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.wangzihaogithub/spring-boot-protocol/badge.svg)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:spring-boot-protocol)
+#### 如果需要集成spring就用这个 [![Maven Central](https://img.shields.io/maven-central/v/com.github.wangzihaogithub/spring-boot-protocol.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:spring-boot-protocol)
 
 ```xml
 <!-- https://github.com/wangzihaogithub/spring-boot-protocol -->
@@ -156,7 +156,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 </dependency>
 ```
 
-#### 如果不需要集成spring就用这个 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.wangzihaogithub/netty-servlet/badge.svg)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:netty-servlet)
+#### 如果不需要集成spring就用这个 [![Maven Central](https://img.shields.io/maven-central/v/com.github.wangzihaogithub/netty-servlet.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:com.github.wangzihaogithub%20AND%20a:netty-servlet)
 
 ```xml
 <!-- https://github.com/wangzihaogithub/netty-servlet -->
