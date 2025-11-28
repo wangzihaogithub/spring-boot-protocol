@@ -298,7 +298,7 @@ public class NettyProperties implements Serializable {
         /**
          * 是否开启h2c  upgrade: h2c
          */
-        private boolean enableH2c = false;
+        private boolean enableH2c = HttpConstants.EXIST_DEPENDENCY_H2;
         /**
          * 是否开启h2  upgrade: h2
          * 为null则会去取servlet.http.enabled

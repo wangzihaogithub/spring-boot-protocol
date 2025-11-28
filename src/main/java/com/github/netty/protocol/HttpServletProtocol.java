@@ -70,7 +70,7 @@ public class HttpServletProtocol extends AbstractProtocol {
     private int maxChunkSize = 5 * 1024 * 1024;
     private int http2MaxReservedStreams = 256;
     private boolean enableContentCompression = true;
-    private boolean enableH2c = false;
+    private boolean enableH2c = HttpConstants.EXIST_DEPENDENCY_H2;
     private boolean enableH2 = HttpConstants.EXIST_DEPENDENCY_H2;
     private boolean enableWebsocket = HttpConstants.EXIST_JAVAX_WEBSOCKET;
 
