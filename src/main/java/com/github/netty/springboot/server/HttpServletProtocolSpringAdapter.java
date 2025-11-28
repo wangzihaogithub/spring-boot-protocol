@@ -37,7 +37,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
 
     public HttpServletProtocolSpringAdapter(NettyProperties properties, ClassLoader classLoader,
                                             Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
-        super(new ServletContext(classLoader == null ? ClassUtils.getDefaultClassLoader() : classLoader), executorSupplier, defaultExecutorSupplier);
+        super(new com.github.netty.protocol.servlet.ServletContext(classLoader == null ? ClassUtils.getDefaultClassLoader() : classLoader), executorSupplier, defaultExecutorSupplier);
         this.properties = properties;
     }
 
@@ -70,7 +70,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
     public <T extends AbstractNettyServer> void onServerStart(T server) throws Exception {
         initializerStartup();
 
-        ServletContext servletContext = getServletContext();
+        com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
 
         LOGGER.info("Netty servlet on port: {}, with context path '{}'",
                 servletContext.getServerAddress().getPort(),
@@ -81,7 +81,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
 
 
     public void configurableServletContext(NettyTcpServerFactory webServerFactory) throws Exception {
-        ServletContext servletContext = getServletContext();
+        com.github.netty.protocol.servlet.ServletContext servletContext = getServletContext();
         ServerProperties serverProperties = serverPropertiesSupplier != null ? serverPropertiesSupplier.get() : null;
         MultipartProperties multipartProperties = multipartPropertiesSupplier != null ? multipartPropertiesSupplier.get() : null;
         NettyProperties.HttpServlet httpServlet = properties.getHttpServlet();
@@ -166,7 +166,7 @@ public class HttpServletProtocolSpringAdapter extends HttpServletProtocol {
      * @param servletContext servletContext
      * @return SessionService
      */
-    protected SessionService newSessionService(NettyProperties properties, ServletContext servletContext) {
+    protected SessionService newSessionService(NettyProperties properties, com.github.netty.protocol.servlet.ServletContext servletContext) {
         //Composite session (default local storage)
         SessionService sessionService;
         NettyProperties.HttpServlet httpServlet = properties.getHttpServlet();

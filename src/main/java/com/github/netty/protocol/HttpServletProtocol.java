@@ -61,7 +61,7 @@ public class HttpServletProtocol extends AbstractProtocol {
                     "Content-Length: 0\r\n" +
                     "\r\n", Charset.forName("ISO-8859-1"));
 
-    private final ServletContext servletContext;
+    private final com.github.netty.protocol.servlet.ServletContext servletContext;
     private SslContextBuilder sslContextBuilder;
     private SslContext sslContext;
     private long maxContentLength = 20 * 1024 * 1024;
@@ -80,11 +80,11 @@ public class HttpServletProtocol extends AbstractProtocol {
     private boolean onServerStart = false;
     private /*volatile*/ WebsocketServletUpgrader websocketServletUpgrader;
 
-    public HttpServletProtocol(ServletContext servletContext) {
+    public HttpServletProtocol(com.github.netty.protocol.servlet.ServletContext servletContext) {
         this(servletContext, null, null);
     }
 
-    public HttpServletProtocol(ServletContext servletContext, Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
+    public HttpServletProtocol(com.github.netty.protocol.servlet.ServletContext servletContext, Supplier<Executor> executorSupplier, Supplier<Executor> defaultExecutorSupplier) {
         this.servletContext = servletContext;
         if (defaultExecutorSupplier == null) {
             defaultExecutorSupplier = new HttpLazyThreadPool("NettyX-http");
@@ -164,7 +164,7 @@ public class HttpServletProtocol extends AbstractProtocol {
      *
      * @param servletContext servletContext
      */
-    protected void initFilter(ServletContext servletContext) throws ServletException {
+    protected void initFilter(com.github.netty.protocol.servlet.ServletContext servletContext) throws ServletException {
         Map<String, ServletFilterRegistration> servletFilterRegistrationMap = servletContext.getFilterRegistrations();
         for (ServletFilterRegistration registration : servletFilterRegistrationMap.values()) {
             if (registration.isInitFilterCas(false, true)) {
@@ -343,7 +343,7 @@ public class HttpServletProtocol extends AbstractProtocol {
         this.enableWebsocket = enableWebsocket;
     }
 
-    public ServletContext getServletContext() {
+    public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return servletContext;
     }
 

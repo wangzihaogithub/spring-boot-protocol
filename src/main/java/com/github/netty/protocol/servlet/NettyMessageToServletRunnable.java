@@ -62,14 +62,14 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 HttpMethod.DELETE, HttpMethod.TRACE, HttpMethod.CONNECT));
     }
 
-    private final ServletContext servletContext;
+    private final com.github.netty.protocol.servlet.ServletContext servletContext;
     private final long maxContentLength;
     private final Protocol protocol;
     private final boolean ssl;
     private ServletHttpExchange exchange;
     private /*volatile */ HttpRunnable httpRunnable;
 
-    public NettyMessageToServletRunnable(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
+    public NettyMessageToServletRunnable(com.github.netty.protocol.servlet.ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         this.servletContext = servletContext;
         this.maxContentLength = maxContentLength;
         this.protocol = protocol;
@@ -231,7 +231,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
         @Override
         public void run() {
             ServletHttpServletRequest request = exchange.request;
-            ServletContext servletContext = exchange.servletContext;
+            com.github.netty.protocol.servlet.ServletContext servletContext = exchange.servletContext;
             // upload cannot block event loop
             if (request.isMultipart
                     && exchange.channelHandlerContext.executor().inEventLoop()) {
@@ -328,7 +328,7 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
             }
         }
 
-        protected void handleNotFound(ServletContext servletContext,
+        protected void handleNotFound(com.github.netty.protocol.servlet.ServletContext servletContext,
                                       ServletHttpServletRequest request,
                                       ServletHttpServletResponse response) throws ServletException, IOException {
             Servlet defaultServlet = servletContext.getDefaultServlet();

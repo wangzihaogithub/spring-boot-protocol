@@ -43,7 +43,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     public static final String DEFAULT_UPLOAD_DIR = "/upload";
     public static final String SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE = "javax.websocket.server.ServerContainer";
     private static final boolean SUPPORT_SET_BASE_DIR;
-    private static final List<ServletContext> INSTANCE_LIST = Collections.synchronizedList(new ArrayList<>(2));
+    private static final List<com.github.netty.protocol.servlet.ServletContext> INSTANCE_LIST = Collections.synchronizedList(new ArrayList<>(2));
 
     static {
         boolean supportSetBaseDir;
@@ -66,7 +66,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     final ServletSessionCookieConfig sessionCookieConfig = new ServletSessionCookieConfig();
     private final Map<String, Object> attributeMap = new LinkedHashMap<>(16);
     private final Map<String, String> initParamMap = new LinkedHashMap<>(16);
-    private final Map<String, ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
+    private final Map<String, com.github.netty.protocol.servlet.ServletRegistration> servletRegistrationMap = new LinkedHashMap<>(8);
     private final Map<String, ServletFilterRegistration> filterRegistrationMap = new LinkedHashMap<>(8);
     private final FastThreadLocal<Map<Charset, DefaultHttpDataFactory>> httpDataFactoryThreadLocal = new FastThreadLocal<Map<Charset, DefaultHttpDataFactory>>() {
         @Override
@@ -76,10 +76,9 @@ public class ServletContext implements javax.servlet.ServletContext {
     };
     private final Set<SessionTrackingMode> defaultSessionTrackingModeSet = new HashSet<>(Arrays.asList(SessionTrackingMode.COOKIE, SessionTrackingMode.URL));
     private final MimeMappingsX mimeMappings = new MimeMappingsX();
-    private final UrlMapper<ServletRegistration> servletUrlMapper = new UrlMapper<>();
+    private final UrlMapper<com.github.netty.protocol.servlet.ServletRegistration> servletUrlMapper = new UrlMapper<>();
     private final FilterMapper<ServletFilterRegistration> filterUrlMapper = new FilterMapper<>();
     private final ClassLoader classLoader;
-    private LoggerX logger = LoggerFactoryX.getLogger(getLogName(""));
     Supplier<Executor> defaultExecutorSupplier;
     String contextPath = "";
     /**
@@ -102,18 +101,19 @@ public class ServletContext implements javax.servlet.ServletContext {
      * 客户端断开后，如果超过abortAfterMessageTimeoutMs后，还没有收到完整的body，则抛出abort异常
      */
     long abortAfterMessageTimeoutMs = 500;
-    private Supplier<Executor> asyncExecutorSupplier;
-    private SessionService sessionService;
-    private Set<SessionTrackingMode> sessionTrackingModeSet;
-    private Servlet defaultServlet = new DefaultServlet();
     boolean enableLookupFlag = false;
-    private boolean mapperContextRootRedirectEnabled = true;
     boolean useRelativeRedirects = true;
-    private String serverHeader;
     String requestCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
     Charset requestCharacterEncodingCharset = HttpConstants.DEFAULT_CHARSET;
     String responseCharacterEncoding = HttpConstants.DEFAULT_CHARSET.name();
     Charset responseCharacterEncodingCharset = HttpConstants.DEFAULT_CHARSET;
+    private LoggerX logger = LoggerFactoryX.getLogger(getLogName(""));
+    private Supplier<Executor> asyncExecutorSupplier;
+    private SessionService sessionService;
+    private Set<SessionTrackingMode> sessionTrackingModeSet;
+    private Servlet defaultServlet = new DefaultServlet();
+    private boolean mapperContextRootRedirectEnabled = true;
+    private String serverHeader;
     private String servletContextName;
     /**
      * output stream maxBufferBytes
@@ -132,7 +132,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     public static void asyncClose(Closeable closeable) {
         Executor executor = null;
-        for (ServletContext servletContext : INSTANCE_LIST) {
+        for (com.github.netty.protocol.servlet.ServletContext servletContext : INSTANCE_LIST) {
             executor = servletContext.asyncExecutorSupplier != null ? servletContext.asyncExecutorSupplier.get() : null;
             if (executor == null) {
                 executor = servletContext.defaultExecutorSupplier.get();
@@ -185,6 +185,10 @@ public class ServletContext implements javax.servlet.ServletContext {
         return path;
     }
 
+    public boolean isEnableUrlServletAntPathMatcher() {
+        return servletUrlMapper.isEnableAntPathMatcher();
+    }
+
     /**
      * 是否开启UrlServlet的AntPathMatcher路径匹配,默认false不开启
      */
@@ -192,19 +196,15 @@ public class ServletContext implements javax.servlet.ServletContext {
         servletUrlMapper.setEnableAntPathMatcher(enableAntPathMatcher);
     }
 
+    public boolean isEnableUrlFilterAntPathMatcher() {
+        return filterUrlMapper.isEnableAntPathMatcher();
+    }
+
     /**
      * 是否开启UrlFilter的AntPathMatcher路径匹配,默认false不开启
      */
     public void setEnableUrlFilterAntPathMatcher(boolean enableAntPathMatcher) {
         filterUrlMapper.setEnableAntPathMatcher(enableAntPathMatcher);
-    }
-
-    public boolean isEnableUrlServletAntPathMatcher() {
-        return servletUrlMapper.isEnableAntPathMatcher();
-    }
-
-    public boolean isEnableUrlFilterAntPathMatcher() {
-        return filterUrlMapper.isEnableAntPathMatcher();
     }
 
     public DefaultServlet getDefaultServletCast() {
@@ -247,12 +247,12 @@ public class ServletContext implements javax.servlet.ServletContext {
         this.uploadFileTimeoutMs = uploadFileTimeoutMs;
     }
 
-    public void setAbortAfterMessageTimeoutMs(long abortAfterMessageTimeoutMs) {
-        this.abortAfterMessageTimeoutMs = abortAfterMessageTimeoutMs;
-    }
-
     public long getAbortAfterMessageTimeoutMs() {
         return abortAfterMessageTimeoutMs;
+    }
+
+    public void setAbortAfterMessageTimeoutMs(long abortAfterMessageTimeoutMs) {
+        this.abortAfterMessageTimeoutMs = abortAfterMessageTimeoutMs;
     }
 
     public boolean isUseRelativeRedirects() {
@@ -433,7 +433,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     @Override
-    public ServletContext getContext(String uripath) {
+    public com.github.netty.protocol.servlet.ServletContext getContext(String uripath) {
         if ("/".equals(uripath)) {
             return this;
         }
@@ -508,11 +508,11 @@ public class ServletContext implements javax.servlet.ServletContext {
         }
         int queryIndex = pathNormalize.indexOf('?');
         String relativePathNoQueryString = queryIndex != -1 ? pathNormalize.substring(0, queryIndex) : pathNormalize;
-        UrlMapper.Element<ServletRegistration> element = servletUrlMapper.getMappingObjectByServletPath(relativePathNoQueryString);
+        UrlMapper.Element<com.github.netty.protocol.servlet.ServletRegistration> element = servletUrlMapper.getMappingObjectByServletPath(relativePathNoQueryString);
         if (element == null) {
             return null;
         }
-        ServletRegistration servletRegistration = element.getObject();
+        com.github.netty.protocol.servlet.ServletRegistration servletRegistration = element.getObject();
         if (servletRegistration == null) {
             return null;
         }
@@ -523,7 +523,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public ServletRequestDispatcher getNamedDispatcher(String name) {
-        ServletRegistration servletRegistration = null == name ? null : getServletRegistration(name);
+        com.github.netty.protocol.servlet.ServletRegistration servletRegistration = null == name ? null : getServletRegistration(name);
         if (servletRegistration == null) {
             return null;
         }
@@ -542,7 +542,7 @@ public class ServletContext implements javax.servlet.ServletContext {
 
     @Override
     public Servlet getServlet(String name) throws ServletException {
-        ServletRegistration registration = servletRegistrationMap.get(name);
+        com.github.netty.protocol.servlet.ServletRegistration registration = servletRegistrationMap.get(name);
         if (registration == null) {
             return null;
         }
@@ -552,7 +552,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Enumeration<Servlet> getServlets() {
         List<Servlet> list = new ArrayList<>();
-        for (ServletRegistration registration : servletRegistrationMap.values()) {
+        for (com.github.netty.protocol.servlet.ServletRegistration registration : servletRegistrationMap.values()) {
             list.add(registration.getServlet());
         }
         return Collections.enumeration(list);
@@ -561,7 +561,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     @Override
     public Enumeration<String> getServletNames() {
         List<String> list = new ArrayList<>();
-        for (ServletRegistration registration : servletRegistrationMap.values()) {
+        for (com.github.netty.protocol.servlet.ServletRegistration registration : servletRegistrationMap.values()) {
             list.add(registration.getName());
         }
         return Collections.enumeration(list);
@@ -668,7 +668,7 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     @Override
-    public ServletRegistration addServlet(String servletName, String className) {
+    public com.github.netty.protocol.servlet.ServletRegistration addServlet(String servletName, String className) {
         try {
             return addServlet(servletName, (Class<? extends Servlet>) Class.forName(className).newInstance());
         } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
@@ -677,15 +677,15 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     @Override
-    public ServletRegistration addServlet(String servletName, Servlet servlet) {
+    public com.github.netty.protocol.servlet.ServletRegistration addServlet(String servletName, Servlet servlet) {
         Servlet newServlet = servletEventListenerManager.onServletAdded(servlet);
-        ServletRegistration servletRegistration = new ServletRegistration(servletName, newServlet != null ? newServlet : servlet, this, servletUrlMapper);
+        com.github.netty.protocol.servlet.ServletRegistration servletRegistration = new com.github.netty.protocol.servlet.ServletRegistration(servletName, newServlet != null ? newServlet : servlet, this, servletUrlMapper);
         servletRegistrationMap.put(servletName, servletRegistration);
         return servletRegistration;
     }
 
     @Override
-    public ServletRegistration addServlet(String servletName, Class<? extends Servlet> servletClass) {
+    public com.github.netty.protocol.servlet.ServletRegistration addServlet(String servletName, Class<? extends Servlet> servletClass) {
         Servlet servlet = null;
         try {
             servlet = servletClass.getConstructor().newInstance();
@@ -707,12 +707,12 @@ public class ServletContext implements javax.servlet.ServletContext {
     }
 
     @Override
-    public ServletRegistration getServletRegistration(String servletName) {
+    public com.github.netty.protocol.servlet.ServletRegistration getServletRegistration(String servletName) {
         return servletRegistrationMap.get(servletName);
     }
 
     @Override
-    public Map<String, ServletRegistration> getServletRegistrations() {
+    public Map<String, com.github.netty.protocol.servlet.ServletRegistration> getServletRegistrations() {
         return servletRegistrationMap;
     }
 

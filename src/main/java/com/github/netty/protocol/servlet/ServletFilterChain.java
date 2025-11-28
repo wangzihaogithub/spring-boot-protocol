@@ -27,7 +27,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
      */
     final List<FilterMapper.Element<ServletFilterRegistration>> filterRegistrationList = new ArrayList<>(16);
     ServletRegistration servletRegistration;
-    private ServletContext servletContext;
+    private com.github.netty.protocol.servlet.ServletContext servletContext;
 
     //    public static final Set<Filter> FILTER_SET = new HashSet<>();
 //    public static final AtomicLong SERVLET_TIME = new AtomicLong();
@@ -38,7 +38,7 @@ public class ServletFilterChain implements FilterChain, Recyclable {
     protected ServletFilterChain() {
     }
 
-    public static ServletFilterChain newInstance(ServletContext servletContext, ServletRegistration servletRegistration) {
+    public static ServletFilterChain newInstance(com.github.netty.protocol.servlet.ServletContext servletContext, ServletRegistration servletRegistration) {
         ServletFilterChain instance = RECYCLER.getInstance();
         instance.servletContext = servletContext;
         instance.servletRegistration = servletRegistration;
