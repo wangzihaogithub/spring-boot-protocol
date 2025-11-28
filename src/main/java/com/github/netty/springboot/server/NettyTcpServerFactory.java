@@ -86,7 +86,7 @@ public class NettyTcpServerFactory
             if (servletContext == null) {
                 servletContext = createHttpServletProtocolSpringAdapter().getServletContext();
             }
-            ServletRegistration.Dynamic servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
+            com.github.netty.protocol.servlet.ServletRegistration servletRegistration = servletContext.addServlet("default", new ServletHttpHandlerAdapter(httpHandler));
             servletRegistration.setAsyncSupported(true);
             servletRegistration.addMapping("/");
             servletContext.setServerAddress(serverAddress);
