@@ -40,7 +40,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
         });
     }
 
-    final ServletContext servletContext;
+    final com.github.netty.protocol.servlet.ServletContext servletContext;
     private final Executor executor;
     private final AtomicBoolean timeoutFlag = new AtomicBoolean();
     /**
@@ -89,14 +89,14 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
     private /*volatile*/ Integer timeoutTaskId;
     private /*volatile*/ long startTimestamp;
 
-    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, ServletContext servletContext, Executor executor, long timeout) {
+    public ServletAsyncContext(ServletHttpExchange servletHttpExchange, com.github.netty.protocol.servlet.ServletContext servletContext, Executor executor, long timeout) {
         this.servletHttpExchange = Objects.requireNonNull(servletHttpExchange);
         this.servletContext = Objects.requireNonNull(servletContext);
         this.executor = Objects.requireNonNull(executor);
         this.timeout = timeout;
     }
 
-    public ServletContext getServletContext() {
+    public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return servletContext;
     }
 
@@ -146,7 +146,7 @@ public class ServletAsyncContext implements AsyncContext, Recyclable {
             throw new IllegalStateException("Asynchronous dispatch operation has already been called. Additional asynchronous dispatch operation within the same asynchronous cycle is not allowed.");
         }
         status.set(STATUS_DISPATCH);
-        ServletContext ctx = context instanceof ServletContext ? (ServletContext) context : servletContext;
+        com.github.netty.protocol.servlet.ServletContext ctx = context instanceof com.github.netty.protocol.servlet.ServletContext ? (com.github.netty.protocol.servlet.ServletContext) context : servletContext;
         HttpServletRequest httpServletRequest;
         HttpServletResponse httpServletResponse;
         if (servletRequest instanceof HttpServletRequest) {

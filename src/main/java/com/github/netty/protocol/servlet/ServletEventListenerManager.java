@@ -31,7 +31,7 @@ public class ServletEventListenerManager {
 
     //=============event=================
 
-    public void onServletDefaultInitializer(Servlet servlet, ServletContext servletContext) throws ServletException {
+    public void onServletDefaultInitializer(Servlet servlet, javax.servlet.ServletContext servletContext) throws ServletException {
         if (servlet == null) {
             return;
         }
@@ -42,7 +42,7 @@ public class ServletEventListenerManager {
             }
 
             @Override
-            public ServletContext getServletContext() {
+            public javax.servlet.ServletContext getServletContext() {
                 return servletContext;
             }
 
@@ -70,7 +70,7 @@ public class ServletEventListenerManager {
         }
     }
 
-    public void onServletContainerInitializerStartup(Set<Class<?>> c, ServletContext ctx) {
+    public void onServletContainerInitializerStartup(Set<Class<?>> c, javax.servlet.ServletContext ctx) {
         if (servletContainerInitializerList == null) {
             return;
         }

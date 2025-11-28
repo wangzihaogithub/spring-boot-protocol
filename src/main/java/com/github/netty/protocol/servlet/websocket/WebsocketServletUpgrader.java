@@ -56,7 +56,7 @@ public class WebsocketServletUpgrader {
         EndpointHolder holder = getWebSocketHandlerHolder(request);
 
         handshakelFuture.addListener((ChannelFutureListener) future -> {
-            WebSocketServerContainer webSocketContainer = (WebSocketServerContainer) servletContext.getAttribute(ServletContext.SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE);
+            WebSocketServerContainer webSocketContainer = (WebSocketServerContainer) servletContext.getAttribute(com.github.netty.protocol.servlet.ServletContext.SERVER_CONTAINER_SERVLET_CONTEXT_ATTRIBUTE);
             String queryString = getQueryString(request.uri());
             String httpSessionId = getRequestedSessionId(servletContext, request.headers().get(HttpHeaderConstants.COOKIE), requestParameterMap);
             List<Extension> extensions = new ArrayList<>(webSocketContainer.getInstalledExtensions());
@@ -86,7 +86,7 @@ public class WebsocketServletUpgrader {
         return (secure ? "wss://" : "ws://") + host + request.uri();
     }
 
-    private String getRequestedSessionId(ServletContext servletContext, String headerCookie, Map<String, List<String>> requestParameterMap) {
+    private String getRequestedSessionId(com.github.netty.protocol.servlet.ServletContext servletContext, String headerCookie, Map<String, List<String>> requestParameterMap) {
         //If the user sets the sessionCookie name, the user set the sessionCookie name
         String sessionId = null;
         String cookieSessionName = servletContext.getSessionCookieParamName();

@@ -19,12 +19,12 @@ import java.util.concurrent.Executor;
  */
 public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Object> {
     public static final AttributeKey<MessageToRunnable> CHANNEL_ATTR_KEY_MESSAGE_TO_RUNNABLE = AttributeKey.valueOf(MessageToRunnable.class + "#MessageToRunnable");
-    protected final ServletContext servletContext;
+    protected final com.github.netty.protocol.servlet.ServletContext servletContext;
     protected final long maxContentLength;
     protected final Protocol protocol;
     protected final boolean ssl;
 
-    public DispatcherChannelHandler(ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
+    public DispatcherChannelHandler(com.github.netty.protocol.servlet.ServletContext servletContext, long maxContentLength, Protocol protocol, boolean ssl) {
         super(false);
         this.servletContext = servletContext;
         this.maxContentLength = maxContentLength;
@@ -132,7 +132,7 @@ public class DispatcherChannelHandler extends AbstractChannelHandler<Object, Obj
         return protocol;
     }
 
-    public ServletContext getServletContext() {
+    public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         return servletContext;
     }
 }

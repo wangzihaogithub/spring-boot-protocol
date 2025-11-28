@@ -169,7 +169,7 @@ public class DefaultServlet extends HttpServlet {
 
     @Override
     public void init() {
-        ServletContext servletContext = (ServletContext) getServletContext();
+        com.github.netty.protocol.servlet.ServletContext servletContext = (com.github.netty.protocol.servlet.ServletContext) getServletContext();
         for (MimeMappingsX.MappingX mapping : servletContext.getMimeMappings()) {
             mimeTypeMappings.put(mapping.getExtension(), mapping.getMimeType());
         }

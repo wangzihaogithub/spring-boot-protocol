@@ -4,7 +4,6 @@ import com.github.netty.core.*;
 import com.github.netty.core.util.SystemPropertyUtil;
 import com.github.netty.protocol.DynamicProtocolChannelHandler;
 import com.github.netty.protocol.HttpServletProtocol;
-import com.github.netty.protocol.servlet.ServletContext;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
@@ -184,7 +183,7 @@ public class StartupServer extends AbstractNettyServer {
         return dynamicProtocolChannelHandler;
     }
 
-    public ServletContext getServletContext() {
+    public com.github.netty.protocol.servlet.ServletContext getServletContext() {
         for (ProtocolHandler protocolHandler : protocolHandlers) {
             if (protocolHandler instanceof HttpServletProtocol) {
                 return ((HttpServletProtocol) protocolHandler).getServletContext();
