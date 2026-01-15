@@ -284,9 +284,6 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                 } catch (Throwable e) {
                     logger.warn("handleErrorPage error = {}", e.toString(), e);
                 } finally {
-                    if (dispatcher != null) {
-                        dispatcher.recycle();
-                    }
                     /*
                      * If not asynchronous, or asynchronous has ended
                      * each response object is valid only if it is within the scope of the servlet's service method or the filter's doFilter method, unless the
@@ -308,6 +305,9 @@ public class NettyMessageToServletRunnable implements MessageToRunnable {
                             }
                         }
                     } else {
+                        if (dispatcher != null) {
+                            dispatcher.recycle();
+                        }
                         //Not asynchronous direct collection
                         exchange.close();
                     }
