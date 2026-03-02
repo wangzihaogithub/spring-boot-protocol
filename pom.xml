@@ -23,7 +23,7 @@
         <spring-boot.version>3.5.8</spring-boot.version>
 
         <jackson-annotations.version>2.20</jackson-annotations.version>
-        <jackson.version>2.20.1</jackson.version>
+        <jackson.version>2.21.1</jackson.version>
         <netty.version>4.2.7.Final</netty.version>
         <netty.boringssl.version>2.0.74.Final</netty.boringssl.version>
 
