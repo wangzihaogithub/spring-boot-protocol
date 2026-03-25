@@ -151,7 +151,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>spring-boot3-protocol</artifactId>
-  <version>3.3.34</version>
+  <version>2.3.35</version>
 </dependency>
 ```
 
@@ -193,7 +193,7 @@ github地址 : https://github.com/wangzihaogithub/spring-boot-protocol
 <dependency>
   <groupId>com.github.wangzihaogithub</groupId>
   <artifactId>netty-servlet-jakarta</artifactId>
-  <version>3.3.34</version>
+  <version>2.3.35</version>
 </dependency>
 ```
 
